@@ -555,39 +555,13 @@ class CloudflareDeploymentManager {
 	 */
 	private async deployTemplates(): Promise<void> {
 		const templatesDir = join(PROJECT_ROOT, 'templates');
-		const templatesRepo = this.env.TEMPLATES_REPOSITORY;
 
-		console.log(`📥 Setting up templates from: ${templatesRepo}`);
+		console.log(`📥 Setting up templates from: ${templatesDir}`);
 
 		try {
-			// Create templates directory if it doesn't exist
 			if (!existsSync(templatesDir)) {
-				mkdirSync(templatesDir, { recursive: true });
-			}
-
-			// Clone repository if not already present
-			if (!existsSync(join(templatesDir, '.git'))) {
-				console.log(`🔄 Cloning templates repository...`);
-				execSync(`git clone "${templatesRepo}" "${templatesDir}"`, {
-					stdio: 'pipe',
-					cwd: PROJECT_ROOT,
-				});
-				console.log('✅ Templates repository cloned successfully');
-			} else {
-				console.log(
-					'📁 Templates repository already exists, pulling latest changes...',
-				);
-				try {
-					execSync('git pull origin main || git pull origin master', {
-						stdio: 'pipe',
-						cwd: templatesDir,
-					});
-					console.log('✅ Templates repository updated');
-				} catch (pullError) {
-					console.warn(
-						'⚠️  Could not pull latest changes, continuing with existing templates',
-					);
-				}
+				console.warn('⚠️  templates/ directory not found, skipping template deployment');
+				return;
 			}
 
 			// Find R2 bucket name from config
