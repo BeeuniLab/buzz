@@ -7,8 +7,8 @@ Interactive creative content template for BuzzPlay. Each project is a self-conta
 ```
 src/
   code.html           Creative content source (HTML + CSS + JS, single file)
-  context_meta.json   Project metadata and config (title, game_config, CDN context URL)
-  asset_map.json      Asset ID -> URL mapping (images, sprites, animations)
+  config              Project configuration (JSON, no extension)
+  asset_map           Asset ID -> URL mapping (JSON, no extension)
 lib/
   host-stub.js        Host runtime: injects window.lib, loads gameConfig + assets,
                       provides save/load, leaderboard, sprite animation APIs.
@@ -62,9 +62,7 @@ window.run = run;
 
 ## window.gameConfig
 
-Configurable parameters loaded from `context_meta.json` -> `game_config` field.
-Merge priority: HTML inline defaults < context_meta.json < CDN context.
-
+Configurable parameters loaded from `src/config`.
 Editor parameters registered via `lib.showGameParameters()` modify `window.gameConfig.*` live.
 
 Supported parameter types: `slider`, `dropdown`, `color`, `toggle`.
@@ -76,7 +74,7 @@ Supported parameter types: `slider`, `dropdown`, `color`, `toggle`.
 - Input: pointer events mapped to canvas coordinates via `getBoundingClientRect()`
 - Audio: Web Audio API (resumed on first user interaction)
 
-## Asset Map (`src/asset_map.json`)
+## Asset Map (`src/asset_map`)
 
 Maps logical asset IDs to URLs and metadata. Code references assets by ID via `lib.getAsset(id)` and `lib.getAnimationPlayer(id)`.
 

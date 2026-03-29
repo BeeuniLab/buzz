@@ -1,5 +1,5 @@
 /**
- * Full browser host for HTML games: loads gameConfig + asset_map, implements lib (assets, sprite
+ * Full browser host for HTML creative apps: loads config + asset_map, implements lib (assets, sprite
  * animations, save/load, leaderboard) against /__buzzplay-host/v1 when Worker+KV is deployed;
  * otherwise sessionStorage + empty leaderboard. Loaded from src/code.html.
  *
@@ -19,39 +19,15 @@
 
 	window.__buzzplayImageCache = __imageCache;
 
-	function parseGameConfigBlob(raw) {
-		if (raw == null) return null;
-		try {
-			var o = typeof raw === 'string' ? JSON.parse(raw) : raw;
-			return o && typeof o === 'object' ? o : null;
-		} catch (e) {
-			console.warn('[game-host] game_config parse failed:', e);
-			return null;
-		}
-	}
-
 	async function loadLocalAssetMap() {
 		try {
-			var r = await fetch(new URL('asset_map.json', window.location.href).href);
+			var r = await fetch(new URL('asset_map', window.location.href).href);
 			if (!r.ok) return null;
 			var j = await r.json();
 			return j && typeof j === 'object' && !Array.isArray(j) ? j : null;
 		} catch (e) {
 			return null;
 		}
-	}
-
-	async function decompressContextBody(ab) {
-		var bytes = new Uint8Array(ab);
-		if (bytes.length >= 2 && bytes[0] === 0x1f && bytes[1] === 0x8b) {
-			if (typeof DecompressionStream === 'undefined') {
-				throw new Error('gzip context requires DecompressionStream');
-			}
-			var ds = new DecompressionStream('gzip');
-			var out = new Blob([ab]).stream().pipeThrough(ds);
-			return await new Response(out).text();
-		}
-		return new TextDecoder('utf-8').decode(ab);
 	}
 
 	async function probePersistence() {
@@ -215,53 +191,23 @@
 	}
 
 	async function hydrateAssetMap() {
-		var metaUrl = new URL('context_meta.json', window.location.href).href;
-		var meta = await fetch(metaUrl).then(function (r) {
-			if (!r.ok) throw new Error('context_meta.json HTTP ' + r.status);
-			return r.json();
-		});
-
-		var gm = meta.game_metadata;
-		if (gm && typeof gm === 'object' && gm.game_id) {
-			window.__buzzplayGameId = String(gm.game_id);
-		}
-
-		var base = {};
-		var fromMeta = parseGameConfigBlob(meta.game_config);
-		if (fromMeta) Object.assign(base, fromMeta);
-
-		var ctxUrl = meta.contextCdnUrl;
 		var localMap = await loadLocalAssetMap();
-
-		if (ctxUrl) {
-			try {
-				var ab = await fetch(ctxUrl).then(function (r) {
-					if (!r.ok) throw new Error('context HTTP ' + r.status);
-					return r.arrayBuffer();
-				});
-				var text = await decompressContextBody(ab);
-				var ctx = JSON.parse(text);
-				if (ctx.asset_map && typeof ctx.asset_map === 'object')
-					Object.assign(window.__assetMap, ctx.asset_map);
-				var fromCtx = parseGameConfigBlob(ctx.game_config);
-				if (fromCtx) Object.assign(base, fromCtx);
-			} catch (e) {
-				console.warn(
-					'[game-host] context URL failed; using meta game_config only (assets may miss):',
-					e,
-				);
-			}
-		} else {
-			console.warn(
-				'[game-host] no contextCdnUrl; using game_config from context_meta.json only (no remote assets)',
-			);
-		}
-
 		if (localMap) Object.assign(window.__assetMap, localMap);
 
-		var htmlCfg =
-			typeof window.gameConfig === 'object' && window.gameConfig !== null ? window.gameConfig : {};
-		window.gameConfig = Object.assign({}, htmlCfg, base);
+		var configUrl = new URL('config', window.location.href).href;
+		try {
+			var r = await fetch(configUrl);
+			if (r.ok) {
+				var cfg = await r.json();
+				if (cfg && typeof cfg === 'object') {
+					var htmlCfg =
+						typeof window.gameConfig === 'object' && window.gameConfig !== null ? window.gameConfig : {};
+					window.gameConfig = Object.assign({}, htmlCfg, cfg);
+				}
+			}
+		} catch (e) {
+			console.warn('[host] config not loaded:', e);
+		}
 	}
 
 	window.lib = {
@@ -408,25 +354,7 @@
 		try {
 			await hydrateAssetMap();
 		} catch (e) {
-			var metaUrl = new URL('context_meta.json', window.location.href).href;
-			try {
-				var meta = await fetch(metaUrl).then(function (r) {
-					return r.json();
-				});
-				var gm = meta.game_metadata;
-				if (gm && typeof gm === 'object' && gm.game_id) {
-					window.__buzzplayGameId = String(gm.game_id);
-				}
-				var base = {};
-				var fromMeta = parseGameConfigBlob(meta.game_config);
-				if (fromMeta) Object.assign(base, fromMeta);
-				var htmlCfg =
-					typeof window.gameConfig === 'object' && window.gameConfig !== null
-						? window.gameConfig
-						: {};
-				window.gameConfig = Object.assign({}, htmlCfg, base);
-			} catch (e2) {}
-			console.warn('[game-host] asset_map not loaded:', e);
+			console.warn('[host] hydrate failed:', e);
 		}
 		window.lib.log(
 			'context hydrate:',
