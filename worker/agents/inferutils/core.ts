@@ -277,7 +277,7 @@ async function getApiKey(
 
 export async function getConfigurationForModel(
     modelConfig: AIModelConfig,
-    env: Env, 
+    env: Env,
     userId: string,
     runtimeOverrides?: InferenceRuntimeOverrides,
 ): Promise<{
@@ -285,6 +285,16 @@ export async function getConfigurationForModel(
     apiKey: string,
     defaultHeaders?: Record<string, string>,
 }> {
+    // Custom LLM proxy: when LLM_PROXY_URL is set, route all requests through it
+    // This supports OpenAI-compatible proxies (e.g. newapi, one-api) that handle
+    // multi-provider routing internally via the model name.
+    if (env.LLM_PROXY_URL && env.LLM_PROXY_API_KEY) {
+        return {
+            baseURL: env.LLM_PROXY_URL,
+            apiKey: env.LLM_PROXY_API_KEY,
+        };
+    }
+
     let providerForcedOverride: AIGatewayProviders | undefined;
     if (modelConfig.directOverride) {
         switch(modelConfig.provider) {
@@ -567,6 +577,12 @@ export async function infer<OutputSchema extends z.AnyZodObject>({
 
         // Remove [*.] from model name
         modelName = modelName.replace(/\[.*?\]/, '');
+
+        // Strip provider prefix (e.g. "google-ai-studio/gemini-2.5-flash" -> "gemini-2.5-flash")
+        // when using LLM proxy, as proxies expect bare model names
+        if (env.LLM_PROXY_URL && modelName.includes('/')) {
+            modelName = modelName.split('/').slice(1).join('/');
+        }
 
         const client = new OpenAI({ apiKey, baseURL: baseURL, defaultHeaders });
         const schemaObj =

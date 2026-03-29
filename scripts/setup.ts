@@ -1135,11 +1135,10 @@ class SetupManager {
 	private static readonly FALLBACK_WORKER_VARS = new Set([
 		'TEMPLATES_REPOSITORY', 'ALLOWED_EMAIL', 'DISPATCH_NAMESPACE', 'CLOUDFLARE_AI_GATEWAY', 'ENABLE_READ_REPLICAS',
 		'ANTHROPIC_API_KEY', 'OPENAI_API_KEY', 'GOOGLE_AI_STUDIO_API_KEY', 'OPENROUTER_API_KEY', 'CEREBRAS_API_KEY', 'GROQ_API_KEY',
-		'SANDBOX_SERVICE_API_KEY', 'SANDBOX_SERVICE_TYPE', 'SANDBOX_SERVICE_URL',
 		'CLOUDFLARE_API_TOKEN', 'CLOUDFLARE_ACCOUNT_ID', 'CLOUDFLARE_AI_GATEWAY_URL', 'CLOUDFLARE_AI_GATEWAY_TOKEN',
 		'SERPAPI_KEY', 'GOOGLE_CLIENT_SECRET', 'GOOGLE_CLIENT_ID', 'GITHUB_CLIENT_ID', 'GITHUB_CLIENT_SECRET',
 		'JWT_SECRET', 'ENTROPY_KEY', 'ENVIRONMENT', 'SECRETS_ENCRYPTION_KEY',
-		'MAX_SANDBOX_INSTANCES', 'SANDBOX_INSTANCE_TYPE', 'CUSTOM_DOMAIN', 'CUSTOM_PREVIEW_DOMAIN',
+		'CUSTOM_DOMAIN', 'CUSTOM_PREVIEW_DOMAIN',
 		'ALLOCATION_STRATEGY', 'GITHUB_EXPORTER_CLIENT_ID', 'GITHUB_EXPORTER_CLIENT_SECRET',
 		'CF_ACCESS_ID', 'CF_ACCESS_SECRET', 'SENTRY_DSN'
 	]);
@@ -1781,11 +1780,6 @@ class SetupManager {
 				console.log('   • Templates deployed to both local and remote R2');
 				console.log('   • Ready for both local development and production');
 			}
-
-			if (isARM64) {
-				console.log('   • SandboxDockerfile patched for ARM64 local development');
-				console.log('   • ARM64 flags will be automatically removed during deployment');
-			}
 		}
 
 		console.log('\n✨ Happy coding with VibeSDK! ✨');
@@ -1856,61 +1850,7 @@ class SetupManager {
 	}
 
 	private async patchDockerfileForARM64(): Promise<void> {
-		// Check if we're running on ARM64 architecture
-		const arch = process.arch;
-		const platform = process.platform;
-
-		if (arch !== 'arm64') {
-			console.log('ℹ️  Non-ARM64 platform detected - no Dockerfile patching needed');
-			return;
-		}
-
-		console.log('\n🔧 ARM64 Platform Configuration');
-		console.log('-------------------------------\n');
-		console.log(`🏗️  ARM64 ${platform} detected - patching SandboxDockerfile for local development`);
-
-		const dockerfilePath = join(PROJECT_ROOT, 'SandboxDockerfile');
-
-		if (!existsSync(dockerfilePath)) {
-			console.warn('⚠️  SandboxDockerfile not found - skipping ARM64 patching');
-			return;
-		}
-
-		try {
-			let content = readFileSync(dockerfilePath, 'utf-8');
-			let modified = false;
-
-			// Split content into lines for processing
-			const lines = content.split('\n');
-			const updatedLines = lines.map(line => {
-				// Look for FROM statements that don't already have --platform
-				const fromMatch = line.match(/^(\s*FROM\s+)(?!.*--platform=)(.*)/);
-				if (fromMatch) {
-					modified = true;
-					const [, prefix, image] = fromMatch;
-					return `${prefix}--platform=linux/arm64 ${image}`;
-				}
-				return line;
-			});
-
-			if (modified) {
-				writeFileSync(dockerfilePath, updatedLines.join('\n'), 'utf-8');
-				console.log('✅ SandboxDockerfile patched with ARM64 platform flags');
-
-				console.log('\n⚠️  IMPORTANT ARM64 NOTICE:');
-				console.log('   • SandboxDockerfile has been modified for local ARM64 development');
-				console.log('   • The --platform=linux/arm64 flags are for local development only');
-				console.log('   • These flags will be automatically removed during deployment');
-				console.log('   • Do NOT commit these changes to production repositories');
-
-			} else {
-				console.log('✅ SandboxDockerfile already contains ARM64 platform flags');
-			}
-
-		} catch (error) {
-			console.error('❌ Failed to patch SandboxDockerfile:', error instanceof Error ? error.message : String(error));
-			console.error('   You may need to manually add --platform=linux/arm64 to FROM statements');
-		}
+		return;
 	}
 
 	private async deployTemplates(resources: ResourceInfo): Promise<void> {

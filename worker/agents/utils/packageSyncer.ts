@@ -14,19 +14,19 @@ function dependenciesEqual(obj1: Record<string, string>, obj2: Record<string, st
 }
 
 /**
- * Merges sandbox package.json dependencies into agent's package.json
+ * Merges preview environment package.json dependencies into agent's package.json
  * Only updates dependencies and devDependencies, preserving all other fields
- * 
+ *
  * @param oldPackageJson - Agent's current package.json (from state)
- * @param newPackageJson - Sandbox's package.json (after npm install/add/remove)
+ * @param newPackageJson - Preview environment's package.json (after npm install/add/remove)
  * @returns Object with updated flag and merged package.json string
  */
 export function updatePackageJson(
-    oldPackageJson: string | undefined, 
+    oldPackageJson: string | undefined,
     newPackageJson: string
 ): { updated: boolean; packageJson: string } {
     try {
-        // First sync - use sandbox version entirely
+        // First sync - use preview version entirely
         if (!oldPackageJson) {
             return { updated: true, packageJson: newPackageJson };
         }

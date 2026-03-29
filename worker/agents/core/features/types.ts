@@ -30,7 +30,7 @@ export interface FeatureCapabilities {
 	// Core capabilities
 	hasPreview: boolean;
 	hasLiveReload: boolean;
-	requiresSandbox: boolean;
+	requiresRuntime: boolean;
 	requiresWebSocket: boolean;
 
 	// View capabilities
@@ -114,7 +114,7 @@ export const DEFAULT_FEATURE_DEFINITIONS: Record<ProjectType, Omit<FeatureDefini
 		capabilities: {
 			hasPreview: true,
 			hasLiveReload: true,
-			requiresSandbox: true,
+			requiresRuntime: true,
 			requiresWebSocket: true,
 			supportedViews: ['editor', 'preview', 'docs', 'blueprint'],
 			defaultView: 'editor',
@@ -132,7 +132,7 @@ export const DEFAULT_FEATURE_DEFINITIONS: Record<ProjectType, Omit<FeatureDefini
 		capabilities: {
 			hasPreview: true,
 			hasLiveReload: true,
-			requiresSandbox: true,
+			requiresRuntime: true,
 			requiresWebSocket: true,
 			supportedViews: ['editor', 'preview', 'docs'],
 			defaultView: 'preview',
@@ -150,7 +150,7 @@ export const DEFAULT_FEATURE_DEFINITIONS: Record<ProjectType, Omit<FeatureDefini
 		capabilities: {
 			hasPreview: false,
 			hasLiveReload: false,
-			requiresSandbox: false,
+			requiresRuntime: false,
 			requiresWebSocket: true,
 			supportedViews: ['editor', 'docs'],
 			defaultView: 'editor',
@@ -168,7 +168,7 @@ export const DEFAULT_FEATURE_DEFINITIONS: Record<ProjectType, Omit<FeatureDefini
 		capabilities: {
 			hasPreview: false,
 			hasLiveReload: false,
-			requiresSandbox: false,
+			requiresRuntime: false,
 			requiresWebSocket: true,
 			supportedViews: ['editor', 'docs'],
 			defaultView: 'editor',

@@ -4,9 +4,9 @@ import { IStateManager } from '../interfaces/IStateManager';
 import { FileOutputType } from '../../schemas';
 import { FileProcessing } from '../../domain/pure/FileProcessing';
 import { BaseProjectState, FileState } from 'worker/agents/core/state';
-import { TemplateDetails } from '../../../services/sandbox/sandboxTypes';
+import { TemplateDetails } from 'worker/types/project-types';
 import { GitVersionControl } from 'worker/agents/git';
-import { isFileModifiable } from '../../../services/sandbox/utils';
+import { isFileModifiable } from 'worker/services/templates/utils';
 
 /**
  * Manages file operations for code generation

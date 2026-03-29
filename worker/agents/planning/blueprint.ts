@@ -1,4 +1,4 @@
-import { TemplateDetails, TemplateFileSchema } from '../../services/sandbox/sandboxTypes'; // Import the type
+import { TemplateDetails, TemplateFileSchema } from 'worker/types/project-types'; // Import the type
 import { STRATEGIES, PROMPT_UTILS, generalSystemPromptBuilder } from '../prompts';
 import { executeInference } from '../inferutils/infer';
 import { PhasicBlueprint, LitePhasicBlueprint, AgenticBlueprint, PhasicBlueprintSchema, LitePhasicBlueprintSchema, AgenticBlueprintSchema, TemplateSelection, Blueprint } from '../schemas';
@@ -9,7 +9,7 @@ import { TemplateRegistry } from '../inferutils/schemaFormatters';
 import z from 'zod';
 import { imagesToBase64 } from 'worker/utils/images';
 import { ProcessedImageAttachment } from 'worker/types/image-attachment';
-import { getTemplateImportantFiles } from 'worker/services/sandbox/utils';
+import { getTemplateImportantFiles } from 'worker/services/templates/utils';
 import { ProjectType } from '../core/types';
 
 const logger = createLogger('Blueprint');

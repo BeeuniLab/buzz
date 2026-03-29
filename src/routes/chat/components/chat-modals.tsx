@@ -10,8 +10,7 @@ import {
 	AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { GitHubExportModal } from '@/components/github-export-modal';
-import { GitCloneModal } from '@/components/shared/GitCloneModal';
-import type { AuthUser, AppDetailsData } from '@/api-types';
+import type { AppDetailsData } from '@/api-types';
 import type { GitHubExportHook } from '@/hooks/use-github-export';
 
 interface ChatModalsProps {
@@ -29,11 +28,6 @@ interface ChatModalsProps {
 	githubExport: GitHubExportHook;
 	app?: AppDetailsData | null;
 	urlChatId?: string;
-
-	// Git clone modal
-	isGitCloneModalOpen: boolean;
-	onGitCloneModalChange: (open: boolean) => void;
-	user?: AuthUser | null;
 }
 
 export function ChatModals({
@@ -46,9 +40,6 @@ export function ChatModals({
 	githubExport,
 	app,
 	urlChatId,
-	isGitCloneModalOpen,
-	onGitCloneModalChange,
-	user,
 }: ChatModalsProps) {
 	return (
 		<>
@@ -89,18 +80,6 @@ export function ChatModals({
 				agentId={urlChatId || undefined}
 				appTitle={app?.title}
 			/>
-
-			{/* Git Clone Modal */}
-			{urlChatId && app && (
-				<GitCloneModal
-					open={isGitCloneModalOpen}
-					onOpenChange={onGitCloneModalChange}
-					appId={urlChatId}
-					appTitle={app.title || 'app'}
-					isPublic={app.visibility === 'public'}
-					isOwner={app.user?.id === user?.id}
-				/>
-			)}
 		</>
 	);
 }

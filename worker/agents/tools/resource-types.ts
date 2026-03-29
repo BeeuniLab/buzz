@@ -85,27 +85,27 @@ export const t = {
 		),
 
 	commands: () =>
-		type(z.array(z.string()), () => ({ sandbox: { operation: 'exec' } })),
+		type(z.array(z.string()), () => ({ preview: { operation: 'exec' } })),
 
 	analysis: {
-		files: () => type(z.array(z.string()).optional(), () => ({ sandbox: { operation: 'analysis' } })),
+		files: () => type(z.array(z.string()).optional(), () => ({ preview: { operation: 'analysis' } })),
 	},
 
 	deployment: {
 		force: () => type(z.boolean().optional(), () => ({
-			sandbox: { operation: 'deploy' },
+			preview: { operation: 'deploy' },
 			files: { mode: 'read', paths: [] },
 		})),
 	},
 
 	logs: {
-		reset: () => type(z.boolean().optional(), () => ({ sandbox: { operation: 'read' } })),
-		durationSeconds: () => type(z.number().optional(), () => ({ sandbox: { operation: 'read' } })),
-		maxLines: () => type(z.number().optional(), () => ({ sandbox: { operation: 'read' } })),
+		reset: () => type(z.boolean().optional(), () => ({ preview: { operation: 'read' } })),
+		durationSeconds: () => type(z.number().optional(), () => ({ preview: { operation: 'read' } })),
+		maxLines: () => type(z.number().optional(), () => ({ preview: { operation: 'read' } })),
 	},
 
 	runtimeErrors: () =>
-		type(z.literal(true).optional(), () => ({ sandbox: { operation: 'read' } })),
+		type(z.literal(true).optional(), () => ({ preview: { operation: 'read' } })),
 
 	blueprint: () => type(z.string(), () => ({ blueprint: true })),
 };

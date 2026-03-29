@@ -66,9 +66,6 @@ export interface GitHubExportResult {
     error?: string;
 }
 
-// Note: GitHubPushRequest and GitHubPushResponse are defined in sandboxTypes.ts
-// to maintain proper architectural boundaries between services
-
 export type GitHubTokenType = 'installation' | 'user_access' | 'oauth';
 
 export interface GitHubServiceConfig {

@@ -4,7 +4,7 @@ import { CompletionConfig, InferError, InferResponseString } from '../inferutils
 import { buildDebugTools } from '../tools/customTools';
 import { RenderToolCall } from './UserConversationProcessor';
 import { PROMPT_UTILS } from '../prompts';
-import { RuntimeError } from 'worker/services/sandbox/sandboxTypes';
+import { RuntimeError } from 'worker/types/project-types';
 import { FileState } from '../core/state';
 import { ToolDefinition } from '../tools/types';
 import { AgentOperationWithTools, OperationOptions, ToolSession, ToolCallbacks } from './common';

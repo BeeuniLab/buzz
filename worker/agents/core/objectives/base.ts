@@ -57,51 +57,28 @@ export class ProjectObjective<
 				projectType: this.projectType,
 			});
 
-			if (!this.state.sandboxInstanceId) {
-				this.logger.info('No sandbox instance, deploying to sandbox first');
-				await this.deploymentManager.deployToSandbox();
-
-				if (!this.state.sandboxInstanceId) {
-					this.broadcast(WebSocketMessageResponses.CLOUDFLARE_DEPLOYMENT_ERROR, {
-						message: 'Deployment failed: Sandbox service unavailable',
-						error: 'Sandbox service unavailable',
-					});
-					return {
-						success: false,
-						target,
-						error: 'Failed to deploy to sandbox service',
-					};
-				}
+			if (!this.state.sessionId) {
+				this.broadcast(WebSocketMessageResponses.CLOUDFLARE_DEPLOYMENT_ERROR, {
+					message: 'Deployment failed: No active session',
+					error: 'No active session',
+				});
+				return {
+					success: false,
+					target,
+					error: 'No active session',
+				};
 			}
 
-			const result = await this.deploymentManager.deployToCloudflare({
-				target,
-				callbacks: {
-					onStarted: (data) =>
-						this.broadcast(WebSocketMessageResponses.CLOUDFLARE_DEPLOYMENT_STARTED, data),
-					onCompleted: (data) =>
-						this.broadcast(WebSocketMessageResponses.CLOUDFLARE_DEPLOYMENT_COMPLETED, data),
-					onError: (data) =>
-						this.broadcast(WebSocketMessageResponses.CLOUDFLARE_DEPLOYMENT_ERROR, data),
-				},
+			// Deployment to Cloudflare is no longer supported via DeploymentManager
+			this.broadcast(WebSocketMessageResponses.CLOUDFLARE_DEPLOYMENT_ERROR, {
+				message: 'Deployment to Cloudflare is not available in this mode',
+				error: 'Cloudflare deployment not available',
 			});
 
-			if (result.deploymentUrl && result.deploymentId) {
-				const appService = new AppService(this.env);
-				await appService.updateDeploymentId(this.getAgentId(), result.deploymentId);
-				this.logger.info('Updated deployment ID in database', {
-					deploymentId: result.deploymentId,
-				});
-			}
-
 			return {
-				success: !!result.deploymentUrl,
+				success: false,
 				target,
-				url: result.deploymentUrl || undefined,
-				metadata: {
-					deploymentId: result.deploymentId,
-					workersUrl: result.deploymentUrl,
-				},
+				error: 'Cloudflare deployment not available',
 			};
 		} catch (error) {
 			const message = error instanceof Error ? error.message : 'Unknown deployment error';

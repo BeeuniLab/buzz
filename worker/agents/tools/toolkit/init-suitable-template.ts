@@ -1,10 +1,10 @@
 import { tool, type } from '../types';
 import { StructuredLogger } from '../../../logger';
 import { ICodingAgent } from 'worker/agents/services/interfaces/ICodingAgent';
-import { BaseSandboxService } from 'worker/services/sandbox/BaseSandboxService';
 import { selectTemplate } from '../../planning/templateSelector';
 import { TemplateSelection } from '../../schemas';
-import { TemplateFile } from 'worker/services/sandbox/sandboxTypes';
+import { TemplateFile } from 'worker/types/project-types';
+import { listTemplates } from 'worker/services/templates/templateCatalog';
 import { z } from 'zod';
 
 export type InitSuitableTemplateResult =
@@ -38,69 +38,31 @@ export function createInitSuitableTemplateTool(
 					queryLength: query.length
 				});
 
-				const templatesResponse = await BaseSandboxService.listTemplates();
-				if (!templatesResponse.success || !templatesResponse.templates) {
-					return {
-						error: `Failed to fetch templates: ${templatesResponse.error || 'Unknown error'}`
-					};
+				const catalogResponse = await listTemplates(operationOptions.env.TEMPLATES_BUCKET);
+				if (!catalogResponse.success || catalogResponse.templates.length === 0) {
+					return { error: `No templates available: ${catalogResponse.error || 'empty catalog'}` };
 				}
-
-				logger.info('Templates fetched', { count: templatesResponse.templates.length });
 
 				const selection = await selectTemplate({
 					env: operationOptions.env,
 					query,
 					projectType,
-					availableTemplates: templatesResponse.templates,
+					availableTemplates: catalogResponse.templates,
 					inferenceContext: operationOptions.inferenceContext,
 				});
 
-				logger.info('Template selection completed', {
-					selected: selection.selectedTemplateName,
-					projectType: selection.projectType
-				});
-
 				if (!selection.selectedTemplateName) {
-					return {
-						error: `No suitable template found for this project. Reasoning: ${selection.reasoning}. Consider using virtual-first mode (generate all config files yourself) or refine requirements.`
-					};
+					return { error: 'No suitable template found for the given requirements' };
 				}
 
-				const importResult = await agent.importTemplate(
-					selection.selectedTemplateName
-				);
-
-				logger.info('Template imported successfully', {
-					templateName: importResult.templateName,
-					filesCount: importResult.files.length
-				});
-
-				const reasoningMessage = `
-**AI Template Selection Complete**
-
-**Selected Template**: ${selection.selectedTemplateName}
-**Project Type**: ${selection.projectType}
-**Complexity**: ${selection.complexity || 'N/A'}
-**Style**: ${selection.styleSelection || 'N/A'}
-**Use Case**: ${selection.useCase || 'N/A'}
-
-**Why This Template**:
-${selection.reasoning}
-
-**Template Files Imported**: ${importResult.files.length} important files
-
-**Next Step**: Use filesystem tools to read and understand relevant files
-`.trim();
+				const importResult = await agent.importTemplate(selection.selectedTemplateName);
 
 				return {
 					selection,
-					importedFiles: importResult.files.map(f => ({
-						filePath: f.filePath,
-					})),
-					reasoning: reasoningMessage,
-					message: `Template "${selection.selectedTemplateName}" selected and imported successfully.`
+					importedFiles: importResult.files,
+					reasoning: selection.reasoning || 'Template selected based on requirements',
+					message: `Imported template "${selection.selectedTemplateName}" with ${importResult.filesImported} files`,
 				};
-
 			} catch (error) {
 				logger.error('Error in init_suitable_template', error);
 				return {

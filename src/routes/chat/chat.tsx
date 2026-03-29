@@ -20,7 +20,6 @@ import { featureRegistry } from '@/features';
 import { useFileContentStream } from './hooks/use-file-content-stream';
 import { logger } from '@/utils/logger';
 import { useApp } from '@/hooks/use-app';
-import { useAuth } from '@/contexts/auth-context';
 import { useGitHubExport } from '@/hooks/use-github-export';
 import { useAutoScroll } from '@/hooks/use-auto-scroll';
 import { useImageUpload } from '@/hooks/use-image-upload';
@@ -158,24 +157,19 @@ export default function Chat() {
 
 	// GitHub export functionality - use urlChatId directly from URL params
 	const githubExport = useGitHubExport(websocket, urlChatId, refetchApp);
-	const { user } = useAuth();
 
 	const navigate = useNavigate();
 
 	const [activeFilePath, setActiveFilePath] = useState<string>();
-	const [view, setView] = useState<'editor' | 'preview' | 'docs' | 'blueprint' | 'terminal' | 'presentation'>(
+	const [view, setView] = useState<'editor' | 'preview' | 'docs' | 'blueprint' | 'presentation'>(
 		'editor',
 	);
-
-	// Terminal state
-	// const [terminalLogs, setTerminalLogs] = useState<TerminalLog[]>([]);
 
 	// Debug panel state
 	const [debugMessages, setDebugMessages] = useState<DebugMessage[]>([]);
 	const deploymentControlsRef = useRef<HTMLDivElement>(null);
 
 	const [isResetDialogOpen, setIsResetDialogOpen] = useState(false);
-	const [isGitCloneModalOpen, setIsGitCloneModalOpen] = useState(false);
 
 	// Model config info state
 	const [modelConfigs, setModelConfigs] = useState<ModelConfigsInfo | undefined>();
@@ -329,27 +323,6 @@ export default function Chat() {
 		sendWebSocketMessage(websocket, 'clear_conversation');
 		setIsResetDialogOpen(false);
 	}, [websocket]);
-
-	// // Terminal functions
-	// const handleTerminalCommand = useCallback((command: string) => {
-	// 	if (websocket && websocket.readyState === WebSocket.OPEN) {
-	// 		// Add command to terminal logs
-	// 		const commandLog: TerminalLog = {
-	// 			id: `cmd-${Date.now()}`,
-	// 			content: command,
-	// 			type: 'command',
-	// 			timestamp: Date.now()
-	// 		};
-	// 		setTerminalLogs(prev => [...prev, commandLog]);
-
-	// 		// Send command via WebSocket
-	// 		websocket.send(JSON.stringify({
-	// 			type: 'terminal_command',
-	// 			command,
-	// 			timestamp: Date.now()
-	// 		}));
-	// 	}
-	// }, [websocket, setTerminalLogs]);
 
 	const generatingCount = useMemo(
 		() =>
@@ -880,7 +853,6 @@ export default function Chat() {
 								modelConfigs={modelConfigs}
 								loadingConfigs={loadingConfigs}
 								onRequestConfigs={handleRequestConfigs}
-								onGitCloneClick={() => setIsGitCloneModalOpen(true)}
 								isGitHubExportReady={isGitHubExportReady}
 								githubExport={githubExport}
 								behaviorType={behaviorType}
@@ -904,9 +876,6 @@ export default function Chat() {
 				githubExport={githubExport}
 				app={app}
 				urlChatId={urlChatId}
-				isGitCloneModalOpen={isGitCloneModalOpen}
-				onGitCloneModalChange={setIsGitCloneModalOpen}
-				user={user}
 			/>
 
 			<VaultUnlockModal

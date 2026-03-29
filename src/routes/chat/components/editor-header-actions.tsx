@@ -6,7 +6,6 @@ interface EditorHeaderActionsProps {
 	modelConfigs?: ModelConfigsInfo;
 	onRequestConfigs: () => void;
 	loadingConfigs: boolean;
-	onGitCloneClick: () => void;
 	isGitHubExportReady: boolean;
 	onGitHubExportClick: () => void;
 	editorRef: RefObject<HTMLDivElement | null>;
@@ -16,7 +15,6 @@ export function EditorHeaderActions({
 	modelConfigs,
 	onRequestConfigs,
 	loadingConfigs,
-	onGitCloneClick,
 	isGitHubExportReady,
 	onGitHubExportClick,
 	editorRef,
@@ -27,7 +25,6 @@ export function EditorHeaderActions({
 			modelConfigs={modelConfigs}
 			onRequestConfigs={onRequestConfigs}
 			loadingConfigs={loadingConfigs}
-			onGitCloneClick={onGitCloneClick}
 			isGitHubExportReady={isGitHubExportReady}
 			onGitHubExportClick={onGitHubExportClick}
 		/>

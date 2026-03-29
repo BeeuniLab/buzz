@@ -7,12 +7,9 @@ import { DORateLimitStore as BaseDORateLimitStore } from './services/rate-limit/
 import { getPreviewDomain } from './utils/urls';
 import { proxyToAiGateway } from './services/aigateway-proxy/controller';
 import { isOriginAllowed } from './config/security';
-import { proxyToSandbox } from './services/sandbox/request-handler';
-import { handleGitProtocolRequest, isGitProtocolRequest } from './api/handlers/git-protocol';
 import { getAgentStub } from './agents';
 
 // Durable Object and Service exports
-export { UserAppSandboxService } from './services/sandbox/sandboxSdkClient';
 export { CodeGeneratorAgent } from './agents/core/codingAgent';
 export { UserSecretsStore } from './services/secrets/UserSecretsStore';
 
@@ -34,13 +31,13 @@ function setOriginControl(env: Env, request: Request, currentHeaders: Headers): 
 
 /**
  * Handles requests for user-deployed applications on subdomains.
- * It first attempts to proxy to a live development sandbox. If that fails,
- * it dispatches the request to a permanently deployed worker via namespaces.
+ * It attempts to serve browser files from agents, or dispatches the request
+ * to a permanently deployed worker via namespaces.
  * This function will NOT fall back to the main worker.
  *
  * @param request The incoming Request object.
  * @param env The environment bindings.
- * @returns A Response object from the sandbox, the dispatched worker, or an error.
+ * @returns A Response object from the agent, the dispatched worker, or an error.
  */
 async function handleUserAppRequest(request: Request, env: Env): Promise<Response> {
 	const url = new URL(request.url);
@@ -69,38 +66,8 @@ async function handleUserAppRequest(request: Request, env: Env): Promise<Respons
 		}
 	}
 
-	// 1. Attempt to proxy to a live development sandbox.
-	// proxyToSandbox doesn't consume the request body on a miss, so no clone is needed here.
-	const sandboxResponse = await proxyToSandbox(request, env);
-	if (sandboxResponse) {
-		logger.info(`Serving response from sandbox for: ${hostname}`);
-        // If it was a websocket upgrade, we need to return the response as is
-        if (sandboxResponse.headers.get('Upgrade')?.toLowerCase() === 'websocket') {
-            logger.info(`Serving websocket response from sandbox for: ${hostname}`);
-            return sandboxResponse;
-        }
-		
-		// Add headers to identify this as a sandbox response
-		let headers = new Headers(sandboxResponse.headers);
-		
-        if (sandboxResponse.status === 500) {
-            headers.set('X-Preview-Type', 'sandbox-error');
-        } else {
-            headers.set('X-Preview-Type', 'sandbox');
-        }
-        headers = setOriginControl(env, request, headers);
-        headers.append('Vary', 'Origin');
-		headers.set('Access-Control-Expose-Headers', 'X-Preview-Type');
-		
-		return new Response(sandboxResponse.body, {
-			status: sandboxResponse.status,
-			statusText: sandboxResponse.statusText,
-			headers,
-		});
-	}
-
-	// 2. If sandbox misses, attempt to dispatch to a deployed worker.
-	logger.info(`Sandbox miss for ${hostname}, attempting dispatch to permanent worker.`);
+	// Attempt to dispatch to a deployed worker.
+	logger.info(`Attempting dispatch to permanent worker for: ${hostname}`);
 	if (!isDispatcherAvailable(env)) {
 		logger.warn(`Dispatcher not available, cannot serve: ${hostname}`);
 		return new Response('This application is not currently available.', { status: 404 });
@@ -170,10 +137,9 @@ const worker = {
 
 		// Route 1: Main Platform Request (e.g., build.cloudflare.dev or localhost)
 		if (isMainDomainRequest) {
-			// Handle Git protocol endpoints directly
-			// Route: /apps/:id.git/info/refs or /apps/:id.git/git-upload-pack
-			if (isGitProtocolRequest(pathname)) {
-				return handleGitProtocolRequest(request, env, ctx);
+			// Git clone/fetch endpoints are deprecated on BuzzPlay.
+			if (/^\/apps\/[a-f0-9-]+\.git\//.test(pathname)) {
+				return new Response('Git clone API has been disabled.', { status: 410 });
 			}
 
 			// Serve static assets for all non-API routes from the ASSETS binding.

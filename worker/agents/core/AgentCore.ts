@@ -6,7 +6,7 @@ import { BaseProjectState } from "./state";
 import { WebSocketMessageType } from "../../api/websocketTypes";
 import { WebSocketMessageData } from "../../api/websocketTypes";
 import { ConversationMessage, ConversationState } from "../inferutils/common";
-import { TemplateDetails } from "worker/services/sandbox/sandboxTypes";
+import { TemplateDetails } from "worker/types/project-types";
 
 /**
  * Infrastructure interface for agent implementations.

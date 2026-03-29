@@ -26,12 +26,6 @@ const APP_VIEWS: ViewDefinition[] = [
 		iconName: 'Workflow',
 		tooltip: 'View project blueprint',
 	},
-	{
-		id: 'terminal',
-		label: 'Terminal',
-		iconName: 'Terminal',
-		tooltip: 'Command line interface',
-	},
 ];
 
 const appFeatureModule: FeatureModule = {

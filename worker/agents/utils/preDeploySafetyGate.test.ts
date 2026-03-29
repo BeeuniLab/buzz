@@ -1,7 +1,7 @@
 import { vi } from 'vitest';
 
 import type { FileOutputType, PhaseConceptType } from '../schemas';
-import type { TemplateDetails } from '../../services/sandbox/sandboxTypes';
+import type { TemplateDetails } from '../../../types/project-types';
 import type { InferenceContext } from '../inferutils/config.types';
 
 const mocked = vi.hoisted(() => ({

@@ -37,8 +37,7 @@ export type {
 export type {
   AppDetailsData,
   AppStarToggleData,
-  GeneratedCodeFile,
-  GitCloneTokenData
+  GeneratedCodeFile
 } from 'worker/api/controllers/appView/types';
 
 // User-related API Types
@@ -136,7 +135,7 @@ export type {
 // Template Types
 export type {
   TemplateDetails,
-} from 'worker/services/sandbox/sandboxTypes';
+} from 'worker/types/project-types';
 
 // WebSocket Types
 export type {
@@ -190,7 +189,7 @@ export type {
 export type { 
   RuntimeError,
   StaticAnalysisResponse 
-} from 'worker/services/sandbox/sandboxTypes';
+} from 'worker/types/project-types';
 
 // Config/Inference Types
 export type { 

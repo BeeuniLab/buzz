@@ -66,7 +66,6 @@ export interface PreviewComponentProps extends FeatureContext {
  * Props for feature header action components
  */
 export interface HeaderActionsProps extends FeatureContext {
-	onGitCloneClick: () => void;
 	isGitHubExportReady: boolean;
 	onGitHubExportClick: () => void;
 	loadingConfigs: boolean;

@@ -16,7 +16,7 @@ export type {
 export type { AgentState } from '../../worker/agents/core/state';
 export type { BehaviorType, ProjectType } from '../../worker/agents/core/types';
 export type { FileOutputType, FileConceptType, PhaseConceptType } from '../../worker/agents/schemas';
-export type { TemplateDetails } from '../../worker/services/sandbox/sandboxTypes';
+export type { TemplateDetails } from '../../worker/types/project-types';
 
 export type {
 	AgentConnectionData,

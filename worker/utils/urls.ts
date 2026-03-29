@@ -21,7 +21,7 @@ export function buildUserWorkerUrl(env: Env, deploymentId: string): string {
 /**
  * Migrate a stored preview URL to the current domain.
  * Extracts subdomain from old URL and rebuilds with current getPreviewDomain().
- * Used to handle domain changes without invalidating existing sandbox instances.
+ * Used to handle domain changes without invalidating existing preview instances.
  */
 export function migratePreviewUrl(storedUrl: string | undefined, env: Env): string | undefined {
     if (!storedUrl) return undefined;
@@ -47,13 +47,4 @@ export function migratePreviewUrl(storedUrl: string | undefined, env: Env): stri
     } catch {
         return storedUrl;
     }
-}
-
-export function buildGitCloneUrl(env: Env, appId: string, token?: string): string {
-    const domain = env.CUSTOM_DOMAIN;
-    const protocol = getProtocolForHost(domain);
-    // Git expects username:password format. Use 'oauth2' as username and token as password
-    // This is a standard pattern for token-based git authentication
-    const auth = token ? `oauth2:${token}@` : '';
-    return `${protocol}://${auth}${domain}/apps/${appId}.git`;
 }

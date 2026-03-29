@@ -1,4 +1,4 @@
-import { RuntimeError, StaticAnalysisResponse } from '../../../services/sandbox/sandboxTypes';
+import { RuntimeError, StaticAnalysisResponse } from 'worker/types/project-types';
 import { AllIssues } from '../../core/types';
 
 /**

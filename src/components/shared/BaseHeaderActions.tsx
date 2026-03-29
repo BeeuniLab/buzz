@@ -1,5 +1,5 @@
 import type { RefObject } from 'react';
-import { GitBranch, Github, Expand } from 'lucide-react';
+import { Github, Expand } from 'lucide-react';
 import { ModelConfigInfo } from '@/components/shared/ModelConfigInfo';
 import { HeaderButton } from '@/components/shared/header-actions';
 import type { ModelConfigsInfo } from '@/api-types';
@@ -9,7 +9,6 @@ export interface BaseHeaderActionsProps {
 	modelConfigs?: ModelConfigsInfo;
 	onRequestConfigs: () => void;
 	loadingConfigs: boolean;
-	onGitCloneClick: () => void;
 	isGitHubExportReady: boolean;
 	onGitHubExportClick: () => void;
 }
@@ -19,7 +18,6 @@ export function BaseHeaderActions({
 	modelConfigs,
 	onRequestConfigs,
 	loadingConfigs,
-	onGitCloneClick,
 	isGitHubExportReady,
 	onGitHubExportClick,
 }: BaseHeaderActionsProps) {
@@ -29,12 +27,6 @@ export function BaseHeaderActions({
 				configs={modelConfigs}
 				onRequestConfigs={onRequestConfigs}
 				loading={loadingConfigs}
-			/>
-			<HeaderButton
-				icon={GitBranch}
-				label="Clone"
-				onClick={onGitCloneClick}
-				title="Clone to local machine"
 			/>
 			{isGitHubExportReady && (
 				<HeaderButton

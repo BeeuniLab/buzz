@@ -5,7 +5,6 @@ export function AppHeaderActions({
 	modelConfigs,
 	onRequestConfigs,
 	loadingConfigs,
-	onGitCloneClick,
 	isGitHubExportReady,
 	onGitHubExportClick,
 	previewRef,
@@ -16,7 +15,6 @@ export function AppHeaderActions({
 			modelConfigs={modelConfigs}
 			onRequestConfigs={onRequestConfigs}
 			loadingConfigs={loadingConfigs}
-			onGitCloneClick={onGitCloneClick}
 			isGitHubExportReady={isGitHubExportReady}
 			onGitHubExportClick={onGitHubExportClick}
 		/>

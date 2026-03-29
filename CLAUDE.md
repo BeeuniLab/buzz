@@ -16,7 +16,7 @@ vibesdk is an AI-powered full-stack application generation platform built on Clo
 - Backend: Cloudflare Workers, Durable Objects, D1 (SQLite)
 - AI/LLM: OpenAI, Anthropic, Google AI Studio (Gemini)
 - WebSocket: PartySocket for real-time communication
-- Sandbox: Custom container service with CLI tools
+- Preview: Browser-mode static file serving via Worker subdomains
 - Git: isomorphic-git with SQLite filesystem
 
 **Project Structure**
@@ -36,13 +36,12 @@ vibesdk is an AI-powered full-stack application generation platform built on Clo
   - Tools: tools for LLM (read-files, run-analysis, regenerate-file, etc.)
   - Git: isomorphic-git with SQLite filesystem
 - Database: `worker/database/` (Drizzle ORM, D1)
-- Services: `worker/services/` (sandbox, code-fixer, oauth, rate-limit, secrets)
+- Services: `worker/services/` (templates, code-fixer, deployer, oauth, rate-limit, secrets)
 - API: `worker/api/` (routes, controllers, handlers)
 
 **Other:**
 - `/shared` - Shared types between frontend/backend (not worker specific types that are also imported in frontend)
 - `/migrations` - D1 database migrations
-- `/container` - Sandbox container tooling
 - `/templates` - Project scaffolding templates
 
 **Core Architecture:**
@@ -67,7 +66,6 @@ IDLE → PHASE_GENERATING → PHASE_IMPLEMENTING → REVIEWING → IDLE
 - File Management: generatedFilesMap (tracks all files)
 - Phase Tracking: generatedPhases, currentPhase
 - State Machine: currentDevState, shouldBeGenerating
-- Sandbox: sandboxInstanceId, commandsHistory
 - Conversation: conversationMessages, pendingUserInputs
 
 **WebSocket Communication:**
@@ -113,7 +111,7 @@ Edit `/worker/agents/operations/UserConversationProcessor.ts` (system prompt lin
 **Deep Debugger:**
 - Location: `/worker/agents/assistants/codeDebugger.ts`
 - Model: Gemini 2.5 Pro (reasoning_effort: high, 32k tokens)
-- Diagnostic priority: run_analysis → get_runtime_errors → get_logs
+- Diagnostic priority: run_analysis → read_files
 - Can fix multiple files in parallel (regenerate_file)
 - Cannot run during code generation (checked via isCodeGenerating())
 

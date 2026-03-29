@@ -4,7 +4,7 @@ import {
     FileOutputType,
     PhaseImplementationSchemaType,
 } from '../../schemas';
-import { StaticAnalysisResponse } from '../../../services/sandbox/sandboxTypes';
+import { StaticAnalysisResponse } from 'worker/types/project-types';
 import { CurrentDevState, MAX_PHASES, PhasicState } from '../state';
 import { AllIssues, AgentInitArgs, PhaseExecutionResult, UserContext } from '../types';
 import { WebSocketMessageResponses } from '../../constants';
@@ -41,7 +41,7 @@ interface PhasicOperations extends BaseCodingOperations {
  * - Blueprint, phase generation, phase implementation, review cycles orchestrations
  * - File streaming with WebSocket updates
  * - Code validation and error correction
- * - Deployment to sandbox service
+ * - Deployment to preview service
  */
 export class PhasicCodingBehavior extends BaseCodingBehavior<PhasicState> implements ICodingAgent {
     protected static readonly PROJECT_NAME_PREFIX_MAX_LENGTH = 20;
@@ -68,7 +68,7 @@ export class PhasicCodingBehavior extends BaseCodingBehavior<PhasicState> implem
         if (!templateInfo || !templateInfo.templateDetails) {
             throw new Error('Phasic initialization requires templateInfo.templateDetails');
         }
-        const { query, language, frameworks, hostname, inferenceContext, sandboxSessionId } = initArgs;
+        const { query, language, frameworks, hostname, inferenceContext, sessionId } = initArgs;
         
         // Generate a blueprint
         this.logger.info('Generating blueprint', { query, queryLength: query.length, imagesCount: initArgs.images?.length || 0 });
@@ -108,11 +108,9 @@ export class PhasicCodingBehavior extends BaseCodingBehavior<PhasicState> implem
             query,
             blueprint,
             templateName: templateInfo.templateDetails.name,
-            sandboxInstanceId: undefined,
             generatedPhases: [],
-            commandsHistory: [],
             lastPackageJson: packageJson,
-            sessionId: sandboxSessionId!,
+            sessionId: sessionId!,
             hostname,
             metadata: inferenceContext.metadata,
             projectType: this.projectType,
@@ -124,7 +122,6 @@ export class PhasicCodingBehavior extends BaseCodingBehavior<PhasicState> implem
             templateInfo.templateDetails.allFiles,
             {
                 projectName,
-                commandsHistory: []
             }
         );
         
@@ -167,7 +164,9 @@ export class PhasicCodingBehavior extends BaseCodingBehavior<PhasicState> implem
         // migrate overwritten package.jsons
         const oldPackageJson = this.fileManager.getFile('package.json')?.fileContents || this.state.lastPackageJson;
         if (oldPackageJson) {
-            const packageJson = customizePackageJson(oldPackageJson, this.state.projectName);
+            const packageJson = customizePackageJson(oldPackageJson, this.state.projectName, {
+                skipPrepare: this.templateDetailsCache?.renderMode === 'browser',
+            });
             this.fileManager.saveGeneratedFiles([
                 {
                     filePath: 'package.json',
@@ -521,10 +520,7 @@ export class PhasicCodingBehavior extends BaseCodingBehavior<PhasicState> implem
             },
             this.getOperationOptions()
         )
-        // Execute install commands if any
-        if (result.installCommands && result.installCommands.length > 0) {
-            this.executeCommands(result.installCommands);
-        }
+        // Install commands removed (sandbox no longer available)
 
         // Execute delete commands if any
         const filesToDelete = result.files.filter(f => f.changes?.toLowerCase().trim() === 'delete');
@@ -640,11 +636,10 @@ export class PhasicCodingBehavior extends BaseCodingBehavior<PhasicState> implem
 
         if (result.commands && result.commands.length > 0) {
             this.logger.info("Phase implementation suggested install commands:", result.commands);
-            await this.executeCommands(result.commands, false);
         }
 
         if (safeFiles.length > 0) {
-            await this.deployToSandbox(safeFiles, false, phase.name, true);
+            await this.deployPreview();
             if (postPhaseFixing) {
                 await this.applyDeterministicCodeFixes();
                 if (this.getInferenceContext().enableFastSmartCodeFix) {
@@ -711,7 +706,7 @@ export class PhasicCodingBehavior extends BaseCodingBehavior<PhasicState> implem
 
             if (fastCodeFixer.length > 0) {
                 await this.fileManager.saveGeneratedFiles(fastCodeFixer, "fix: Fast smart code fixes");
-                await this.deployToSandbox(fastCodeFixer);
+                await this.deployPreview();
                 this.logger.info("Fast smart code fixes applied successfully");
             }
             this.logger.info(`Fast smart code fixes applied in ${Date.now() - startTime}ms`);            

@@ -1,5 +1,5 @@
 import { createSystemMessage, createUserMessage, createMultiModalUserMessage } from '../inferutils/common';
-import { TemplateInfo } from '../../services/sandbox/sandboxTypes';
+import { TemplateInfo } from 'worker/types/project-types';
 import { createLogger } from '../../logger';
 import { executeInference } from '../inferutils/infer';
 import { InferenceContext } from '../inferutils/config.types';
@@ -56,7 +56,7 @@ async function predictProjectType(
 **general** - From-scratch content or mixed artifacts
 - Docs/notes/specs in Markdown/MDX, or a slide deck initialized later
 - Start with docs when users ask for write-ups; initialize slides if explicitly requested or clearly appropriate
-- No sandbox/runtime unless slides/app are initialized by the builder
+- No runtime unless slides/app are initialized by the builder
 - Examples: "Write a spec", "Draft an outline and slides if helpful", "Create teaching materials"
 
 ## RULES:

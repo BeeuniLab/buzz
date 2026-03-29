@@ -70,7 +70,7 @@ export function handleWebSocketMessage(
             case WebSocketMessageRequests.PREVIEW:
                 // Deploy current state for preview
                 logger.info('Deploying for preview');
-                agent.getBehavior().deployToSandbox().then((deploymentResult) => {
+                agent.getBehavior().deployPreview().then((deploymentResult) => {
                     logger.info(`Preview deployed successfully!, deploymentResult:`, deploymentResult);
                 }).catch((error: unknown) => {
                     logger.error('Error during preview deployment:', error);

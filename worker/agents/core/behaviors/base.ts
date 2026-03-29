@@ -6,24 +6,22 @@ import {
     AgenticBlueprint,
     PhasicBlueprint,
 } from '../../schemas';
-import { ExecuteCommandsResponse, PreviewType, RuntimeError, StaticAnalysisResponse, TemplateDetails, TemplateFile } from '../../../services/sandbox/sandboxTypes';
+import { PreviewType, RuntimeError, StaticAnalysisResponse, TemplateDetails, TemplateFile } from 'worker/types/project-types';
 import { BaseProjectState, AgenticState, FileState } from '../state';
-import { AllIssues, AgentSummary, AgentInitArgs, BehaviorType, DeploymentTarget, ProjectType } from '../types';
+import { AllIssues, AgentSummary, AgentInitArgs, BehaviorType, ProjectType } from '../types';
 import { WebSocketMessageResponses } from '../../constants';
 import { ProjectSetupAssistant } from '../../assistants/projectsetup';
 import { UserConversationProcessor, RenderToolCall } from '../../operations/UserConversationProcessor';
 import { FileRegenerationOperation } from '../../operations/FileRegeneration';
 // Database schema imports removed - using zero-storage OAuth flow
-import { BaseSandboxService } from '../../../services/sandbox/BaseSandboxService';
-import { getTemplateImportantFiles } from '../../../services/sandbox/utils';
+import { getTemplateImportantFiles } from 'worker/services/templates/utils';
 import { createScratchTemplateDetails } from '../../utils/templates';
 import { WebSocketMessageData, WebSocketMessageType } from '../../../api/websocketTypes';
 import { AgentActionKey, InferenceContext, InferenceRuntimeOverrides, ModelConfig } from '../../inferutils/config.types';
 import { ModelConfigService } from '../../../database/services/ModelConfigService';
 import { fixProjectIssues } from '../../../services/code-fixer';
 import { FastCodeFixerOperation } from '../../operations/PostPhaseCodeFixer';
-import { looksLikeCommand, validateAndCleanBootstrapCommands } from '../../utils/common';
-import { customizeTemplateFiles, generateBootstrapScript } from '../../utils/templateCustomizer';
+import { customizeTemplateFiles } from '../../utils/templateCustomizer';
 import { AppService } from '../../../database';
 import { RateLimitExceededError } from 'shared/types/errors';
 import { ImageAttachment, type ProcessedImageAttachment } from '../../../types/image-attachment';
@@ -31,7 +29,7 @@ import { OperationOptions } from '../../operations/common';
 import { ImageType, uploadImage, detectBlankScreenshot } from 'worker/utils/images';
 import { ScreenshotSecurity } from 'worker/utils/screenshot-security';
 import { DeepDebugResult } from '../types';
-import { updatePackageJson } from '../../utils/packageSyncer';
+
 import { ICodingAgent } from '../../services/interfaces/ICodingAgent';
 import { SimpleCodeGenerationOperation } from '../../operations/SimpleCodeGeneration';
 import { AgentComponent } from '../AgentComponent';
@@ -43,6 +41,7 @@ import { generatePortToken } from 'worker/utils/cryptoUtils';
 import { getPreviewDomain, getProtocolForHost } from 'worker/utils/urls';
 import { isDev } from 'worker/utils/envs';
 import { InMemoryAnalyzer } from '../../../services/static-analysis';
+import { getTemplateDetails as fetchTemplateDetails, listTemplates } from '../../../services/templates/templateCatalog';
 
 // Screenshot capture configuration
 const SCREENSHOT_CONFIG = {
@@ -131,17 +130,13 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
 
     protected async initializeAsync(): Promise<void> {
         try {
-            const [, setupCommands] = await Promise.all([
-                this.deployToSandbox(),
-                this.getProjectSetupAssistant().generateSetupCommands(),
+            await Promise.all([
+                this.deployPreview(),
                 this.generateReadme()
             ]);
-            this.logger.info("Deployment to sandbox service and initial commands predictions completed successfully");
-                await this.executeCommands(setupCommands.commands);
-                this.logger.info("Initial commands executed successfully");
+            this.logger.info("Deployment and initialization completed successfully");
         } catch (error) {
             this.logger.error("Error during async initialization:", error);
-            // throw error;
         }
     }
     onStateUpdate(_state: TState, _source: "server" | Connection) {}
@@ -154,7 +149,7 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
                 return;
             }
             this.logger.info(`Loading template details for: ${this.state.templateName}`);
-            const results = await BaseSandboxService.getTemplateDetails(this.state.templateName);
+            const results = await fetchTemplateDetails(this.env.TEMPLATES_BUCKET, this.state.templateName);
             if (!results.success || !results.templateDetails) {
                 throw new Error(`Failed to get template details for: ${this.state.templateName}`);
             }
@@ -168,7 +163,6 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
                 templateDetails.allFiles,
                 {
                     projectName: this.state.projectName,
-                    commandsHistory: this.getBootstrapCommands()
                 }
             );
             Object.assign(customizedAllFiles, customizedFiles);
@@ -179,9 +173,9 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
             };
             this.logger.info('Template details loaded and customized');
 
-            // If renderMode == 'browser', we can deploy right away
+            // Deploy preview right away for browser-rendered templates
             if (templateDetails.renderMode === 'browser') {
-                await this.deployToSandbox();
+                await this.deployPreview();
             }
         }
         return this.templateDetailsCache;
@@ -205,37 +199,6 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
         return this.fileManager.fileExists('package.json') && (this.fileManager.fileExists('wrangler.jsonc') || this.fileManager.fileExists('wrangler.toml'));
     }
 
-    /**
-     * Update bootstrap script when commands history changes
-     * Called after significant command executions
-     */
-    private async updateBootstrapScript(commandsHistory: string[]): Promise<void> {
-        if (!commandsHistory || commandsHistory.length === 0) {
-            return;
-        }
-        
-        // Use only validated commands
-        const bootstrapScript = generateBootstrapScript(
-            this.state.projectName,
-            commandsHistory
-        );
-        
-        await this.fileManager.saveGeneratedFile(
-            {
-                filePath: '.bootstrap.js',
-                fileContents: bootstrapScript,
-                filePurpose: 'Updated bootstrap script for first-time clone setup'
-            },
-            'chore: Update bootstrap script with latest commands',
-            true
-        );
-        
-        this.logger.info('Updated bootstrap script with commands', {
-            commandCount: commandsHistory.length,
-            commands: commandsHistory
-        });
-    }
-
     getProjectSetupAssistant(): ProjectSetupAssistant {
         if (this.projectSetupAssistant === undefined) {
             this.projectSetupAssistant = new ProjectSetupAssistant({
@@ -252,10 +215,6 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
 
     getSessionId() {
         return this.deploymentManager.getSessionId();
-    }
-
-    getSandboxServiceClient(): BaseSandboxService {
-        return this.deploymentManager.getClient();
     }
 
     isCodeGenerating(): boolean {
@@ -462,7 +421,7 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
             this.generationPromise = null;
             this.broadcast(WebSocketMessageResponses.GENERATION_COMPLETE, {
                 message: "Code generation and review process completed.",
-                instanceId: this.state.sandboxInstanceId,
+                instanceId: this.state.sessionId,
             });
         }
     }
@@ -558,30 +517,9 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
         return this.fileManager!.getGeneratedFile(filePath) || null;
     }
 
-    async fetchRuntimeErrors(clear: boolean = true, shouldWait: boolean = true): Promise<RuntimeError[]> {
-        if (shouldWait) {
-            await this.deploymentManager.waitForPreview();
-        }
-
-        try {
-            const errors = await this.deploymentManager.fetchRuntimeErrors(clear);
-            
-            if (errors.length > 0) {
-                this.broadcast(WebSocketMessageResponses.RUNTIME_ERROR_FOUND, {
-                    errors,
-                    message: "Runtime errors found",
-                    count: errors.length
-                });
-            }
-
-            return errors;
-        } catch (error) {
-            this.logger.error("Exception fetching runtime errors:", error);
-            // If fetch fails, initiate redeploy
-            this.deployToSandbox();
-            const message = "<runtime errors not available at the moment as preview is not deployed>";
-            return [{ message, timestamp: new Date().toISOString(), level: 0, rawOutput: message }];
-        }
+    async fetchRuntimeErrors(_clear: boolean = true, _shouldWait: boolean = true): Promise<RuntimeError[]> {
+        // No preview environment to fetch runtime errors from; return empty
+        return [];
     }
 
     /**
@@ -595,15 +533,9 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
                 return this.staticAnalysisCache;
             }
 
-            // Use in-memory analysis for browser-rendered projects (no sandbox)
-            const templateDetails = this.getTemplateDetails();
+            // Use in-memory analysis (no preview environment)
             let analysisResponse: StaticAnalysisResponse;
-
-            if (templateDetails?.renderMode === 'browser') {
-                analysisResponse = await this.runInMemoryAnalysis(files);
-            } else {
-                analysisResponse = await this.deploymentManager.runStaticAnalysis(files);
-            }
+            analysisResponse = await this.runInMemoryAnalysis(files);
 
             // Only cache full (unscoped) analysis results
             if (!files) {
@@ -625,7 +557,7 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
 
     /**
      * Run in-memory static analysis for browser-rendered projects
-     * Performs static analysis directly in the worker without using the sandbox
+     * Performs static analysis directly in the worker
      */
     private async runInMemoryAnalysis(filePaths?: string[]): Promise<StaticAnalysisResponse> {
         const allFiles = this.fileManager.getAllFiles();
@@ -679,24 +611,6 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
             });
 
             if (fixResult) {
-                // If there are unfixable issues but of type TS2307, extract external module names and install them
-                if (fixResult.unfixableIssues.length > 0) {
-                    const modulesNotFound = fixResult.unfixableIssues.filter(issue => issue.issueCode === 'TS2307');
-                    // Reason is of the form: External package "xyz" should be handled by package manager                    
-                    const moduleNames = modulesNotFound.flatMap(issue => {
-                        const match = issue.reason.match(/External package ["'](.+?)["']/);
-                        const name = match?.[1];
-                        return (typeof name === 'string' && name.trim().length > 0 && !name.startsWith('@shared')) ? [name] : [];
-                    }).filter((name) => !name.includes('cloudflare:'));
-                    if (moduleNames.length > 0) {
-                        const installCommands = moduleNames.map(moduleName => `bun install ${moduleName}`);
-                        await this.executeCommands(installCommands, false);
-
-                        this.logger.info(`Deterministic code fixer installed missing modules: ${moduleNames.join(', ')}`);
-                    } else {
-                        this.logger.info(`Deterministic code fixer detected no external modules to install from unfixable TS2307 issues`);
-                    }
-                }
                 if (fixResult.modifiedFiles.length > 0) {
                         this.logger.info("Applying deterministic fixes to files, Fixes: ", JSON.stringify(fixResult, null, 2));
                         const fixedFiles = fixResult.modifiedFiles.map(file => ({
@@ -705,9 +619,9 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
                             fileContents: file.fileContents
                     }));
                     await this.fileManager.saveGeneratedFiles(fixedFiles, "fix: applied deterministic fixes");
-                    
-                    await this.deployToSandbox(fixedFiles, false, "fix: applied deterministic fixes");
-                    this.logger.info("Deployed deterministic fixes to sandbox");
+
+                    await this.deployPreview();
+                    this.logger.info("Deployed deterministic fixes");
                 }
             }
             this.logger.info(`Applied deterministic code fixes: ${JSON.stringify(fixResult, null, 2)}`);
@@ -717,23 +631,10 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
         // return undefined;
     }
 
-    async fetchAllIssues(resetIssues: boolean = false): Promise<AllIssues> {
-        const templateDetails = this.getTemplateDetails();
-        const isBrowserOnly = templateDetails?.renderMode === 'browser';
-
-        // For browser-rendered projects (no sandbox), only run static analysis
-        if (isBrowserOnly) {
-            const staticAnalysis = await this.runStaticAnalysisCode();
-            this.logger.info("Fetched issues (browser-rendered):", JSON.stringify({ runtimeErrors: [], staticAnalysis }));
-            return { runtimeErrors: [], staticAnalysis };
-        }
-        const [runtimeErrors, staticAnalysis] = await Promise.all([
-            this.fetchRuntimeErrors(resetIssues),
-            this.runStaticAnalysisCode()
-        ]);
-        this.logger.info("Fetched all issues:", JSON.stringify({ runtimeErrors, staticAnalysis }));
-        
-        return { runtimeErrors, staticAnalysis };
+    async fetchAllIssues(_resetIssues: boolean = false): Promise<AllIssues> {
+        const staticAnalysis = await this.runStaticAnalysisCode();
+        this.logger.info("Fetched issues:", JSON.stringify({ runtimeErrors: [], staticAnalysis }));
+        return { runtimeErrors: [], staticAnalysis };
     }
 
     async updateProjectName(newName: string): Promise<boolean> {
@@ -746,13 +647,6 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
                 blueprint: updatedBlueprint
             });
             let ok = true;
-            if (this.state.sandboxInstanceId) {
-                try {
-                    ok = await this.getSandboxServiceClient().updateProjectName(this.state.sandboxInstanceId, newName);
-                } catch (_) {
-                    ok = false;
-                }
-            }
             try {
                 const appService = new AppService(this.env);
                 const dbOk = await appService.updateApp(this.getAgentId(), { title: newName });
@@ -810,7 +704,7 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
             }
         }
 
-        // projectName requires sandbox update, handle separately
+        // projectName requires separate handling
         if ('projectName' in patch && typeof patch.projectName === 'string') {
             await this.updateProjectName(patch.projectName);
         }
@@ -837,45 +731,15 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
 
     async readFiles(paths: string[]): Promise<{ files: { path: string; content: string }[] }> {
         const results: { path: string; content: string }[] = [];
-        const notFoundInFileManager: string[] = [];
 
-        // First, try to read from FileManager (template + generated files)
         for (const path of paths) {
             const file = this.fileManager.getFile(path);
             if (file) {
                 results.push({ path, content: file.fileContents });
-            } else {
-                notFoundInFileManager.push(path);
-            }
-        }
-
-        // If some files not found in FileManager and sandbox exists, try sandbox
-        if (notFoundInFileManager.length > 0 && this.state.sandboxInstanceId) {
-            const resp = await this.getSandboxServiceClient().getFiles(
-                this.state.sandboxInstanceId,
-                notFoundInFileManager
-            );
-            if (resp.success) {
-                results.push(...resp.files.map(f => ({
-                    path: f.filePath,
-                    content: f.fileContents
-                })));
             }
         }
 
         return { files: results };
-    }
-
-    async execCommands(commands: string[], shouldSave: boolean, timeout?: number): Promise<ExecuteCommandsResponse> {
-        const { sandboxInstanceId } = this.state;
-        if (!sandboxInstanceId) {
-            return { success: false, results: [], error: 'No sandbox instance' };
-        }
-        const result = await this.getSandboxServiceClient().executeCommands(sandboxInstanceId, commands, timeout);
-        if (shouldSave) {
-            this.saveExecutedCommands(commands);
-        }
-        return result;
     }
 
     updateSlideManifest(file: FileOutputType) {
@@ -964,7 +828,7 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
                 diff: '<WRITE PROTECTED - TEMPLATE FILE, CANNOT MODIFY - SKIPPED - NO CHANGES MADE>'
             };
         }
-        // Prefer local file manager; fallback to sandbox
+        // Read file from local file manager
         let fileContents = '';
         let filePurpose = '';
         try {
@@ -973,14 +837,7 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
                 fileContents = fmFile.fileContents;
                 filePurpose = fmFile.filePurpose || '';
             } else {
-                const { sandboxInstanceId } = this.state;
-                if (!sandboxInstanceId) {
-                    throw new Error('No sandbox instance available');
-                }
-                const resp = await this.getSandboxServiceClient().getFiles(sandboxInstanceId, [path]);
-                const f = resp.success ? resp.files.find(f => f.filePath === path) : undefined;
-                if (!f) throw new Error(resp.error || `File not found: ${path}`);
-                fileContents = f.fileContents;
+                throw new Error(`File not found: ${path}`);
             }
         } catch (e) {
             throw new Error(`Failed to read file for regeneration: ${String(e)}`);
@@ -989,9 +846,7 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
         const regenerated = await this.regenerateFile({ filePath: path, fileContents, filePurpose }, issues, 0);
         // Invalidate cache
         this.staticAnalysisCache = null;
-        // Persist to sandbox instance
-        // await this.getSandboxServiceClient().writeFiles(sandboxInstanceId, [{ filePath: regenerated.filePath, fileContents: regenerated.fileContents }], `Deep debugger fix: ${path}`);
-        await this.deploymentManager.deployToSandbox([regenerated])
+        await this.deployPreview();
         return { path, diff: regenerated.lastDiff };
     }
 
@@ -1076,7 +931,7 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
             fileCount: result.files.length
         });
 
-        await this.deployToSandbox(savedFiles, false);
+        await this.deployPreview();
 
         return { 
             files: [
@@ -1121,118 +976,15 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
         return `${getProtocolForHost(previewDomain)}://b-${agentId}-${token}.${previewDomain}`;
     }
 
-    // A wrapper for LLM tool to deploy to sandbox
-    async deployPreview(clearLogs: boolean = true, forceRedeploy: boolean = false): Promise<string> {
-        const response = await this.deployToSandbox([], forceRedeploy, undefined, clearLogs);
-        if (response && response.previewURL) {
-            this.broadcast(WebSocketMessageResponses.PREVIEW_FORCE_REFRESH, {});
-            return `Deployment successful: ${response.previewURL}`;
-        }
-        return `Failed to deploy: ${response?.tunnelURL}`;
-    }
-
-    async deployToSandbox(files: FileOutputType[] = [], redeploy: boolean = false, commitMessage?: string, clearLogs: boolean = false): Promise<PreviewType | null> {
-        // Only deploy if project is previewable
-        if (!this.isPreviewable()) {
-            throw new Error('Project is not previewable');
-        }
-        this.logger.info('[AGENT] Deploying to sandbox', { files: files.length, redeploy, commitMessage, renderMode: this.getTemplateDetails()?.renderMode, templateDetails: this.getTemplateDetails() });
-
-        if (this.getTemplateDetails()?.renderMode === 'browser') {
-            this.logger.info('Deploying to browser native sandbox');
-            this.broadcast(WebSocketMessageResponses.DEPLOYMENT_STARTED, {});
-            const result: PreviewType = {
-                previewURL: this.getBrowserPreviewURL()
-            }
-            this.logger.info('Deployed to browser native sandbox');
-            this.broadcast(WebSocketMessageResponses.DEPLOYMENT_COMPLETED, result);
-            return result;
-        }
-            
-        // Invalidate static analysis cache
-        this.staticAnalysisCache = null;
-        
-        // Call deployment manager with callbacks for broadcasting at the right times
-        const result = await this.deploymentManager.deployToSandbox(
-            files,
-            redeploy,
-            commitMessage,
-            clearLogs,
-            {
-                onStarted: (data) => {
-                    this.broadcast(WebSocketMessageResponses.DEPLOYMENT_STARTED, data);
-                },
-                onCompleted: (data) => {
-                    this.broadcast(WebSocketMessageResponses.DEPLOYMENT_COMPLETED, data);
-                },
-                onError: (data) => {
-                    this.broadcast(WebSocketMessageResponses.DEPLOYMENT_FAILED, data);
-                },
-                onAfterSetupCommands: async () => {
-                    // Sync package.json after setup commands (includes dependency installs)
-                    await this.syncPackageJsonFromSandbox();
-                }
-            }
-        );
-
-        return result;
-    }
-    
-    /**
-     * Deploy the generated code to Cloudflare Workers
-     */
-    async deployToCloudflare(target: DeploymentTarget = 'platform'): Promise<{ deploymentUrl?: string; workersUrl?: string } | null> {
-        try {
-            // Ensure sandbox instance exists first
-            if (!this.state.sandboxInstanceId) {
-                this.logger.info('No sandbox instance, deploying to sandbox first');
-                await this.deployToSandbox();
-                
-                if (!this.state.sandboxInstanceId) {
-                    this.logger.error('Failed to deploy to sandbox service');
-                    this.broadcast(WebSocketMessageResponses.CLOUDFLARE_DEPLOYMENT_ERROR, {
-                        message: 'Deployment failed: Failed to deploy to sandbox service',
-                        error: 'Sandbox service unavailable'
-                    });
-                    return null;
-                }
-            }
-
-            // Call service - handles orchestration, callbacks for broadcasting
-            const result = await this.deploymentManager.deployToCloudflare({
-                target,
-                callbacks: {
-                    onStarted: (data) => {
-                        this.broadcast(WebSocketMessageResponses.CLOUDFLARE_DEPLOYMENT_STARTED, data);
-                    },
-                    onCompleted: (data) => {
-                        this.broadcast(WebSocketMessageResponses.CLOUDFLARE_DEPLOYMENT_COMPLETED, data);
-                    },
-                    onError: (data) => {
-                        this.broadcast(WebSocketMessageResponses.CLOUDFLARE_DEPLOYMENT_ERROR, data);
-                    },
-                }
-            });
-
-            // Update database with deployment ID if successful
-            if (result.deploymentUrl && result.deploymentId) {
-                const appService = new AppService(this.env);
-                await appService.updateDeploymentId(
-                    this.getAgentId(),
-                    result.deploymentId
-                );
-            }
-
-            return result.deploymentUrl ? { deploymentUrl: result.deploymentUrl } : null;
-
-        } catch (error) {
-            this.logger.error('Cloudflare deployment error:', error);
-            this.broadcast(WebSocketMessageResponses.CLOUDFLARE_DEPLOYMENT_ERROR, {
-                message: 'Deployment failed',
-                error: error instanceof Error ? error.message : String(error)
-            });
-            return null;
-        }
+    // Deploy browser preview and broadcast URL
+    async deployPreview(_clearLogs: boolean = true, _forceRedeploy: boolean = false): Promise<string> {
+        this.broadcast(WebSocketMessageResponses.DEPLOYMENT_STARTED, {});
+        const result: PreviewType = {
+            previewURL: this.getBrowserPreviewURL()
+        };
+        this.broadcast(WebSocketMessageResponses.DEPLOYMENT_COMPLETED, result);
+        this.broadcast(WebSocketMessageResponses.PREVIEW_FORCE_REFRESH, {});
+        return result.previewURL ?? '';
     }
 
     async importTemplate(templateName: string): Promise<{ templateName: string; filesImported: number; files: TemplateFile[] }> {
@@ -1240,7 +992,7 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
 
         if (this.state.templateName !== templateName) {
             // Get template catalog info to sync projectType
-            const catalogResponse = await BaseSandboxService.listTemplates();
+            const catalogResponse = await listTemplates(this.env.TEMPLATES_BUCKET);
             const catalogInfo = catalogResponse.success 
                 ? catalogResponse.templates.find(t => t.name === templateName)
                 : null;
@@ -1267,8 +1019,8 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
         // Get important files for return value
         const importantFiles = getTemplateImportantFiles(templateDetails);
 
-        // Ensure deployment to sandbox 
-        await this.deployToSandbox();
+        // Ensure deployment for preview
+        await this.deployPreview();
 
         // Notify frontend about template metadata update
         this.broadcast(WebSocketMessageResponses.TEMPLATE_UPDATED, {
@@ -1347,272 +1099,13 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
         super.broadcast(msg, data);
     }
 
-    protected getBootstrapCommands() {
-        const bootstrapCommands = this.state.commandsHistory || [];
-        // Validate, deduplicate, and clean
-        const { validCommands } = validateAndCleanBootstrapCommands(bootstrapCommands);
-        return validCommands;
-    }
-
-    protected async saveExecutedCommands(commands: string[]) {
-        this.logger.info('Saving executed commands', { commands });
-        
-        // Merge with existing history
-        const mergedCommands = [...(this.state.commandsHistory || []), ...commands];
-        
-        // Validate, deduplicate, and clean
-        const { validCommands, invalidCommands, deduplicated } = validateAndCleanBootstrapCommands(mergedCommands);
-
-        // Log what was filtered out
-        if (invalidCommands.length > 0 || deduplicated > 0) {
-            this.logger.warn('[commands] Bootstrap commands cleaned', { 
-                invalidCommands,
-                invalidCount: invalidCommands.length,
-                deduplicatedCount: deduplicated,
-                finalCount: validCommands.length
-            });
-        }
-
-        // Update state with cleaned commands
-        this.setState({
-            ...this.state,
-            commandsHistory: validCommands
-        });
-
-        // Update bootstrap script with validated commands
-        await this.updateBootstrapScript(validCommands);
-
-        // Sync package.json if any dependency-modifying commands were executed
-        const hasDependencyCommands = commands.some(cmd => 
-            cmd.includes('install') || 
-            cmd.includes(' add ') || 
-            cmd.includes('remove') ||
-            cmd.includes('uninstall')
-        );
-        
-        if (hasDependencyCommands) {
-            this.logger.info('Dependency commands executed, syncing package.json from sandbox');
-            await this.syncPackageJsonFromSandbox();
-        }
-    }
-
-    /**
-     * Execute commands with retry logic
-     * Chunks commands and retries failed ones with AI assistance
-     */
-    protected async executeCommands(commands: string[], shouldRetry: boolean = true, chunkSize: number = 5): Promise<void> {
-        const state = this.state;
-        if (!state.sandboxInstanceId) {
-            this.logger.warn('No sandbox instance available for executing commands');
-            return;
-        }
-
-        // Sanitize and prepare commands
-        commands = commands.join('\n').split('\n').filter(cmd => cmd.trim() !== '').filter(cmd => looksLikeCommand(cmd) && !cmd.includes(' undefined'));
-        if (commands.length === 0) {
-            this.logger.warn("No commands to execute");
-            return;
-        }
-
-        commands = commands.map(cmd => cmd.trim().replace(/^\s*-\s*/, '').replace(/^npm/, 'bun'));
-        this.logger.info(`AI suggested ${commands.length} commands to run: ${commands.join(", ")}`);
-
-        // Remove duplicate commands
-        commands = Array.from(new Set(commands));
-
-        // Execute in chunks
-        const commandChunks = [];
-        for (let i = 0; i < commands.length; i += chunkSize) {
-            commandChunks.push(commands.slice(i, i + chunkSize));
-        }
-
-        const successfulCommands: string[] = [];
-
-        for (const chunk of commandChunks) {
-            // Retry failed commands up to 3 times
-            let currentChunk = chunk;
-            let retryCount = 0;
-            const maxRetries = shouldRetry ? 3 : 1;
-            
-            while (currentChunk.length > 0 && retryCount < maxRetries) {
-                try {
-                    this.broadcast(WebSocketMessageResponses.COMMAND_EXECUTING, {
-                        message: retryCount > 0 ? `Retrying commands (attempt ${retryCount + 1}/${maxRetries})` : "Executing commands",
-                        commands: currentChunk
-                    });
-                    
-                    const resp = await this.getSandboxServiceClient().executeCommands(
-                        state.sandboxInstanceId,
-                        currentChunk
-                    );
-                    if (!resp.results || !resp.success) {
-                        this.logger.error('Failed to execute commands', { response: resp });
-                        // Check if instance is still running
-                        const status = await this.getSandboxServiceClient().getInstanceStatus(state.sandboxInstanceId);
-                        if (!status.success || !status.isHealthy) {
-                            this.logger.error(`Instance ${state.sandboxInstanceId} is no longer running`);
-                            return;
-                        }
-                        break;
-                    }
-
-                    // Process results
-                    const successful = resp.results.filter(r => r.success);
-                    const failures = resp.results.filter(r => !r.success);
-
-                    // Track successful commands
-                    if (successful.length > 0) {
-                        const successfulCmds = successful.map(r => r.command);
-                        this.logger.info(`Successfully executed ${successful.length} commands: ${successfulCmds.join(", ")}`);
-                        successfulCommands.push(...successfulCmds);
-                    }
-
-                    // If all succeeded, move to next chunk
-                    if (failures.length === 0) {
-                        this.logger.info(`All commands in chunk executed successfully`);
-                        break;
-                    }
-                    
-                    // Handle failures
-                    const failedCommands = failures.map(r => r.command);
-                    this.logger.warn(`${failures.length} commands failed: ${failedCommands.join(", ")}`);
-                    
-                    // Only retry if shouldRetry is true
-                    if (!shouldRetry) {
-                        break;
-                    }
-                    
-                    retryCount++;
-                    
-                    // For install commands, try AI regeneration
-                    const failedInstallCommands = failedCommands.filter(cmd => 
-                        cmd.startsWith("bun") || cmd.startsWith("npm") || cmd.includes("install")
-                    );
-                    
-                    if (failedInstallCommands.length > 0 && retryCount < maxRetries) {
-                        // Use AI to suggest alternative commands
-                        const newCommands = await this.getProjectSetupAssistant().generateSetupCommands(
-                            `The following install commands failed: ${JSON.stringify(failures, null, 2)}. Please suggest alternative commands.`
-                        );
-                        
-                        if (newCommands?.commands && newCommands.commands.length > 0) {
-                            this.logger.info(`AI suggested ${newCommands.commands.length} alternative commands`);
-                            this.broadcast(WebSocketMessageResponses.COMMAND_EXECUTING, {
-                                message: "Executing regenerated commands",
-                                commands: newCommands.commands
-                            });
-                            currentChunk = newCommands.commands.filter(looksLikeCommand);
-                        } else {
-                            this.logger.warn('AI could not generate alternative commands');
-                            currentChunk = [];
-                        }
-                    } else {
-                        // No retry needed for non-install commands
-                        currentChunk = [];
-                    }
-                } catch (error) {
-                    this.logger.error('Error executing commands:', error);
-                    // Stop retrying on error
-                    break;
-                }
-            }
-        }
-
-        // Record command execution history
-        const failedCommands = commands.filter(cmd => !successfulCommands.includes(cmd));
-        
-        if (failedCommands.length > 0) {
-            this.broadcastError('Failed to execute commands', new Error(failedCommands.join(", ")));
-        } else {
-            this.logger.info(`All commands executed successfully: ${successfulCommands.join(", ")}`);
-        }
-
-        this.saveExecutedCommands(successfulCommands);
-    }
-
-    /**
-     * Sync package.json from sandbox to agent's git repository
-     * Called after install/add/remove commands to keep dependencies in sync
-     */
-    protected async syncPackageJsonFromSandbox(): Promise<void> {
-        try {
-            this.logger.info('Fetching current package.json from sandbox');
-            const results = await this.readFiles(['package.json']);
-            if (!results || !results.files || results.files.length === 0) {
-                this.logger.warn('Failed to fetch package.json from sandbox', { results });
-                return;
-            }
-            const packageJsonContent = results.files[0].content;
-
-            const { updated, packageJson } = updatePackageJson(this.state.lastPackageJson, packageJsonContent);
-            if (!updated) {
-                this.logger.info('package.json has not changed, skipping sync');
-                return;
-            }
-            // Update state with latest package.json
-            this.setState({
-                ...this.state,
-                lastPackageJson: packageJson
-            });
-            
-            // Commit to git repository
-            const fileState = await this.fileManager.saveGeneratedFile(
-                {
-                    filePath: 'package.json',
-                    fileContents: packageJson,
-                    filePurpose: 'Project dependencies and configuration'
-                },
-                'chore: sync package.json dependencies from sandbox',
-                true
-            );
-            
-            this.logger.info('Successfully synced package.json to git', { 
-                filePath: fileState.filePath,
-            });
-            
-            // Broadcast update to clients
-            this.broadcast(WebSocketMessageResponses.FILE_GENERATED, {
-                message: 'Synced package.json from sandbox',
-                file: fileState
-            });
-            
-        } catch (error) {
-            this.logger.error('Failed to sync package.json from sandbox', error);
-            // Non-critical error - don't throw, just log
-        }
-    }
-
-    async getLogs(_reset?: boolean, durationSeconds?: number): Promise<string> {
-        if (!this.state.sandboxInstanceId) {
-            throw new Error('Cannot get logs: No sandbox instance available');
-        }
-        
-        const response = await this.getSandboxServiceClient().getLogs(this.state.sandboxInstanceId, _reset, durationSeconds);
-        if (response.success) {
-            return `STDOUT: ${response.logs.stdout}\nSTDERR: ${response.logs.stderr}`;
-        } else {
-            return `Failed to get logs, ${response.error}`;
-        }
-    }
-
     /**
      * Delete files from the file manager
      */
     async deleteFiles(filePaths: string[]) : Promise<{ success: boolean, error?: string }> {
-        const deleteCommands: string[] = [];
-        for (const filePath of filePaths) {
-            deleteCommands.push(`rm -rf ${filePath}`);
-        }
-        // Remove the files from file manager
         this.fileManager.deleteFiles(filePaths);
-        try {
-            await this.executeCommands(deleteCommands, false);
-            this.logger.info(`Deleted ${filePaths.length} files: ${filePaths.join(", ")}`);
-            return { success: true };
-        } catch (error) {
-            this.logger.error('Error deleting files:', error);
-            return { success: false, error: error as string };
-        }
+        this.logger.info(`Deleted ${filePaths.length} files: ${filePaths.join(", ")}`);
+        return { success: true };
     }
 
     /**

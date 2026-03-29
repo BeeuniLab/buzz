@@ -54,9 +54,7 @@ export interface BaseProjectState {
     generatedFilesMap: Record<string, FileState>;
     
     // Common infrastructure
-    sandboxInstanceId?: string;
     fileServingToken?: FileServingToken;
-    commandsHistory?: string[];
     lastPackageJson?: string;
     pendingUserInputs: string[];
     projectUpdatesAccumulator: string[];

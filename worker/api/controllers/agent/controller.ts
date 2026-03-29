@@ -21,7 +21,7 @@ import { createLogger } from '../../../logger';
 import { getPreviewDomain } from 'worker/utils/urls';
 import { ImageType, uploadImage } from 'worker/utils/images';
 import { ProcessedImageAttachment } from 'worker/types/image-attachment';
-import { getTemplateImportantFiles } from 'worker/services/sandbox/utils';
+import { getTemplateImportantFiles } from 'worker/services/templates/utils';
 import { hasTicketParam } from '../../../middleware/auth/ticketAuth';
 
 const defaultCodeGenArgs: Partial<CodeGenArgs> = {
@@ -360,10 +360,11 @@ export class CodingAgentController extends BaseController {
                 const agentInstance = await getAgentStub(env, agentId);
                 
                 // Deploy the preview
-                const preview = await agentInstance.deployToSandbox();
-                if (!preview) {
+                const previewResult = await agentInstance.deployPreview();
+                if (!previewResult) {
                     return CodingAgentController.createErrorResponse<AgentPreviewResponse>('Failed to deploy preview', 500);
                 }
+                const preview: AgentPreviewResponse = { previewURL: previewResult };
                 this.logger.info('Preview deployed successfully', {
                     agentId,
                     previewUrl: preview.previewURL

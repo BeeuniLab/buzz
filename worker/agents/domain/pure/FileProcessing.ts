@@ -1,9 +1,9 @@
 import { FileGenerationOutputType, FileOutputType, PhaseConceptType } from '../../schemas';
 import type { StructuredLogger } from '../../../logger';
-import { TemplateDetails } from '../../../services/sandbox/sandboxTypes';
+import { TemplateDetails } from 'worker/types/project-types';
 import { applyUnifiedDiff } from '../../output-formats/diff-formats';
 import { FileState } from 'worker/agents/core/state';
-import { getTemplateFiles, getTemplateImportantFiles } from 'worker/services/sandbox/utils';
+import { getTemplateFiles, getTemplateImportantFiles } from 'worker/services/templates/utils';
 
 /**
  * File processing utilities

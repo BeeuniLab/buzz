@@ -1,4 +1,4 @@
-import type { CodeIssue, StaticAnalysisResponse, LintSeverity } from '../sandbox/sandboxTypes';
+import type { CodeIssue, StaticAnalysisResponse, LintSeverity } from '../../types/project-types';
 
 export interface FileInput {
 	path: string;

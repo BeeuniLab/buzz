@@ -13,9 +13,9 @@ export function createInitializeSlidesTool(
 		args: {
 			theme: type(z.string().optional(), () => ({
 				files: { mode: 'write', paths: [] },
-				sandbox: { operation: 'deploy' },
+				preview: { operation: 'deploy' },
 			})).describe('Optional theme preset name'),
-			force_preview: t.boolean().optional().describe('Force redeploy sandbox after import'),
+			force_preview: t.boolean().optional().describe('Force redeploy preview after import'),
 		},
 		run: async ({ theme, force_preview }) => {
 			logger.info('Initializing presentation template', { theme });

@@ -6,13 +6,13 @@
 import git from '@ashishkumar472/cf-git';
 import { MemFS } from './memfs';
 import { createLogger } from '../../logger';
-import type { TemplateDetails as SandboxTemplateDetails } from '../../services/sandbox/sandboxTypes';
+import type { TemplateDetails } from '../../types/project-types';
 
 const logger = createLogger('GitCloneService');
 
 export interface RepositoryBuildOptions {
     gitObjects: Array<{ path: string; data: Uint8Array }>;
-    templateDetails: SandboxTemplateDetails | null | undefined;
+    templateDetails: TemplateDetails | null | undefined;
     appQuery: string;
     appCreatedAt?: Date;  // App creation timestamp for deterministic template commit
 }

@@ -1,5 +1,5 @@
 import { PhasicBlueprint, AgenticBlueprint } from '../../schemas';
-import { FileTreeNode, TemplateDetails } from '../../../services/sandbox/sandboxTypes';
+import { FileTreeNode, TemplateDetails } from 'worker/types/project-types';
 import { FileState, PhaseState, PhasicState, AgenticState } from '../../core/state';
 import { DependencyManagement } from '../pure/DependencyManagement';
 import type { StructuredLogger } from '../../../logger';
@@ -58,7 +58,7 @@ export const GenerationContext = {
             allFiles,
             templateDetails,
             dependencies,
-            commandsHistory: state.commandsHistory || [],
+            commandsHistory: (state as unknown as Record<string, unknown>).commandsHistory as string[] || [],
         };
 
         return state.behaviorType === 'phasic'

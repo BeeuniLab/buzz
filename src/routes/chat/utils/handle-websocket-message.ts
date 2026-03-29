@@ -90,13 +90,6 @@ export interface HandleMessageDeps {
         messageType?: string,
         rawMessage?: unknown
     ) => void;
-    onTerminalMessage?: (log: {
-        id: string;
-        content: string;
-        type: 'command' | 'stdout' | 'stderr' | 'info' | 'error' | 'warn' | 'debug';
-        timestamp: number;
-        source?: string
-    }) => void;
     onVaultUnlockRequired?: (reason: string) => void;
 }
 
@@ -156,7 +149,6 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
             sendMessage,
             loadBootstrapFiles,
             onDebugMessage,
-            onTerminalMessage,
             clearDeploymentTimeout,
         } = deps;
 
@@ -619,7 +611,7 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
             }
 
             case 'runtime_error_found': {
-                logger.info('Runtime error found in sandbox', message.errors);
+                logger.info('Runtime error found', message.errors);
                 
                 // Update runtime error count
                 deps.setRuntimeErrorCount(message.count || message.errors?.length || 0);
@@ -950,35 +942,6 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
                     logger.debug('Blueprint chunk processed, partial blueprint updated');
                 } catch (e) {
                     logger.debug('Blueprint chunk accumulated, waiting for more data');
-                }
-                break;
-            }
-
-            case 'terminal_output': {
-                // Handle terminal output from server
-                if (onTerminalMessage) {
-                    const terminalLog = {
-                        id: `terminal-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`,
-                        content: message.output,
-                        type: message.outputType as 'stdout' | 'stderr' | 'info',
-                        timestamp: message.timestamp
-                    };
-                    onTerminalMessage(terminalLog);
-                }
-                break;
-            }
-
-            case 'server_log': {
-                // Handle server logs
-                if (onTerminalMessage) {
-                    const serverLog = {
-                        id: `log-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`,
-                        content: message.message,
-                        type: message.level as 'info' | 'warn' | 'error' | 'debug',
-                        timestamp: message.timestamp,
-                        source: message.source
-                    };
-                    onTerminalMessage(serverLog);
                 }
                 break;
             }

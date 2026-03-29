@@ -1,4 +1,4 @@
-import { TemplateDetails } from "../../services/sandbox/sandboxTypes";
+import { TemplateDetails } from "worker/types/project-types";
 import { createAssistantMessage, createSystemMessage, createUserMessage } from "../inferutils/common";
 import { FileOutputType, PhaseConceptType } from "../schemas";
 import { CodeSerializerType } from "../utils/codeSerializers";

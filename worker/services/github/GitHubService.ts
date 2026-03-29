@@ -10,7 +10,7 @@ import {
     CreateRepositoryResult,
     GitHubServiceError,
 } from './types';
-import { GitHubPushResponse, TemplateDetails } from '../sandbox/sandboxTypes';
+import { GitHubPushResponse, TemplateDetails } from '../../types/project-types';
 import { GitCloneService } from '../../agents/git/git-clone-service';
 import git from '@ashishkumar472/cf-git';
 import http from '@ashishkumar472/cf-git/http/web';

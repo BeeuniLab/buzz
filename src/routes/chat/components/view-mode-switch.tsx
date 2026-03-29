@@ -100,20 +100,6 @@ export function ViewModeSwitch({
 					<FileText className="size-4" />
 				</button>
 			)}
-			{/* {terminalAvailable && (
-				<button
-					onClick={() => onChange('terminal')}
-					className={clsx(
-						'p-1 flex items-center justify-between h-full rounded-md transition-colors',
-						view === 'terminal'
-							? 'bg-bg-4 text-text-primary'
-							: 'text-text-50/70 hover:text-text-primary hover:bg-accent',
-					)}
-					title="Terminal"
-				>
-					<Terminal className="size-4" />
-				</button>
-			)} */}
 		</div>
 	);
 }

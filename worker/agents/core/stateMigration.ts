@@ -1,6 +1,6 @@
 import { AgentState, FileState } from './state';
 import { StructuredLogger } from '../../logger';
-import { TemplateDetails } from 'worker/services/sandbox/sandboxTypes';
+import { TemplateDetails } from 'worker/types/project-types';
 import { generateNanoId } from '../../utils/idGenerator';
 import { generateProjectName } from '../utils/templateCustomizer';
 import { MAX_AGENT_QUERY_LENGTH } from 'worker/api/controllers/agent/types';

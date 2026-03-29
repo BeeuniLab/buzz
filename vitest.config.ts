@@ -16,8 +16,6 @@ export default defineWorkersConfig({
         ssr: {
           enabled: true,
           include: [
-            '@cloudflare/containers',
-            '@cloudflare/sandbox',
             '@babel/traverse',
             '@babel/types',
           ],

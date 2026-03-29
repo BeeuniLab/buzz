@@ -1,6 +1,6 @@
 import { createHash } from 'crypto';
 import type { MemFS } from '../../agents/git/memfs';
-import type { TemplateDetails as SandboxTemplateDetails } from '../../services/sandbox/sandboxTypes';
+import type { TemplateDetails } from '../../types/project-types';
 
 interface GitCacheMetadata {
     agentHeadOid: string;
@@ -37,7 +37,7 @@ function cleanupMemoryCache(): void {
 export class GitCache {
     constructor() {}
 
-    private getTemplateHash(templateDetails: SandboxTemplateDetails | null | undefined): string {
+    private getTemplateHash(templateDetails: TemplateDetails | null | undefined): string {
         if (!templateDetails) return 'no-template';
         
         const content = JSON.stringify({
@@ -58,7 +58,7 @@ export class GitCache {
     private checkMemoryCache(
         appId: string,
         currentHeadOid: string,
-        currentTemplateDetails: SandboxTemplateDetails | null | undefined
+        currentTemplateDetails: TemplateDetails | null | undefined
     ): MemFS | null {
         cleanupMemoryCache();
         
@@ -91,7 +91,7 @@ export class GitCache {
         appId: string,
         repo: MemFS,
         agentHeadOid: string,
-        templateDetails: SandboxTemplateDetails | null | undefined
+        templateDetails: TemplateDetails | null | undefined
     ): void {
         const key = this.getCacheKey(appId);
         
@@ -112,7 +112,7 @@ export class GitCache {
     async getRepository(
         appId: string,
         agentHeadOid: string,
-        templateDetails: SandboxTemplateDetails | null | undefined
+        templateDetails: TemplateDetails | null | undefined
     ): Promise<{ repo: MemFS | null; source: 'memory' | 'miss' }> {
         const memoryRepo = this.checkMemoryCache(appId, agentHeadOid, templateDetails);
         if (memoryRepo) {
@@ -129,7 +129,7 @@ export class GitCache {
         appId: string,
         repo: MemFS,
         agentHeadOid: string,
-        templateDetails: SandboxTemplateDetails | null | undefined
+        templateDetails: TemplateDetails | null | undefined
     ): void {
         // Store in memory immediately (synchronous, no await needed)
         this.storeInMemory(appId, repo, agentHeadOid, templateDetails);

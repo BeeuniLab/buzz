@@ -14,7 +14,6 @@ import type{
 	AppDeleteData,
 	AppDetailsData,
 	AppStarToggleData,
-	GitCloneTokenData,
 	UserAppsData,
 	ProfileUpdateData,
 	UserStatsData,
@@ -537,17 +536,6 @@ class ApiClient {
 		appId: string,
 	): Promise<ApiResponse<AppStarToggleData>> {
 		return this.request<AppStarToggleData>(`/api/apps/${appId}/star`, {
-			method: 'POST',
-		});
-	}
-
-	/**
-	 * Generate a short-lived token for git clone (private repos only)
-	 */
-	async generateGitCloneToken(
-		appId: string,
-	): Promise<ApiResponse<GitCloneTokenData>> {
-		return this.request<GitCloneTokenData>(`/api/apps/${appId}/git/token`, {
 			method: 'POST',
 		});
 	}

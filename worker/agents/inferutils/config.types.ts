@@ -146,6 +146,16 @@ const MODELS_MASTER = {
             contextSize: 200000, // 200K Context
         }
     },
+    CLAUDE_4_6_SONNET: {
+        id: 'anthropic/claude-sonnet-4-6',
+        config: {
+            name: 'Claude Sonnet 4.6',
+            size: ModelSize.LARGE,
+            provider: 'anthropic',
+            creditCost: 12, // $3.00
+            contextSize: 200000, // 200K Context
+        }
+    },
     CLAUDE_4_5_OPUS: {
         id: 'anthropic/claude-opus-4-5',
         config: {
@@ -206,6 +216,16 @@ const MODELS_MASTER = {
             provider: 'openai',
             creditCost: 1, // $0.25 (BASELINE)
             contextSize: 400000, // 400K Context
+        }
+    },
+    OPENAI_5_4: {
+        id: 'openai/gpt-5.4',
+        config: {
+            name: 'GPT-5.4',
+            size: ModelSize.LARGE,
+            provider: 'openai',
+            creditCost: 10, // $2.50
+            contextSize: 400000,
         }
     },
     // Below configs are commented for now, may be supported in the future

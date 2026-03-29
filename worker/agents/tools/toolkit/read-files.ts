@@ -12,7 +12,7 @@ export function createReadFilesTool(
 ) {
 	return tool({
 		name: 'read_files',
-		description: 'Read file contents by exact RELATIVE paths (sandbox pwd = project root). Prefer batching multiple paths in a single call to reduce overhead. Target all relevant files useful for understanding current context',
+		description: 'Read file contents by exact RELATIVE paths (project pwd = project root). Prefer batching multiple paths in a single call to reduce overhead. Target all relevant files useful for understanding current context',
 		args: {
 			paths: t.files.read().describe('Array of relative file paths to read'),
 			timeout: t.number().default(30000).describe('Timeout in milliseconds'),

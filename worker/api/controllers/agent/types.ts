@@ -1,4 +1,4 @@
-import type { PreviewType } from "../../../services/sandbox/sandboxTypes";
+import type { PreviewType } from "../../../types/project-types";
 import type { ImageAttachment } from '../../../types/image-attachment';
 import type { BehaviorType, ProjectType } from '../../../agents/core/types';
 import type { CredentialsPayload } from '../../../agents/inferutils/config.types';

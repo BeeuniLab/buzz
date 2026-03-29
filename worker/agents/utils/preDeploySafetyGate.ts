@@ -2,7 +2,7 @@ import * as _traverse from '@babel/traverse';
 import type { NodePath } from '@babel/traverse';
 import * as t from '@babel/types';
 import type { FileOutputType, PhaseConceptType } from '../schemas';
-import type { TemplateDetails } from '../../services/sandbox/sandboxTypes';
+import type { TemplateDetails } from 'worker/types/project-types';
 import type { InferenceContext } from '../inferutils/config.types';
 import { parseCode, generateCode } from '../../services/code-fixer/utils/ast';
 import { RealtimeCodeFixer } from '../assistants/realtimeCodeFixer';

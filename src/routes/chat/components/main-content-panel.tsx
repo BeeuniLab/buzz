@@ -20,7 +20,7 @@ import type { Edit } from '../hooks/use-chat';
 
 interface MainContentPanelProps {
 	// View state
-	view: 'editor' | 'preview' | 'docs' | 'blueprint' | 'terminal' | 'presentation';
+	view: 'editor' | 'preview' | 'docs' | 'blueprint' | 'presentation';
 	onViewChange: (mode: 'preview' | 'editor' | 'docs' | 'blueprint' | 'presentation') => void;
 
 	// Content detection
@@ -54,8 +54,7 @@ interface MainContentPanelProps {
 	loadingConfigs: boolean;
 	onRequestConfigs: () => void;
 
-	// Git/GitHub actions
-	onGitCloneClick: () => void;
+	// GitHub actions
 	isGitHubExportReady: boolean;
 	githubExport: GitHubExportHook;
 
@@ -94,7 +93,6 @@ export function MainContentPanel(props: MainContentPanelProps) {
 		modelConfigs,
 		loadingConfigs,
 		onRequestConfigs,
-		onGitCloneClick,
 		isGitHubExportReady,
 		githubExport,
 		behaviorType,
@@ -239,7 +237,6 @@ export function MainContentPanel(props: MainContentPanelProps) {
 					onManualRefresh={onManualRefresh}
 					featureState={featureState}
 					setFeatureState={setFeatureState}
-					onGitCloneClick={onGitCloneClick}
 					isGitHubExportReady={isGitHubExportReady}
 					onGitHubExportClick={githubExport.openModal}
 					loadingConfigs={loadingConfigs}
@@ -251,7 +248,6 @@ export function MainContentPanel(props: MainContentPanelProps) {
 				modelConfigs={modelConfigs}
 				onRequestConfigs={onRequestConfigs}
 				loadingConfigs={loadingConfigs}
-				onGitCloneClick={onGitCloneClick}
 				isGitHubExportReady={isGitHubExportReady}
 				onGitHubExportClick={githubExport.openModal}
 				previewRef={previewRef}
@@ -318,7 +314,6 @@ export function MainContentPanel(props: MainContentPanelProps) {
 					modelConfigs={modelConfigs}
 					onRequestConfigs={onRequestConfigs}
 					loadingConfigs={loadingConfigs}
-					onGitCloneClick={onGitCloneClick}
 					isGitHubExportReady={isGitHubExportReady}
 					onGitHubExportClick={githubExport.openModal}
 					editorRef={editorRef}
@@ -362,7 +357,6 @@ export function MainContentPanel(props: MainContentPanelProps) {
 				modelConfigs={modelConfigs}
 				onRequestConfigs={onRequestConfigs}
 				loadingConfigs={loadingConfigs}
-				onGitCloneClick={onGitCloneClick}
 				isGitHubExportReady={isGitHubExportReady}
 				onGitHubExportClick={githubExport.openModal}
 				editorRef={editorRef}

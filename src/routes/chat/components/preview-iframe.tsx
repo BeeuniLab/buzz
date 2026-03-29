@@ -20,13 +20,11 @@ interface LoadState {
     attempt: number;
     loadedSrc: string | null;
     errorMessage: string | null;
-    previewType?: 'sandbox' | 'dispatcher';
 }
 
 const MAX_RETRIES = 10;
 const REDEPLOY_AFTER_ATTEMPT = 8;
-const POST_LOAD_WAIT_SANDBOX = 0;
-const POST_LOAD_WAIT_DISPATCHER = 0;
+const POST_LOAD_WAIT = 0;
 
 const getRetryDelay = (attempt: number): number => {
 	// 1s, 2s, 4s, 8s (capped)
@@ -56,42 +54,27 @@ export const PreviewIframe = forwardRef<HTMLIFrameElement, PreviewIframeProps>(
 
 		/**
 		 * Test if URL is accessible using a simple HEAD request
-		 * Returns preview type if accessible, null otherwise
 		 */
-		const testAvailability = useCallback(async (url: string): Promise<'sandbox' | 'dispatcher' | null> => {
+		const testAvailability = useCallback(async (url: string): Promise<boolean> => {
 			try {
 				const response = await fetch(url, {
 					method: 'HEAD',
-					mode: 'cors', // Using CORS to read security-validated headers
+					mode: 'cors',
 					cache: 'no-cache',
 					signal: AbortSignal.timeout(8000),
 				});
                 console.log('Preview availability test response:', response, response.headers.forEach((value, key) => console.log("Header: ",key, value)));
-				
+
 				if (!response.ok) {
 					console.log('Preview not ready (status:', response.status, ')');
-					return null;
+					return false;
 				}
-				
-				// Read the custom header to determine preview type
-				// Header will only be present if origin validation passed on server
-				const previewType = response.headers.get('X-Preview-Type');
-				
-                if (previewType === 'sandbox-error') {
-                    console.log('Preview not ready (sandbox error)');
-                    return null;
-                } else if (previewType === 'sandbox' || previewType === 'dispatcher') {
-					console.log('Preview available, type:', previewType);
-					return previewType;
-				}
-				
-				// Fallback: If no header present (shouldn't happen with valid origin)
-				// but the response is OK, assume sandbox for backward compatibility
-				console.log('Preview available (type unknown, assuming sandbox)');
-				return 'sandbox';
+
+				console.log('Preview available');
+				return true;
 			} catch (error) {
 				console.log('Preview not available yet:', error);
-				return null;
+				return false;
 			}
 		}, []);
 
@@ -180,29 +163,27 @@ export const PreviewIframe = forwardRef<HTMLIFrameElement, PreviewIframeProps>(
 			});
 
 			// Test availability
-			const previewType = await testAvailability(url);
+			const available = await testAvailability(url);
 
-			if (previewType) {
+			if (available) {
 				// Success: put component into postload state, keep loading UI visible
-				console.log(`Preview available (${previewType}) at attempt ${attempt + 1}`);
+				console.log(`Preview available at attempt ${attempt + 1}`);
 				setLoadState({
 					status: 'postload',
 					attempt: attempt + 1,
 					loadedSrc: url,
 					errorMessage: null,
-					previewType,
 				});
 
 				// Wait for page to render before revealing iframe and capturing screenshot
-				const waitTime = previewType === 'dispatcher' ? POST_LOAD_WAIT_DISPATCHER : POST_LOAD_WAIT_SANDBOX;
-				console.log(`Waiting ${waitTime}ms before showing preview and capturing screenshot (${previewType} app)`);
+				console.log(`Waiting ${POST_LOAD_WAIT}ms before showing preview and capturing screenshot`);
 				postLoadTimeoutRef.current = setTimeout(() => {
 					setLoadState(prev => ({
 						...prev,
 						status: 'loaded',
 					}));
 					requestScreenshot(url);
-				}, waitTime);
+				}, POST_LOAD_WAIT);
 			} else {
 				// Not available yet - retry with backoff
 				const delay = getRetryDelay(attempt);

@@ -6,7 +6,6 @@ interface PreviewHeaderActionsProps {
 	modelConfigs?: ModelConfigsInfo;
 	onRequestConfigs: () => void;
 	loadingConfigs: boolean;
-	onGitCloneClick: () => void;
 	isGitHubExportReady: boolean;
 	onGitHubExportClick: () => void;
 	previewRef: RefObject<HTMLIFrameElement | null>;
@@ -16,7 +15,6 @@ export function PreviewHeaderActions({
 	modelConfigs,
 	onRequestConfigs,
 	loadingConfigs,
-	onGitCloneClick,
 	isGitHubExportReady,
 	onGitHubExportClick,
 	previewRef,
@@ -27,7 +25,6 @@ export function PreviewHeaderActions({
 			modelConfigs={modelConfigs}
 			onRequestConfigs={onRequestConfigs}
 			loadingConfigs={loadingConfigs}
-			onGitCloneClick={onGitCloneClick}
 			isGitHubExportReady={isGitHubExportReady}
 			onGitHubExportClick={onGitHubExportClick}
 		/>

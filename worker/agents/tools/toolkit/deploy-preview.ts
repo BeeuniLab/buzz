@@ -1,4 +1,4 @@
-import { tool, t } from '../types';
+import { tool } from '../types';
 import { StructuredLogger } from '../../../logger';
 import { ICodingAgent } from 'worker/agents/services/interfaces/ICodingAgent';
 
@@ -9,14 +9,12 @@ export function createDeployPreviewTool(
 	return tool({
 		name: 'deploy_preview',
 		description:
-			'Uploads and syncs the current application to the preview environment. After deployment, the app is live at the preview URL, but runtime logs (get_logs) will only appear when the user interacts with the app - not automatically after deployment. CRITICAL: After deploying, use wait(20-30) to allow time for user interaction before checking logs. Use force_redeploy=true to force a redeploy (will reset session ID and spawn a new sandbox, is expensive) ',
-		args: {
-			force_redeploy: t.deployment.force().describe('Force a full redeploy (resets session ID and spawns new sandbox)'),
-		},
-		run: async ({ force_redeploy }) => {
+			'Uploads and syncs the current application to the preview environment. After deployment, the app is live at the preview URL. CRITICAL: After deploying, use wait(20-30) to allow time for user interaction before checking results.',
+		args: {},
+		run: async () => {
 			try {
-				logger.info('Deploying preview to sandbox environment');
-				const result = await agent.deployPreview(undefined, force_redeploy);
+				logger.info('Deploying preview');
+				const result = await agent.deployPreview();
 				logger.info('Preview deployment completed', { result });
 				return { message: result };
 			} catch (error) {

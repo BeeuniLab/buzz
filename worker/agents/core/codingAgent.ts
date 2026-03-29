@@ -1,5 +1,5 @@
 import { Agent, AgentContext, ConnectionContext } from "agents";
-import { AgentInitArgs, AgentSummary, DeployOptions, DeployResult, ExportOptions, ExportResult, DeploymentTarget, BehaviorType } from "./types";
+import { AgentInitArgs, AgentSummary, DeployOptions, DeployResult, ExportOptions, ExportResult, BehaviorType } from "./types";
 import { AgenticState, AgentState, BaseProjectState, CurrentDevState, MAX_PHASES, PhasicState } from "./state";
 import { Blueprint } from "../schemas";
 import { BaseCodingBehavior } from "./behaviors/base";
@@ -19,14 +19,13 @@ import { ProjectType } from './types';
 import { Connection } from 'agents';
 import { handleWebSocketMessage, handleWebSocketClose, broadcastToConnections, sendToConnection } from './websocket';
 import { WebSocketMessageData, WebSocketMessageType } from "worker/api/websocketTypes";
-import { PreviewType, TemplateDetails } from "worker/services/sandbox/sandboxTypes";
+import { TemplateDetails } from "worker/types/project-types";
 import { WebSocketMessageResponses } from "../constants";
 import { AppService, ModelConfigService } from "worker/database";
 import { ConversationMessage, ConversationState } from "../inferutils/common";
 import { ImageAttachment } from "worker/types/image-attachment";
 import { RateLimitExceededError } from "shared/types/errors";
 import { ProjectObjective } from "./objectives/base";
-import { FileOutputType } from "../schemas";
 import { SecretsClient, type UserSecretsStoreStub } from '../../services/secrets/SecretsClient';
 import { StateMigration } from './stateMigration';
 import { PendingWsTicket, TicketConsumptionResult } from '../../types/auth-types';
@@ -75,8 +74,6 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
         conversationMessages: [],
         metadata: {} as InferenceMetadata,
         shouldBeGenerating: false,
-        sandboxInstanceId: undefined,
-        commandsHistory: [],
         lastPackageJson: '',
         pendingUserInputs: [],
         projectUpdatesAccumulator: [],
@@ -113,7 +110,6 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
                 getLogger: () => this.logger(),
                 env: this.env
             },
-            10, // MAX_COMMANDS_HISTORY
         );
     }
     private createObjective(projectType: ProjectType): ProjectObjective<BaseProjectState> {
@@ -129,16 +125,16 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
         ..._args: unknown[]
     ): Promise<AgentState> {
         const { inferenceContext } = initArgs;
-        const sandboxSessionId = DeploymentManager.generateNewSessionId();
-        this.initLogger(inferenceContext.metadata.agentId, inferenceContext.metadata.userId, sandboxSessionId);
+        const sessionId = DeploymentManager.generateNewSessionId();
+        this.initLogger(inferenceContext.metadata.agentId, inferenceContext.metadata.userId, sessionId);
 
         // Infrastructure setup
         await this.gitInit();
-        
+
         // Let behavior handle all state initialization (blueprint, projectName, etc.)
         await this.behavior.initialize({
             ...initArgs,
-            sandboxSessionId // Pass generated session ID to behavior
+            sessionId // Pass generated session ID to behavior
         });
         
         await this.saveToDatabase();
@@ -324,17 +320,11 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
         return ''; // Unimplemented
     }
 
-    deployToSandbox(
-        files: FileOutputType[] = [],
-        redeploy: boolean = false,
-        commitMessage?: string,
-        clearLogs: boolean = false
-    ): Promise<PreviewType | null> {
-        return this.behavior.deployToSandbox(files, redeploy, commitMessage, clearLogs);
-    }
-
-    deployToCloudflare(target?: DeploymentTarget): Promise<{ deploymentUrl?: string; workersUrl?: string } | null> {
-        return this.behavior.deployToCloudflare(target);
+    deployPreview(
+        clearLogs: boolean = true,
+        forceRedeploy: boolean = false
+    ): Promise<string> {
+        return this.behavior.deployPreview(clearLogs, forceRedeploy);
     }
 
     deployProject(options?: DeployOptions): Promise<DeployResult> {
@@ -686,9 +676,9 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
 
         const providedToken = withoutPrefix.substring(lastHyphenIndex + 1);
 
-        // Extract file path from pathname
+        // Extract file path from pathname (buzzplay templates: index.html at root; legacy: public/index.html)
         const filePath = url.pathname === '/' || url.pathname === ''
-            ? 'public/index.html'
+            ? 'index.html'
             : url.pathname.replace(/^\//, ''); // Remove leading slash
 
         this.logger().info('[BROWSER SERVING] Extracted', { providedToken, filePath });
@@ -711,6 +701,10 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
         }
         const normalized = normalizePath(filePath);
         let file = this.fileManager.getFile(normalized);
+
+        if (!file && normalized === 'index.html') {
+            file = this.fileManager.getFile('public/index.html');
+        }
 
         // Try with public/ prefix if not found
         if (!file && !normalized.startsWith('public/')) {
@@ -758,7 +752,7 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
                 'Access-Control-Allow-Origin': '*',
                 'Access-Control-Allow-Methods': 'GET, OPTIONS',
                 'Access-Control-Allow-Headers': '*',
-                'X-Sandbox-Type': 'browser-native'
+                'X-Preview-Type': 'browser-native'
             }
         });
     }

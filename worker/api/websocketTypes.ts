@@ -1,7 +1,7 @@
 import type { CodeReviewOutputType, FileConceptType, FileOutputType } from "../agents/schemas";
 import type { AgentState } from "../agents/core/state";
 import type { ConversationState } from "../agents/inferutils/common";
-import type { CodeIssue, RuntimeError, StaticAnalysisResponse, TemplateDetails } from "../services/sandbox/sandboxTypes";
+import type { CodeIssue, RuntimeError, StaticAnalysisResponse, TemplateDetails } from "../types/project-types";
 import type { CodeFixResult } from "../services/code-fixer";
 import { IssueReport } from "../agents/domain/values/IssueReport";
 import type { RateLimitExceededError } from 'shared/types/errors';

@@ -7,7 +7,6 @@
  * Cloudflare Orange Build platform, including:
  * - Workers for Platforms dispatch namespace creation
  * - Templates repository deployment to R2
- * - Container configuration updates
  * - Environment validation
  *
  * Used by the "Deploy to Cloudflare" button for one-click deployment.
@@ -38,17 +37,6 @@ interface WranglerConfig {
 		bucket_name: string;
 		experimental_remote?: boolean;
 	}>;
-	containers?: Array<{
-		class_name: string;
-		image: string;
-		max_instances: number;
-		instance_type?: {
-			vcpu: number;
-			memory_mib: number;
-			disk_mb?: number;
-		} | string;
-		rollout_step_percentage?: number;
-	}>;
 	d1_databases?: Array<{
 		binding: string;
 		database_name: string;
@@ -64,10 +52,8 @@ interface WranglerConfig {
 	vars?: {
 		TEMPLATES_REPOSITORY?: string;
 		CLOUDFLARE_AI_GATEWAY?: string;
-		MAX_SANDBOX_INSTANCES?: string;
 		CUSTOM_DOMAIN?: string;
 		CUSTOM_PREVIEW_DOMAIN?: string;
-		SANDBOX_INSTANCE_TYPE?: string;
 		DISPATCH_NAMESPACE?: string;
 		[key: string]: string | undefined;
 	};
@@ -176,7 +162,6 @@ class CloudflareDeploymentManager {
 		const databaseName = this.config.d1_databases?.[0]?.database_name;
 		const customDomain = this.config.vars?.CUSTOM_DOMAIN;
 		const customPreviewDomain = this.config.vars?.CUSTOM_PREVIEW_DOMAIN;
-		const maxInstances = this.config.vars?.MAX_SANDBOX_INSTANCES;
 		const templatesRepo = this.config.vars?.TEMPLATES_REPOSITORY;
 		const aiGateway = this.config.vars?.CLOUDFLARE_AI_GATEWAY;
 		const dispatchNamespace = this.config.vars?.DISPATCH_NAMESPACE;
@@ -185,9 +170,6 @@ class CloudflareDeploymentManager {
 		console.log(`   Database Name: ${databaseName || 'Not configured'}`);
 		console.log(`   Custom Domain: ${customDomain || 'Not configured'}`);
 		console.log(`   Custom Preview Domain: ${customPreviewDomain || 'Not configured'}`);
-		console.log(
-			`   Max Sandbox Instances: ${maxInstances || 'Not configured'}`,
-		);
 		console.log(
 			`   Templates Repository: ${templatesRepo || 'Not configured'}`,
 		);
@@ -684,70 +666,6 @@ class CloudflareDeploymentManager {
 	}
 
 	/**
-	 * Cleans ARM64 platform flags from SandboxDockerfile for production deployment
-	 * Returns the original content if ARM64 flags were removed (for restoration)
-	 */
-	private cleanDockerfileForDeployment(): string | null {
-		const dockerfilePath = join(PROJECT_ROOT, 'SandboxDockerfile');
-		
-		if (!existsSync(dockerfilePath)) {
-			console.log('     ℹ️  SandboxDockerfile not found - skipping ARM64 cleanup');
-			return null;
-		}
-
-		try {
-			const originalContent = readFileSync(dockerfilePath, 'utf-8');
-			let modified = false;
-
-			// Split content into lines for processing
-			const lines = originalContent.split('\n');
-			const cleanedLines = lines.map(line => {
-				// Look for FROM statements with --platform=linux/arm64 and remove the flag
-				const fromMatch = line.match(/^(\s*FROM\s+)--platform=linux\/arm64\s+(.*)/);
-				if (fromMatch) {
-					modified = true;
-					const [, prefix, image] = fromMatch;
-					return `${prefix}${image}`;
-				}
-				return line;
-			});
-
-			if (modified) {
-				writeFileSync(dockerfilePath, cleanedLines.join('\n'), 'utf-8');
-				console.log('     ✅ Removed ARM64 platform flags from SandboxDockerfile');
-				return originalContent; // Return original for restoration
-			} else {
-				console.log('     ✅ No ARM64 platform flags found in SandboxDockerfile');
-				return null; // Nothing to restore
-			}
-			
-		} catch (error) {
-			console.warn(
-				`     ⚠️  Could not clean SandboxDockerfile: ${error instanceof Error ? error.message : String(error)}`,
-			);
-			console.warn('     → Continuing deployment, but may encounter platform compatibility issues');
-			return null;
-		}
-	}
-
-	/**
-	 * Restores ARM64 platform flags to SandboxDockerfile if they were previously removed
-	 */
-	private restoreDockerfileARM64Flags(originalContent: string): void {
-		const dockerfilePath = join(PROJECT_ROOT, 'SandboxDockerfile');
-		
-		try {
-			writeFileSync(dockerfilePath, originalContent, 'utf-8');
-			console.log('🔄 Restored ARM64 platform flags to SandboxDockerfile for local development');
-		} catch (error) {
-			console.warn(
-				`⚠️  Could not restore ARM64 flags to SandboxDockerfile: ${error instanceof Error ? error.message : String(error)}`,
-			);
-			console.warn('   You may need to manually re-run the setup script to restore ARM64 flags');
-		}
-	}
-
-	/**
 	 * Updates package.json database commands with the actual database name from wrangler.jsonc
 	 */
 	private updatePackageJsonDatabaseCommands(): void {
@@ -1203,171 +1121,6 @@ class CloudflareDeploymentManager {
 	}
 
 	/**
-	 * Updates container configuration based on MAX_SANDBOX_INSTANCES (env var overrides wrangler.jsonc)
-	 */
-	private updateContainerConfiguration(): void {
-		// Environment variable takes priority over wrangler.jsonc vars
-		const maxInstances =
-			process.env.MAX_SANDBOX_INSTANCES ||
-			this.config.vars?.MAX_SANDBOX_INSTANCES || "10";
-
-		if (!maxInstances) {
-			console.log(
-				'ℹ️  MAX_SANDBOX_INSTANCES not set in environment variables or wrangler.jsonc vars, skipping container configuration update',
-			);
-			return;
-		}
-
-		const source = process.env.MAX_SANDBOX_INSTANCES
-			? 'environment variable'
-			: 'wrangler.jsonc vars';
-		console.log(
-			`🔧 Using MAX_SANDBOX_INSTANCES from ${source}: ${maxInstances}`,
-		);
-
-		const maxInstancesNum = parseInt(maxInstances, 10);
-		if (isNaN(maxInstancesNum) || maxInstancesNum <= 0) {
-			console.warn(
-				`⚠️  Invalid MAX_SANDBOX_INSTANCES value: ${maxInstances}, skipping update`,
-			);
-			return;
-		}
-
-		console.log(
-			`🔧 Updating container configuration: MAX_SANDBOX_INSTANCES=${maxInstancesNum}`,
-		);
-
-		try {
-			const { content, config } = this.readWranglerConfig();
-
-			if (!config.containers || !Array.isArray(config.containers)) {
-				console.warn(
-					'⚠️  No containers configuration found in wrangler.jsonc',
-				);
-				return;
-			}
-
-			// Find the index of UserAppSandboxService container
-			const sandboxContainerIndex = config.containers.findIndex(
-				(container) => container.class_name === 'UserAppSandboxService',
-			);
-
-			if (sandboxContainerIndex === -1) {
-				console.warn(
-					'⚠️  UserAppSandboxService container not found in wrangler.jsonc',
-				);
-				return;
-			}
-
-			const oldMaxInstances =
-				config.containers[sandboxContainerIndex].max_instances;
-
-			// Use jsonc-parser's modify function to properly edit the file
-			// Path to the max_instances field: ['containers', index, 'max_instances']
-			const edits = modify(
-				content,
-				['containers', sandboxContainerIndex, 'max_instances'],
-				maxInstancesNum,
-				CloudflareDeploymentManager.JSONC_FORMAT_OPTIONS,
-			);
-
-			// Apply the edits to get the updated content
-			const updatedContent = applyEdits(content, edits);
-
-			// Write back the updated configuration
-			this.writeWranglerConfig(updatedContent);
-
-			this.logSuccess(
-				`Updated UserAppSandboxService max_instances: ${oldMaxInstances} → ${maxInstancesNum}`
-			);
-		} catch (error) {
-			throw new DeploymentError(
-				'Failed to update container configuration',
-				error instanceof Error ? error : new Error(String(error)),
-			);
-		}
-	}
-
-	/**
-	 * Updates container instance types based on SANDBOX_INSTANCE_TYPE variable
-	 */
-	private updateContainerInstanceTypes(): void {
-		// Environment variable takes priority over wrangler.jsonc vars
-		const sandboxInstanceType = 
-			process.env.SANDBOX_INSTANCE_TYPE || 
-			this.config.vars?.SANDBOX_INSTANCE_TYPE || 
-			'standard-3';
-
-		console.log(
-			`🔧 Configuring container instance types: ${sandboxInstanceType}`,
-		);
-
-		try {
-			const { content, config } = this.readWranglerConfig();
-
-			if (!config.containers || !Array.isArray(config.containers)) {
-				console.warn(
-					'⚠️  No containers configuration found in wrangler.jsonc',
-				);
-				return;
-			}
-
-			// Find the indices of both containers
-			const userAppContainerIndex = config.containers.findIndex(
-				(container) => container.class_name === 'UserAppSandboxService',
-			);
-
-			if (userAppContainerIndex === -1) {
-				console.warn(
-					'⚠️  UserAppSandboxService container not found in wrangler.jsonc',
-				);
-				return;
-			}
-
-			// Determine the instance type configuration
-			let userAppInstanceType: any;
-
-			if (sandboxInstanceType === 'enhanced') {
-				// Enhanced configuration as specified
-				userAppInstanceType = {
-					vcpu: 4,
-					memory_mib: 8192,
-					disk_mb: 10240
-				};
-				console.log('   Using enhanced instance type configuration');
-			} else {
-				// Use the string value directly
-				userAppInstanceType = sandboxInstanceType;
-				console.log(`   Using instance type string: ${sandboxInstanceType}`);
-			}
-
-			// Update UserAppSandboxService instance_type
-			let updatedContent = content;
-			const userAppInstanceTypeEdits = modify(
-				updatedContent,
-				['containers', userAppContainerIndex, 'instance_type'],
-				userAppInstanceType,
-				CloudflareDeploymentManager.JSONC_FORMAT_OPTIONS
-			);
-			updatedContent = applyEdits(updatedContent, userAppInstanceTypeEdits);
-
-			// Write back the updated configuration
-			this.writeWranglerConfig(updatedContent);
-
-			this.logSuccess(`Updated container instance types for SANDBOX_INSTANCE_TYPE: ${sandboxInstanceType}`, [
-				`UserAppSandboxService: ${JSON.stringify(userAppInstanceType)}`,
-			]);
-
-		} catch (error) {
-			this.logWarning(
-				`Could not update container instance types: ${error instanceof Error ? error.message : String(error)}`,
-				['Continuing with current configuration...']
-			);
-			// Non-blocking - continue deployment
-		}
-	}
-
-	/**
 	 * Updates dispatch namespace configuration based on DISPATCH_NAMESPACE (env var overrides wrangler.jsonc)
 	 * If dispatch namespaces are not available, clears the DISPATCH_NAMESPACE var
 	 */
@@ -1739,10 +1492,8 @@ class CloudflareDeploymentManager {
 			'SECRETS_ENCRYPTION_KEY',
 			'SENTRY_DSN',
 			'AI_PROXY_JWT_SECRET',
-			'MAX_SANDBOX_INSTANCES',
 			'CUSTOM_DOMAIN',
 			'CUSTOM_PREVIEW_DOMAIN',
-			'SANDBOX_INSTANCE_TYPE',
 			'DISPATCH_NAMESPACE',
 			'ALLOCATION_STRATEGY',
 			'ENVIRONMENT',
@@ -1955,24 +1706,17 @@ class CloudflareDeploymentManager {
 
 		const startTime = Date.now();
         let customDomain: string | null = null;
-		let originalDockerfileContent: string | null = null;
 
 		try {
 			// Step 1: Early Configuration Updates (must happen before any wrangler commands)
             this.cleanWranglerCache();
 			console.log('\n📋 Step 1: Updating configuration files...');
-			
-			console.log('   🔧 Cleaning ARM64 development flags from Dockerfile');
-			originalDockerfileContent = this.cleanDockerfileForDeployment();
 
 			console.log('   🔧 Updating package.json database commands');
 			this.updatePackageJsonDatabaseCommands();
 
 			console.log('   🔧 Updating wrangler.jsonc custom domain routes');
 			customDomain = await this.updateCustomDomainRoutes();
-
-			console.log('   🔧 Updating container instance types');
-			this.updateContainerInstanceTypes();
 
 			console.log('✅ Configuration files updated successfully!\n');
 
@@ -1986,9 +1730,8 @@ class CloudflareDeploymentManager {
 			}
 			console.log('✅ Dispatch namespace availability check completed!\n');
 
-			// Step 2: Update container configuration if needed
-			console.log('\n📋 Step 2: Updating container configuration...');
-			this.updateContainerConfiguration();
+			// Step 2: Update dispatch namespace configuration
+			console.log('\n📋 Step 2: Updating dispatch namespace configuration...');
 			this.updateDispatchNamespace(dispatchNamespacesAvailable);
 
 			// Step 3: Create .prod.vars and resolve var/secret conflicts before deployment
@@ -2069,12 +1812,6 @@ class CloudflareDeploymentManager {
 				console.log(
 					`✅ Your Cloudflare Orange Build platform is now live at https://${customDomain}! 🚀`,
 				);
-				
-				// Restore ARM64 flags for continued local development
-				if (originalDockerfileContent) {
-					console.log('\n🔄 Restoring local development configuration...');
-					this.restoreDockerfileARM64Flags(originalDockerfileContent);
-				}
 			} else {
 				throw new DeploymentError('Deployment failed during wrangler deploy or secret update');
 			}
@@ -2107,11 +1844,7 @@ class CloudflareDeploymentManager {
 
 			process.exit(1);
 		} finally {
-			// Always restore ARM64 flags if they were removed, even on deployment failure
-			if (originalDockerfileContent) {
-				console.log('\n🔄 Restoring local development configuration...');
-				this.restoreDockerfileARM64Flags(originalDockerfileContent);
-			}
+			// Cleanup complete
 		}
 	}
 }

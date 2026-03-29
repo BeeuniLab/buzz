@@ -4,7 +4,7 @@ import { PROMPT_UTILS } from '../prompts';
 import { AgentOperation, OperationOptions } from './common';
 import { FileOutputType, PhaseConceptType } from '../schemas';
 import { SCOFFormat } from '../output-formats/streaming-formats/scof';
-import { CodeIssue } from '../../services/sandbox/sandboxTypes';
+import { CodeIssue } from 'worker/types/project-types';
 import { CodeSerializerType } from '../utils/codeSerializers';
 import { PhasicGenerationContext } from '../domain/values/GenerationContext';
 

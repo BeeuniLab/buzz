@@ -16,8 +16,8 @@ Why: Verbose explanations waste tokens and degrade user experience. Think deeply
 
     const criticalRules = isPresentationProject
         ? `<critical_rules>
-1. **Sandbox Environment Constraints**:
-   - Presentations run in a sandboxed environment with static slide compilation
+1. **Browser Preview Environment Constraints**:
+   - Presentations run in a preview environment with static slide compilation
    - JSON-based slide definitions only - NO JSX files, NO React component code
    - You generate JSON structures that the template's runtime renderer converts to UI
    - CANNOT add external dependencies, install packages, or modify runtime infrastructure
@@ -49,11 +49,11 @@ Why: Verbose explanations waste tokens and degrade user experience. Think deeply
 **Adhere strictly to template constraints. Reference usage.md for template-specific details.**
 </critical_rules>`
         : `<critical_rules>
-1. **Two-Filesystem Architecture**: You work with Virtual Filesystem (persistent Durable Object storage with git) and Sandbox Filesystem (ephemeral container where code executes). Files must sync from virtual → sandbox via deploy_preview.
+1. **Two-Filesystem Architecture**: You work with Virtual Filesystem (persistent Durable Object storage with git) and Preview Filesystem (ephemeral container where code executes). Files must sync from virtual to preview via deploy_preview.
 
 2. **Template-First Approach**: For interactive projects, always call init_suitable_template() first. AI selects best-matching template from library, providing working foundation. Skip only for static documentation.
 
-3. **Deploy to Test**: Files in virtual filesystem don't execute until you call deploy_preview to sync them to sandbox. Always deploy after generating files before testing.
+3. **Deploy to Test**: Files in virtual filesystem don't execute until you call deploy_preview to sync them to the preview environment. Always deploy after generating files before testing.
 
 4. **Blueprint Before Building**: Generate structured plan via generate_blueprint before implementation. Defines what to build and guides development phases.
 
@@ -85,7 +85,7 @@ You start with thinking through the user's request, designing the presentation o
 - Full commit history maintained
 - Files here do NOT execute - just stored
 
-**Layer 2: Sandbox Filesystem** (Where code runs)
+**Layer 2: Preview Filesystem** (Where code runs)
 - Separate container running Bun + Vite dev server
 - Files here CAN execute and be tested
 - Created on first deploy_preview call
@@ -99,7 +99,7 @@ Virtual Filesystem (DO storage + git)
   ↓
 deploy_preview called
   ↓
-Files synced to Sandbox Filesystem
+Files synced to Preview Filesystem
   ↓
 Code executes (bun run dev)
   ↓
@@ -107,9 +107,9 @@ Preview URL available for testing
 \`\`\`
 
 ## When Files Diverge
-Virtual FS has latest changes → Sandbox has old versions → Tests show stale behavior
+Virtual FS has latest changes → Preview has old versions → Tests show stale behavior
 
-Solution: Call deploy_preview to sync virtual → sandbox
+Solution: Call deploy_preview to sync virtual to preview
 
 ## Deployment Modes
 - **Template-based**: init_suitable_template() selects template → deploy_preview uses that template + your files
@@ -139,12 +139,12 @@ Solution: Call deploy_preview to sync virtual → sandbox
 4. **Build Incrementally**:
    - Use generate_files for new features (can batch 2-3 files or make parallel calls)
    - Use regenerate_file for surgical fixes to existing files
-   - Call deploy_preview after file changes to sync virtual → sandbox
+   - Call deploy_preview after file changes to sync virtual to preview
    - Verify with run_analysis (TypeScript + linting) or runtime tools (get_runtime_errors, get_logs)
 5. **Commit Frequently**: Use git commit with clear conventional messages after meaningful changes
 6. **Test & Polish**: Fix all errors before completion → Ensure professional quality
 
-Static content (docs, markdown): Skip template selection and sandbox deployment. Focus on content quality.
+Static content (docs, markdown): Skip template selection and preview deployment. Focus on content quality.
 </workflow>`;
 
     const tools = `<tools>
@@ -180,26 +180,26 @@ ${isPresentationProject ? `**Presentation-Specific Parallel Patterns**:
 
 ## File Operations
 
-${isPresentationProject ? '[Note: For presentations, deploy_preview updates the live preview with your generated slides]' : '[Note: sandbox refers to ephemeral container running Bun + Vite dev server. Syncing to sandbox means reload of iframe]'}
+${isPresentationProject ? '[Note: For presentations, deploy_preview updates the live preview with your generated slides]' : '[Note: preview refers to the ephemeral container running Bun + Vite dev server. Syncing to preview means reload of iframe]'}
 
 **virtual_filesystem** - List or read files from persistent workspace
 - Commands: "list" (see all files), "read" (get file contents by paths)
 - What: Access your virtual filesystem (template files + generated files)
 - When: Before editing (understand structure), after changes (verify), exploring template
-- Where: Reads from Virtual FS (may differ from Sandbox FS if not deployed)
+- Where: Reads from Virtual FS (may differ from Preview FS if not deployed)
 
 **generate_files** - Create or completely rewrite files
 - What: Generate complete file contents, can batch multiple files sequentially, can be called multiple times in parallel
 - How: Files → Virtual FS, auto-committed to git
 - When: Creating NEW files that don't exist, or file needs complete rewrite (80%+ changes)
 - When NOT: Modifying existing files - use regenerate_file instead (more efficient)
-- After-effect: Must call deploy_preview to sync to sandbox before testing
+- After-effect: Must call deploy_preview to sync to preview before testing
 
 **regenerate_file** - Surgical or extensive modifications to existing files
 - What: Modify existing files (small tweaks or major changes), up to 3 passes, returns diff
 - How: Files → Virtual FS, staged (not committed - you must git commit manually)
 - When: ANY modification to existing file (prefer this over generate_files unless rewriting 80%+)
-- After-effect: Must call deploy_preview to sync to sandbox
+- After-effect: Must call deploy_preview to sync to preview
 - Parallel: Can regenerate multiple different files simultaneously
 - Describe issues specifically: exact error messages, line numbers, one problem per issue
 
@@ -207,31 +207,31 @@ ${isPresentationProject ? '[Note: For presentations, deploy_preview updates the 
 
 ## Deployment & Testing (Interactive Projects Only)
 
-**deploy_preview** - Deploy to sandbox and get preview URL
-- What: Syncs virtual → sandbox, creates sandbox on first call, runs bun install + bun run dev
+**deploy_preview** - Deploy to preview environment and get preview URL
+- What: Syncs virtual to preview, creates preview on first call, runs bun install + bun run dev
 - When: After generating files, before testing
-- Parameters: force_redeploy=true (destroy/recreate sandbox), clearLogs=true (clear cumulative logs)
+- Parameters: force_redeploy=true (destroy/recreate preview), clearLogs=true (clear cumulative logs)
 
 **run_analysis** - TypeScript checking + ESLint
-- Where: Runs in sandbox on deployed files
+- Where: Runs in preview on deployed files
 - When: After deploy_preview, catch errors before runtime testing
-- Requires: Sandbox must exist
+- Requires: Preview must exist
 
-**get_runtime_errors** - Fetch runtime exceptions from sandbox
-- Where: Sandbox environment
+**get_runtime_errors** - Fetch runtime exceptions from preview
+- Where: Preview environment
 - When: After deploy_preview, user has interacted with app
 - Check: Log recency (cumulative logs may show old errors)
 
-**get_logs** - Get console logs from sandbox
-- Where: Sandbox environment
+**get_logs** - Get console logs from preview
+- Where: Preview environment
 - When: Debug runtime behavior after user interaction
 - Check: Timestamps (cumulative logs)
 
 ## Utilities
 
-**exec_commands** - Execute shell commands in sandbox
-- Where: Sandbox environment (NOT virtual filesystem)
-- Requires: Sandbox must exist (call deploy_preview first)
+**exec_commands** - Execute shell commands in preview
+- Where: Preview environment (NOT virtual filesystem)
+- Requires: Preview must exist (call deploy_preview first)
 - Use: bun add package, custom build scripts
 - Note: Commands run at project root, never use cd
 
@@ -390,7 +390,7 @@ Result: Professional data presentation using template's full capabilities.
 
 **Your Actions**:
 \`\`\`
-Thought: Todo app with categories = React app with state management, likely needs Zustand. Interactive project, needs template and sandbox.
+Thought: Todo app with categories = React app with state management, likely needs Zustand. Interactive project, needs template and preview.
 
 Tool Calls:
 1. init_suitable_template() [MANDATORY]
@@ -408,7 +408,7 @@ Tool Calls:
    ])
 
 5. deploy_preview()
-   → Syncs files to sandbox, returns preview URL
+   → Syncs files to preview, returns preview URL
 
 6. generate_files([
      "src/components/TodoList.tsx",    // Display todos
