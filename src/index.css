@@ -101,11 +101,7 @@
 		var(--input);
 	--color-ring:
 		var(--ring);
-	--shadow-textarea:
-		6px 6px 13px 0px rgba(0, 0, 0, 0.04),
-		24px 24px 24px 0px rgba(0, 0, 0, 0.03),
-		53px 53px 32px 0px rgba(0, 0, 0, 0.02),
-		0px 0px 0px 1px rgba(217, 217, 217, 0.2);
+	--shadow-textarea: 3px 3px 0px 0px var(--neo-border-color);
 	--color-bg-1: var(--build-chat-colors-bg-1);
 	--color-bg-2: var(--build-chat-colors-bg-2);
 	--color-bg-3: var(--build-chat-colors-bg-3);
@@ -121,81 +117,83 @@
 	--color-text-primary: var(--build-chat-colors-text-primary);
 	--color-text-secondary: var(--build-chat-colors-text-secondary);
 	--color-text-tertiary: var(--build-chat-colors-text-tertiary);
-
-	--shadow-textarea:
-		6px 6px 13px 0px rgba(0, 0, 0, 0.04),
-		24px 24px 24px 0px rgba(0, 0, 0, 0.03),
-		53px 53px 32px 0px rgba(0, 0, 0, 0.02),
-		0px 0px 0px 1px rgba(217, 217, 217, 0.2);
+	--color-neo-yellow: var(--neo-yellow);
+	--color-neo-cyan: var(--neo-cyan);
+	--color-neo-orange: var(--neo-orange);
+	--color-neo-pink: var(--neo-pink);
+	--color-neo-green: var(--neo-green);
+	--color-neo-purple: var(--neo-purple);
+	--shadow-neo-sm: 2px 2px 0px 0px var(--neo-border-color);
+	--shadow-neo: 4px 4px 0px 0px var(--neo-border-color);
+	--shadow-neo-md: 5px 5px 0px 0px var(--neo-border-color);
+	--shadow-neo-lg: 6px 6px 0px 0px var(--neo-border-color);
+	--shadow-neo-xl: 8px 8px 0px 0px var(--neo-border-color);
 	--animate-typing-dot: typing-dot 1.2s ease-in-out infinite;
 	--animate-shake: shake 1s ease-in-out;
 }
 
 
 :root {
-	--radius:
-		0.625rem;
-	--destructive:
-		oklch(0.577 0.245 27.325);
-	--border:
-		oklch(0.922 0 0);
-	--input:
-		oklch(0.922 0 0);
-	--ring:
-		oklch(0.708 0 0);
-	--build-accent-color: #ff3d00;
-	--build-chat-colors-bg-1: #e7e7e7;
-	--build-chat-colors-bg-2: #f6f6f6;
-	--build-chat-colors-bg-3: #fbfbfc;
-	--build-chat-colors-bg-4: #ffffff;
-	--build-chat-colors-border-primary: #e5e5e5;
-	--build-chat-colors-border-secondary: #eeeeee;
-	--build-chat-colors-border-tertiary: #eeeeee;
-	--build-chat-colors-danger: #950000cc;
-	--build-chat-colors-brand-heavy: #f6821f;
-	--build-chat-colors-brand-primary: #f6821f;
-	--build-chat-colors-brand-subtle: #f6821f;
+	--radius: 0.75rem;
+	--destructive: #ef4444;
+	--border: #1a1a1a;
+	--input: #1a1a1a;
+	--ring: #1a1a1a;
+	--neo-border-color: #1a1a1a;
+	--neo-yellow: #FFD43B;
+	--neo-cyan: #22D3EE;
+	--neo-orange: #FFB800;
+	--neo-pink: #FF6B9D;
+	--neo-green: #4ADE80;
+	--neo-purple: #A78BFA;
+	--build-accent-color: #FFB800;
+	--build-chat-colors-bg-1: #E8DCC8;
+	--build-chat-colors-bg-2: #FFF3CD;
+	--build-chat-colors-bg-3: #FFF8E1;
+	--build-chat-colors-bg-4: #FFFFFF;
+	--build-chat-colors-border-primary: #1a1a1a;
+	--build-chat-colors-border-secondary: #1a1a1a;
+	--build-chat-colors-border-tertiary: #3a3a3a;
+	--build-chat-colors-danger: #ef4444;
+	--build-chat-colors-brand-heavy: #FFB800;
+	--build-chat-colors-brand-primary: #FFB800;
+	--build-chat-colors-brand-subtle: #FFD43B;
 	--build-chat-colors-text-inverted: #ffffff;
-	--build-chat-colors-text-primary: #0a0a0a;
-	--build-chat-colors-text-secondary: #171717;
-	--build-chat-colors-text-tertiary: #21212199;
+	--build-chat-colors-text-primary: #1a1a1a;
+	--build-chat-colors-text-secondary: #1a1a1a;
+	--build-chat-colors-text-tertiary: #555555;
 }
 
 .dark {
-	--destructive:
-		#ef4444; /* Error red */
-	--border:
-		#393939; /* Primary border color */
-	--input:
-		#292929; /* Input background */
+	--destructive: #ef4444;
+	--border: #555555;
+	--input: #555555;
+	--ring: #555555;
+	--neo-border-color: #555555;
+	--neo-yellow: #FFD43B;
+	--neo-cyan: #22D3EE;
+	--neo-orange: #FFB800;
+	--neo-pink: #FF6B9D;
+	--neo-green: #4ADE80;
+	--neo-purple: #A78BFA;
 
-	--build-chat-colors-bg-1: #151515;
-	--build-chat-colors-bg-2: #1f2020;
-	--build-chat-colors-bg-3: #292929;
-	--build-chat-colors-bg-4: #3c3c3c;
-	--build-chat-colors-border-primary: #393939;
-	--build-chat-colors-border-secondary: #454746;
-	--build-chat-colors-border-tertiary: #454746;
-	--build-chat-colors-brand-heavy: #f6821f;
-	--build-chat-colors-brand-primary: #f6821f;
-	--build-chat-colors-brand-subtle: #f6821f;
-	--build-chat-colors-text-inverted: #000000;
-	--build-chat-colors-text-primary: #ffffff;
-	--build-chat-colors-text-secondary: #cdcaca;
-	--build-chat-colors-text-tertiary: #bcb9b9;
+	--build-chat-colors-bg-1: #0a0a0a;
+	--build-chat-colors-bg-2: #141414;
+	--build-chat-colors-bg-3: #1a1a1a;
+	--build-chat-colors-bg-4: #252525;
+	--build-chat-colors-border-primary: #555555;
+	--build-chat-colors-border-secondary: #888888;
+	--build-chat-colors-border-tertiary: #666666;
+	--build-chat-colors-brand-heavy: #FFB800;
+	--build-chat-colors-brand-primary: #FFB800;
+	--build-chat-colors-brand-subtle: #FFD43B;
+	--build-chat-colors-text-inverted: #1a1a1a;
+	--build-chat-colors-text-primary: #f5f5f5;
+	--build-chat-colors-text-secondary: #e5e5e5;
+	--build-chat-colors-text-tertiary: #999999;
 
-	--shadow-dialog:
-		0px 18px 60px 0px rgba(6, 6, 5, 0.1),
-		3px 3px 13px 0px rgba(0, 0, 0, 0.04), -3px 3px 13px 0px rgba(0, 0, 0, 0.04),
-		24px 24px 24px 0px rgba(0, 0, 0, 0.03),
-		-24px 24px 24px 0px rgba(0, 0, 0, 0.03),
-		53px 53px 32px 0px rgba(0, 0, 0, 0.02),
-		0px 0px 0px 1px rgba(217, 217, 217, 0.2);
-	--shadow-elevation:
-		6px 6px 13px 0px rgba(0, 0, 0, 0.2),
-		24px 24px 24px 0px rgba(0, 0, 0, 0.17),
-		53px 53px 32px 0px rgba(0, 0, 0, 0.12),
-		0px 0px 0px 1px rgba(217, 217, 217, 0.1);
+	--shadow-dialog: 4px 4px 0px 0px var(--neo-border-color);
+	--shadow-elevation: 6px 6px 0px 0px var(--neo-border-color);
 }
 
 @layer base {
@@ -218,24 +216,47 @@
 		'Inter', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji',
 		'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
 
-	--color-brand: #0092b8;
-	--color-text: #000;
-	--color-text-on-brand: #fff;
+	--color-brand: #FFB800;
+	--color-text: #1a1a1a;
+	--color-text-on-brand: #1a1a1a;
 
-	--shadow-dialog:
-		0px 18px 60px 0px rgba(6, 6, 5, 0.1),
-		3px 3px 13px 0px rgba(0, 0, 0, 0.04), -3px 3px 13px 0px rgba(0, 0, 0, 0.04),
-		24px 24px 24px 0px rgba(0, 0, 0, 0.03),
-		-24px 24px 24px 0px rgba(0, 0, 0, 0.03),
-		53px 53px 32px 0px rgba(0, 0, 0, 0.02),
-		0px 0px 0px 1px rgba(217, 217, 217, 0.2);
-	--shadow-elevation:
-		6px 6px 13px 0px rgba(0, 0, 0, 0.04),
-		24px 24px 24px 0px rgba(0, 0, 0, 0.03),
-		53px 53px 32px 0px rgba(0, 0, 0, 0.02),
-		0px 0px 0px 1px rgba(217, 217, 217, 0.2);
-	--shadow-soft-layered:
-		3px 3px 13px 0px rgba(0, 0, 0, 0.04), 24px 24px 24px 0px rgba(0, 0, 0, 0.03);
+	--shadow-dialog: 6px 6px 0px 0px var(--neo-border-color);
+	--shadow-elevation: 4px 4px 0px 0px var(--neo-border-color);
+	--shadow-soft-layered: 3px 3px 0px 0px var(--neo-border-color);
+}
+
+@utility neo-border {
+	border: 2px solid var(--neo-border-color);
+}
+
+@utility neo-border-3 {
+	border: 3px solid var(--neo-border-color);
+}
+
+@utility neo-shadow {
+	box-shadow: 4px 4px 0px 0px var(--neo-border-color);
+}
+
+@utility neo-shadow-sm {
+	box-shadow: 2px 2px 0px 0px var(--neo-border-color);
+}
+
+@utility neo-shadow-md {
+	box-shadow: 5px 5px 0px 0px var(--neo-border-color);
+}
+
+@utility neo-shadow-lg {
+	box-shadow: 6px 6px 0px 0px var(--neo-border-color);
+}
+
+@utility neo-shadow-hover {
+	box-shadow: 6px 6px 0px 0px var(--neo-border-color);
+	translate: -2px -2px;
+}
+
+@utility neo-shadow-active {
+	box-shadow: 1px 1px 0px 0px var(--neo-border-color);
+	translate: 3px 3px;
 }
 
 

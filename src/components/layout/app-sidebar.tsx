@@ -174,7 +174,6 @@ function DiscoverSidebar({ isCollapsed, navigate }: { isCollapsed: boolean; navi
 
 	return (
 		<>
-			{/* New Build Button */}
 			<SidebarGroup>
 				<SidebarGroupContent>
 					<div className={cn(isCollapsed ? 'pr-2' : 'px-1')}>
@@ -183,17 +182,17 @@ function DiscoverSidebar({ isCollapsed, navigate }: { isCollapsed: boolean; navi
 								<TooltipTrigger asChild>
 									<button
 										className={cn(
-											'group flex w-full border-[0.5px] border-bg-2 items-center gap-2 font-medium hover:opacity-80 hover:cursor-pointer p-2 rounded-md cursor-hand text-text-secondary hover:text-text-primary',
+											'group flex w-full border-2 border-[var(--neo-border-color)] items-center gap-2 font-bold hover:cursor-pointer p-2 rounded-lg shadow-[3px_3px_0px_0px_var(--neo-border-color)] hover:shadow-[4px_4px_0px_0px_var(--neo-border-color)] hover:-translate-x-[0.5px] hover:-translate-y-[0.5px] active:translate-x-[1px] active:translate-y-[1px] active:shadow-[1px_1px_0px_0px_var(--neo-border-color)] transition-all text-[15px]',
 											isCollapsed
-												? 'justify-center bg-accent'
-												: 'justify-start bg-accent',
+												? 'justify-center bg-neo-orange'
+												: 'justify-start bg-neo-orange',
 										)}
 										onClick={() => navigate('/build')}
 									>
-										<Plus className="h-4 w-4 text-neutral-50" />
+										<Plus className="h-4 w-4 text-[#1a1a1a]" />
 										{!isCollapsed && (
-											<span className="font-medium text-neutral-50">
-												New build
+											<span className="font-bold text-[#1a1a1a]">
+												Create
 											</span>
 										)}
 									</button>
@@ -204,21 +203,24 @@ function DiscoverSidebar({ isCollapsed, navigate }: { isCollapsed: boolean; navi
 				</SidebarGroupContent>
 			</SidebarGroup>
 
-			{/* Navigation */}
-			<SidebarGroup>
+			<SidebarGroup className="pt-4">
 				<SidebarGroupContent>
 					<SidebarMenu>
 						<SidebarMenuItem>
 							<SidebarMenuButton
-								onClick={() => navigate('/')}
-								tooltip="Feed"
+								onClick={() => {
+									if (!pathname.startsWith('/feed')) {
+										navigate('/feed');
+									}
+								}}
+								tooltip="Home"
 								className={cn(
-									'group hover:opacity-80 hover:cursor-pointer transition-all duration-200',
-									pathname === '/' && 'bg-bg-1/50 text-text-primary',
+									'group hover:cursor-pointer transition-all duration-200 h-10 text-[15px]',
+									pathname.startsWith('/feed') && 'bg-neo-yellow/40 font-bold',
 								)}
 							>
 								<PlaySquare className="h-5 w-5" />
-								{!isCollapsed && <span className="font-medium">Feed</span>}
+								{!isCollapsed && <span>Home</span>}
 							</SidebarMenuButton>
 						</SidebarMenuItem>
 						<SidebarMenuItem>
@@ -226,12 +228,12 @@ function DiscoverSidebar({ isCollapsed, navigate }: { isCollapsed: boolean; navi
 								onClick={() => navigate('/discover')}
 								tooltip="Discover"
 								className={cn(
-									'group hover:opacity-80 hover:cursor-pointer transition-all duration-200',
-									pathname === '/discover' && 'bg-bg-1/50 text-text-primary',
+									'group hover:cursor-pointer transition-all duration-200 h-10 text-[15px]',
+									(pathname === '/' || pathname.startsWith('/discover')) && 'bg-neo-yellow/40 font-bold',
 								)}
 							>
 								<Compass className="h-5 w-5" />
-								{!isCollapsed && <span className="font-medium">Discover</span>}
+								{!isCollapsed && <span>Discover</span>}
 							</SidebarMenuButton>
 						</SidebarMenuItem>
 						<SidebarMenuItem>
@@ -243,12 +245,12 @@ function DiscoverSidebar({ isCollapsed, navigate }: { isCollapsed: boolean; navi
 								}}
 								tooltip="Profile"
 								className={cn(
-									'group hover:opacity-80 hover:cursor-pointer transition-all duration-200',
-									pathname === '/profile' && 'bg-bg-1/50 text-text-primary',
+									'group hover:cursor-pointer transition-all duration-200 h-10 text-[15px]',
+									pathname === '/profile' && 'bg-neo-yellow/40 font-bold',
 								)}
 							>
 								<User className="h-5 w-5" />
-								{!isCollapsed && <span className="font-medium">Profile</span>}
+								{!isCollapsed && <span>Profile</span>}
 							</SidebarMenuButton>
 						</SidebarMenuItem>
 					</SidebarMenu>
@@ -307,17 +309,17 @@ function BuildSidebar({
 								<TooltipTrigger asChild>
 									<button
 										className={cn(
-											'group flex w-full border-[0.5px] border-bg-2 items-center gap-2 font-medium hover:opacity-80 hover:cursor-pointer p-2 rounded-md cursor-hand text-text-secondary hover:text-text-primary',
+											'group flex w-full border-2 border-[var(--neo-border-color)] items-center gap-2 font-bold hover:cursor-pointer p-2 rounded-lg shadow-[3px_3px_0px_0px_var(--neo-border-color)] hover:shadow-[4px_4px_0px_0px_var(--neo-border-color)] hover:-translate-x-[0.5px] hover:-translate-y-[0.5px] active:translate-x-[1px] active:translate-y-[1px] active:shadow-[1px_1px_0px_0px_var(--neo-border-color)] transition-all',
 											isCollapsed
-												? 'justify-center bg-accent'
-												: 'justify-start bg-accent',
+												? 'justify-center bg-neo-cyan'
+												: 'justify-start bg-neo-cyan',
 										)}
-										onClick={() => navigate('/discover')}
+										onClick={() => navigate('/feed')}
 									>
-										<Compass className="h-4 w-4 text-neutral-50" />
+										<PlaySquare className="h-4 w-4 text-[#1a1a1a]" />
 										{!isCollapsed && (
-											<span className="font-medium text-neutral-50">
-												Discover
+											<span className="font-bold text-[#1a1a1a]">
+												Home
 											</span>
 										)}
 									</button>
@@ -329,16 +331,16 @@ function BuildSidebar({
 								<TooltipTrigger asChild>
 									<button
 										className={cn(
-											'group flex w-full border-[0.5px] border-border-primary items-center gap-2 font-medium hover:opacity-80 hover:cursor-pointer p-2 rounded-md cursor-hand text-text-secondary hover:text-text-primary mt-1',
+											'group flex w-full border-2 border-[var(--neo-border-color)] items-center gap-2 font-bold hover:cursor-pointer p-2 rounded-lg shadow-[3px_3px_0px_0px_var(--neo-border-color)] hover:shadow-[4px_4px_0px_0px_var(--neo-border-color)] hover:-translate-x-[0.5px] hover:-translate-y-[0.5px] active:translate-x-[1px] active:translate-y-[1px] active:shadow-[1px_1px_0px_0px_var(--neo-border-color)] transition-all mt-1',
 											isCollapsed
-												? 'justify-center bg-bg-3'
-												: 'justify-start bg-bg-3',
+												? 'justify-center bg-neo-orange'
+												: 'justify-start bg-neo-orange',
 										)}
 										onClick={() => navigate('/build')}
 									>
-										<Plus className="h-4 w-4" />
+										<Plus className="h-4 w-4 text-[#1a1a1a]" />
 										{!isCollapsed && (
-											<span className="font-medium">
+											<span className="font-bold text-[#1a1a1a]">
 												Create
 											</span>
 										)}
@@ -351,19 +353,18 @@ function BuildSidebar({
 			</SidebarGroup>
 
 			{!isCollapsed && (
-				<ScrollArea className="flex-1 px-1 relative">
-					<div className="absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-bg-2 to-transparent pointer-events-none z-10"></div>
+				<ScrollArea className="flex-1 px-1 relative overflow-visible">
 					<SidebarGroup>
 						{expandedGroups.includes('apps') && (
 							<SidebarGroupContent>
 								{/* Search */}
-								<div className="relative bg-bg-3 mb-4 mt-2">
-									<Search className="absolute left-2 top-1/2 h-4 w-4 -translate-y-1/2 text-text-tertiary" />
+								<div className="relative mb-4 mt-2">
+									<Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-tertiary z-10" />
 									<Input
 										placeholder="Search apps..."
 										value={searchQuery}
 										onChange={(e) => setSearchQuery(e.target.value)}
-										className="h-10 w-full pl-8 placeholder:text-primary/40"
+										className="h-10 w-full pl-9 placeholder:text-text-tertiary"
 									/>
 								</div>
 								<SidebarMenu>
@@ -624,17 +625,21 @@ export function AppSidebar() {
 			<Sidebar
 				collapsible="icon"
 				className={cn(
-					'bg-bg-2 transition-all duration-300 ease-in-out',
+					'bg-bg-2 transition-all duration-300 ease-in-out border-r-3 border-[var(--neo-border-color)]',
 				)}
 			>
-				{/* Logo + Toggle Header */}
-				<div className={cn('flex items-center px-3 py-3', isCollapsed ? 'justify-center' : 'justify-between')}>
-					<a href="/" className="flex items-center gap-2 shrink-0">
-						<img src="/logo.svg" alt="BuzzPlay" className="h-6 w-6" />
-						{!isCollapsed && <span className="text-base font-semibold text-text-primary">BuzzPlay</span>}
+				<div className={cn(
+					'flex items-center px-3 py-2.5',
+					isCollapsed ? 'justify-center' : 'justify-between'
+				)}>
+					<a href="/" className="flex items-center gap-2.5 shrink-0">
+						<img src="/logo.svg" alt="BuzzPlay" className="h-7 w-7 shrink-0" />
+						{!isCollapsed && (
+							<span className="text-base font-extrabold text-text-primary uppercase tracking-wide leading-none">BUZZPLAY</span>
+						)}
 					</a>
 					{!isCollapsed && (
-						<SidebarTrigger className="h-7 w-7 text-text-tertiary hover:text-text-primary" />
+						<SidebarTrigger className="h-7 w-7 text-text-tertiary hover:text-text-primary rounded-lg border-2 border-[var(--neo-border-color)] shadow-[1px_1px_0px_0px_var(--neo-border-color)] hover:shadow-[2px_2px_0px_0px_var(--neo-border-color)] transition-all" />
 					)}
 				</div>
 
@@ -660,9 +665,9 @@ export function AppSidebar() {
 					)}
 				</SidebarContent>
 
-				<SidebarFooter>
+				<SidebarFooter className="p-2">
 					{isCollapsed && (
-						<div className="flex justify-center mb-2">
+						<div className="flex justify-center mb-1">
 							<SidebarTrigger className="h-7 w-7 text-text-tertiary hover:text-text-primary" />
 						</div>
 					)}
@@ -684,41 +689,40 @@ export function AppSidebar() {
 											{!isCollapsed && (
 												<div className="flex-1 min-w-0 text-left">
 													<p className="text-sm font-medium truncate">{user.displayName || user.username || 'User'}</p>
-													<p className="text-xs text-text-tertiary truncate">{user.email}</p>
 												</div>
 											)}
-											{!isCollapsed && <ChevronsUpDown className="h-4 w-4 text-text-tertiary shrink-0" />}
+											{!isCollapsed && <ChevronsUpDown className="h-3.5 w-3.5 text-text-tertiary shrink-0" />}
 										</SidebarMenuButton>
 									</DropdownMenuTrigger>
-									<DropdownMenuContent side="top" align="start" className="w-[--radix-dropdown-menu-trigger-width]">
+									<DropdownMenuContent side="top" align="end">
 										<DropdownMenuItem onClick={() => navigate('/settings')} className="cursor-pointer">
-											<Settings className="mr-2 h-4 w-4" />
+											<Settings className="size-5" />
 											Settings
 										</DropdownMenuItem>
 										<DropdownMenuSub>
 											<DropdownMenuSubTrigger className="cursor-pointer">
-												<Sun className="mr-2 h-4 w-4" />
+												<Sun className="size-5" />
 												Theme
 											</DropdownMenuSubTrigger>
 											<DropdownMenuPortal>
 												<DropdownMenuSubContent>
 													<DropdownMenuItem onClick={() => setTheme('light')} className="cursor-pointer">
-														<Sun className="mr-2 h-4 w-4" />
+														<Sun className="size-5" />
 														Light
 													</DropdownMenuItem>
 													<DropdownMenuItem onClick={() => setTheme('dark')} className="cursor-pointer">
-														<Moon className="mr-2 h-4 w-4" />
+														<Moon className="size-5" />
 														Dark
 													</DropdownMenuItem>
 													<DropdownMenuItem onClick={() => setTheme('system')} className="cursor-pointer">
-														<Monitor className="mr-2 h-4 w-4" />
+														<Monitor className="size-5" />
 														System
 													</DropdownMenuItem>
 												</DropdownMenuSubContent>
 											</DropdownMenuPortal>
 										</DropdownMenuSub>
 										<DropdownMenuItem onClick={() => logout()} className="cursor-pointer text-destructive focus:text-destructive">
-											<LogOut className="mr-2 h-4 w-4" />
+											<LogOut className="size-5" />
 											Sign Out
 										</DropdownMenuItem>
 									</DropdownMenuContent>

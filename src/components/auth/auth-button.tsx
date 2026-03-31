@@ -109,7 +109,7 @@ export function AuthButton({ className }: AuthButtonProps) {
 				<Button
 					variant="ghost"
 					size="icon"
-					className="relative rounded-full hover:ring-2 hover:ring-primary/20 transition-all"
+					className="relative rounded-full border-2 border-[var(--neo-border-color)] shadow-[2px_2px_0px_0px_var(--neo-border-color)] hover:shadow-[3px_3px_0px_0px_var(--neo-border-color)] transition-all"
 				>
 					<Avatar className="h-8 w-8">
 						<AvatarImage

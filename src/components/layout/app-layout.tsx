@@ -11,14 +11,15 @@ interface AppLayoutProps {
 
 export function AppLayout({ children }: AppLayoutProps) {
   const { pathname } = useLocation();
+  const isBuildContext = pathname.startsWith('/build') || pathname.startsWith('/chat');
   return (
     <AppsDataProvider>
       <SidebarProvider 
-        defaultOpen={false}
+        defaultOpen={!isBuildContext}
         style={{
-          "--sidebar-width": "320px",
-          "--sidebar-width-mobile": "280px",
-          "--sidebar-width-icon": "52px"
+          "--sidebar-width": "250px",
+          "--sidebar-width-mobile": "250px",
+          "--sidebar-width-icon": "52px",
         } as React.CSSProperties}
       >
         <AppSidebar />

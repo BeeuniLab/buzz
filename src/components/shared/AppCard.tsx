@@ -433,7 +433,7 @@ export const AppCard = React.memo<AppCardProps>(
 						}}
 						className="block h-full no-underline group"
 					>
-						<div className="relative aspect-[3/4] rounded-xl overflow-hidden bg-gradient-to-br from-bg-3 to-bg-2 cursor-pointer">
+						<div className="relative aspect-[3/4] rounded-xl overflow-hidden bg-bg-2 cursor-pointer border-2 border-[var(--neo-border-color)] shadow-[4px_4px_0px_0px_var(--neo-border-color)] transition-all group-hover:shadow-[6px_6px_0px_0px_var(--neo-border-color)] group-hover:-translate-x-[1px] group-hover:-translate-y-[1px]">
 							{app.screenshotUrl ? (
 								<img
 									src={app.screenshotUrl}
@@ -443,41 +443,39 @@ export const AppCard = React.memo<AppCardProps>(
 									decoding="async"
 								/>
 							) : (
-								<div className="w-full h-full flex items-center justify-center">
-									<Code2 className="h-12 w-12 text-text-tertiary/30" />
+								<div className="w-full h-full flex items-center justify-center bg-neo-yellow/20">
+									<Code2 className="h-12 w-12 text-text-tertiary/50" />
 								</div>
 							)}
 
-							{/* View count badge */}
-							<div className="absolute bottom-2 left-2 flex items-center gap-1 bg-black/60 backdrop-blur-sm rounded-full px-2 py-0.5">
+							<div className="absolute bottom-2 left-2 flex items-center gap-1 bg-[#1a1a1a] rounded-lg border-2 border-[var(--neo-border-color)] px-2 py-0.5 shadow-[2px_2px_0px_0px_var(--neo-border-color)]">
 								<Play className="h-2.5 w-2.5 text-white fill-white" />
-								<span className="text-white text-[11px] font-medium">
+								<span className="text-white text-[11px] font-bold">
 									{formatCount((app as AppWithUserAndStats).viewCount || 0)}
 								</span>
 							</div>
 						</div>
 
-						{/* Author info below card — hidden on profile pages */}
 						{showAuthor && (
-							<div className="flex items-center gap-1.5 mt-1.5 px-0.5">
+							<div className="flex items-center gap-1.5 mt-2 px-0.5">
 								{isPublicApp(app) && app.userName && app.userName !== 'Anonymous User' ? (
 									<>
 										<Avatar className="h-5 w-5">
 											<AvatarImage src={app.userAvatar || undefined} />
-											<AvatarFallback className="text-[8px] bg-bg-3 font-semibold">
+											<AvatarFallback className="text-[8px] bg-neo-yellow font-bold">
 												{app.userName.charAt(0).toUpperCase()}
 											</AvatarFallback>
 										</Avatar>
-										<span className="text-xs text-text-tertiary truncate">
+										<span className="text-xs text-text-primary font-bold truncate">
 											{app.userName}
 										</span>
 									</>
 								) : (
 									<>
-										<div className="h-5 w-5 rounded-full bg-bg-3 flex items-center justify-center">
-											<User className="h-2.5 w-2.5 text-text-tertiary" />
+										<div className="h-5 w-5 rounded-full bg-neo-yellow border-2 border-[var(--neo-border-color)] flex items-center justify-center">
+											<User className="h-2.5 w-2.5 text-[#1a1a1a]" />
 										</div>
-										<span className="text-xs text-text-tertiary">
+										<span className="text-xs text-text-tertiary font-bold">
 											Anonymous
 										</span>
 									</>
@@ -511,12 +509,12 @@ export const AppCard = React.memo<AppCardProps>(
 				>
 					<Card
 						className={cn(
-							'h-full transition-all duration-300 ease-out cursor-pointer group relative overflow-hidden rounded-md p-2 bg-bg-1 hover:!bg-text hover:dark:!bg-text-primary',
-							'border border-border-primary hover:border-border-primary/60',
+							'h-full transition-all duration-300 ease-out cursor-pointer group relative overflow-hidden rounded-xl p-2 bg-bg-4 hover:shadow-[6px_6px_0px_0px_var(--neo-border-color)] hover:-translate-x-[1px] hover:-translate-y-[1px]',
+							'border-2 border-[var(--neo-border-color)] shadow-[4px_4px_0px_0px_var(--neo-border-color)]',
 						)}
 					>
 					{/* Enhanced Preview Section with High-Quality Rendering */}
-					<div className="relative aspect-[16/9] rounded-lg overflow-hidden bg-gradient-to-br from-red-50 to-red-100 dark:from-red-950/20 dark:to-orange-900/20">
+					<div className="relative aspect-[16/9] rounded-lg overflow-hidden bg-neo-yellow/20 border-2 border-[var(--neo-border-color)]">
 						{app.screenshotUrl ? (
 							<img
 								src={app.screenshotUrl}
@@ -595,16 +593,12 @@ export const AppCard = React.memo<AppCardProps>(
 								app.screenshotUrl
 									? 'hidden opacity-0'
 									: 'opacity-100',
-								// Enhanced placeholder design
-								'bg-gradient-to-br from-red-50 via-red-100/80 to-red-200/60 dark:from-red-950/30 dark:via-red-900/20 dark:to-red-800/10',
+								'bg-neo-yellow/20',
 							)}
 						>
-							<div className="flex flex-col items-center gap-3 text-red-400/70 dark:text-red-500/50">
-								<div className="relative">
-									<Code2 className="h-12 w-12 drop-shadow-sm" />
-									<div className="absolute inset-0 bg-gradient-to-t from-red-200/30 to-transparent rounded blur-sm" />
-								</div>
-								<div className="text-xs font-medium text-center px-4 opacity-60">
+							<div className="flex flex-col items-center gap-3 text-text-tertiary">
+								<Code2 className="h-12 w-12" />
+								<div className="text-xs font-bold text-center px-4">
 									Preview Unavailable
 								</div>
 							</div>

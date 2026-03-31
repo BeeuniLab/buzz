@@ -8,11 +8,14 @@ const Toaster = ({ ...props }: ToasterProps) => {
     <Sonner
       theme={theme as ToasterProps["theme"]}
       className="toaster group"
+      toastOptions={{
+        className: "border-2 !border-[var(--neo-border-color)] !rounded-xl !shadow-[4px_4px_0px_0px_var(--neo-border-color)] !font-bold",
+      }}
       style={
         {
-          "--normal-bg": "var(--popover)",
-          "--normal-text": "var(--popover-foreground)",
-          "--normal-border": "var(--border)",
+          "--normal-bg": "var(--build-chat-colors-bg-4)",
+          "--normal-text": "var(--build-chat-colors-text-primary)",
+          "--normal-border": "var(--neo-border-color)",
         } as React.CSSProperties
       }
       {...props}

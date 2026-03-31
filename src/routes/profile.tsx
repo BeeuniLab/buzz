@@ -30,7 +30,8 @@ export default function Profile() {
   const { userId } = useParams<{ userId?: string }>();
   const { user } = useAuth();
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = React.useState<ProfileTab>('created');
+  const isViewingOther = !!userId && userId !== user?.id;
+  const [activeTab, setActiveTab] = React.useState<ProfileTab>(isViewingOther ? 'created' : 'favorites');
 
   // Own profile data
   const { apps: favoriteApps, loading: favLoading } = useFavoriteApps();
@@ -60,6 +61,10 @@ export default function Profile() {
       .catch(() => {})
       .finally(() => setCreatedLoading(false));
   }, [targetUserId]);
+
+  React.useEffect(() => {
+    setActiveTab(isViewingOther ? 'created' : 'favorites');
+  }, [isViewingOther]);
 
   // Fetch public profile info for other users
   React.useEffect(() => {

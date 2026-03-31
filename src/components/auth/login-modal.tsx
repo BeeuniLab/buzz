@@ -189,22 +189,21 @@ export function LoginModal({
 						transition={{ type: 'spring', duration: 0.5 }}
 						className="relative z-10 w-full max-w-md mx-auto my-8"
 					>
-						<div className="bg-bg-3/95 backdrop-blur-xl text-text-primary border border-border-primary/50 rounded-2xl shadow-2xl overflow-hidden">
-							{/* Header */}
+						<div className="bg-bg-4 text-text-primary border-3 border-[var(--neo-border-color)] rounded-2xl shadow-[8px_8px_0px_0px_var(--neo-border-color)] overflow-hidden">
 							<div className="relative p-6 pb-0">
 								{showCloseButton && (
 									<button
 										onClick={handleClose}
-										className="absolute right-4 top-4 p-2 rounded-lg hover:bg-accent transition-colors"
+										className="absolute right-4 top-4 p-1.5 rounded-lg border-2 border-[var(--neo-border-color)] bg-bg-4 shadow-[2px_2px_0px_0px_var(--neo-border-color)] hover:shadow-[3px_3px_0px_0px_var(--neo-border-color)] hover:-translate-x-[0.5px] hover:-translate-y-[0.5px] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none transition-all"
 									>
 										<X className="h-4 w-4" />
 									</button>
 								)}
 
 								<div className="text-center space-y-2">
-									<div className="mx-auto w-12 h-12 rounded-full bg-text-secondary/10 flex items-center justify-center mb-4">
+									<div className="mx-auto w-14 h-14 rounded-xl bg-neo-yellow border-2 border-[var(--neo-border-color)] shadow-[3px_3px_0px_0px_var(--neo-border-color)] flex items-center justify-center mb-4">
 										<svg
-											className="w-6 h-6 text-text-primary"
+											className="w-7 h-7 text-[#1a1a1a]"
 											fill="none"
 											viewBox="0 0 24 24"
 											stroke="currentColor"
@@ -212,19 +211,19 @@ export function LoginModal({
 											<path
 												strokeLinecap="round"
 												strokeLinejoin="round"
-												strokeWidth={2}
+												strokeWidth={2.5}
 												d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"
 											/>
 										</svg>
 									</div>
-									<h2 className="text-2xl font-semibold mb-2">
+									<h2 className="text-2xl font-extrabold mb-2">
 										{actionContext
 											? `Sign in ${actionContext}`
 											: hasEmailAuth && mode === 'register'
 											? 'Create an account'
 											: 'Welcome back'}
 									</h2>
-									<p className="text-text-tertiary">
+									<p className="text-text-tertiary font-medium">
 										{actionContext
 											? 'Authentication required for this action'
 											: hasEmailAuth && mode === 'register'
@@ -236,9 +235,9 @@ export function LoginModal({
 
 							{/* Error display */}
 							{error && (
-								<div className="mx-6 mt-4 p-3 rounded-lg bg-destructive/10 border border-destructive/20 flex items-start gap-2">
+								<div className="mx-6 mt-4 p-3 rounded-lg bg-destructive/10 border-2 border-destructive flex items-start gap-2 shadow-[2px_2px_0px_0px_#ef4444]">
 									<AlertCircle className="h-4 w-4 text-destructive mt-0.5" />
-									<p className="text-sm text-destructive">
+									<p className="text-sm text-destructive font-bold">
 										{error}
 									</p>
 								</div>
@@ -251,8 +250,7 @@ export function LoginModal({
 									<motion.button
 										whileTap={{ scale: 0.98 }}
 										onClick={() => handleOAuthClick('github')}
-										// disabled={isLoading}
-										className="w-full group relative overflow-hidden rounded-xl bg-gray-900 dark:bg-bg-1 p-4 text-white transition-all hover:bg-gray-800 dark:hover:bg-[#1a1e22] border border-gray-800 dark:border-bg-4 disabled:opacity-50 disabled:cursor-not-allowed"
+										className="w-full group relative overflow-hidden rounded-xl bg-[#1a1a1a] p-4 text-white transition-all border-2 border-[var(--neo-border-color)] shadow-[4px_4px_0px_0px_var(--neo-border-color)] hover:shadow-[6px_6px_0px_0px_var(--neo-border-color)] hover:-translate-x-[1px] hover:-translate-y-[1px] active:translate-x-[2px] active:translate-y-[2px] active:shadow-[1px_1px_0px_0px_var(--neo-border-color)] disabled:opacity-50 disabled:cursor-not-allowed"
 									>
 									<div className="relative z-10 flex items-center justify-center gap-3">
 										<svg
@@ -266,11 +264,10 @@ export function LoginModal({
 												d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"
 											/>
 										</svg>
-										<span className="font-medium">
+										<span className="font-bold">
 											Continue with GitHub
 										</span>
 									</div>
-									<div className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/10 to-transparent group-hover:translate-x-full transition-transform duration-700" />
 								</motion.button>
 								)}
 
@@ -279,8 +276,7 @@ export function LoginModal({
 									<motion.button
 									whileTap={{ scale: 0.98 }}
 									onClick={() => handleOAuthClick('google')}
-									// disabled={isLoading}
-									className="w-full group relative overflow-hidden rounded-xl bg-white dark:bg-bg-4 p-4 text-gray-800 dark:text-text-primary transition-all hover:bg-gray-50 dark:hover:bg-bg-4/80 border border-gray-200 dark:border-border-primary disabled:opacity-50 disabled:cursor-not-allowed"
+									className="w-full group relative overflow-hidden rounded-xl bg-bg-4 p-4 text-text-primary transition-all border-2 border-[var(--neo-border-color)] shadow-[4px_4px_0px_0px_var(--neo-border-color)] hover:shadow-[6px_6px_0px_0px_var(--neo-border-color)] hover:-translate-x-[1px] hover:-translate-y-[1px] active:translate-x-[2px] active:translate-y-[2px] active:shadow-[1px_1px_0px_0px_var(--neo-border-color)] disabled:opacity-50 disabled:cursor-not-allowed"
 								>
 									<div className="relative z-10 flex items-center justify-center gap-3">
 										<svg
@@ -304,22 +300,20 @@ export function LoginModal({
 												fill="#EA4335"
 											/>
 										</svg>
-										<span className="font-medium">
+										<span className="font-bold">
 											Continue with Google
 										</span>
 									</div>
-									<div className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-gray-100 dark:via-gray-800 to-transparent group-hover:translate-x-full transition-transform duration-700" />
 								</motion.button>
 								)}
 
-								{/* Divider (only if both OAuth and email are available) */}
 								{hasEmailAuth && hasOAuth && (
 									<div className="relative">
 										<div className="absolute inset-0 flex items-center">
-											<div className="w-full border-t border-border" />
+											<div className="w-full border-t-2 border-[var(--neo-border-color)]" />
 										</div>
 										<div className="relative flex justify-center text-xs uppercase">
-											<span className="bg-background px-2 text-muted-foreground">Or continue with</span>
+											<span className="bg-bg-4 px-3 text-text-tertiary font-bold">Or continue with</span>
 										</div>
 									</div>
 								)}
@@ -335,8 +329,8 @@ export function LoginModal({
 													value={name}
 													onChange={(e) => setName(e.target.value)}
 													className={clsx(
-														'w-full p-3 rounded-lg border bg-background transition-colors',
-														validationErrors.name ? 'border-destructive' : 'border-border focus:border-primary'
+														'w-full p-3 rounded-lg border-2 bg-bg-4 font-medium transition-all shadow-[2px_2px_0px_0px_var(--neo-border-color)] focus:shadow-[4px_4px_0px_0px_var(--neo-border-color)] focus:-translate-x-[1px] focus:-translate-y-[1px] outline-none',
+														validationErrors.name ? 'border-destructive' : 'border-[var(--neo-border-color)]'
 													)}
 													disabled={isLoading}
 												/>
@@ -353,8 +347,8 @@ export function LoginModal({
 												value={email}
 												onChange={(e) => setEmail(e.target.value)}
 												className={clsx(
-													'w-full p-3 rounded-lg border bg-background transition-colors',
-													validationErrors.email ? 'border-destructive' : 'border-border focus:border-primary'
+													'w-full p-3 rounded-lg border-2 bg-bg-4 font-medium transition-all shadow-[2px_2px_0px_0px_var(--neo-border-color)] focus:shadow-[4px_4px_0px_0px_var(--neo-border-color)] focus:-translate-x-[1px] focus:-translate-y-[1px] outline-none',
+													validationErrors.email ? 'border-destructive' : 'border-[var(--neo-border-color)]'
 												)}
 												disabled={isLoading}
 											/>
@@ -370,8 +364,8 @@ export function LoginModal({
 												value={password}
 												onChange={(e) => setPassword(e.target.value)}
 												className={clsx(
-													'w-full p-3 pr-10 rounded-lg border bg-background transition-colors',
-													validationErrors.password ? 'border-destructive' : 'border-border focus:border-primary'
+													'w-full p-3 pr-10 rounded-lg border-2 bg-bg-4 font-medium transition-all shadow-[2px_2px_0px_0px_var(--neo-border-color)] focus:shadow-[4px_4px_0px_0px_var(--neo-border-color)] focus:-translate-x-[1px] focus:-translate-y-[1px] outline-none',
+													validationErrors.password ? 'border-destructive' : 'border-[var(--neo-border-color)]'
 												)}
 												disabled={isLoading}
 											/>
@@ -396,8 +390,8 @@ export function LoginModal({
 													value={confirmPassword}
 													onChange={(e) => setConfirmPassword(e.target.value)}
 													className={clsx(
-														'w-full p-3 rounded-lg border bg-background transition-colors',
-														validationErrors.confirmPassword ? 'border-destructive' : 'border-border focus:border-primary'
+														'w-full p-3 rounded-lg border-2 bg-bg-4 font-medium transition-all shadow-[2px_2px_0px_0px_var(--neo-border-color)] focus:shadow-[4px_4px_0px_0px_var(--neo-border-color)] focus:-translate-x-[1px] focus:-translate-y-[1px] outline-none',
+														validationErrors.confirmPassword ? 'border-destructive' : 'border-[var(--neo-border-color)]'
 													)}
 													disabled={isLoading}
 												/>
@@ -411,7 +405,7 @@ export function LoginModal({
 											type="submit"
 											whileTap={{ scale: 0.98 }}
 											disabled={isLoading}
-											className="w-full bg-primary hover:bg-primary/90 text-primary-foreground p-3 rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+											className="w-full bg-neo-orange text-[#1a1a1a] p-3 rounded-xl font-bold border-2 border-[var(--neo-border-color)] shadow-[4px_4px_0px_0px_var(--neo-border-color)] hover:shadow-[6px_6px_0px_0px_var(--neo-border-color)] hover:-translate-x-[1px] hover:-translate-y-[1px] active:translate-x-[2px] active:translate-y-[2px] active:shadow-[1px_1px_0px_0px_var(--neo-border-color)] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
 										>
 											{isLoading 
 												? (mode === 'register' ? 'Creating account...' : 'Signing in...')

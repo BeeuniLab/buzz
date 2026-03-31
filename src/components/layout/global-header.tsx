@@ -8,7 +8,6 @@ import { ChevronRight, AlertCircle } from 'lucide-react';
 import { usePlatformStatus } from '@/hooks/use-platform-status';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { useLocation } from 'react-router';
 import clsx from 'clsx';
 
 export function GlobalHeader() {
@@ -17,8 +16,6 @@ export function GlobalHeader() {
 	const [isChangelogOpen, setIsChangelogOpen] = useState(false);
 	const hasMaintenanceMessage = Boolean(status.hasActiveMessage && status.globalUserMessage.trim().length > 0);
 	const hasChangeLogs = Boolean(status.changeLogs && status.changeLogs.trim().length > 0);
-	const { pathname } = useLocation();
-
 	useEffect(() => {
 		if (!hasChangeLogs) {
 			setIsChangelogOpen(false);
@@ -31,15 +28,10 @@ export function GlobalHeader() {
 				initial={{ y: -10, opacity: 0 }}
 				animate={{ y: 0, opacity: 1 }}
 				transition={{ duration: 0.2, ease: 'easeOut' }}
-				className={clsx("sticky top-0 z-50", pathname !== "/" && "bg-bg-3")}
+				className={clsx("sticky top-0 z-50 border-b-3 border-[var(--neo-border-color)] bg-bg-3")}
 			>
 				<div className="relative">
-					{/* Subtle gradient accent */}
-					<div className="absolute inset-0 z-0" />
-
-					{/* Main content */}
 					<div className="relative z-10 grid grid-cols-[auto_1fr_auto] items-center gap-4 px-5 py-2">
-						{/* Left section */}
 						{user ? (
 							<motion.div
 								whileTap={{ scale: 0.95 }}
@@ -50,8 +42,8 @@ export function GlobalHeader() {
 								}}
 								className='flex items-center'
 							>
-								<SidebarTrigger className="h-8 w-8 text-text-primary rounded-md hover:bg-orange-50/40 transition-colors duration-200" />
-								<span className="ml-2 text-base font-semibold tracking-tight text-text-primary">
+								<SidebarTrigger className="h-8 w-8 text-text-primary rounded-lg border-2 border-[var(--neo-border-color)] shadow-[2px_2px_0px_0px_var(--neo-border-color)] hover:shadow-[3px_3px_0px_0px_var(--neo-border-color)] hover:-translate-x-[0.5px] hover:-translate-y-[0.5px] transition-all" />
+								<span className="ml-3 text-base font-extrabold tracking-tight text-text-primary uppercase">
 									BuzzPlay
 								</span>
 								{hasMaintenanceMessage && (
@@ -59,12 +51,12 @@ export function GlobalHeader() {
 										type="button"
 										onClick={hasChangeLogs ? () => setIsChangelogOpen(true) : undefined}
 										disabled={!hasChangeLogs}
-										className={`flex max-w-full items-center gap-2 rounded-full border border-accent/40 bg-bg-4/80 px-3 ml-4 py-1.5 text-xs text-text-primary shadow-sm backdrop-blur transition-colors hover:bg-accent/10 focus:outline-none focus:ring-2 focus:ring-accent/40 dark:border-accent/30 dark:bg-bg-2/80 md:text-sm${!hasChangeLogs ? ' opacity-50 cursor-not-allowed pointer-events-none' : ''}`}
+										className={`flex max-w-full items-center gap-2 rounded-lg border-2 border-[var(--neo-border-color)] bg-neo-yellow px-3 ml-4 py-1.5 text-xs text-[#1a1a1a] font-bold shadow-[2px_2px_0px_0px_var(--neo-border-color)] transition-all hover:shadow-[3px_3px_0px_0px_var(--neo-border-color)] md:text-sm${!hasChangeLogs ? ' opacity-50 cursor-not-allowed pointer-events-none' : ''}`}
 										aria-label="Platform updates"
 									>
-										<AlertCircle className="h-4 w-4 text-accent" />
+										<AlertCircle className="h-4 w-4" />
 										<span className="truncate max-w-[46ch] md:max-w-[60ch]">{status.globalUserMessage}</span>
-										<ChevronRight className="ml-1 h-4 w-4 text-accent" />
+										<ChevronRight className="ml-1 h-4 w-4" />
 									</button>
 								)}
 							</motion.div>
@@ -72,23 +64,12 @@ export function GlobalHeader() {
 							<div></div>
 						)}
 
-
-
-						{/* Right section */}
 						<motion.div
 							initial={{ opacity: 0, x: 10 }}
 							animate={{ opacity: 1, x: 0 }}
 							transition={{ delay: 0.2 }}
 							className="flex flex-wrap items-center justify-end gap-3 justify-self-end"
 						>
-							{/* Disable cost display for now */}
-							{/* {user && (
-							<CostDisplay
-								{...extractUserAnalyticsProps(analytics)}
-								loading={analyticsLoading}
-								variant="inline"
-							/>
-						)} */}
 							<ThemeToggle />
 							<AuthButton />
 						</motion.div>

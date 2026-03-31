@@ -195,7 +195,7 @@ export function CommentsDrawer({ appId, open, onOpenChange }: CommentsDrawerProp
 					<div className="flex items-center gap-3">
 						<DrawerTitle className="text-xl font-bold">Comments</DrawerTitle>
 						<span className="bg-bg-2 text-text-tertiary text-sm font-medium px-2.5 py-0.5 rounded-full">
-							{totalCount}
+							{totalCount + comments.reduce((sum, c) => sum + (c.replyCount || 0), 0)}
 						</span>
 					</div>
 					<DrawerClose className="p-1.5 rounded-full hover:bg-bg-2 transition-colors">
@@ -237,13 +237,13 @@ export function CommentsDrawer({ appId, open, onOpenChange }: CommentsDrawerProp
 				</div>
 
 				{/* Input Bar */}
-				<div className="border-t border-border-primary p-3">
+				<div className="border-t-2 border-[var(--neo-border-color)] p-3">
 					{replyingTo && (
 						<div className="flex items-center gap-2 px-2 pb-2 text-sm text-text-tertiary">
-							<span>Replying to <span className="font-medium text-text-primary">{replyingTo.authorName}</span></span>
+							<span>Replying to <span className="font-bold text-text-primary">{replyingTo.authorName}</span></span>
 							<button
 								onClick={() => setReplyingTo(null)}
-								className="p-0.5 rounded hover:bg-bg-2"
+								className="p-0.5 rounded-lg border border-[var(--neo-border-color)] hover:bg-neo-yellow/30"
 							>
 								<X className="h-3.5 w-3.5" />
 							</button>
@@ -261,16 +261,16 @@ export function CommentsDrawer({ appId, open, onOpenChange }: CommentsDrawerProp
 									}
 								}}
 								placeholder="Write a comment..."
-								className="flex-1 bg-bg-2 rounded-full px-4 py-2.5 text-sm text-text-primary placeholder:text-text-tertiary/60 outline-none focus:ring-1 focus:ring-border-primary"
+								className="flex-1 bg-bg-4 rounded-lg border-2 border-[var(--neo-border-color)] px-4 py-2.5 text-sm font-medium text-text-primary placeholder:text-text-tertiary shadow-[2px_2px_0px_0px_var(--neo-border-color)] outline-none focus:shadow-[3px_3px_0px_0px_var(--neo-border-color)] transition-all"
 								disabled={submitting}
 							/>
 							<button
 								onClick={handleSubmit}
 								disabled={!inputValue.trim() || submitting}
 								className={cn(
-									'p-2.5 rounded-full transition-colors',
+									'p-2.5 rounded-lg border-2 border-[var(--neo-border-color)] transition-all',
 									inputValue.trim()
-										? 'bg-text-primary text-bg-1 hover:opacity-90'
+										? 'bg-neo-orange text-[#1a1a1a] shadow-[2px_2px_0px_0px_var(--neo-border-color)] hover:shadow-[3px_3px_0px_0px_var(--neo-border-color)] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none'
 										: 'bg-bg-2 text-text-tertiary',
 								)}
 							>
@@ -278,7 +278,7 @@ export function CommentsDrawer({ appId, open, onOpenChange }: CommentsDrawerProp
 							</button>
 						</div>
 					) : (
-						<p className="text-center text-sm text-text-tertiary py-2">
+						<p className="text-center text-sm text-text-tertiary font-bold py-2">
 							Sign in to comment
 						</p>
 					)}
@@ -326,9 +326,9 @@ function CommentItem({
 
 	return (
 		<div className="space-y-3">
-			<div className="flex gap-3">
-				<button onClick={() => onAvatarClick(comment.author.id)} className="flex-shrink-0">
-					<Avatar className="h-9 w-9 hover:ring-2 hover:ring-accent transition-all">
+			<div className="flex gap-3 items-start">
+				<button onClick={() => onAvatarClick(comment.author.id)} className="flex-shrink-0 mt-0.5">
+					<Avatar className="h-8 w-8 hover:ring-2 hover:ring-accent transition-all">
 						<AvatarImage src={comment.author.avatarUrl ?? undefined} />
 						<AvatarFallback className="text-xs bg-bg-2 font-semibold">
 							{authorName.charAt(0).toUpperCase()}
@@ -338,7 +338,7 @@ function CommentItem({
 
 				<div className="flex-1 min-w-0">
 					<div className="flex items-center gap-2">
-						<span className="font-semibold text-sm">{authorName}</span>
+						<span className="font-semibold text-sm leading-tight">{authorName}</span>
 						<span className="text-xs text-text-tertiary">
 							{comment.createdAt
 								? formatDistanceToNow(new Date(comment.createdAt), { addSuffix: false })
@@ -439,9 +439,9 @@ function ReplyItem({ comment, currentUserId, onLike, onReply, onDelete, onAvatar
 	const isOwnComment = currentUserId === comment.author.id;
 
 	return (
-		<div className="flex gap-2.5 pl-3">
-			<button onClick={() => onAvatarClick(comment.author.id)} className="flex-shrink-0">
-				<Avatar className="h-7 w-7 hover:ring-2 hover:ring-accent transition-all">
+		<div className="flex gap-2.5 pl-3 items-start">
+			<button onClick={() => onAvatarClick(comment.author.id)} className="flex-shrink-0 mt-0.5">
+				<Avatar className="h-6 w-6 hover:ring-2 hover:ring-accent transition-all">
 					<AvatarImage src={comment.author.avatarUrl ?? undefined} />
 					<AvatarFallback className="text-[10px] bg-bg-2 font-semibold">
 						{authorName.charAt(0).toUpperCase()}
@@ -451,7 +451,7 @@ function ReplyItem({ comment, currentUserId, onLike, onReply, onDelete, onAvatar
 
 			<div className="flex-1 min-w-0">
 				<div className="flex items-center gap-2">
-					<span className="font-semibold text-xs">{authorName}</span>
+					<span className="font-semibold text-xs leading-tight">{authorName}</span>
 					<span className="text-[11px] text-text-tertiary">
 						{comment.createdAt
 							? formatDistanceToNow(new Date(comment.createdAt), { addSuffix: false })

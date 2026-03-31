@@ -20,6 +20,7 @@ export default function FeedPage() {
 	const [currentIndex, setCurrentIndex] = React.useState(0);
 	const [initialAppLoaded, setInitialAppLoaded] = React.useState(!appId);
 	const [commentsOpen, setCommentsOpen] = React.useState(false);
+	const [commentCount, setCommentCount] = React.useState(0);
 
 	const containerRef = React.useRef<HTMLDivElement>(null);
 	const observerRef = React.useRef<IntersectionObserver | null>(null);
@@ -195,10 +196,16 @@ export default function FeedPage() {
 
 	const currentApp = apps[currentIndex];
 
-	// Update URL when current app changes
+	// Update URL and fetch comment count when current app changes
 	React.useEffect(() => {
 		if (currentApp) {
 			window.history.replaceState(null, '', `/feed/${currentApp.id}`);
+			apiClient.getComments(currentApp.id, { limit: 50 }).then((res) => {
+				if (res.success && res.data) {
+					const replyTotal = res.data.comments.reduce((sum, c) => sum + (c.replyCount || 0), 0);
+					setCommentCount(res.data.totalCount + replyTotal);
+				}
+			}).catch(() => {});
 		}
 		setCommentsOpen(false);
 	}, [currentApp]);
@@ -310,7 +317,7 @@ export default function FeedPage() {
 						<div className="bg-bg-3 rounded-full p-3 text-text-primary group-hover:bg-bg-3/80 transition-colors">
 							<MessageCircle className="h-6 w-6" />
 						</div>
-						<span className="text-text-tertiary text-xs">Comments</span>
+						<span className="text-text-tertiary text-xs">{commentCount > 0 ? commentCount : 'Comments'}</span>
 					</button>
 
 					{/* Star (Heart) */}
@@ -380,7 +387,17 @@ export default function FeedPage() {
 				<CommentsDrawer
 					appId={currentApp.id}
 					open={commentsOpen}
-					onOpenChange={setCommentsOpen}
+					onOpenChange={(open) => {
+						setCommentsOpen(open);
+						if (!open) {
+							apiClient.getComments(currentApp.id, { limit: 50 }).then((res) => {
+								if (res.success && res.data) {
+									const replyTotal = res.data.comments.reduce((sum, c) => sum + (c.replyCount || 0), 0);
+									setCommentCount(res.data.totalCount + replyTotal);
+								}
+							}).catch(() => {});
+						}
+					}}
 				/>
 			)}
 		</div>

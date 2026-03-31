@@ -5,27 +5,27 @@ import { cva, type VariantProps } from "class-variance-authority"
 import { cn } from "@/lib/utils"
 
 const buttonVariants = cva(
-  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-all disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 shrink-0 [&_svg]:shrink-0 outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive cursor-pointer",
+  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-lg text-sm font-bold border-2 border-[var(--neo-border-color)] transition-all disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 shrink-0 [&_svg]:shrink-0 outline-none cursor-pointer active:translate-x-[2px] active:translate-y-[2px] active:shadow-[1px_1px_0px_0px_var(--neo-border-color)]",
   {
     variants: {
       variant: {
         default:
-          "bg-text-secondary text-bg-3 shadow-xs hover:bg-text-secondary/90",
+          "bg-neo-orange text-[#1a1a1a] shadow-[4px_4px_0px_0px_var(--neo-border-color)] hover:shadow-[6px_6px_0px_0px_var(--neo-border-color)] hover:-translate-x-[1px] hover:-translate-y-[1px]",
         destructive:
-          "bg-destructive text-white shadow-xs hover:bg-destructive/90 focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/40 dark:bg-destructive/60",
+          "bg-destructive text-white shadow-[4px_4px_0px_0px_var(--neo-border-color)] hover:shadow-[6px_6px_0px_0px_var(--neo-border-color)] hover:-translate-x-[1px] hover:-translate-y-[1px]",
         outline:
-          "border bg-bg-3 dark:bg-bg-2 shadow-xs hover:bg-bg-4 hover:text-text-secondary dark:border-bg-4",
+          "bg-bg-4 shadow-[3px_3px_0px_0px_var(--neo-border-color)] hover:shadow-[5px_5px_0px_0px_var(--neo-border-color)] hover:-translate-x-[1px] hover:-translate-y-[1px] hover:bg-neo-yellow/30",
         secondary:
-          "bg-bg-2 text-text-secondary shadow-xs hover:bg-bg-2/80",
+          "bg-neo-cyan text-[#1a1a1a] shadow-[3px_3px_0px_0px_var(--neo-border-color)] hover:shadow-[5px_5px_0px_0px_var(--neo-border-color)] hover:-translate-x-[1px] hover:-translate-y-[1px]",
         ghost:
-          "hover:bg-accent hover:text-text-secondary dark:hover:bg-accent/50 text-text-primary",
-        link: "text-text-primary underline-offset-4 hover:underline",
+          "border-transparent shadow-none hover:bg-neo-yellow/30 hover:border-[var(--neo-border-color)] text-text-primary",
+        link: "text-text-primary border-transparent shadow-none underline-offset-4 hover:underline font-bold",
       },
       size: {
-        default: "h-9 px-4 py-2 has-[>svg]:px-3",
-        sm: "h-8 rounded-md gap-1.5 px-3 has-[>svg]:px-2.5",
-        lg: "h-10 rounded-md px-6 has-[>svg]:px-4",
-        icon: "size-8",
+        default: "h-10 px-4 py-2 has-[>svg]:px-3",
+        sm: "h-8 rounded-lg gap-1.5 px-3 has-[>svg]:px-2.5",
+        lg: "h-11 rounded-lg px-6 has-[>svg]:px-4",
+        icon: "size-9",
       },
     },
     defaultVariants: {
