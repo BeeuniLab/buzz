@@ -17,7 +17,6 @@ import {
 	Unlock,
 	Globe,
 	Trash2,
-	Github,
 } from 'lucide-react';
 import { MonacoEditor } from '@/components/monaco-editor/monaco-editor';
 import { getFileType } from '@/utils/string';
@@ -490,8 +489,8 @@ export default function AppView() {
 	const appUrl = getAppUrl();
 
 	return (
-		<div className="min-h-screen bg-bg-3 flex flex-col">
-			<div className="container mx-auto px-4 pt-2 pb-4 space-y-2 flex flex-col flex-1">
+		<div className="h-screen bg-bg-3 flex flex-col overflow-hidden">
+			<div className="container mx-auto px-4 pt-2 pb-4 space-y-2 flex flex-col flex-1 min-h-0">
 				{/* App Info Section */}
 				<div className="flex flex-col items-start justify-between gap-4 text-bg-4 w-fit rounded-lg px-5 pb-0">
 					<div className="flex-1">
@@ -527,32 +526,6 @@ export default function AppView() {
 								</div>
 							</div>
 							<div className="flex flex-wrap items-center gap-2">
-								{/* GitHub Repository Button */}
-								{app.githubRepositoryUrl && (
-									<Button
-										variant="outline"
-										size="sm"
-										onClick={() => {
-											if (app.githubRepositoryUrl) {
-												window.open(
-													app.githubRepositoryUrl,
-													'_blank',
-													'noopener,noreferrer',
-												);
-											}
-										}}
-										className={cn('gap-2 text-text-primary')}
-										title={`View on GitHub (${app.githubRepositoryVisibility || 'public'})`}
-									>
-										<Github className="h-4 w-4" />
-										View on GitHub
-										{app.githubRepositoryVisibility ===
-											'private' && (
-											<Lock className="h-3 w-3 opacity-70" />
-										)}
-									</Button>
-								)}
-
 								{isOwner ? (
 									<>
 										<Button
@@ -612,7 +585,7 @@ export default function AppView() {
 				<Tabs
 					value={activeTab}
 					onValueChange={setActiveTab}
-					className="flex flex-col flex-1 gap-2"
+					className="flex flex-col flex-1 min-h-0 gap-2"
 				>
 					{/* Tab switcher */}
 					<div className="flex items-center gap-4">
@@ -652,15 +625,15 @@ export default function AppView() {
 						
 					</div>
 
-					<TabsContent value="preview" className="flex-1 flex flex-col">
-						<Card className="px-2 flex-1 flex flex-col">
-							<CardContent className="p-0 flex-1 flex flex-col">
-								<div className="relative flex-1 flex flex-col">
+					<TabsContent value="preview" className="flex-1 flex flex-col min-h-0">
+						<Card className="px-2 flex-1 flex flex-col min-h-0">
+							<CardContent className="p-0 flex-1 flex flex-col min-h-0">
+								<div className="relative flex-1 flex flex-col min-h-0">
 									{appUrl ? (
-										<div className="flex items-center justify-center bg-bg-3 overflow-hidden p-4 h-[calc(100vh-180px)]">
+										<div className="flex items-center justify-center bg-bg-3 overflow-hidden p-4 flex-1 min-h-0">
 											<div
 												ref={phoneFrameRef}
-												className="h-full aspect-[9/16] rounded-2xl overflow-hidden shadow-2xl border border-border-primary bg-black relative"
+												className="h-full max-h-full aspect-[9/16] rounded-2xl overflow-hidden shadow-2xl border border-border-primary bg-black relative"
 											>
 												<div style={{
 													position: 'absolute',
@@ -721,7 +694,7 @@ export default function AppView() {
 						</Card>
 					</TabsContent>
 
-					<TabsContent value="code">
+					<TabsContent value="code" className="flex-1 min-h-0 overflow-y-auto">
 						<Card className="flex flex-col" style={{ maxHeight: '600px' }}>
 							<CardHeader>
 								<div className="flex items-center justify-between">
@@ -853,6 +826,7 @@ export default function AppView() {
 
 					<TabsContent
 						value="prompt"
+						className="flex-1 min-h-0 overflow-y-auto"
 					>
 						<Card>
 							<CardHeader>

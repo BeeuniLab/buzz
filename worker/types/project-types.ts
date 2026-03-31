@@ -162,28 +162,3 @@ export const DeploymentResultSchema = z.object({
 })
 export type DeploymentResult = z.infer<typeof DeploymentResultSchema>
 
-// --- GitHub Integration ---
-
-interface GitHubUserInfo {
-    token: string;
-    email: string;
-    username: string;
-    isPrivate: boolean;
-}
-
-export interface GitHubPushRequest extends GitHubUserInfo {
-    cloneUrl: string;
-    repositoryHtmlUrl: string;
-}
-
-export const GitHubPushResponseSchema = z.object({
-    success: z.boolean(),
-    commitSha: z.string().optional(),
-    error: z.string().optional(),
-    details: z.object({
-        operation: z.string().optional(),
-        exitCode: z.number().optional(),
-        stderr: z.string().optional(),
-    }).optional(),
-})
-export type GitHubPushResponse = z.infer<typeof GitHubPushResponseSchema>

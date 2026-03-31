@@ -43,31 +43,30 @@ export const AIAvatar = (props: React.SVGProps<SVGSVGElement>) => (
 		xmlns="http://www.w3.org/2000/svg"
 		width={24}
 		height={24}
+		viewBox="0 0 24 24"
 		fill="none"
 		{...props}
 	>
-		<rect
-			width={23.5}
-			height={23.5}
-			x={0.25}
-			y={0.25}
-			fill="black"
-			rx={11.75}
-		/>
-		<rect
-			width={23.5}
-			height={23.5}
-			x={0.25}
-			y={0.25}
-			stroke="black"
-			strokeWidth={0.5}
-			rx={11.75}
-		/>
-		<path
-			fill="white"
-			fillRule="evenodd"
-			d="m.504 11.814 9.734-.123c1.765-.081 3.675-1.514 4.344-3.26l.849-2.217c.298-.46.918-.1.738.343l-.58 2.002c-.249.86-.156 1.655.262 2.24.384.539 1.025.855 1.803.892l3.143.188a.286.286 0 0 1 .257.39.394.394 0 0 1-.342.26l-3.265.19c-1.773.081-3.684 1.513-4.353 3.259l-.236.616c-.137.492-1.006.596-.98-.02l.21-.724c.248-.86.156-1.655-.262-2.24-.385-.538-1.026-.855-1.804-.891l-9.47-.121c-.025-.26-.041-.52-.048-.784Z"
-			clipRule="evenodd"
-		/>
+		{/* Background circle */}
+		<circle cx="12" cy="12" r="11.5" fill="#FFB800" stroke="#1a1a1a" strokeWidth="1"/>
+		{/* Left wing */}
+		<ellipse cx="7" cy="7.5" rx="3.5" ry="2.2" transform="rotate(-25 7 7.5)" fill="#FFD93D" stroke="#1a1a1a" strokeWidth="0.8"/>
+		{/* Right wing */}
+		<ellipse cx="17" cy="7.5" rx="3.5" ry="2.2" transform="rotate(25 17 7.5)" fill="#FFD93D" stroke="#1a1a1a" strokeWidth="0.8"/>
+		{/* Body */}
+		<rect x="6" y="9" width="12" height="11" rx="5.5" fill="#FF6B02" stroke="#1a1a1a" strokeWidth="1"/>
+		{/* Stripes */}
+		<rect x="7" y="11.5" width="10" height="1.5" fill="#1a1a1a" opacity="0.2" rx="0.5"/>
+		<rect x="6.5" y="14.5" width="11" height="1.5" fill="#1a1a1a" opacity="0.2"/>
+		<rect x="7" y="17.5" width="10" height="1.5" fill="#1a1a1a" opacity="0.2" rx="0.5"/>
+		{/* Play triangle */}
+		<path d="M9.5 12L15.5 14.5L9.5 17Z" fill="#1a1a1a"/>
+		<path d="M10.2 12.7L14.5 14.5L10.2 16.3Z" fill="white"/>
+		{/* Left antenna */}
+		<line x1="9.5" y1="9" x2="7.5" y2="5" stroke="#1a1a1a" strokeWidth="0.8" strokeLinecap="round"/>
+		<circle cx="7.2" cy="4.5" r="1" fill="#FFD93D" stroke="#1a1a1a" strokeWidth="0.6"/>
+		{/* Right antenna */}
+		<line x1="14.5" y1="9" x2="16.5" y2="5" stroke="#1a1a1a" strokeWidth="0.8" strokeLinecap="round"/>
+		<circle cx="16.8" cy="4.5" r="1" fill="#FFD93D" stroke="#1a1a1a" strokeWidth="0.6"/>
 	</svg>
 );

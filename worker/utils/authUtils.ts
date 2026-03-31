@@ -309,7 +309,7 @@ export function validateRedirectUrl(redirectUrl: string, request: Request): stri
 			return null;
 		}
 
-		const forbiddenPaths = ['/api/auth/', '/logout', '/api/github-exporter/'];
+		const forbiddenPaths = ['/api/auth/', '/logout'];
 		if (forbiddenPaths.some(path => redirectUrlObj.pathname.startsWith(path))) {
 			logger.warn('Redirect URL rejected: forbidden path', {
 				redirectUrl,

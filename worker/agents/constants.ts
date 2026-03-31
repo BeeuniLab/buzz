@@ -57,12 +57,6 @@ export const WebSocketMessageResponses: Record<string, WebSocketMessageType> = {
     DETERMINISTIC_CODE_FIX_STARTED: 'deterministic_code_fix_started',
     DETERMINISTIC_CODE_FIX_COMPLETED: 'deterministic_code_fix_completed',
     
-    // GitHub export messages
-    GITHUB_EXPORT_STARTED: 'github_export_started',
-    GITHUB_EXPORT_PROGRESS: 'github_export_progress',
-    GITHUB_EXPORT_COMPLETED: 'github_export_completed',
-    GITHUB_EXPORT_ERROR: 'github_export_error',
-    
     // Conversational AI messages
     USER_SUGGESTIONS_PROCESSING: 'user_suggestions_processing',
     CONVERSATION_RESPONSE: 'conversation_response',
@@ -98,9 +92,6 @@ export const WebSocketMessageRequests = {
     CAPTURE_SCREENSHOT: 'capture_screenshot',
     STOP_GENERATION: 'stop_generation',
     RESUME_GENERATION: 'resume_generation',
-    
-    // GitHub export request
-    GITHUB_EXPORT: 'github_export',
     
     // Conversational AI requests
     USER_SUGGESTION: 'user_suggestion',

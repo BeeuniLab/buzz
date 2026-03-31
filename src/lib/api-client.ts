@@ -929,61 +929,6 @@ class ApiClient {
 		});
 	}
 
-	/**
-	 * Initiate GitHub OAuth authorization for user repository access
-	 * This redirects to GitHub OAuth
-	 */
-	initiateGitHubOAuth(): void {
-		const oauthUrl = new URL('/api/github-app/authorize', window.location.origin);
-		window.location.href = oauthUrl.toString();
-	}
-
-	/**
-	 * Initiate GitHub export with OAuth flow
-	 * Returns authorization URL for redirect
-	 */
-	async initiateGitHubExport(data: {
-		repositoryName: string;
-		description?: string;
-		isPrivate?: boolean;
-		agentId: string;
-	}): Promise<ApiResponse<{ 
-		authUrl?: string;
-		success?: boolean;
-		repositoryUrl?: string;
-		skippedOAuth?: boolean;
-		alreadyExists?: boolean;
-		existingRepositoryUrl?: string;
-	}>> {
-		return this.request('/api/github-app/export', {
-			method: 'POST',
-			body: data,
-		});
-	}
-
-	/**
-	 * Check remote repository status
-	 */
-	async checkRemoteStatus(data: {
-		repositoryUrl: string;
-		agentId: string;
-	}): Promise<ApiResponse<{
-		compatible: boolean;
-		behindBy: number;
-		aheadBy: number;
-		divergedCommits: Array<{
-			sha: string;
-			message: string;
-			author: string;
-			date: string;
-		}>;
-	}>> {
-		return this.request('/api/github-app/check-remote', {
-			method: 'POST',
-			body: data,
-		});
-	}
-
 	// ===============================
 	// Agent/CodeGen API Methods
 	// ===============================

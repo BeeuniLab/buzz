@@ -294,31 +294,6 @@ type ScreenshotAnalysisResultMessage = {
 	};
 };
 
-type GitHubExportStartedMessage = {
-	type: 'github_export_started';
-	message: string;
-	repositoryName: string;
-	isPrivate: boolean;
-};
-
-type GitHubExportProgressMessage = {
-	type: 'github_export_progress';
-	message: string;
-	step: 'creating_repository' | 'uploading_files' | 'finalizing';
-	progress: number; // 0-100
-};
-
-type GitHubExportCompletedMessage = {
-	type: 'github_export_completed';
-	message: string;
-	repositoryUrl: string;
-};
-
-type GitHubExportErrorMessage = {
-	type: 'github_export_error';
-	message: string;
-	error: string;
-};
 
 type UserSuggestionsProcessingMessage = {
 	type: 'user_suggestions_processing';
@@ -600,10 +575,6 @@ export type WebSocketMessage =
 	| ScreenshotCaptureSuccessMessage
 	| ScreenshotCaptureErrorMessage
 	| ScreenshotAnalysisResultMessage
-	| GitHubExportStartedMessage
-	| GitHubExportProgressMessage
-	| GitHubExportCompletedMessage
-	| GitHubExportErrorMessage
 	| ErrorMessage
     | RateLimitErrorMessage
 	| UserSuggestionsProcessingMessage

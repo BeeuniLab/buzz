@@ -13,9 +13,8 @@ import { PreviewHeaderActions } from './preview-header-actions';
 import { EditorHeaderActions } from './editor-header-actions';
 import { Copy } from './copy';
 import { featureRegistry } from '@/features';
-import type { FileType, BlueprintType, BehaviorType, ModelConfigsInfo, TemplateDetails, ProjectType } from '@/api-types';
+import type { FileType, BlueprintType, BehaviorType, TemplateDetails, ProjectType } from '@/api-types';
 import type { ContentDetectionResult } from '../utils/content-detector';
-import type { GitHubExportHook } from '@/hooks/use-github-export';
 import type { Edit } from '../hooks/use-chat';
 
 const GAME_WIDTH = 720;
@@ -94,15 +93,6 @@ interface MainContentPanelProps {
 	isGenerating: boolean;
 	isGeneratingBlueprint: boolean;
 
-	// Model configs
-	modelConfigs?: ModelConfigsInfo;
-	loadingConfigs: boolean;
-	onRequestConfigs: () => void;
-
-	// GitHub actions
-	isGitHubExportReady: boolean;
-	githubExport: GitHubExportHook;
-
 	// Template metadata
 	templateDetails?: TemplateDetails | null;
 
@@ -135,11 +125,6 @@ export function MainContentPanel(props: MainContentPanelProps) {
 		onFileClick,
 		isGenerating,
 		isGeneratingBlueprint,
-		modelConfigs,
-		loadingConfigs,
-		onRequestConfigs,
-		isGitHubExportReady,
-		githubExport,
 		behaviorType,
 		websocket,
 		previewRef,
@@ -233,7 +218,6 @@ export function MainContentPanel(props: MainContentPanelProps) {
 					currentView={view}
 					onViewChange={(v) => onViewChange(v as 'preview' | 'editor' | 'docs' | 'blueprint' | 'presentation')}
 					templateDetails={templateDetails}
-					modelConfigs={modelConfigs}
 					blueprint={blueprint}
 					previewRef={previewRef}
 					editorRef={editorRef}
@@ -280,7 +264,6 @@ export function MainContentPanel(props: MainContentPanelProps) {
 					currentView={view}
 					onViewChange={(v) => onViewChange(v as 'preview' | 'editor' | 'docs' | 'blueprint' | 'presentation')}
 					templateDetails={templateDetails}
-					modelConfigs={modelConfigs}
 					blueprint={blueprint}
 					previewRef={previewRef}
 					editorRef={editorRef}
@@ -289,19 +272,10 @@ export function MainContentPanel(props: MainContentPanelProps) {
 					onManualRefresh={onManualRefresh}
 					featureState={featureState}
 					setFeatureState={setFeatureState}
-					isGitHubExportReady={isGitHubExportReady}
-					onGitHubExportClick={githubExport.openModal}
-					loadingConfigs={loadingConfigs}
-					onRequestConfigs={onRequestConfigs}
 				/>
 			</Suspense>
 		) : (
 			<PreviewHeaderActions
-				modelConfigs={modelConfigs}
-				onRequestConfigs={onRequestConfigs}
-				loadingConfigs={loadingConfigs}
-				isGitHubExportReady={isGitHubExportReady}
-				onGitHubExportClick={githubExport.openModal}
 				previewRef={previewRef}
 			/>
 		);
@@ -363,11 +337,6 @@ export function MainContentPanel(props: MainContentPanelProps) {
 					</div>
 				</div>,
 				<EditorHeaderActions
-					modelConfigs={modelConfigs}
-					onRequestConfigs={onRequestConfigs}
-					loadingConfigs={loadingConfigs}
-					isGitHubExportReady={isGitHubExportReady}
-					onGitHubExportClick={githubExport.openModal}
 					editorRef={editorRef}
 				/>
 			);
@@ -406,11 +375,6 @@ export function MainContentPanel(props: MainContentPanelProps) {
 				</div>
 			</div>,
 			<EditorHeaderActions
-				modelConfigs={modelConfigs}
-				onRequestConfigs={onRequestConfigs}
-				loadingConfigs={loadingConfigs}
-				isGitHubExportReady={isGitHubExportReady}
-				onGitHubExportClick={githubExport.openModal}
 				editorRef={editorRef}
 			/>
 		);

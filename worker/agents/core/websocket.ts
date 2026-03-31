@@ -128,14 +128,6 @@ export function handleWebSocketMessage(
                     // });
                 }
                 break;
-            case WebSocketMessageRequests.GITHUB_EXPORT:
-                // DEPRECATED: WebSocket-based GitHub export replaced with OAuth flow
-                // GitHub Apps require OAuth user access tokens for user repository creation
-                sendToConnection(connection, WebSocketMessageResponses.GITHUB_EXPORT_ERROR, {
-                    message: 'GitHub export via WebSocket is deprecated',
-                    error: 'Please use the GitHub export button which will redirect you to authorize with GitHub OAuth'
-                });
-                break;
             case WebSocketMessageRequests.USER_SUGGESTION:
                 // Handle user suggestion for conversational AI
                 logger.info('Received user suggestion', {

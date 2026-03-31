@@ -9,25 +9,15 @@ import {
 	AlertDialogHeader,
 	AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { GitHubExportModal } from '@/components/github-export-modal';
-import type { AppDetailsData } from '@/api-types';
-import type { GitHubExportHook } from '@/hooks/use-github-export';
 
 interface ChatModalsProps {
-	// Debug panel
 	debugMessages: DebugMessage[];
 	chatId?: string;
 	onClearDebugMessages: () => void;
 
-	// Reset dialog
 	isResetDialogOpen: boolean;
 	onResetDialogChange: (open: boolean) => void;
 	onResetConversation: () => void;
-
-	// GitHub export modal
-	githubExport: GitHubExportHook;
-	app?: AppDetailsData | null;
-	urlChatId?: string;
 }
 
 export function ChatModals({
@@ -37,13 +27,9 @@ export function ChatModals({
 	isResetDialogOpen,
 	onResetDialogChange,
 	onResetConversation,
-	githubExport,
-	app,
-	urlChatId,
 }: ChatModalsProps) {
 	return (
 		<>
-			{/* Debug Panel */}
 			<DebugPanel
 				messages={debugMessages}
 				onClear={onClearDebugMessages}
@@ -66,20 +52,6 @@ export function ChatModals({
 					</AlertDialogFooter>
 				</AlertDialogContent>
 			</AlertDialog>
-
-			{/* GitHub Export Modal */}
-			<GitHubExportModal
-				isOpen={githubExport.isModalOpen}
-				onClose={githubExport.closeModal}
-				onExport={githubExport.startExport}
-				isExporting={githubExport.isExporting}
-				exportProgress={githubExport.progress}
-				exportResult={githubExport.result}
-				onRetry={githubExport.retry}
-				existingGithubUrl={app?.githubRepositoryUrl || null}
-				agentId={urlChatId || undefined}
-				appTitle={app?.title}
-			/>
 		</>
 	);
 }

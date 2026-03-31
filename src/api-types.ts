@@ -311,8 +311,3 @@ export interface ApiKeysData {
     isActive: boolean;
   }>;
 }
-
-export type {
-    GitHubExportOptions,
-    GitHubExportResult,
-} from 'worker/services/github/types';

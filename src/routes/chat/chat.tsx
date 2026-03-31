@@ -14,12 +14,11 @@ import { UserMessage, AIMessage } from './components/messages';
 import { PhaseTimeline } from './components/phase-timeline';
 import { type DebugMessage } from './components/debug-panel';
 import { useChat } from './hooks/use-chat';
-import { type ModelConfigsInfo, type BlueprintType, type PhasicBlueprint, SUPPORTED_IMAGE_MIME_TYPES, type ProjectType, type FileType } from '@/api-types';
+import { type BlueprintType, type PhasicBlueprint, SUPPORTED_IMAGE_MIME_TYPES, type ProjectType, type FileType } from '@/api-types';
 import { featureRegistry } from '@/features';
 import { useFileContentStream } from './hooks/use-file-content-stream';
 import { logger } from '@/utils/logger';
 import { useApp } from '@/hooks/use-app';
-import { useGitHubExport } from '@/hooks/use-github-export';
 import { useAutoScroll } from '@/hooks/use-auto-scroll';
 import { useImageUpload } from '@/hooks/use-image-upload';
 import { useDragDrop } from '@/hooks/use-drag-drop';
@@ -57,7 +56,7 @@ export default function Chat() {
 	}, [searchParams]);
 
 	// Load existing app data if chatId is provided
-	const { app, loading: appLoading, refetch: refetchApp } = useApp(urlChatId);
+	const { app, loading: appLoading } = useApp(urlChatId);
 
 	// If we have an existing app, use its data
 	const displayQuery = app ? app.originalPrompt || app.title : userQuery || '';
@@ -146,9 +145,6 @@ export default function Chat() {
 		onVaultUnlockRequired: handleVaultUnlockRequired,
 	});
 
-	// GitHub export functionality - use urlChatId directly from URL params
-	const githubExport = useGitHubExport(websocket, urlChatId, refetchApp);
-
 	const navigate = useNavigate();
 
 	const [activeFilePath, setActiveFilePath] = useState<string>();
@@ -160,43 +156,6 @@ export default function Chat() {
 	const [debugMessages, setDebugMessages] = useState<DebugMessage[]>([]);
 
 	const [isResetDialogOpen, setIsResetDialogOpen] = useState(false);
-
-	// Model config info state
-	const [modelConfigs, setModelConfigs] = useState<ModelConfigsInfo | undefined>();
-	const [loadingConfigs, setLoadingConfigs] = useState(false);
-
-	// Handler for model config info requests
-	const handleRequestConfigs = useCallback(() => {
-		if (!websocket) return;
-
-		setLoadingConfigs(true);
-		websocket.send(JSON.stringify({
-			type: 'get_model_configs'
-		}));
-	}, [websocket]);
-
-	// Listen for model config info WebSocket messages
-	useEffect(() => {
-		if (!websocket) return;
-
-		const handleMessage = (event: MessageEvent) => {
-			try {
-				const message = JSON.parse(event.data);
-				if (message.type === 'model_configs_info') {
-					setModelConfigs(message.configs);
-					setLoadingConfigs(false);
-				}
-			} catch (error) {
-				logger.error('Error parsing WebSocket message for model configs:', error);
-			}
-		};
-
-		websocket.addEventListener('message', handleMessage);
-
-		return () => {
-			websocket.removeEventListener('message', handleMessage);
-		};
-	}, [websocket]);
 
 	type AgentWebSocket = {
 		send: (data: string) => void;
@@ -366,13 +325,6 @@ export default function Chat() {
 	const isPhase1Complete = useMemo(() => {
 		return phaseTimeline.length > 0 && phaseTimeline[0].status === 'completed';
 	}, [phaseTimeline]);
-
-	const isGitHubExportReady = useMemo(() => {
-		if (behaviorType === 'agentic') {
-			return files.length > 0 && !!urlChatId;
-		}
-		return isPhase1Complete && !!urlChatId;
-	}, [behaviorType, files.length, isPhase1Complete, urlChatId]);
 
 	// Detect if agentic mode is showing static content (docs, markdown)
 	const isStaticContent = useMemo(() => {
@@ -800,11 +752,6 @@ export default function Chat() {
 								onFileClick={handleFileClick}
 								isGenerating={isGenerating}
 								isGeneratingBlueprint={isGeneratingBlueprint}
-								modelConfigs={modelConfigs}
-								loadingConfigs={loadingConfigs}
-								onRequestConfigs={handleRequestConfigs}
-								isGitHubExportReady={isGitHubExportReady}
-								githubExport={githubExport}
 								behaviorType={behaviorType}
 								websocket={websocket}
 								previewRef={previewRef}
@@ -823,9 +770,6 @@ export default function Chat() {
 				isResetDialogOpen={isResetDialogOpen}
 				onResetDialogChange={setIsResetDialogOpen}
 				onResetConversation={handleResetConversation}
-				githubExport={githubExport}
-				app={app}
-				urlChatId={urlChatId}
 			/>
 
 			<VaultUnlockModal

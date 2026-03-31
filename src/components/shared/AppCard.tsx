@@ -14,7 +14,6 @@ import {
 	Cloud,
 	CloudOff,
 	Loader2,
-	Github,
 	Play,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -675,32 +674,8 @@ export const AppCard = React.memo<AppCardProps>(
 													'text-gray-500'
 											}
 										/>
-									</div>
-									{/* GitHub Repository Button - integrated into app info */}
-									{app.githubRepositoryUrl &&
-										app.githubRepositoryVisibility !==
-											'private' && (
-											<button
-												className="group/github flex items-center gap-1.5 px-2 py-1 rounded-full bg-gray-50 hover:bg-gray-100 dark:bg-gray-800 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 transition-all duration-200"
-												onClick={(e) => {
-													e.stopPropagation();
-													if (
-														app.githubRepositoryUrl
-													) {
-														window.open(
-															app.githubRepositoryUrl,
-															'_blank',
-															'noopener,noreferrer',
-														);
-													}
-												}}
-												title={`View on GitHub (${app.githubRepositoryVisibility || 'public'})`}
-												aria-label="View repository on GitHub"
-											>
-												<Github className="w-4 h-4 text-gray-600 dark:text-gray-400 group-hover/github:text-gray-800 dark:group-hover/github:text-gray-200 transition-colors" />
-											</button>
-										)}
 								</div>
+							</div>
 							</div>
 						</div>
 					</div>

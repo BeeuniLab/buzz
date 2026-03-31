@@ -1,47 +1,20 @@
 import type { RefObject } from 'react';
-import { Github, Expand } from 'lucide-react';
-import { ModelConfigInfo } from '@/components/shared/ModelConfigInfo';
+import { Expand } from 'lucide-react';
 import { HeaderButton } from '@/components/shared/header-actions';
-import type { ModelConfigsInfo } from '@/api-types';
 
 export interface BaseHeaderActionsProps {
 	containerRef: RefObject<HTMLElement | null>;
-	modelConfigs?: ModelConfigsInfo;
-	onRequestConfigs: () => void;
-	loadingConfigs: boolean;
-	isGitHubExportReady: boolean;
-	onGitHubExportClick: () => void;
 }
 
 export function BaseHeaderActions({
 	containerRef,
-	modelConfigs,
-	onRequestConfigs,
-	loadingConfigs,
-	isGitHubExportReady,
-	onGitHubExportClick,
 }: BaseHeaderActionsProps) {
 	return (
-		<>
-			<ModelConfigInfo
-				configs={modelConfigs}
-				onRequestConfigs={onRequestConfigs}
-				loading={loadingConfigs}
-			/>
-			{isGitHubExportReady && (
-				<HeaderButton
-					icon={Github}
-					label="GitHub"
-					onClick={onGitHubExportClick}
-					title="Export to GitHub"
-				/>
-			)}
-			<HeaderButton
-				icon={Expand}
-				onClick={() => containerRef.current?.requestFullscreen()}
-				title="Fullscreen"
-				iconOnly
-			/>
-		</>
+		<HeaderButton
+			icon={Expand}
+			onClick={() => containerRef.current?.requestFullscreen()}
+			title="Fullscreen"
+			iconOnly
+		/>
 	);
 }

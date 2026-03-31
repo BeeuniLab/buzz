@@ -6,7 +6,6 @@ import { setupAnalyticsRoutes } from './analyticsRoutes';
 // import { setupUserSecretsRoutes } from './userSecretsRoutes';
 import { setupModelConfigRoutes } from './modelConfigRoutes';
 import { setupModelProviderRoutes } from './modelProviderRoutes';
-import { setupGitHubExporterRoutes } from './githubExporterRoutes';
 import { setupCodegenRoutes } from './codegenRoutes';
 import { setupScreenshotRoutes } from './imagesRoutes';
 import { setupCommentRoutes } from './commentRoutes';
@@ -71,9 +70,6 @@ export function setupRoutes(app: Hono<AppEnv>): void {
     
     // Model provider routes
     setupModelProviderRoutes(app);
-
-    // GitHub Exporter routes
-    setupGitHubExporterRoutes(app);
 
     // Screenshot serving routes (public)
     setupScreenshotRoutes(app);

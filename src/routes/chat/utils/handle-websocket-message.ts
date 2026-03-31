@@ -851,29 +851,6 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
                 break;
             }
 
-            case 'github_export_started': {
-                sendMessage(createAIMessage('github_export_started', message.message));
-                break;
-            }
-
-            case 'github_export_progress': {
-                sendMessage(createAIMessage('github_export_progress', message.message));
-                break;
-            }
-
-            case 'github_export_completed': {
-                sendMessage(createAIMessage('github_export_completed', message.message));
-                break;
-            }
-
-            case 'github_export_error': {
-                sendMessage(createAIMessage('github_export_error', `❌ GitHub export failed: ${message.error}`));
-
-                toast.error(`Error: ${message.error}`);
-                
-                break;
-            }
-
             case 'conversation_response': {
                 // Use concrete conversationId when available; otherwise use placeholder id
                 let conversationId = message.conversationId ?? 'conversation_response';

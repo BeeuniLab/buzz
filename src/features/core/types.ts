@@ -8,7 +8,6 @@ import type {
 	FileType,
 	TemplateDetails,
 	BlueprintType,
-	ModelConfigsInfo,
 	BehaviorType,
 	ProjectType,
 	ViewMode,
@@ -38,7 +37,6 @@ export interface FeatureContext {
 
 	// Metadata
 	templateDetails?: TemplateDetails | null;
-	modelConfigs?: ModelConfigsInfo;
 	blueprint?: BlueprintType | null;
 
 	// Refs
@@ -65,12 +63,7 @@ export interface PreviewComponentProps extends FeatureContext {
 /**
  * Props for feature header action components
  */
-export interface HeaderActionsProps extends FeatureContext {
-	isGitHubExportReady: boolean;
-	onGitHubExportClick: () => void;
-	loadingConfigs: boolean;
-	onRequestConfigs: () => void;
-}
+export interface HeaderActionsProps extends FeatureContext {}
 
 /**
  * Feature module interface - what each feature plugin must implement.

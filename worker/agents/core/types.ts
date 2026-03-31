@@ -1,5 +1,5 @@
 
-import type { RuntimeError, StaticAnalysisResponse, GitHubPushRequest } from 'worker/types/project-types';
+import type { RuntimeError, StaticAnalysisResponse } from 'worker/types/project-types';
 import type { FileOutputType, PhaseConceptType } from '../schemas';
 import type { ConversationMessage } from '../inferutils/common';
 import type { InferenceContext } from '../inferutils/config.types';
@@ -129,9 +129,8 @@ export interface ExportResult {
  * Options for project export/deployment
  */
 export interface ExportOptions {
-    kind: 'github' | 'pdf' | 'pptx' | 'googleslides' | 'workflow';
+    kind: 'pdf' | 'pptx' | 'googleslides' | 'workflow';
     format?: string;
     token?: string;
-    github?: GitHubPushRequest;
     metadata?: Record<string, unknown>;
 }
