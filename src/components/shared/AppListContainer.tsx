@@ -153,7 +153,7 @@ export const AppListContainer: React.FC<AppListContainerProps> = ({
         variants={containerVariants}
         initial="hidden"
         animate="visible"
-        className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6"
+        className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 xl:grid-cols-7 gap-3"
       >
         <AnimatePresence mode="popLayout">
           {apps.map(app => (
@@ -192,7 +192,7 @@ export const AppListContainer: React.FC<AppListContainerProps> = ({
               </div>
               
               {/* Optional: Skeleton placeholders for smoother experience */}
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 xl:grid-cols-7 gap-4">
                 {[...Array(4)].map((_, i) => (
                   <div key={`skeleton-${i}`} className="animate-pulse">
                     <div className="bg-surface-elevated/30 rounded-2xl p-6 h-[200px]">

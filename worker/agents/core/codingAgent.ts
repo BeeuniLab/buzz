@@ -1,6 +1,6 @@
 import { Agent, AgentContext, ConnectionContext } from "agents";
 import { AgentInitArgs, AgentSummary, DeployOptions, DeployResult, ExportOptions, ExportResult, BehaviorType } from "./types";
-import { AgenticState, AgentState, BaseProjectState, CurrentDevState, MAX_PHASES, PhasicState } from "./state";
+import { AgenticState, AgentState, BaseProjectState, CurrentDevState, FileState, MAX_PHASES, PhasicState } from "./state";
 import { Blueprint } from "../schemas";
 import { BaseCodingBehavior } from "./behaviors/base";
 import { createObjectLogger, StructuredLogger } from '../../logger';
@@ -83,7 +83,7 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
         generatedPhases: [],
         currentDevState: CurrentDevState.IDLE,
         phasesCounter: MAX_PHASES,
-    } as AgentState;
+    } as unknown as AgentState;
 
     constructor(ctx: AgentContext, env: Env) {
         super(ctx, env);
@@ -363,6 +363,117 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
             visibility: 'private'
         });
         this.logger().info(`Agent initialized successfully for agent ${this.state.metadata.agentId}`);
+    }
+
+    // ==========================================
+    // Project Import (bulk import pre-built projects)
+    // ==========================================
+
+    async importProject(args: {
+        userId: string;
+        agentId: string;
+        title: string;
+        description: string;
+        files: Record<string, string>;
+        templateName: string;
+        coverBase64?: string;
+    }): Promise<{ success: boolean; error?: string }> {
+        try {
+            const sessionId = DeploymentManager.generateNewSessionId();
+            this.initLogger(args.agentId, args.userId, sessionId);
+
+            // Set minimal state directly (skip LLM generation)
+            this.setState({
+                ...this.state,
+                behaviorType: 'phasic' as BehaviorType,
+                projectType: 'app' as ProjectType,
+                projectName: args.title,
+                query: args.description,
+                sessionId,
+                hostname: '',
+                blueprint: {
+                    title: args.title,
+                    projectName: args.title,
+                    description: args.description,
+                    detailedDescription: args.description,
+                    colorPalette: [],
+                    frameworks: [],
+                    views: [],
+                    userFlow: { uiLayout: '', uiDesign: '', userJourney: '' },
+                    dataFlow: '',
+                    architecture: { dataFlow: '' },
+                    pitfalls: [],
+                    implementationRoadmap: [],
+                    initialPhase: { name: 'initial', description: '', files: [] },
+                } as unknown as Blueprint,
+                templateName: args.templateName,
+                metadata: { agentId: args.agentId, userId: args.userId } as InferenceMetadata,
+                shouldBeGenerating: false,
+                currentDevState: CurrentDevState.IDLE,
+                mvpGenerated: true,
+                reviewingInitiated: false,
+                generatedFilesMap: {},
+                conversationMessages: [],
+                pendingUserInputs: [],
+                projectUpdatesAccumulator: [],
+                lastDeepDebugTranscript: null,
+                generatedPhases: [],
+                phasesCounter: 0,
+            } as unknown as AgentState);
+
+            // Init git and populate files
+            await this.git.init();
+
+            const fileStates: FileState[] = Object.entries(args.files).map(([filePath, fileContents]) => ({
+                filePath,
+                fileContents,
+                filePurpose: '',
+                lastDiff: '',
+            }));
+
+            const filesMap: Record<string, FileState> = {};
+            for (const fs of fileStates) {
+                filesMap[fs.filePath] = fs;
+            }
+            this.setState({ ...this.state, generatedFilesMap: filesMap });
+
+            await this.git.commit(fileStates, 'Initial import');
+
+            // Upload cover image to R2 and set screenshotUrl
+            let screenshotUrl = '';
+            if (args.coverBase64) {
+                const r2Key = `screenshots/${args.agentId}/latest.webp`;
+                const coverBytes = Uint8Array.from(atob(args.coverBase64), c => c.charCodeAt(0));
+                await this.env.TEMPLATES_BUCKET.put(r2Key, coverBytes, {
+                    httpMetadata: { contentType: 'image/webp' },
+                });
+                const protocol = this.env.CUSTOM_DOMAIN?.startsWith('localhost') ? 'http' : 'https';
+                screenshotUrl = `${protocol}://${this.env.CUSTOM_DOMAIN}/api/${r2Key}`;
+            }
+
+            // Save to D1
+            const appService = new AppService(this.env);
+            await appService.createApp({
+                id: args.agentId,
+                userId: args.userId,
+                title: args.title,
+                description: args.description,
+                originalPrompt: args.description,
+                framework: '',
+                visibility: 'public',
+                status: 'completed',
+                createdAt: new Date(),
+                updatedAt: new Date(),
+                ...(screenshotUrl ? { screenshotUrl, screenshotCapturedAt: new Date() } : {}),
+            });
+
+            this.logger().info(`Project imported: ${args.agentId} (${args.title})`);
+            return { success: true };
+        } catch (error) {
+            const msg = error instanceof Error ? error.message : String(error);
+            this.logger().error('Import failed:', error);
+            return { success: false, error: msg };
+        }
     }
 
     // ==========================================
@@ -712,6 +823,26 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
         }
 
         if (!file) {
+            // Fallback: try loading from R2 assets bucket
+            const agentId = this.state.metadata?.agentId || '';
+            const r2Key = `assets/${agentId}/${normalized}`;
+            const r2Object = await this.env.TEMPLATES_BUCKET.get(r2Key);
+            if (r2Object) {
+                const r2ContentType = r2Object.httpMetadata?.contentType || getMimeType(normalized) || 'application/octet-stream';
+                this.logger().info('[BROWSER SERVING] Serving from R2', { r2Key, contentType: r2ContentType });
+                return new Response(r2Object.body, {
+                    status: 200,
+                    headers: {
+                        'Content-Type': r2ContentType,
+                        'Cache-Control': 'public, max-age=31536000, immutable',
+                        'Access-Control-Allow-Origin': '*',
+                        'Access-Control-Allow-Methods': 'GET, OPTIONS',
+                        'Access-Control-Allow-Headers': '*',
+                        'X-Preview-Type': 'browser-native'
+                    }
+                });
+            }
+
             this.logger().warn('[BROWSER SERVING] File not found', { normalized });
             return new Response('File not found', {
                 status: 404,

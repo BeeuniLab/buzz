@@ -1,4 +1,4 @@
-import { type RefObject, type ReactNode, Suspense, useState, useCallback } from 'react';
+import { type RefObject, type ReactNode, Suspense, useState, useCallback, useRef, useEffect } from 'react';
 import { WebSocket } from 'partysocket';
 import { MonacoEditor } from '../../../components/monaco-editor/monaco-editor';
 import { motion } from 'framer-motion';
@@ -17,6 +17,51 @@ import type { FileType, BlueprintType, BehaviorType, ModelConfigsInfo, TemplateD
 import type { ContentDetectionResult } from '../utils/content-detector';
 import type { GitHubExportHook } from '@/hooks/use-github-export';
 import type { Edit } from '../hooks/use-chat';
+
+const GAME_WIDTH = 720;
+const GAME_HEIGHT = 1280;
+
+function PhoneFrame({ children }: { children: ReactNode }) {
+	const containerRef = useRef<HTMLDivElement>(null);
+	const [scale, setScale] = useState(1);
+
+	useEffect(() => {
+		const container = containerRef.current;
+		if (!container) return;
+
+		const updateScale = () => {
+			const { clientWidth, clientHeight } = container;
+			const scaleX = clientWidth / GAME_WIDTH;
+			const scaleY = clientHeight / GAME_HEIGHT;
+			setScale(Math.max(scaleX, scaleY));
+		};
+		updateScale();
+		const observer = new ResizeObserver(updateScale);
+		observer.observe(container);
+		return () => observer.disconnect();
+	}, []);
+
+	return (
+		<div className="flex-1 flex items-center justify-center bg-bg-3 overflow-hidden p-4">
+			<div
+				ref={containerRef}
+				className="h-full aspect-[9/16] rounded-2xl overflow-hidden shadow-2xl border border-border-primary bg-black relative"
+			>
+				<div style={{
+					position: 'absolute',
+					top: 0,
+					left: 0,
+					width: GAME_WIDTH,
+					height: GAME_HEIGHT,
+					transform: `scale(${scale})`,
+					transformOrigin: 'top left',
+				}}>
+					{children}
+				</div>
+			</div>
+		</div>
+	);
+}
 
 interface MainContentPanelProps {
 	// View state
@@ -170,7 +215,7 @@ export function MainContentPanel(props: MainContentPanelProps) {
 		const FeaturePreviewComponent = featureRegistry.getLazyPreviewComponent(projectType);
 
 		// Fallback to default PreviewIframe if no feature-specific component
-		const previewContent = FeaturePreviewComponent ? (
+		const rawPreview = FeaturePreviewComponent ? (
 			<Suspense
 				fallback={
 					<div className="flex-1 w-full h-full flex items-center justify-center bg-bg-3">
@@ -210,6 +255,13 @@ export function MainContentPanel(props: MainContentPanelProps) {
 				manualRefreshTrigger={manualRefreshTrigger}
 				webSocket={websocket}
 			/>
+		);
+
+		// Wrap preview in a phone frame with iframe scaling (720x1280 native resolution)
+		const previewContent = (
+			<PhoneFrame>
+				{rawPreview}
+			</PhoneFrame>
 		);
 
 		// Get lazy-loaded header actions component from feature registry

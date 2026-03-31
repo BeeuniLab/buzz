@@ -71,11 +71,12 @@ export class AppService extends BaseService {
             period = 'all',
             framework,
             search,
-            userId
+            userId,
+            authorId
         } = options;
 
         try {
-            const whereConditions = this.buildPublicAppConditions(framework, search);
+            const whereConditions = this.buildPublicAppConditions(framework, search, authorId);
             const whereClause = this.buildWhereConditions(whereConditions);
             const readDb = this.getReadDb('fast');
             
@@ -199,8 +200,9 @@ export class AppService extends BaseService {
      * Helper to build public app query conditions
      */
     private buildPublicAppConditions(
-        framework?: string, 
-        search?: string
+        framework?: string,
+        search?: string,
+        authorId?: string
     ): WhereCondition[] {
         const whereConditions: WhereCondition[] = [
             // Only show public apps or apps from anonymous users
@@ -215,6 +217,10 @@ export class AppService extends BaseService {
             // Use shared helper for common filters
             ...this.buildCommonAppFilters(framework, search),
         ];
+
+        if (authorId) {
+            whereConditions.push(eq(schema.apps.userId, authorId));
+        }
 
         return whereConditions.filter(Boolean);
     }

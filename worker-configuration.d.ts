@@ -47,6 +47,7 @@ declare namespace Cloudflare {
 		USE_CLOUDFLARE_IMAGES: string;
 		LLM_PROXY_URL: string;
 		LLM_PROXY_API_KEY: string;
+		ADMIN_IMPORT_KEY: string;
 		CodeGenObject: DurableObjectNamespace<import("./worker/index").CodeGeneratorAgent>;
 		DORateLimitStore: DurableObjectNamespace<import("./worker/index").DORateLimitStore>;
 		UserSecretsStore: DurableObjectNamespace<import("./worker/index").UserSecretsStore>;

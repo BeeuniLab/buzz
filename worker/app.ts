@@ -40,6 +40,12 @@ export function createApp(env: Env): Hono<AppEnv> {
         if (upgradeHeader?.toLowerCase() === 'websocket') {
             return next();
         }
+
+        // Skip CSRF for admin API routes (authenticated via X-Admin-Key)
+        const url = new URL(c.req.url);
+        if (url.pathname.startsWith('/api/admin/')) {
+            return next();
+        }
         
         try {
             // Handle GET requests - establish CSRF token if needed

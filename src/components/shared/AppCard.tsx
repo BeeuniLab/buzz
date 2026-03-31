@@ -15,6 +15,7 @@ import {
 	CloudOff,
 	Loader2,
 	Github,
+	Play,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { formatDistanceToNow } from 'date-fns';
@@ -177,7 +178,15 @@ interface AppCardProps {
 	showStats?: boolean;
 	showUser?: boolean;
 	showActions?: boolean;
+	showAuthor?: boolean;
+	cardSize?: 'large' | 'small';
 	className?: string;
+}
+
+function formatCount(n: number): string {
+	if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
+	if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`;
+	return String(n);
 }
 
 const getVisibilityIcon = (visibility: string) => {
@@ -378,6 +387,7 @@ export const AppCard = React.memo<AppCardProps>(
 		onClick,
 		showUser = false,
 		showActions = false,
+		showAuthor = true,
 		className,
 	}) => {
 		const layoutConfig = getLayoutConfig(showUser, showActions);
@@ -403,6 +413,83 @@ export const AppCard = React.memo<AppCardProps>(
 				},
 			},
 		};
+
+		// Portrait card layout for discover page
+		if (showUser) {
+			return (
+				<motion.div
+					variants={itemVariants}
+					initial="hidden"
+					animate="visible"
+					exit="exit"
+					layout
+					className={className}
+				>
+					<a
+						href={`/feed/${app.id}`}
+						onClick={(e) => {
+							e.preventDefault();
+							onClick(app.id);
+						}}
+						className="block h-full no-underline group"
+					>
+						<div className="relative aspect-[3/4] rounded-xl overflow-hidden bg-gradient-to-br from-bg-3 to-bg-2 cursor-pointer">
+							{app.screenshotUrl ? (
+								<img
+									src={app.screenshotUrl}
+									alt={app.title}
+									className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+									loading="lazy"
+									decoding="async"
+								/>
+							) : (
+								<div className="w-full h-full flex items-center justify-center">
+									<Code2 className="h-12 w-12 text-text-tertiary/30" />
+								</div>
+							)}
+
+							{/* View count badge */}
+							<div className="absolute bottom-2 left-2 flex items-center gap-1 bg-black/60 backdrop-blur-sm rounded-full px-2 py-0.5">
+								<Play className="h-2.5 w-2.5 text-white fill-white" />
+								<span className="text-white text-[11px] font-medium">
+									{formatCount((app as AppWithUserAndStats).viewCount || 0)}
+								</span>
+							</div>
+						</div>
+
+						{/* Author info below card — hidden on profile pages */}
+						{showAuthor && (
+							<div className="flex items-center gap-1.5 mt-1.5 px-0.5">
+								{isPublicApp(app) && app.userName && app.userName !== 'Anonymous User' ? (
+									<>
+										<Avatar className="h-5 w-5">
+											<AvatarImage src={app.userAvatar || undefined} />
+											<AvatarFallback className="text-[8px] bg-bg-3 font-semibold">
+												{app.userName.charAt(0).toUpperCase()}
+											</AvatarFallback>
+										</Avatar>
+										<span className="text-xs text-text-tertiary truncate">
+											{app.userName}
+										</span>
+									</>
+								) : (
+									<>
+										<div className="h-5 w-5 rounded-full bg-bg-3 flex items-center justify-center">
+											<User className="h-2.5 w-2.5 text-text-tertiary" />
+										</div>
+										<span className="text-xs text-text-tertiary">
+											Anonymous
+										</span>
+									</>
+								)}
+							</div>
+						)}
+					</a>
+				</motion.div>
+			);
+		}
+
+		// Original landscape card layout for My Apps etc.
 
 		return (
 			<motion.div

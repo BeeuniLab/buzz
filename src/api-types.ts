@@ -132,6 +132,15 @@ export type {
   AgentConnectionData,
 } from 'worker/api/controllers/agent/types';
 
+// Comment API Types
+export type {
+  CommentAuthor,
+  CommentData,
+  CommentsListData,
+  CommentCreateData,
+  CommentLikeToggleData,
+} from 'worker/api/controllers/comments/types';
+
 // Template Types
 export type {
   TemplateDetails,

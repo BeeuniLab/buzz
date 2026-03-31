@@ -56,6 +56,9 @@ import type{
 	CapabilitiesData,
 	VaultConfigResponse,
 	VaultStatusResponse,
+	CommentsListData,
+	CommentCreateData,
+	CommentLikeToggleData,
 } from '@/api-types';
 import {
 	RateLimitExceededError,
@@ -137,6 +140,7 @@ interface PublicAppsParams extends PaginationParams {
 	framework?: string;
 	search?: string;
 	boardId?: string;
+	authorId?: string;
 }
 
 /**
@@ -464,9 +468,14 @@ class ApiClient {
 		if (params?.framework) queryParams.set('framework', params.framework);
 		if (params?.search) queryParams.set('search', params.search);
 		if (params?.boardId) queryParams.set('boardId', params.boardId);
+		if (params?.authorId) queryParams.set('authorId', params.authorId);
 
 		const endpoint = `/api/apps/public${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
 		return this.request<PublicAppsData>(endpoint);
+	}
+
+	async getPublicUserProfile(userId: string): Promise<ApiResponse<{ id: string; displayName: string | null; username: string | null; avatarUrl: string | null; bio: string | null }>> {
+		return this.request(`/api/users/${userId}/profile`);
 	}
 
 	/**
@@ -1177,6 +1186,49 @@ class ApiClient {
 
 		// Redirect to OAuth provider
 		window.location.href = oauthUrl.toString();
+	}
+
+	// ========================================
+	// COMMENTS
+	// ========================================
+
+	async getComments(
+		appId: string,
+		params?: { limit?: number; offset?: number; parentCommentId?: string },
+	): Promise<ApiResponse<CommentsListData>> {
+		const query = new URLSearchParams();
+		if (params?.limit) query.set('limit', String(params.limit));
+		if (params?.offset) query.set('offset', String(params.offset));
+		if (params?.parentCommentId) query.set('parentCommentId', params.parentCommentId);
+		const qs = query.toString();
+		return this.request<CommentsListData>(
+			`/api/apps/${appId}/comments${qs ? `?${qs}` : ''}`,
+		);
+	}
+
+	async createComment(
+		appId: string,
+		content: string,
+		parentCommentId?: string,
+	): Promise<ApiResponse<CommentCreateData>> {
+		return this.request<CommentCreateData>(`/api/apps/${appId}/comments`, {
+			method: 'POST',
+			body: { content, parentCommentId },
+		});
+	}
+
+	async toggleCommentLike(commentId: string): Promise<ApiResponse<CommentLikeToggleData>> {
+		return this.request<CommentLikeToggleData>(
+			`/api/comments/${commentId}/like`,
+			{ method: 'POST' },
+		);
+	}
+
+	async deleteComment(commentId: string): Promise<ApiResponse<{ deleted: boolean }>> {
+		return this.request<{ deleted: boolean }>(
+			`/api/comments/${commentId}`,
+			{ method: 'DELETE' },
+		);
 	}
 }
 

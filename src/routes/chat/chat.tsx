@@ -13,7 +13,6 @@ import clsx from 'clsx';
 import { UserMessage, AIMessage } from './components/messages';
 import { PhaseTimeline } from './components/phase-timeline';
 import { type DebugMessage } from './components/debug-panel';
-import { DeploymentControls } from './components/deployment-controls';
 import { useChat } from './hooks/use-chat';
 import { type ModelConfigsInfo, type BlueprintType, type PhasicBlueprint, SUPPORTED_IMAGE_MIME_TYPES, type ProjectType, type FileType } from '@/api-types';
 import { featureRegistry } from '@/features';
@@ -124,15 +123,7 @@ export default function Chat() {
 		phaseTimeline,
 		isThinking,
 		// Deployment and generation control
-		isDeploying,
-		cloudflareDeploymentUrl,
-		deploymentError,
-		isRedeployReady,
-		isGenerationPaused,
 		isGenerating,
-		handleStopGeneration,
-		handleResumeGeneration,
-		handleDeployToCloudflare,
 		// Preview refresh control
 		shouldRefreshPreview,
 		// Preview deployment state
@@ -167,7 +158,6 @@ export default function Chat() {
 
 	// Debug panel state
 	const [debugMessages, setDebugMessages] = useState<DebugMessage[]>([]);
-	const deploymentControlsRef = useRef<HTMLDivElement>(null);
 
 	const [isResetDialogOpen, setIsResetDialogOpen] = useState(false);
 
@@ -727,9 +717,6 @@ export default function Chat() {
 										setView(viewMode);
 										hasSwitchedFile.current = true;
 									}}
-									chatId={chatId}
-									isDeploying={isDeploying}
-									handleDeployToCloudflare={handleDeployToCloudflare}
 									runtimeErrorCount={runtimeErrorCount}
 									staticIssueCount={staticIssueCount}
 									isDebugging={isDebugging}
@@ -738,44 +725,7 @@ export default function Chat() {
 								/>
 							)}
 
-							{/* Deployment and Generation Controls - Only for phasic mode */}
-							{chatId && behaviorType !== 'agentic' && (
-								<motion.div
-									ref={deploymentControlsRef}
-									initial={{ opacity: 0, y: 20 }}
-									animate={{ opacity: 1, y: 0 }}
-									transition={{ duration: 0.3, delay: 0.2 }}
-									className="px-4 mb-6"
-								>
-									<DeploymentControls
-										isPhase1Complete={isPhase1Complete}
-										isDeploying={isDeploying}
-										deploymentUrl={cloudflareDeploymentUrl}
-										instanceId={chatId || ''}
-										isRedeployReady={isRedeployReady}
-										deploymentError={deploymentError}
-										appId={app?.id || chatId}
-										appVisibility={app?.visibility}
-										isGenerating={
-											isGenerating ||
-											isGeneratingBlueprint
-										}
-										isPaused={isGenerationPaused}
-										onDeploy={handleDeployToCloudflare}
-										onStopGeneration={handleStopGeneration}
-										onResumeGeneration={
-											handleResumeGeneration
-										}
-										onVisibilityUpdate={(newVisibility) => {
-											// Update app state if needed
-											if (app) {
-												app.visibility = newVisibility;
-											}
-										}}
-									/>
-								</motion.div>
-							)}
-
+	
 							{otherMessages
 								.filter(message => !message.ui?.isThinking)
 								.map((message) => {

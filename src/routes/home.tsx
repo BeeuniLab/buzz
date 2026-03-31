@@ -322,7 +322,7 @@ export default function Home() {
 						>
 							<div className='flex flex-col items-start'>
 								<h2 className="text-2xl font-medium text-text-secondary/80">Discover Apps built by the community</h2>
-								<div ref={discoverLinkRef} className="text-md font-light mb-4 text-text-tertiary hover:underline underline-offset-4 select-text cursor-pointer" onClick={() => navigate('/discover')} >View All</div>
+								<div ref={discoverLinkRef} className="text-md font-light mb-4 text-text-tertiary hover:underline underline-offset-4 select-text cursor-pointer" onClick={() => navigate('/')} >View All</div>
 								<motion.div
 									layout
 									transition={{ duration: 0.4 }}
@@ -333,7 +333,7 @@ export default function Home() {
 											<AppCard
 												key={app.id}
 												app={app}
-												onClick={() => navigate(`/app/${app.id}`)}
+												onClick={() => navigate(`/feed/${app.id}`)}
 												showStats={true}
 												showUser={true}
 												showActions={false}

@@ -9,19 +9,24 @@ import { setupModelProviderRoutes } from './modelProviderRoutes';
 import { setupGitHubExporterRoutes } from './githubExporterRoutes';
 import { setupCodegenRoutes } from './codegenRoutes';
 import { setupScreenshotRoutes } from './imagesRoutes';
+import { setupCommentRoutes } from './commentRoutes';
 import { setupSentryRoutes } from './sentryRoutes';
 import { setupCapabilitiesRoutes } from './capabilitiesRoutes';
 import { setupTicketRoutes } from './ticketRoutes';
 import { Hono } from "hono";
 import { AppEnv } from "../../types/appenv";
 import { setupStatusRoutes } from './statusRoutes';
+import { setupAdminRoutes } from './adminRoutes';
 
 export function setupRoutes(app: Hono<AppEnv>): void {
     // Health check route
     app.get('/api/health', (c) => {
         return c.json({ status: 'ok' });
-    }); 
-    
+    });
+
+    // Admin routes (import, etc.)
+    setupAdminRoutes(app);
+
     // Sentry tunnel routes (public - no auth required)
     setupSentryRoutes(app);
 
@@ -45,6 +50,9 @@ export function setupRoutes(app: Hono<AppEnv>): void {
     
     // App management routes
     setupAppRoutes(app);
+
+    // Comment routes
+    setupCommentRoutes(app);
     
     // Stats routes
     setupStatsRoutes(app);

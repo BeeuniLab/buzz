@@ -9,6 +9,7 @@ import Settings from './routes/settings/index';
 import AppsPage from './routes/apps';
 import AppView from './routes/app';
 import DiscoverPage from './routes/discover';
+import FeedPage from './routes/feed';
 import { ProtectedRoute } from './routes/protected-route';
 
 const routes = [
@@ -18,6 +19,18 @@ const routes = [
 		children: [
 			{
 				index: true,
+				Component: FeedPage,
+			},
+			{
+				path: 'feed/:appId?',
+				Component: FeedPage,
+			},
+			{
+				path: 'discover',
+				Component: DiscoverPage,
+			},
+			{
+				path: 'build',
 				Component: Home,
 			},
 			{
@@ -26,7 +39,11 @@ const routes = [
 			},
 			{
 				path: 'profile',
-				element: React.createElement(ProtectedRoute, { children: React.createElement(Profile) }),
+				Component: Profile,
+			},
+			{
+				path: 'profile/:userId',
+				Component: Profile,
 			},
 			{
 				path: 'settings',
@@ -39,10 +56,6 @@ const routes = [
 			{
 				path: 'app/:id',
 				Component: AppView,
-			},
-			{
-				path: 'discover',
-				Component: DiscoverPage,
 			},
 		],
 	},

@@ -110,6 +110,7 @@ export interface AppQueryOptions extends BaseAppQueryOptions {
  */
 export interface PublicAppQueryOptions extends BaseAppQueryOptions {
     userId?: string; // For user-specific data like favorites
+    authorId?: string; // Filter by app author
 }
 
 /**

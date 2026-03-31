@@ -9,17 +9,12 @@ import {
 	Eye,
 	Code2,
 	ChevronLeft,
-	ExternalLink,
 	Copy,
-	Check,
 	Loader2,
 	MessageSquare,
-	Calendar,
-	User,
 	Play,
 	Lock,
 	Unlock,
-	Bookmark,
 	Globe,
 	Trash2,
 	Github,
@@ -38,12 +33,12 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAuth } from '@/contexts/auth-context';
 import { toggleFavorite } from '@/hooks/use-apps';
-import { formatDistanceToNow, isValid } from 'date-fns';
 import { toast } from 'sonner';
 import { capitalizeFirstLetter, cn, getPreviewUrl } from '@/lib/utils';
 import { ConfirmDeleteDialog } from '@/components/shared/ConfirmDeleteDialog';
-import { useAuthGuard } from '@/hooks/useAuthGuard';
-import { PreviewIframe } from '../chat/components/preview-iframe';
+
+const GAME_WIDTH = 720;
+const GAME_HEIGHT = 1280;
 
 // Use proper types from API types
 type AppDetails = AppDetailsData;
@@ -81,13 +76,9 @@ export default function AppView() {
 	const navigate = useNavigate();
 	const [searchParams, setSearchParams] = useSearchParams();
 	const { user } = useAuth();
-	const { requireAuth } = useAuthGuard();
 	const [app, setApp] = useState<AppDetails | null>(null);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
-	const [isFavorited, setIsFavorited] = useState(false);
-	const [isStarred, setIsStarred] = useState(false);
-	const { copied: urlCopied, copy: copyUrl } = useCopyToClipboard();
 	const { copy: copyFile } = useCopyToClipboard({ successMessage: 'Code copied to clipboard' });
 	const { copy: copyPrompt } = useCopyToClipboard({ successMessage: 'Prompt copied to clipboard' });
 	const [activeTab, setActiveTab] = useState('preview');
@@ -98,6 +89,24 @@ export default function AppView() {
 	const [isDeleting, setIsDeleting] = useState(false);
 	const [activeFilePath, setActiveFilePath] = useState<string>();
 	const previewIframeRef = useRef<HTMLIFrameElement>(null);
+	const phoneFrameRef = useRef<HTMLDivElement>(null);
+	const [phoneScale, setPhoneScale] = useState(1);
+
+	useEffect(() => {
+		const container = phoneFrameRef.current;
+		if (!container) return;
+
+		const updateScale = () => {
+			const { clientWidth, clientHeight } = container;
+			const scaleX = clientWidth / GAME_WIDTH;
+			const scaleY = clientHeight / GAME_HEIGHT;
+			setPhoneScale(Math.max(scaleX, scaleY));
+		};
+		updateScale();
+		const observer = new ResizeObserver(updateScale);
+		observer.observe(container);
+		return () => observer.disconnect();
+	}, []);
 
 	const fetchAppDetails = useCallback(async () => {
 		if (!id) return;
@@ -112,8 +121,6 @@ export default function AppView() {
 			if (appResponse.success && appResponse.data) {
 				const appData = appResponse.data;
 				setApp(appData);
-				setIsFavorited(appData.userFavorited || false);
-				setIsStarred(appData.userStarred || false);
 			} else {
 				throw new Error(
 					appResponse.error?.message || 'Failed to fetch app details',
@@ -184,7 +191,14 @@ export default function AppView() {
 				handler: async () => {
 					if (!app) return;
 					const newState = await toggleFavorite(app.id);
-					setIsFavorited(newState);
+					setApp((prev) =>
+						prev
+							? {
+									...prev,
+									userFavorited: newState,
+								}
+							: null,
+					);
 					toast.success(
 						newState
 							? 'Added to bookmarks'
@@ -201,7 +215,6 @@ export default function AppView() {
 					const response = await apiClient.toggleAppStar(app.id);
 
 					if (response.success && response.data) {
-						setIsStarred(response.data.isStarred);
 						setApp((prev) =>
 							prev
 								? {
@@ -252,53 +265,6 @@ export default function AppView() {
 		[app],
 	);
 
-	// Reusable authenticated action handler
-	const createAuthenticatedHandler = useCallback(
-		(configKey: string) => {
-			return async () => {
-				if (!app) return;
-
-				const config = actionConfigs[configKey];
-				if (!config) return;
-
-				const currentUrl = `/app/${app.id}?action=${config.action}`;
-
-				// Use auth guard with action parameter in intended URL
-				if (
-					!requireAuth({
-						requireFullAuth: true,
-						actionContext: config.context,
-						intendedUrl: currentUrl,
-					})
-				) {
-					return;
-				}
-
-				// User is authenticated, execute immediately
-				try {
-					await config.handler();
-				} catch (error) {
-					console.error(`${config.action} error:`, error);
-					toast.error(
-						error instanceof ApiError
-							? error.message
-							: config.errorMessage,
-					);
-				}
-			};
-		},
-		[actionConfigs, app, requireAuth],
-	);
-
-	// Create action handlers using the reusable pattern
-	const handleFavorite = useMemo(
-		() => createAuthenticatedHandler('favorite'),
-		[createAuthenticatedHandler],
-	);
-	const handleStar = useMemo(
-		() => createAuthenticatedHandler('star'),
-		[createAuthenticatedHandler],
-	);
 	// const handleFork = useMemo(
 	// 	() => createAuthenticatedHandler('fork'),
 	// 	[createAuthenticatedHandler],
@@ -370,10 +336,6 @@ export default function AppView() {
 		executePendingAction,
 	]);
 
-	const handleCopyUrl = () => {
-		if (!appUrl) return;
-		copyUrl(appUrl);
-	};
 
 	const getAppUrl = () => {
 		return app?.cloudflareUrl || app?.previewUrl || '';
@@ -526,24 +488,14 @@ export default function AppView() {
 
 	const isOwner = app.userId === user?.id;
 	const appUrl = getAppUrl();
-	const createdDate = app.createdAt ? new Date(app.createdAt) : new Date();
 
 	return (
 		<div className="min-h-screen bg-bg-3 flex flex-col">
-			<div className="container mx-auto px-4 pb-6 space-y-6 flex flex-col flex-1">
-				{/* Back button */}
-				<button
-					onClick={() => history.back()}
-					className="gap-2 flex items-center text-text-primary/80"
-				>
-					<ChevronLeft className="h-4 w-4" />
-					Back
-				</button>
-
+			<div className="container mx-auto px-4 pt-2 pb-4 space-y-2 flex flex-col flex-1">
 				{/* App Info Section */}
-				<div className="flex flex-col items-start justify-between gap-4 text-bg-4 w-fit rounded-lg p-5">
+				<div className="flex flex-col items-start justify-between gap-4 text-bg-4 w-fit rounded-lg px-5 pb-0">
 					<div className="flex-1">
-						<div className="flex rounded w-fit pb-3 pt-2 flex-col mb-6">
+						<div className="flex rounded w-fit pb-3 pt-2 flex-col">
 							<div className="flex items-center gap-3 mb-2">
 								<h1 className="text-4xl font-semibold tracking-tight text-text-primary">
 									{app.title}
@@ -574,39 +526,7 @@ export default function AppView() {
 									)}
 								</div>
 							</div>
-							<div className="flex flex-wrap gap-2">
-								<Button
-									variant="outline"
-									size="sm"
-									onClick={handleFavorite}
-									className={cn(
-										'gap-2 text-text-primary',
-									)}
-								>
-									<Bookmark
-										className={cn(
-											'h-4 w-4',
-											isFavorited && 'fill-current',
-										)}
-									/>
-									{isFavorited ? 'Bookmarked' : 'Bookmark'}
-								</Button>
-
-								<Button
-									variant="outline"
-									size="sm"
-									onClick={handleStar}
-									className={cn('gap-2 text-text-primary')}
-								>
-									<Star
-										className={cn(
-											'h-4 w-4',
-											isStarred && 'fill-current',
-										)}
-									/>
-									{isStarred ? 'Starred' : 'Star'}
-								</Button>
-
+							<div className="flex flex-wrap items-center gap-2">
 								{/* GitHub Repository Button */}
 								{app.githubRepositoryUrl && (
 									<Button
@@ -657,7 +577,7 @@ export default function AppView() {
 											Delete App
 										</Button>
 									</>
-								) 
+								)
                                 : (
 									<>
 										{/*
@@ -674,41 +594,19 @@ export default function AppView() {
 									</>
 								)
                                 }
-							</div>
-						</div>
 
-						{app.description && (
-							<p className="text-text-primary my-3 max-w-4xl">
-								{app.description}
-							</p>
-						)}
-
-						<div className="flex flex-wrap items-center gap-4 text-sm text-text-secondary">
-							{app.user && (
-								<div className="flex items-center gap-2">
-									<User className="h-4 w-4" />
-									<span>{app.user.displayName}</span>
+								{/* Stats inline with buttons */}
+								<div className="flex items-center gap-1.5 text-sm text-text-tertiary border border-border-primary rounded-md px-3 py-1">
+									<Eye className="h-3.5 w-3.5" />
+									<span>{app.viewCount || 0}</span>
 								</div>
-							)}
-							<div className="flex items-center gap-2">
-								<Calendar className="h-4 w-4" />
-								<span>
-									{isValid(createdDate)
-										? formatDistanceToNow(createdDate, {
-												addSuffix: true,
-											})
-										: 'recently'}
-								</span>
-							</div>
-							<div className="flex items-center gap-2">
-								<Eye className="h-4 w-4" />
-								<span>{app.viewCount || 0}</span>
-							</div>
-							<div className="flex items-center gap-2">
-								<Star className="h-4 w-4" />
-								<span>{app.starCount || 0}</span>
+								<div className="flex items-center gap-1.5 text-sm text-text-tertiary border border-border-primary rounded-md px-3 py-1">
+									<Star className="h-3.5 w-3.5" />
+									<span>{app.starCount || 0}</span>
+								</div>
 							</div>
 						</div>
+
 					</div>
 				</div>
 				<Tabs
@@ -754,112 +652,67 @@ export default function AppView() {
 						
 					</div>
 
-					<TabsContent value="preview" className="flex-1">
-						<Card className="px-2">
-							<CardHeader className="overflow-hidden rounded-t">
-								<div className="flex items-center gap-4 min-w-0">
-									<CardTitle className="text-base flex-shrink-0">
-										Live Preview
-									</CardTitle>
-									{/* Preview URL action buttons */}
-									{appUrl && (
-										<div className="ml-auto flex items-center gap-0 flex-shrink-0">
-											<Button
-												variant="ghost"
-												size="sm"
-												onClick={handleCopyUrl}
-												className="gap-2"
-															>
-																{urlCopied ? (
-																	<>
-																		<Check className="h-3 w-3" />
-																		Copied!
-																	</>
-																) : (
-																	<>
-																		<Copy className="h-3 w-3" />
-																	</>
-																)}
-															</Button>
-											<Button
-												variant="ghost"
-												size="sm"
-												onClick={() =>
-													window.open(
-														appUrl,
-														'_blank',
-													)
-												}
-												className="gap-2"
-											>
-												<ExternalLink className="h-3 w-3" />
-											</Button>
-										</div>
-									)}
-								</div>
-							</CardHeader>
-							<CardContent className="p-0">
-								<div className="border-t relative">
+					<TabsContent value="preview" className="flex-1 flex flex-col">
+						<Card className="px-2 flex-1 flex flex-col">
+							<CardContent className="p-0 flex-1 flex flex-col">
+								<div className="relative flex-1 flex flex-col">
 									{appUrl ? (
-										<PreviewIframe
-											ref={previewIframeRef}
-											src={appUrl}
-											className="w-full h-[600px] lg:h-[800px]"
-											title={`${app.title} Preview`}
-										/>
-									) : (
-										<div className="relative w-full h-[400px] bg-gray-50 flex items-center justify-center">
-											{/* Frosted glass overlay */}
-											<div className="absolute inset-0 bg-white/80 backdrop-blur-sm flex items-center justify-center z-10">
-												<div className="text-center p-8">
-													<h3 className="text-xl font-semibold mb-2 text-gray-700">
-														Run App
-													</h3>
-													<p className="text-gray-500 mb-6 max-w-md">
-														Run the app to see a
-														live preview.
-													</p>
-													{deploymentProgress && (
-														<p className="text-sm text-gray-800 mb-4">
-															{deploymentProgress}
-														</p>
-													)}
-													<div className="flex gap-3 justify-center">
-														<Button
-															onClick={
-																handlePreviewDeploy
-															}
-															disabled={
-																isDeploying
-															}
-															className="gap-2"
-														>
-															{isDeploying ? (
-																<>
-																	<Loader2 className="h-4 w-4 animate-spin" />
-																	Deploying...
-																</>
-															) : (
-																<>
-																	<Play className="h-4 w-4" />
-																	Deploy for
-																	Preview
-																</>
-															)}
-														</Button>
-													</div>
+										<div className="flex items-center justify-center bg-bg-3 overflow-hidden p-4 h-[calc(100vh-180px)]">
+											<div
+												ref={phoneFrameRef}
+												className="h-full aspect-[9/16] rounded-2xl overflow-hidden shadow-2xl border border-border-primary bg-black relative"
+											>
+												<div style={{
+													position: 'absolute',
+													top: 0,
+													left: 0,
+													width: GAME_WIDTH,
+													height: GAME_HEIGHT,
+													transform: `scale(${phoneScale})`,
+													transformOrigin: 'top left',
+												}}>
+													<iframe
+														ref={previewIframeRef}
+														src={appUrl}
+														title={`${app.title} Preview`}
+														allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope"
+														sandbox="allow-scripts allow-same-origin allow-pointer-lock allow-forms allow-modals allow-orientation-lock allow-popups allow-presentation"
+														style={{ border: 'none', width: '100%', height: '100%' }}
+													/>
 												</div>
 											</div>
-											{/* Background pattern */}
-											<div className="absolute inset-0 opacity-10">
-												<div
-													className="w-full h-full"
-													style={{
-														backgroundImage: `url("data:image/svg+xml,%3Csvg width='40' height='40' viewBox='0 0 40 40' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%23000' fill-opacity='0.1'%3E%3Cpath d='M20 20c0 11.046-8.954 20-20 20V0c11.046 0 20 8.954 20 20z'/%3E%3C/g%3E%3C/svg%3E")`,
-														backgroundSize:
-															'40px 40px',
-													}}
-												/>
+										</div>
+									) : (
+										<div className="relative w-full flex-1 bg-gray-50 flex items-center justify-center">
+											<div className="text-center">
+												<h3 className="text-xl font-semibold mb-2 text-gray-700">
+													Live Preview
+												</h3>
+												<p className="text-gray-500 mb-4 max-w-md">
+													Run the app to see a live preview.
+												</p>
+												{deploymentProgress && (
+													<p className="text-sm text-gray-800 mb-4">
+														{deploymentProgress}
+													</p>
+												)}
+												<Button
+													onClick={handlePreviewDeploy}
+													disabled={isDeploying}
+													className="gap-2"
+												>
+													{isDeploying ? (
+														<>
+															<Loader2 className="h-4 w-4 animate-spin" />
+															Loading...
+														</>
+													) : (
+														<>
+															<Play className="h-4 w-4" />
+															Run Preview
+														</>
+													)}
+												</Button>
 											</div>
 										</div>
 									)}
@@ -868,7 +721,7 @@ export default function AppView() {
 						</Card>
 					</TabsContent>
 
-					<TabsContent value="code" className="flex-1">
+					<TabsContent value="code">
 						<Card className="flex flex-col" style={{ maxHeight: '600px' }}>
 							<CardHeader>
 								<div className="flex items-center justify-between">
@@ -1000,7 +853,6 @@ export default function AppView() {
 
 					<TabsContent
 						value="prompt"
-						className="flex-1"
 					>
 						<Card>
 							<CardHeader>
