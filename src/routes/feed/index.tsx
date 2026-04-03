@@ -392,13 +392,13 @@ export default function FeedPage() {
 	);
 
 	if (isMobile) {
-		// Mobile: full-screen with overlay action buttons
+		// Mobile: full-screen with overlay action buttons, accounting for bottom nav (h-14 = 3.5rem)
 		return (
-			<div className="h-full w-full bg-black overflow-hidden relative">
+			<div className="w-full bg-black overflow-hidden relative" style={{ height: 'calc(100% - 3.5rem)' }}>
 				{scrollContent}
 
-				{/* Overlay action buttons — bottom right */}
-				<div className="absolute right-2 bottom-20 z-30 flex flex-col items-center gap-3">
+				{/* Overlay action buttons — bottom right, above bottom nav */}
+				<div className="absolute right-2 bottom-4 z-30 flex flex-col items-center gap-3">
 					<div
 						className="flex flex-col items-center gap-3 overflow-hidden transition-all duration-300 ease-in-out"
 						style={{ maxHeight: actionsCollapsed ? '0px' : '500px', opacity: actionsCollapsed ? 0 : 1 }}
@@ -417,7 +417,7 @@ export default function FeedPage() {
 				{/* App title overlay — bottom left */}
 				{currentApp && (
 					<div
-						className="absolute left-3 bottom-20 z-30 max-w-[60%] transition-all duration-300 ease-in-out"
+						className="absolute left-3 bottom-4 z-30 max-w-[60%] transition-all duration-300 ease-in-out"
 						style={{ opacity: actionsCollapsed ? 0 : 1, transform: actionsCollapsed ? 'translateY(20px)' : 'translateY(0)' }}
 					>
 						<p className="text-white font-bold text-sm drop-shadow-lg">{currentApp.title}</p>

@@ -122,6 +122,21 @@ function loadSeedUsers(dbPath: string): SeedUser[] {
 	return rows;
 }
 
+async function loadRemoteSeedUsers(): Promise<SeedUser[]> {
+	const { execSync } = require('node:child_process');
+	const raw = execSync(
+		`npx wrangler d1 execute buzz-db --remote --command "SELECT id, username FROM users WHERE provider = 'seed' AND username IS NOT NULL" --json`,
+		{ encoding: 'utf-8', cwd: join(import.meta.dir, '..'), timeout: 30000 },
+	);
+	const parsed = JSON.parse(raw);
+	// wrangler --json returns an array of query results
+	const results = Array.isArray(parsed) ? parsed[0]?.results : parsed?.results;
+	if (!results || !Array.isArray(results)) {
+		throw new Error('Failed to parse remote D1 query results');
+	}
+	return results as SeedUser[];
+}
+
 // ---- File helpers (from import-buzzplays.ts) ----
 
 async function walkDir(dir: string, base: string): Promise<string[]> {
@@ -339,9 +354,11 @@ async function main() {
 	let limit = 0;
 	let concurrency = DEFAULTS.concurrency;
 	let dryRun = false;
+	let remote = false;
 	let baseUrl = DEFAULTS.baseUrl;
 	let adminKey = DEFAULTS.adminKey;
 	let templatesDir = DEFAULTS.templatesDir;
+	let skipFile: string | null = null;
 
 	for (let i = 0; i < args.length; i++) {
 		switch (args[i]) {
@@ -349,9 +366,11 @@ async function main() {
 			case '--limit': limit = parseInt(args[++i], 10); break;
 			case '--concurrency': concurrency = parseInt(args[++i], 10); break;
 			case '--dry-run': dryRun = true; break;
+			case '--remote': remote = true; break;
 			case '--base-url': baseUrl = args[++i]; break;
 			case '--admin-key': adminKey = args[++i]; break;
 			case '--templates-dir': templatesDir = args[++i]; break;
+			case '--skip-file': skipFile = args[++i]; break;
 			default:
 				console.error(`Unknown argument: ${args[i]}`);
 				process.exit(1);
@@ -363,9 +382,15 @@ async function main() {
 		process.exit(1);
 	}
 
-	// Load seed users from local DB
-	const dbPath = findLocalD1Database();
-	const seedUsers = loadSeedUsers(dbPath);
+	// Load seed users from local or remote DB
+	let seedUsers: SeedUser[];
+	if (remote) {
+		console.log('Loading seed users from remote D1...');
+		seedUsers = await loadRemoteSeedUsers();
+	} else {
+		const dbPath = findLocalD1Database();
+		seedUsers = loadSeedUsers(dbPath);
+	}
 	if (seedUsers.length === 0) {
 		console.error('No seed users found. Run import-users.ts first.');
 		process.exit(1);
@@ -377,6 +402,18 @@ async function main() {
 
 	// Pre-assign users to games for stats
 	let slugs = await listGameDirs(templatesDir);
+
+	// Skip already-imported games
+	if (skipFile) {
+		const { readFileSync } = require('node:fs');
+		const skipSlugs = new Set(
+			readFileSync(skipFile, 'utf-8').split('\n').map((s: string) => s.trim()).filter(Boolean)
+		);
+		const before = slugs.length;
+		slugs = slugs.filter((s) => !skipSlugs.has(s));
+		console.log(`Skipping ${before - slugs.length} already-imported games (from ${skipFile})`);
+	}
+
 	// Shuffle templates for random order
 	slugs = slugs.sort(() => Math.random() - 0.5);
 	if (limit > 0) slugs = slugs.slice(0, limit);
