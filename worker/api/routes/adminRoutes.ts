@@ -2,12 +2,71 @@ import { Hono } from 'hono';
 import type { AppEnv } from '../../types/appenv';
 import { getAgentStub } from '../../agents';
 import { generateId } from '../../utils/idGenerator';
+import { UserService } from '../../database/services/UserService';
 
 export function setupAdminRoutes(app: Hono<AppEnv>): void {
-    app.post('/api/admin/import-project', async (c) => {
+    // Shared admin key check
+    const checkAdminKey = (c: { req: { header: (name: string) => string | undefined }; env: { ADMIN_IMPORT_KEY?: string } }) => {
         const adminKey = c.req.header('X-Admin-Key');
         const expectedKey = c.env.ADMIN_IMPORT_KEY || 'dev-import-key';
-        if (adminKey !== expectedKey) {
+        return adminKey === expectedKey;
+    };
+
+    // Bulk import users
+    app.post('/api/admin/import-users', async (c) => {
+        if (!checkAdminKey(c)) {
+            return c.json({ error: 'Unauthorized' }, 401);
+        }
+
+        const body = await c.req.json<{
+            users: Array<{
+                username: string;
+                displayName: string;
+                email: string;
+                bio?: string;
+                avatarUrl?: string;
+            }>;
+        }>();
+
+        if (!body.users || !Array.isArray(body.users)) {
+            return c.json({ error: 'Missing required field: users (array)' }, 400);
+        }
+
+        const userService = new UserService(c.env);
+        let inserted = 0;
+        let skipped = 0;
+        const results: Array<{ username: string; id?: string; error?: string }> = [];
+
+        for (const u of body.users) {
+            try {
+                const user = await userService.createUser({
+                    id: generateId(),
+                    email: u.email,
+                    username: u.username,
+                    displayName: u.displayName,
+                    avatarUrl: u.avatarUrl || null,
+                    bio: u.bio || null,
+                    provider: 'seed',
+                    providerId: `seed_${u.username}`,
+                    emailVerified: true,
+                    isActive: true,
+                    createdAt: new Date(),
+                    updatedAt: new Date(),
+                });
+                results.push({ username: u.username, id: user.id });
+                inserted++;
+            } catch (err: unknown) {
+                const msg = err instanceof Error ? err.message : String(err);
+                results.push({ username: u.username, error: msg });
+                skipped++;
+            }
+        }
+
+        return c.json({ success: true, inserted, skipped, results });
+    });
+
+    app.post('/api/admin/import-project', async (c) => {
+        if (!checkAdminKey(c)) {
             return c.json({ error: 'Unauthorized' }, 401);
         }
 
@@ -48,9 +107,7 @@ export function setupAdminRoutes(app: Hono<AppEnv>): void {
     });
 
     app.post('/api/admin/import-files/:agentId', async (c) => {
-        const adminKey = c.req.header('X-Admin-Key');
-        const expectedKey = c.env.ADMIN_IMPORT_KEY || 'dev-import-key';
-        if (adminKey !== expectedKey) {
+        if (!checkAdminKey(c)) {
             return c.json({ error: 'Unauthorized' }, 401);
         }
 
