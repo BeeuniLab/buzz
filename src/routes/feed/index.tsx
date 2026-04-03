@@ -9,9 +9,13 @@ import { toast } from 'sonner';
 import { useNavigate, useParams } from 'react-router';
 import type { AppWithUserAndStats } from '@/api-types';
 import { CommentsDrawer } from '@/components/comments/CommentsDrawer';
+import { useIsMobile } from '@/hooks/use-mobile';
+import { useAuthGuard } from '@/hooks/useAuthGuard';
 
 export default function FeedPage() {
 	const { appId } = useParams<{ appId?: string }>();
+	const isMobile = useIsMobile();
+	const { requireAuth } = useAuthGuard();
 	const [apps, setApps] = React.useState<AppWithUserAndStats[]>([]);
 	const [loading, setLoading] = React.useState(true);
 	const [loadingMore, setLoadingMore] = React.useState(false);
@@ -21,12 +25,41 @@ export default function FeedPage() {
 	const [initialAppLoaded, setInitialAppLoaded] = React.useState(!appId);
 	const [commentsOpen, setCommentsOpen] = React.useState(false);
 	const [commentCount, setCommentCount] = React.useState(0);
+	const [actionsCollapsed, setActionsCollapsed] = React.useState(false);
+
+	// Stable seed per session — regenerated when user navigates to feed root
+	const feedSeedRef = React.useRef(Math.floor(Math.random() * 1000000));
+	const prevAppIdRef = React.useRef(appId);
+	const [refreshKey, setRefreshKey] = React.useState(0);
+
+	// Reset feed when navigating to root (no appId) from a specific app
+	React.useEffect(() => {
+		const prevAppId = prevAppIdRef.current;
+		prevAppIdRef.current = appId;
+
+		if (prevAppId && !appId) {
+			// User navigated to "/" or "/feed" — refresh the feed
+			feedSeedRef.current = Math.floor(Math.random() * 1000000);
+			setApps([]);
+			appsRef.current = [];
+			setPage(1);
+			setCurrentIndex(0);
+			setHasMore(true);
+			setLoading(true);
+			setInitialAppLoaded(true);
+			setRefreshKey((k) => k + 1);
+		}
+	}, [appId]);
 
 	const containerRef = React.useRef<HTMLDivElement>(null);
 	const observerRef = React.useRef<IntersectionObserver | null>(null);
 	const lastItemRef = React.useRef<HTMLDivElement | null>(null);
 	const feedItemRefs = React.useRef<Map<number, FeedItemHandle>>(new Map());
+	const appsRef = React.useRef<AppWithUserAndStats[]>([]);
 	const navigate = useNavigate();
+
+	// Keep ref in sync with state for use in memoized callbacks
+	React.useEffect(() => { appsRef.current = apps; }, [apps]);
 
 	// Load the specific app first if appId is provided
 	React.useEffect(() => {
@@ -71,11 +104,16 @@ export default function FeedPage() {
 		else setLoadingMore(true);
 
 		try {
+			// On subsequent pages, exclude already-loaded app IDs so we get fresh content
+			const currentApps = pageNum === 1 && !appId ? [] : appsRef.current;
+			const excludeIds = currentApps.length > 0 ? currentApps.map((a) => a.id) : undefined;
+
 			const res = await apiClient.getPublicApps({
-				sort: 'popular',
+				sort: 'feed',
 				limit: 10,
-				page: pageNum,
-				period: 'all',
+				page: 1, // Always page 1 — excludeIds handles continuation
+				seed: feedSeedRef.current,
+				excludeIds,
 			});
 			if (res.success && res.data) {
 				const newApps = res.data.apps;
@@ -98,7 +136,7 @@ export default function FeedPage() {
 	React.useEffect(() => {
 		if (!initialAppLoaded) return;
 		fetchApps(1);
-	}, [fetchApps, initialAppLoaded]);
+	}, [fetchApps, initialAppLoaded, refreshKey]);
 
 	// Infinite scroll observer
 	React.useEffect(() => {
@@ -196,10 +234,11 @@ export default function FeedPage() {
 
 	const currentApp = apps[currentIndex];
 
-	// Update URL and fetch comment count when current app changes
+	// Update URL, record view, and fetch comment count when current app changes
 	React.useEffect(() => {
 		if (currentApp) {
 			window.history.replaceState(null, '', `/feed/${currentApp.id}`);
+			apiClient.recordAppView(currentApp.id);
 			apiClient.getComments(currentApp.id, { limit: 50 }).then((res) => {
 				if (res.success && res.data) {
 					const replyTotal = res.data.comments.reduce((sum, c) => sum + (c.replyCount || 0), 0);
@@ -261,106 +300,165 @@ export default function FeedPage() {
 		);
 	}
 
+	// Shared action buttons JSX
+	const actionButtons = (
+		<>
+			<button onClick={handleReplay} className="flex flex-col items-center gap-1 group">
+				<div className={cn('rounded-full p-3 transition-colors', isMobile ? 'bg-black/40 backdrop-blur-sm text-white' : 'bg-bg-3 text-text-primary group-hover:bg-bg-3/80')}>
+					<RotateCcw className={cn(isMobile ? 'h-5 w-5' : 'h-6 w-6')} />
+				</div>
+				<span className={cn('text-xs', isMobile ? 'text-white/80' : 'text-text-tertiary')}>Replay</span>
+			</button>
+			<button onClick={handleShare} className="flex flex-col items-center gap-1 group">
+				<div className={cn('rounded-full p-3 transition-colors', isMobile ? 'bg-black/40 backdrop-blur-sm text-white' : 'bg-bg-3 text-text-primary group-hover:bg-bg-3/80')}>
+					<Send className={cn(isMobile ? 'h-5 w-5' : 'h-6 w-6')} />
+				</div>
+				<span className={cn('text-xs', isMobile ? 'text-white/80' : 'text-text-tertiary')}>Share</span>
+			</button>
+			<button onClick={() => { if (requireAuth({ actionContext: 'to comment' })) setCommentsOpen(true); }} className="flex flex-col items-center gap-1 group">
+				<div className={cn('rounded-full p-3 transition-colors', isMobile ? 'bg-black/40 backdrop-blur-sm text-white' : 'bg-bg-3 text-text-primary group-hover:bg-bg-3/80')}>
+					<MessageCircle className={cn(isMobile ? 'h-5 w-5' : 'h-6 w-6')} />
+				</div>
+				<span className={cn('text-xs', isMobile ? 'text-white/80' : 'text-text-tertiary')}>{commentCount}</span>
+			</button>
+			<button onClick={handleStar} className="flex flex-col items-center gap-1 group">
+				<div className={cn(
+					'rounded-full p-3 transition-colors',
+					currentApp?.userStarred
+						? 'bg-red-500/20 text-red-500'
+						: isMobile ? 'bg-black/40 backdrop-blur-sm text-white' : 'bg-bg-3 text-text-primary group-hover:bg-bg-3/80'
+				)}>
+					<Heart className={cn(isMobile ? 'h-5 w-5' : 'h-6 w-6', currentApp?.userStarred && 'fill-current')} />
+				</div>
+				<span className={cn('text-xs', isMobile ? 'text-white/80' : 'text-text-tertiary')}>{currentApp?.starCount || 0}</span>
+			</button>
+			<button onClick={handleFavorite} className="flex flex-col items-center gap-1 group">
+				<div className={cn(
+					'rounded-full p-3 transition-colors',
+					currentApp?.userFavorited
+						? 'bg-accent/20 text-accent'
+						: isMobile ? 'bg-black/40 backdrop-blur-sm text-white' : 'bg-bg-3 text-text-primary group-hover:bg-bg-3/80'
+				)}>
+					<Bookmark className={cn(isMobile ? 'h-5 w-5' : 'h-6 w-6', currentApp?.userFavorited && 'fill-current')} />
+				</div>
+				<span className={cn('text-xs', isMobile ? 'text-white/80' : 'text-text-tertiary')}>Favorite</span>
+			</button>
+			{currentApp && (
+				<button
+					onClick={() => navigate(currentApp.userId ? `/profile/${currentApp.userId}` : '/profile')}
+					className="group"
+					title={currentApp.userName || 'Anonymous'}
+				>
+					<Avatar className={cn('ring-2 group-hover:ring-accent transition-colors', isMobile ? 'h-8 w-8 ring-white/30' : 'h-10 w-10 ring-bg-3')}>
+						<AvatarImage src={currentApp.userAvatar ?? undefined} />
+						<AvatarFallback className={cn('text-xs font-semibold', isMobile ? 'bg-black/40 text-white' : 'bg-bg-3 text-text-primary')}>
+							{currentApp.userName?.charAt(0).toUpperCase() || '?'}
+						</AvatarFallback>
+					</Avatar>
+				</button>
+			)}
+		</>
+	);
+
+	// Scroll container content
+	const scrollContent = (
+		<div
+			ref={containerRef}
+			className="h-full overflow-y-auto snap-y snap-mandatory"
+			style={{ scrollbarWidth: 'none' }}
+		>
+			{apps.map((app, i) => (
+				<div
+					key={app.id}
+					ref={i === apps.length - 2 ? lastItemRef : undefined}
+					className="h-full"
+				>
+					<FeedItem
+						app={app}
+						isActive={i === currentIndex}
+						ref={(handle) => {
+							if (handle) feedItemRefs.current.set(i, handle);
+							else feedItemRefs.current.delete(i);
+						}}
+					/>
+				</div>
+			))}
+			{loadingMore && (
+				<div className="h-16 flex items-center justify-center">
+					<Loader2 className="h-5 w-5 text-white/60 animate-spin" />
+				</div>
+			)}
+		</div>
+	);
+
+	if (isMobile) {
+		// Mobile: full-screen with overlay action buttons
+		return (
+			<div className="h-full w-full bg-black overflow-hidden relative">
+				{scrollContent}
+
+				{/* Overlay action buttons — bottom right */}
+				<div className="absolute right-2 bottom-20 z-30 flex flex-col items-center gap-3">
+					<div
+						className="flex flex-col items-center gap-3 overflow-hidden transition-all duration-300 ease-in-out"
+						style={{ maxHeight: actionsCollapsed ? '0px' : '500px', opacity: actionsCollapsed ? 0 : 1 }}
+					>
+						{actionButtons}
+					</div>
+					<button
+						onClick={() => setActionsCollapsed((v) => !v)}
+						className="rounded-full p-2 bg-black/40 backdrop-blur-sm text-white transition-transform duration-300"
+						style={{ transform: actionsCollapsed ? 'rotate(180deg)' : 'rotate(0deg)' }}
+					>
+						<ChevronDown className="h-5 w-5" />
+					</button>
+				</div>
+
+				{/* App title overlay — bottom left */}
+				{currentApp && (
+					<div
+						className="absolute left-3 bottom-20 z-30 max-w-[60%] transition-all duration-300 ease-in-out"
+						style={{ opacity: actionsCollapsed ? 0 : 1, transform: actionsCollapsed ? 'translateY(20px)' : 'translateY(0)' }}
+					>
+						<p className="text-white font-bold text-sm drop-shadow-lg">{currentApp.title}</p>
+						{currentApp.userName && (
+							<p className="text-white/70 text-xs drop-shadow-lg">@{currentApp.userName}</p>
+						)}
+					</div>
+				)}
+
+				{currentApp && (
+					<CommentsDrawer
+						appId={currentApp.id}
+						open={commentsOpen}
+						onOpenChange={(open) => {
+							setCommentsOpen(open);
+							if (!open) {
+								apiClient.getComments(currentApp.id, { limit: 50 }).then((res) => {
+									if (res.success && res.data) {
+										const replyTotal = res.data.comments.reduce((sum, c) => sum + (c.replyCount || 0), 0);
+										setCommentCount(res.data.totalCount + replyTotal);
+									}
+								}).catch(() => {});
+							}
+						}}
+					/>
+				)}
+			</div>
+		);
+	}
+
+	// Desktop: phone frame with side action buttons
 	return (
 		<div className="h-full flex items-center justify-center bg-bg-1 overflow-hidden">
 			<div className="relative flex items-end gap-4">
-				{/* Phone frame — 9:16 aspect ratio */}
 				<div className="relative h-[calc(100vh-64px)] aspect-[9/16] rounded-2xl overflow-hidden shadow-2xl border border-border-primary bg-black">
-					<div
-						ref={containerRef}
-						className="h-full overflow-y-auto snap-y snap-mandatory"
-						style={{ scrollbarWidth: 'none' }}
-					>
-						{apps.map((app, i) => (
-							<div
-								key={app.id}
-								ref={i === apps.length - 2 ? lastItemRef : undefined}
-								className="h-full"
-							>
-								<FeedItem
-									app={app}
-									ref={(handle) => {
-										if (handle) feedItemRefs.current.set(i, handle);
-										else feedItemRefs.current.delete(i);
-									}}
-								/>
-							</div>
-						))}
-						{loadingMore && (
-							<div className="h-16 flex items-center justify-center">
-								<Loader2 className="h-5 w-5 text-white/60 animate-spin" />
-							</div>
-						)}
-					</div>
+					{scrollContent}
 				</div>
 
 				{/* Right side: action buttons + avatar */}
 				<div className="flex flex-col items-center gap-5 pb-4">
-					{/* Replay */}
-					<button onClick={handleReplay} className="flex flex-col items-center gap-1 group">
-						<div className="bg-bg-3 rounded-full p-3 text-text-primary group-hover:bg-bg-3/80 transition-colors">
-							<RotateCcw className="h-6 w-6" />
-						</div>
-						<span className="text-text-tertiary text-xs">Replay</span>
-					</button>
-
-					{/* Share */}
-					<button onClick={handleShare} className="flex flex-col items-center gap-1 group">
-						<div className="bg-bg-3 rounded-full p-3 text-text-primary group-hover:bg-bg-3/80 transition-colors">
-							<Send className="h-6 w-6" />
-						</div>
-						<span className="text-text-tertiary text-xs">Share</span>
-					</button>
-
-					{/* Comments */}
-					<button onClick={() => setCommentsOpen(true)} className="flex flex-col items-center gap-1 group">
-						<div className="bg-bg-3 rounded-full p-3 text-text-primary group-hover:bg-bg-3/80 transition-colors">
-							<MessageCircle className="h-6 w-6" />
-						</div>
-						<span className="text-text-tertiary text-xs">{commentCount}</span>
-					</button>
-
-					{/* Star (Heart) */}
-					<button onClick={handleStar} className="flex flex-col items-center gap-1 group">
-						<div className={cn(
-							'rounded-full p-3 transition-colors',
-							currentApp?.userStarred
-								? 'bg-red-500/20 text-red-500'
-								: 'bg-bg-3 text-text-primary group-hover:bg-bg-3/80'
-						)}>
-							<Heart className={cn('h-6 w-6', currentApp?.userStarred && 'fill-current')} />
-						</div>
-						<span className="text-text-tertiary text-xs">{currentApp?.starCount || 0}</span>
-					</button>
-
-					{/* Favorite */}
-					<button onClick={handleFavorite} className="flex flex-col items-center gap-1 group">
-						<div className={cn(
-							'rounded-full p-3 transition-colors',
-							currentApp?.userFavorited
-								? 'bg-accent/20 text-accent'
-								: 'bg-bg-3 text-text-primary group-hover:bg-bg-3/80'
-						)}>
-							<Bookmark className={cn('h-6 w-6', currentApp?.userFavorited && 'fill-current')} />
-						</div>
-						<span className="text-text-tertiary text-xs">Favorite</span>
-					</button>
-
-					{/* Author avatar */}
-					{currentApp && (
-						<button
-							onClick={() => navigate(currentApp.userId ? `/profile/${currentApp.userId}` : '/profile')}
-							className="group"
-							title={currentApp.userName || 'Anonymous'}
-						>
-							<Avatar className="h-10 w-10 ring-2 ring-bg-3 group-hover:ring-accent transition-colors">
-								<AvatarImage src={currentApp.userAvatar ?? undefined} />
-								<AvatarFallback className="text-xs bg-bg-3 text-text-primary font-semibold">
-									{currentApp.userName?.charAt(0).toUpperCase() || '?'}
-								</AvatarFallback>
-							</Avatar>
-						</button>
-					)}
+					{actionButtons}
 				</div>
 			</div>
 
@@ -382,7 +480,6 @@ export default function FeedPage() {
 				</button>
 			</div>
 
-			{/* Comments Drawer */}
 			{currentApp && (
 				<CommentsDrawer
 					appId={currentApp.id}

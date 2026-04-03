@@ -227,15 +227,14 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
 					error: null,
 				}));
 			}
-		} catch (error) {
-			console.error('Failed to fetch vault status:', error);
+		} catch {
 			setState((prev) => ({
 				...prev,
-				status: 'unknown',
+				status: 'not_setup',
 				config: null,
 				unlockMethod: null,
 				isLoading: false,
-				error: 'Failed to check vault status',
+				error: null,
 			}));
 		}
 	}, [isAuthenticated, setLoading]);

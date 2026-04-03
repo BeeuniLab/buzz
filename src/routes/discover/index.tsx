@@ -88,7 +88,7 @@ export default function DiscoverPage() {
 
 	return (
 		<div className="min-h-screen">
-			<div className="container mx-auto px-4 py-4">
+			<div className="container mx-auto px-2 md:px-4 py-4">
 				<motion.div
 					initial={{ opacity: 0, y: -20 }}
 					animate={{ opacity: 1, y: 0 }}
@@ -125,12 +125,12 @@ export default function DiscoverPage() {
 
 					{/* Categories Section */}
 					<div className="mt-4">
-						<div className="flex gap-2 mb-6 flex-wrap">
+						<div className="flex gap-2 mb-6 overflow-x-auto md:flex-wrap pb-2 md:pb-0" style={{ scrollbarWidth: 'none' }}>
 							{CATEGORIES.map((cat) => (
 								<button
 									key={cat}
 									className={cn(
-										'px-4 py-2 rounded-full text-sm font-medium transition-colors',
+										'px-4 py-2 rounded-full text-sm font-medium transition-colors whitespace-nowrap flex-shrink-0',
 										selectedCategory === cat
 											? 'bg-text-primary text-bg-1'
 											: 'bg-bg-3 text-text-tertiary hover:text-text-primary',

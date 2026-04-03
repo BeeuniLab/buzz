@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useLocation } from 'react-router';
 import { SidebarTrigger } from '@/components/ui/sidebar';
 import { AuthButton } from '../auth/auth-button';
 import { ThemeToggle } from '../theme-toggle';
@@ -6,6 +7,7 @@ import { motion } from 'framer-motion';
 import { useAuth } from '@/contexts/auth-context';
 import { ChevronRight, AlertCircle } from 'lucide-react';
 import { usePlatformStatus } from '@/hooks/use-platform-status';
+import { useIsMobile } from '@/hooks/use-mobile';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import clsx from 'clsx';
@@ -13,9 +15,12 @@ import clsx from 'clsx';
 export function GlobalHeader() {
 	const { user } = useAuth();
 	const { status } = usePlatformStatus();
+	const { pathname } = useLocation();
+	const isMobile = useIsMobile();
 	const [isChangelogOpen, setIsChangelogOpen] = useState(false);
 	const hasMaintenanceMessage = Boolean(status.hasActiveMessage && status.globalUserMessage.trim().length > 0);
 	const hasChangeLogs = Boolean(status.changeLogs && status.changeLogs.trim().length > 0);
+	const showMobileSidebar = isMobile && user && (pathname.startsWith('/build') || pathname.startsWith('/chat'));
 	useEffect(() => {
 		if (!hasChangeLogs) {
 			setIsChangelogOpen(false);
@@ -31,8 +36,11 @@ export function GlobalHeader() {
 				className={clsx("sticky top-0 z-50 border-b-3 border-[var(--neo-border-color)] bg-bg-3")}
 			>
 				<div className="relative">
-					<div className="relative z-10 grid grid-cols-[auto_1fr_auto] items-center gap-4 px-5 py-2">
-						{user ? (
+					<div className="relative z-10 grid grid-cols-[auto_1fr_auto] items-center gap-4 px-3 md:px-5 py-2">
+						<div className="flex items-center">
+							{showMobileSidebar && (
+								<SidebarTrigger className="h-8 w-8 mr-2 text-text-primary rounded-lg border-2 border-[var(--neo-border-color)] shadow-[2px_2px_0px_0px_var(--neo-border-color)] transition-all" />
+							)}
 							<motion.div
 								whileTap={{ scale: 0.95 }}
 								transition={{
@@ -40,29 +48,29 @@ export function GlobalHeader() {
 									stiffness: 400,
 									damping: 17,
 								}}
-								className='flex items-center'
+								className='hidden md:flex items-center'
 							>
-								<SidebarTrigger className="h-8 w-8 text-text-primary rounded-lg border-2 border-[var(--neo-border-color)] shadow-[2px_2px_0px_0px_var(--neo-border-color)] hover:shadow-[3px_3px_0px_0px_var(--neo-border-color)] hover:-translate-x-[0.5px] hover:-translate-y-[0.5px] transition-all" />
-								<span className="ml-3 text-base font-extrabold tracking-tight text-text-primary uppercase">
-									BuzzPlay
-								</span>
-								{hasMaintenanceMessage && (
-									<button
-										type="button"
-										onClick={hasChangeLogs ? () => setIsChangelogOpen(true) : undefined}
-										disabled={!hasChangeLogs}
-										className={`flex max-w-full items-center gap-2 rounded-lg border-2 border-[var(--neo-border-color)] bg-neo-yellow px-3 ml-4 py-1.5 text-xs text-[#1a1a1a] font-bold shadow-[2px_2px_0px_0px_var(--neo-border-color)] transition-all hover:shadow-[3px_3px_0px_0px_var(--neo-border-color)] md:text-sm${!hasChangeLogs ? ' opacity-50 cursor-not-allowed pointer-events-none' : ''}`}
-										aria-label="Platform updates"
-									>
-										<AlertCircle className="h-4 w-4" />
-										<span className="truncate max-w-[46ch] md:max-w-[60ch]">{status.globalUserMessage}</span>
-										<ChevronRight className="ml-1 h-4 w-4" />
-									</button>
+								{user && (
+									<SidebarTrigger className="h-8 w-8 text-text-primary rounded-lg border-2 border-[var(--neo-border-color)] shadow-[2px_2px_0px_0px_var(--neo-border-color)] hover:shadow-[3px_3px_0px_0px_var(--neo-border-color)] hover:-translate-x-[0.5px] hover:-translate-y-[0.5px] transition-all" />
 								)}
 							</motion.div>
-						) : (
-							<div></div>
-						)}
+							<span className="md:ml-3 text-base font-extrabold tracking-tight text-text-primary uppercase">
+								BuzzPlay
+							</span>
+							{hasMaintenanceMessage && (
+								<button
+									type="button"
+									onClick={hasChangeLogs ? () => setIsChangelogOpen(true) : undefined}
+									disabled={!hasChangeLogs}
+									className={`hidden md:flex max-w-full items-center gap-2 rounded-lg border-2 border-[var(--neo-border-color)] bg-neo-yellow px-3 ml-4 py-1.5 text-xs text-[#1a1a1a] font-bold shadow-[2px_2px_0px_0px_var(--neo-border-color)] transition-all hover:shadow-[3px_3px_0px_0px_var(--neo-border-color)] md:text-sm${!hasChangeLogs ? ' opacity-50 cursor-not-allowed pointer-events-none' : ''}`}
+									aria-label="Platform updates"
+								>
+									<AlertCircle className="h-4 w-4" />
+									<span className="truncate max-w-[46ch] md:max-w-[60ch]">{status.globalUserMessage}</span>
+									<ChevronRight className="ml-1 h-4 w-4" />
+								</button>
+							)}
+						</div>
 
 						<motion.div
 							initial={{ opacity: 0, x: 10 }}

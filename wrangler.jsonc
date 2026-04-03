@@ -107,12 +107,12 @@
             ],
             "tag": "v3"
         },
-        {
-            "deleted_classes": [
-                "UserAppSandboxService"
-            ],
-            "tag": "v4"
-        }
+        // {
+        //     "deleted_classes": [
+        //         "UserAppSandboxService"
+        //     ],
+        //     "tag": "v4"
+        // }
 	],
 	"routes": [
         {

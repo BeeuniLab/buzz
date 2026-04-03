@@ -419,3 +419,8 @@ scrollbar-width: none; /* Firefox */
 .no-scrollbar::-webkit-scrollbar {
 display: none; /* Chrome, Safari, Opera */
 }
+
+/* Mobile bottom nav safe area for notched devices */
+.mobile-bottom-nav {
+	padding-bottom: env(safe-area-inset-bottom, 0);
+}

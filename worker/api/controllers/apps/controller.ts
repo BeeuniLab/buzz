@@ -124,6 +124,10 @@ export class AppController extends BaseController {
             const framework = url.searchParams.get('framework') || undefined;
             const search = url.searchParams.get('search') || undefined;
             const authorId = url.searchParams.get('authorId') || undefined;
+            const seedParam = url.searchParams.get('seed');
+            const seed = seedParam ? parseInt(seedParam, 10) : undefined;
+            const excludeParam = url.searchParams.get('excludeIds');
+            const excludeIds = excludeParam ? excludeParam.split(',').filter(Boolean) : undefined;
 
             const user = await AppController.getOptionalUser(request, env);
             const userId = user?.id;
@@ -139,9 +143,11 @@ export class AppController extends BaseController {
                 framework,
                 search,
                 userId,
-                authorId
+                authorId,
+                seed,
+                excludeIds
             });
-            
+
             // Format response with relative timestamps
             const responseData: PublicAppsData = {
                 apps: result.data.map(app => ({

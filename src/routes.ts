@@ -55,7 +55,7 @@ const routes = [
 			},
 			{
 				path: 'app/:id',
-				Component: AppView,
+				element: React.createElement(ProtectedRoute, { children: React.createElement(AppView) }),
 			},
 		],
 	},

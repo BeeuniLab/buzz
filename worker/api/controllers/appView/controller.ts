@@ -4,9 +4,10 @@ import { ApiResponse, ControllerResponse } from '../types';
 import type { RouteContext } from '../../types/route-context';
 import { getAgentStubLightweight } from '../../../agents';
 import { AppService } from '../../../database/services/AppService';
-import { 
-    AppDetailsData, 
+import {
+    AppDetailsData,
     AppStarToggleData,
+    AppViewRecordData,
 } from './types';
 import { AgentSummary } from '../../../agents/core/types';
 import { createLogger } from '../../../logger';
@@ -41,14 +42,8 @@ export class AppViewController extends BaseController {
             }
 
             // Track view for all users (including owners and anonymous users)
-            if (userId) {
-                // Authenticated user view
-                await appService.recordAppView(appId, userId);
-            } else {
-                // Anonymous user view - use a special anonymous identifier
-                // This could be enhanced with session tracking or IP-based deduplication
-                await appService.recordAppView(appId, 'anonymous-' + Date.now());
-            }
+            const ipHash = request.headers.get('cf-connecting-ip') || request.headers.get('x-forwarded-for') || undefined;
+            await appService.recordAppView(appId, userId || null, ipHash);
 
             // Try to fetch current agent state to get latest generated code
             let agentSummary: AgentSummary | null = null;
@@ -160,5 +155,26 @@ export class AppViewController extends BaseController {
     //         return AppViewController.createErrorResponse<ForkAppData>('Internal server error', 500);
     //     }
     // }
+
+    // Record a view (public — works for anonymous users too)
+    static async recordView(request: Request, env: Env, _ctx: ExecutionContext, context: RouteContext): Promise<ControllerResponse<ApiResponse<AppViewRecordData>>> {
+        try {
+            const appId = context.pathParams.id;
+            if (!appId) {
+                return AppViewController.createErrorResponse<AppViewRecordData>('App ID is required', 400);
+            }
+
+            const user = await AppViewController.getOptionalUser(request, env);
+            const ipHash = request.headers.get('cf-connecting-ip') || request.headers.get('x-forwarded-for') || undefined;
+
+            const appService = new AppService(env);
+            await appService.recordAppView(appId, user?.id || null, ipHash);
+
+            return AppViewController.createSuccessResponse({ recorded: true });
+        } catch (error) {
+            this.logger.error('Error recording view:', error);
+            return AppViewController.createErrorResponse<AppViewRecordData>('Failed to record view', 500);
+        }
+    }
 
 }

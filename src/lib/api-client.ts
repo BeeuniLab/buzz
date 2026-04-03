@@ -144,6 +144,8 @@ interface PublicAppsParams extends PaginationParams {
 	search?: string;
 	boardId?: string;
 	authorId?: string;
+	seed?: number;
+	excludeIds?: string[];
 }
 
 /**
@@ -287,6 +289,8 @@ class ApiClient {
 		if (endpoint === '/api/auth/profile') return false;
 		if (endpoint === '/api/auth/providers') return false;
 		if (endpoint === '/api/auth/sessions') return false;
+		// Preview deployment is public for public apps
+		if (endpoint.includes('/preview')) return false;
 
 		return true;
 	}
@@ -393,8 +397,6 @@ class ApiClient {
                             throw new SecurityError(errorData.type, errorData.message);
                         }
                     }
-                    console.log("Came here");
-
                     throw new ApiError(
                         response.status,
                         response.statusText,
@@ -405,7 +407,6 @@ class ApiClient {
 
 		    return { response, data };
 		} catch (error) {
-            console.error(error);
 			if (error instanceof ApiError || error instanceof RateLimitExceededError || error instanceof SecurityError) {
 				throw error;
 			}
@@ -478,6 +479,8 @@ class ApiClient {
 		if (params?.search) queryParams.set('search', params.search);
 		if (params?.boardId) queryParams.set('boardId', params.boardId);
 		if (params?.authorId) queryParams.set('authorId', params.authorId);
+		if (params?.seed) queryParams.set('seed', params.seed.toString());
+		if (params?.excludeIds && params.excludeIds.length > 0) queryParams.set('excludeIds', params.excludeIds.join(','));
 
 		const endpoint = `/api/apps/public${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
 		return this.request<PublicAppsData>(endpoint);
@@ -545,6 +548,13 @@ class ApiClient {
 	 */
 	async getAppDetails(appId: string): Promise<ApiResponse<AppDetailsData>> {
 		return this.request<AppDetailsData>(`/api/apps/${appId}`);
+	}
+
+	/**
+	 * Record an app view (fire-and-forget, works for anonymous users)
+	 */
+	async recordAppView(appId: string): Promise<void> {
+		this.request(`/api/apps/${appId}/view`, { method: 'POST' }).catch(() => {});
 	}
 
 	/**

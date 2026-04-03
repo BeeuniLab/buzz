@@ -51,6 +51,9 @@ export function setupAppRoutes(app: Hono<AppEnv>): void {
     // PUBLIC APP DETAILS (placed after specific routes to avoid conflicts)
     // ========================================
 
+    // Record app view - PUBLIC (works for anonymous users)
+    appRouter.post('/:id/view', setAuthLevel(AuthConfig.public), adaptController(AppViewController, AppViewController.recordView));
+
     // App details view - PUBLIC for /app/:id frontend route  
     // Allows unauthenticated users to view and preview apps
     appRouter.get('/:id', setAuthLevel(AuthConfig.public), adaptController(AppViewController, AppViewController.getAppDetails));

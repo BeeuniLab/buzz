@@ -16,10 +16,11 @@ export interface FeedItemHandle {
 
 interface FeedItemProps {
 	app: AppWithUserAndStats;
+	isActive?: boolean;
 }
 
 export const FeedItem = React.forwardRef<FeedItemHandle, FeedItemProps>(
-	function FeedItem({ app }, ref) {
+	function FeedItem({ app, isActive = true }, ref) {
 		const [imgError, setImgError] = React.useState(false);
 		const [playing, setPlaying] = React.useState(false);
 		const [previewUrl, setPreviewUrl] = React.useState<string | null>(null);
@@ -96,7 +97,7 @@ export const FeedItem = React.forwardRef<FeedItemHandle, FeedItemProps>(
 					className="absolute inset-0 cursor-pointer group overflow-hidden"
 					onClick={!playing ? startPlay : undefined}
 				>
-					{playing && previewUrl ? (
+					{playing && previewUrl && isActive ? (
 						<iframe
 							key={iframeKey}
 							src={previewUrl}

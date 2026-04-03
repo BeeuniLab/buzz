@@ -79,7 +79,7 @@ export type TimePeriod = 'today' | 'week' | 'month' | 'all';
 /**
  * Sort options for app listings
  */
-export type AppSortOption = 'recent' | 'popular' | 'trending' | 'starred';
+export type AppSortOption = 'recent' | 'popular' | 'trending' | 'starred' | 'feed';
 
 /**
  * Sort order options
@@ -111,6 +111,8 @@ export interface AppQueryOptions extends BaseAppQueryOptions {
 export interface PublicAppQueryOptions extends BaseAppQueryOptions {
     userId?: string; // For user-specific data like favorites
     authorId?: string; // Filter by app author
+    seed?: number; // Random seed for stable feed ordering
+    excludeIds?: string[]; // App IDs to exclude from results
 }
 
 /**

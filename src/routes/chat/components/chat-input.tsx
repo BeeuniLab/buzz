@@ -112,7 +112,7 @@ export function ChatInput({
 		<form
 			ref={chatFormRef}
 			onSubmit={onSubmit}
-			className="shrink-0 p-4 pb-5 bg-transparent"
+			className="shrink-0 p-4 pb-1 md:pb-5 bg-transparent"
 			{...chatDragHandlers}
 		>
 			<input
@@ -150,12 +150,11 @@ export function ChatInput({
 					onKeyDown={handleKeyDown}
 					disabled={isChatDisabled}
 					placeholder={placeholder}
-					rows={1}
-					className="w-full bg-bg-2 border border-text-primary/10 rounded-xl px-3 pr-20 py-2 text-sm outline-none focus:border-white/20 drop-shadow-2xl text-text-primary placeholder:text-text-primary/50! disabled:opacity-50 disabled:cursor-not-allowed resize-none overflow-y-auto no-scrollbar min-h-[36px] max-h-[120px]"
+					rows={2}
+					className="w-full bg-bg-2 border border-text-primary/10 rounded-xl px-3 pr-20 py-2 text-sm outline-none focus:border-white/20 drop-shadow-2xl text-text-primary placeholder:text-text-primary/50! disabled:opacity-50 disabled:cursor-not-allowed resize-none overflow-y-auto no-scrollbar min-h-[80px] md:min-h-[36px] max-h-[120px]"
 					style={{
-						// Auto-resize based on content
 						height: 'auto',
-						minHeight: '36px'
+						minHeight: undefined
 					}}
 					ref={(textarea) => {
 						if (textarea) {

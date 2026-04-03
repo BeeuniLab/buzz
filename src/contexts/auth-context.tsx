@@ -160,7 +160,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setSession(null);
       }
     } catch (error) {
-      console.error('Auth check failed:', error);
       setUser(null);
       setToken(null);
       setSession(null);

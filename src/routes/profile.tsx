@@ -1,5 +1,6 @@
 import React from 'react';
 import { useAuth } from '@/contexts/auth-context';
+import { useAuthGuard } from '@/hooks/useAuthGuard';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useNavigate, useParams } from 'react-router';
 import { useFavoriteApps } from '@/hooks/use-apps';
@@ -29,6 +30,7 @@ function formatStatCount(n: number): string {
 export default function Profile() {
   const { userId } = useParams<{ userId?: string }>();
   const { user } = useAuth();
+  const { requireAuth } = useAuthGuard();
   const navigate = useNavigate();
   const isViewingOther = !!userId && userId !== user?.id;
   const [activeTab, setActiveTab] = React.useState<ProfileTab>(isViewingOther ? 'created' : 'favorites');
@@ -83,11 +85,9 @@ export default function Profile() {
 
   // Own profile: require auth
   if (isOwnProfile && !user) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <p className="text-text-tertiary">Please sign in to view your profile.</p>
-      </div>
-    );
+    requireAuth({ actionContext: 'to view your profile' });
+    navigate('/', { replace: true });
+    return null;
   }
 
   // Public profile loading

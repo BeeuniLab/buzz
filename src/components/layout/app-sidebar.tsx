@@ -208,15 +208,11 @@ function DiscoverSidebar({ isCollapsed, navigate }: { isCollapsed: boolean; navi
 					<SidebarMenu>
 						<SidebarMenuItem>
 							<SidebarMenuButton
-								onClick={() => {
-									if (!pathname.startsWith('/feed')) {
-										navigate('/feed');
-									}
-								}}
+								onClick={() => navigate('/')}
 								tooltip="Home"
 								className={cn(
 									'group hover:cursor-pointer transition-all duration-200 h-10 text-[15px]',
-									pathname.startsWith('/feed') && 'bg-neo-yellow/40 font-bold',
+									(pathname === '/' || pathname.startsWith('/feed')) && 'bg-neo-yellow/40 font-bold',
 								)}
 							>
 								<PlaySquare className="h-5 w-5" />
@@ -229,7 +225,7 @@ function DiscoverSidebar({ isCollapsed, navigate }: { isCollapsed: boolean; navi
 								tooltip="Discover"
 								className={cn(
 									'group hover:cursor-pointer transition-all duration-200 h-10 text-[15px]',
-									(pathname === '/' || pathname.startsWith('/discover')) && 'bg-neo-yellow/40 font-bold',
+																	pathname.startsWith('/discover') && 'bg-neo-yellow/40 font-bold',
 								)}
 							>
 								<Compass className="h-5 w-5" />
@@ -314,7 +310,7 @@ function BuildSidebar({
 												? 'justify-center bg-neo-cyan'
 												: 'justify-start bg-neo-cyan',
 										)}
-										onClick={() => navigate('/feed')}
+										onClick={() => navigate('/')}
 									>
 										<PlaySquare className="h-4 w-4 text-[#1a1a1a]" />
 										{!isCollapsed && (

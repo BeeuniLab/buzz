@@ -37,6 +37,11 @@ const SORT_CONFIGURATIONS: Record<AppSortOption, SortOption> = {
     label: 'Starred',
     icon: Star
   },
+  feed: {
+    value: 'feed',
+    label: 'Feed',
+    icon: TrendingUp
+  },
 };
 
 export const AppSortTabs: React.FC<AppSortTabsProps> = ({

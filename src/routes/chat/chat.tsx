@@ -8,7 +8,7 @@ import {
 } from 'react';
 import { useParams, useSearchParams, useNavigate } from 'react-router';
 import { AnimatePresence, motion } from 'framer-motion';
-import { LoaderCircle, MoreHorizontal, RotateCcw } from 'lucide-react';
+import { LoaderCircle, MoreHorizontal, RotateCcw, MessageSquare, Eye } from 'lucide-react';
 import clsx from 'clsx';
 import { UserMessage, AIMessage } from './components/messages';
 import { PhaseTimeline } from './components/phase-timeline';
@@ -32,6 +32,8 @@ import { MainContentPanel } from './components/main-content-panel';
 import { ChatInput } from './components/chat-input';
 import { useVault } from '@/hooks/use-vault';
 import { VaultUnlockModal } from '@/components/vault';
+import { useIsMobile } from '@/hooks/use-mobile';
+import { SidebarTrigger } from '@/components/ui/sidebar';
 
 const isPhasicBlueprint = (blueprint?: BlueprintType | null): blueprint is PhasicBlueprint =>
 	!!blueprint && 'implementationRoadmap' in blueprint;
@@ -64,6 +66,8 @@ export default function Chat() {
 
 	// Manual refresh trigger for preview
 	const [manualRefreshTrigger, setManualRefreshTrigger] = useState(0);
+	const isMobile = useIsMobile();
+	const [mobilePanel, setMobilePanel] = useState<'chat' | 'preview'>('chat');
 
 	// Debug message utilities
 	const addDebugMessage = useCallback(
@@ -561,7 +565,10 @@ export default function Chat() {
 			<div className="flex-1 flex min-h-0 overflow-hidden justify-center">
 				<motion.div
 					layout="position"
-					className="flex-1 shrink-0 flex flex-col basis-0 max-w-lg relative z-10 h-full min-h-0"
+					className={clsx(
+						"flex-1 shrink-0 flex flex-col basis-0 max-w-lg relative z-10 h-full min-h-0",
+						isMobile && mobilePanel !== 'chat' && 'hidden'
+					)}
 				>
 					<div 
 					className={clsx(
@@ -719,13 +726,16 @@ export default function Chat() {
 				</motion.div>
 
 				<AnimatePresence mode="wait">
-					{showMainView && (
+					{showMainView && (!isMobile || mobilePanel === 'preview') && (
 						<motion.div
 							key="main-content-panel"
 							initial={{ opacity: 0 }}
 							animate={{ opacity: 1 }}
 							exit={{ opacity: 0 }}
-							className="flex-1 flex shrink-0 basis-0 p-4 pl-0 ml-2 z-30 min-h-0"
+							className={clsx(
+								"flex-1 flex shrink-0 basis-0 z-30 min-h-0",
+								isMobile ? "p-0" : "p-4 pl-0 ml-2"
+							)}
 						>
 							<MainContentPanel
 								view={view}
@@ -756,6 +766,38 @@ export default function Chat() {
 					)}
 				</AnimatePresence>
 			</div>
+
+			{isMobile && showMainView && (
+				<div className="flex items-center gap-1 py-1.5 px-2 bg-bg-3 border-t border-border-primary">
+					<SidebarTrigger className="h-8 w-8 shrink-0 text-text-primary bg-bg-3 rounded-lg border-2 border-[var(--neo-border-color)] shadow-[2px_2px_0px_0px_var(--neo-border-color)]" />
+					<div className="flex-1 flex items-center justify-center gap-1">
+						<button
+							onClick={() => setMobilePanel('chat')}
+							className={clsx(
+								'flex items-center gap-1.5 px-4 py-1.5 rounded-full text-xs font-medium transition-colors',
+								mobilePanel === 'chat'
+									? 'bg-text-primary text-bg-1'
+									: 'text-text-tertiary hover:text-text-primary'
+							)}
+						>
+							<MessageSquare className="h-3.5 w-3.5" />
+							Chat
+						</button>
+						<button
+							onClick={() => setMobilePanel('preview')}
+							className={clsx(
+								'flex items-center gap-1.5 px-4 py-1.5 rounded-full text-xs font-medium transition-colors',
+								mobilePanel === 'preview'
+									? 'bg-text-primary text-bg-1'
+									: 'text-text-tertiary hover:text-text-primary'
+							)}
+						>
+							<Eye className="h-3.5 w-3.5" />
+							Preview
+						</button>
+					</div>
+				</div>
+			)}
 
 			<ChatModals
 				debugMessages={debugMessages}

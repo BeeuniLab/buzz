@@ -38,6 +38,13 @@ export interface AppStarToggleData {
     starCount: number;
 }
 
+/**
+ * Response data for recordView
+ */
+export interface AppViewRecordData {
+    recorded: boolean;
+}
+
 // /**
 //  * Response data for forkApp
 //  */

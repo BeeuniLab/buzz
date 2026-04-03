@@ -4,7 +4,7 @@
 
 import { BaseService } from './BaseService';
 import * as schema from '../schema';
-import { eq, and, or, desc, asc, sql, isNull, inArray } from 'drizzle-orm';
+import { eq, and, or, desc, asc, sql, isNull, inArray, notInArray } from 'drizzle-orm';
 import { generateId } from '../../utils/idGenerator';
 import { formatRelativeTime } from '../../utils/timeFormatter';
 import type {
@@ -72,11 +72,13 @@ export class AppService extends BaseService {
             framework,
             search,
             userId,
-            authorId
+            authorId,
+            seed,
+            excludeIds
         } = options;
 
         try {
-            const whereConditions = this.buildPublicAppConditions(framework, search, authorId);
+            const whereConditions = this.buildPublicAppConditions(framework, search, authorId, excludeIds);
             const whereClause = this.buildWhereConditions(whereConditions);
             const readDb = this.getReadDb('fast');
             
@@ -87,7 +89,8 @@ export class AppService extends BaseService {
                 period,
                 order,
                 limit,
-                offset
+                offset,
+                seed
             ).catch((error: unknown) => {
                 this.logger.error('executeRankedQuery failed', {
                     errorMessage: error instanceof Error ? error.message : String(error),
@@ -202,7 +205,8 @@ export class AppService extends BaseService {
     private buildPublicAppConditions(
         framework?: string,
         search?: string,
-        authorId?: string
+        authorId?: string,
+        excludeIds?: string[]
     ): WhereCondition[] {
         const whereConditions: WhereCondition[] = [
             // Only show public apps or apps from anonymous users
@@ -220,6 +224,10 @@ export class AppService extends BaseService {
 
         if (authorId) {
             whereConditions.push(eq(schema.apps.userId, authorId));
+        }
+
+        if (excludeIds && excludeIds.length > 0) {
+            whereConditions.push(notInArray(schema.apps.id, excludeIds));
         }
 
         return whereConditions.filter(Boolean);
@@ -672,7 +680,7 @@ export class AppService extends BaseService {
     /**
      * Record app view with duplicate prevention
      */
-    async recordAppView(appId: string, userId: string): Promise<void> {
+    async recordAppView(appId: string, userId: string | null, ipHash?: string): Promise<void> {
         try {
             await this.database
                 .insert(schema.appViews)
@@ -680,6 +688,7 @@ export class AppService extends BaseService {
                     id: generateId(),
                     appId,
                     userId,
+                    ipAddressHash: ipHash || null,
                     viewedAt: new Date()
                 })
                 .run();
@@ -751,7 +760,8 @@ export class AppService extends BaseService {
             period as TimePeriod,
             order,
             limit,
-            offset
+            offset,
+            undefined
         );
 
         if (basicApps.length === 0) {
@@ -817,11 +827,59 @@ export class AppService extends BaseService {
         period: TimePeriod,
         order: string,
         limit: number,
-        offset: number
+        offset: number,
+        seed?: number
     ): Promise<RankedAppQueryResult[]> {
         // Use subquery-based sorting for memory efficiency
         // This allows D1 to apply LIMIT during index scan instead of after GROUP BY
-        if (sort === 'trending' || sort === 'popular') {
+        if (sort === 'feed') {
+            // Feed algorithm: time-decayed popularity + seeded randomness
+            // score = popularity_score / age_decay + random_shuffle
+            // - popularity: (views*1 + stars*3) gives base ranking
+            // - age_decay: 1 + (days_old / 7)^1.5 — newer content ranks higher
+            // - random_shuffle: seeded hash for stable ordering within a session
+            const feedSeed = seed || 42;
+            const viewCountSubquery = sql<number>`(SELECT COUNT(*) FROM ${schema.appViews} WHERE ${schema.appViews.appId} = ${schema.apps.id})`;
+            const starCountSubquery = sql<number>`(SELECT COUNT(*) FROM ${schema.stars} WHERE ${schema.stars.appId} = ${schema.apps.id})`;
+            const forkCountSubquery = sql<number>`(SELECT COUNT(*) FROM ${schema.apps} AS forks WHERE forks.parent_app_id = ${schema.apps.id})`;
+
+            // Feed score: decayed popularity + seeded random component
+            // Both components scaled to similar ranges (~0-10000) so randomness
+            // can actually shuffle the ordering. Without this, popular apps always
+            // dominate regardless of seed.
+            // Uses UNICODE of id chars for a simple deterministic hash
+            const orderByExpression = sql`(
+                CAST(
+                    (${viewCountSubquery} * ${this.RANKING_WEIGHTS.VIEWS} + ${starCountSubquery} * ${this.RANKING_WEIGHTS.STARS} + 1.0)
+                    / (1.0 + (MAX((strftime('%s', 'now') - ${schema.apps.updatedAt}) / 604800.0, 0))
+                            * SQRT(MAX((strftime('%s', 'now') - ${schema.apps.updatedAt}) / 604800.0, 0.001)))
+                    * 100
+                AS INTEGER)
+                + ABS(
+                    (UNICODE(SUBSTR(${schema.apps.id}, 1, 1)) * 31
+                     + UNICODE(SUBSTR(${schema.apps.id}, 10, 1)) * 37
+                     + UNICODE(SUBSTR(${schema.apps.id}, 15, 1)) * 41
+                     + UNICODE(SUBSTR(${schema.apps.id}, 20, 1)) * 43
+                    ) * ${feedSeed}
+                  ) % 10000
+            ) DESC`;
+
+            return db
+                .select({
+                    app: schema.apps,
+                    userName: schema.users.displayName,
+                    userAvatar: schema.users.avatarUrl,
+                    viewCount: viewCountSubquery,
+                    starCount: starCountSubquery,
+                    forkCount: forkCountSubquery,
+                })
+                .from(schema.apps)
+                .leftJoin(schema.users, eq(schema.apps.userId, schema.users.id))
+                .where(whereClause)
+                .orderBy(orderByExpression)
+                .limit(limit)
+                .offset(offset);
+        } else if (sort === 'trending' || sort === 'popular') {
             const periodThreshold = sort === 'trending' ? this.getTimePeriodThreshold(period) : null;
             const periodUnixTimestamp = periodThreshold ? Math.floor(periodThreshold.getTime() / 1000) : 0;
             

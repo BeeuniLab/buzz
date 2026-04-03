@@ -123,6 +123,12 @@ export default function AppView() {
 		fetchAppDetails();
 	}, [id, fetchAppDetails]);
 
+	// Redirect non-owners — /app is a management page, only owner can access
+	useEffect(() => {
+		if (!loading && app && user && app.userId !== user.id) {
+			navigate('/', { replace: true });
+		}
+	}, [loading, app, user, navigate]);
 
 	// Action configuration for reusability
 	const actionConfigs: Record<string, ActionConfig> = useMemo(
@@ -439,7 +445,7 @@ export default function AppView() {
 					<div className="flex-1">
 						<div className="flex rounded w-fit pb-3 pt-2 flex-col">
 							<div className="flex items-center gap-3 mb-2">
-								<h1 className="text-4xl font-semibold tracking-tight text-text-primary">
+								<h1 className="text-2xl md:text-4xl font-semibold tracking-tight text-text-primary">
 									{app.title}
 								</h1>
 
