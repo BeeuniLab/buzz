@@ -120,7 +120,7 @@
             "custom_domain": true
         },
         {
-            "pattern": "*preview.buzzplay.beeuni.ai/*",
+            "pattern": "*buzzplay.beeuni.ai/*",
             "custom_domain": false,
             "zone_id": "db01fac4261b2604aacad8410443a3e2"
         }
@@ -144,7 +144,6 @@
             "version": "1.0.0"
         },
         "CUSTOM_DOMAIN": "buzzplay.beeuni.ai",
-        "CUSTOM_PREVIEW_DOMAIN": "preview.buzzplay.beeuni.ai",
         "LLM_PROXY_URL": "https://api.phsharp.com/v1"
     },
 	"workers_dev": false,
