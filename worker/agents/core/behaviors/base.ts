@@ -976,7 +976,8 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
      * Get or create file serving token (lazy generation)
      */
     private getOrCreateFileServingToken(): string {
-        if (!this.state.fileServingToken) {
+        const existing = this.state.fileServingToken?.token;
+        if (!existing || /[^a-z0-9]/.test(existing)) {
             const token = generatePortToken();
             this.setState({
                 ...this.state,
