@@ -144,6 +144,7 @@
             "version": "1.0.0"
         },
         "CUSTOM_DOMAIN": "buzzplay.beeuni.ai",
+        "CUSTOM_PREVIEW_DOMAIN": "preview.buzzplay.beeuni.ai",
         "LLM_PROXY_URL": "https://api.phsharp.com/v1"
     },
 	"workers_dev": false,
