@@ -4,10 +4,9 @@ import { HEADER_STYLES } from './view-header-styles';
 import type { ProjectType } from '@/api-types';
 
 interface ViewHeaderProps {
-	view: 'preview' | 'editor' | 'docs' | 'blueprint' | 'presentation';
-	onViewChange: (mode: 'preview' | 'editor' | 'docs' | 'blueprint' | 'presentation') => void;
+	view: 'preview' | 'editor' | 'docs' | 'blueprint' | 'presentation' | 'assets';
+	onViewChange: (mode: 'preview' | 'editor' | 'docs' | 'blueprint' | 'presentation' | 'assets') => void;
 	previewAvailable: boolean;
-	showTooltip: boolean;
 	hasDocumentation: boolean;
 	previewUrl?: string;
 	centerContent?: ReactNode;
@@ -19,7 +18,6 @@ export function ViewHeader({
 	view,
 	onViewChange,
 	previewAvailable,
-	showTooltip,
     hasDocumentation,
 	previewUrl,
 	centerContent,
@@ -33,7 +31,6 @@ export function ViewHeader({
 					view={view}
 					onChange={onViewChange}
 					previewAvailable={previewAvailable}
-					showTooltip={showTooltip}
 					hasDocumentation={hasDocumentation}
 					previewUrl={previewUrl}
 					projectType={projectType}

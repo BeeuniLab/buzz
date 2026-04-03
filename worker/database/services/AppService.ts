@@ -19,7 +19,7 @@ import type {
     TimePeriod,
     PaginationParams
 } from '../types';
-import { ScreenshotSecurity } from 'worker/utils/screenshot-security';
+
 
 // Type definitions
 type WhereCondition = ReturnType<typeof eq> | ReturnType<typeof and> | ReturnType<typeof or> | undefined;
@@ -152,7 +152,7 @@ export class AppService extends BaseService {
             });
 
             return {
-                data: await this.enrichScreenshotUrls(appsWithAnalytics),
+                data: appsWithAnalytics,
                 pagination: {
                     limit,
                     offset,
@@ -277,18 +277,6 @@ export class AppService extends BaseService {
         });
     }
 
-    /**
-     * Update app with screenshot data
-     */
-    async updateAppScreenshot(
-        appId: string,
-        screenshotUrl: string
-    ): Promise<boolean> {
-        return this.updateApp(appId, {
-            screenshotUrl,
-            screenshotCapturedAt: new Date()
-        });
-    }
 
     /**
      * Get user apps with favorite status
@@ -333,7 +321,7 @@ export class AppService extends BaseService {
             isFavorite: favoriteSet.has(app.id),
             updatedAtFormatted: formatRelativeTime(app.updatedAt)
         }));
-        return this.enrichScreenshotUrls(result);
+        return result;
     }
 
     /**
@@ -393,7 +381,7 @@ export class AppService extends BaseService {
                 updatedAtFormatted: formatRelativeTime(app.updatedAt)
             };
         });
-        return this.enrichScreenshotUrls(mapped);
+        return mapped;
     }
 
 
@@ -498,8 +486,7 @@ export class AppService extends BaseService {
             isFavorite: !!favorite,
             updatedAtFormatted: formatRelativeTime(app.updatedAt)
         };
-        const [enriched] = await this.enrichScreenshotUrls([result]);
-        return enriched;
+        return result;
     }
 
     /**
@@ -632,8 +619,7 @@ export class AppService extends BaseService {
             userFavorited: isFavorite,
             viewCount
         };
-        const [enriched] = await this.enrichScreenshotUrls([result]);
-        return enriched;
+        return result;
     }
 
     /**
@@ -755,7 +741,7 @@ export class AppService extends BaseService {
                 userStarred: false,
                 userFavorited: true // These are favorited apps
             }));
-            return this.enrichScreenshotUrls(starredApps);
+            return starredApps;
         }
 
         const basicApps = await this.executeRankedQuery(
@@ -786,7 +772,7 @@ export class AppService extends BaseService {
             userStarred: userStars.has(row.app.id),
             userFavorited: userFavorites.has(row.app.id)
         }));
-        return this.enrichScreenshotUrls(normalApps);
+        return normalApps;
     }
 
     /**
@@ -1067,11 +1053,4 @@ export class AppService extends BaseService {
         }
     }
 
-    // ========================================
-    // SCREENSHOT URL SIGNING
-    // ========================================
-
-    private async enrichScreenshotUrls<T extends { id: string; screenshotUrl?: string | null }>(apps: T[]): Promise<T[]> {
-        return new ScreenshotSecurity(this.env).enrichUrls(apps);
-    }
 }

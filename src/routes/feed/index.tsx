@@ -137,7 +137,7 @@ export default function FeedPage() {
 
 		container.addEventListener('scroll', handleScroll, { passive: true });
 		return () => container.removeEventListener('scroll', handleScroll);
-	}, []);
+	}, [loading]);
 
 	// Keyboard navigation
 	React.useEffect(() => {
@@ -208,7 +208,7 @@ export default function FeedPage() {
 			}).catch(() => {});
 		}
 		setCommentsOpen(false);
-	}, [currentApp]);
+	}, [currentApp?.id]);
 
 	const handleReplay = () => {
 		const handle = feedItemRefs.current.get(currentIndex);
@@ -317,7 +317,7 @@ export default function FeedPage() {
 						<div className="bg-bg-3 rounded-full p-3 text-text-primary group-hover:bg-bg-3/80 transition-colors">
 							<MessageCircle className="h-6 w-6" />
 						</div>
-						<span className="text-text-tertiary text-xs">{commentCount > 0 ? commentCount : 'Comments'}</span>
+						<span className="text-text-tertiary text-xs">{commentCount}</span>
 					</button>
 
 					{/* Star (Heart) */}

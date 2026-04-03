@@ -477,6 +477,31 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
     }
 
     // ==========================================
+    // Asset Map Sync
+    // ==========================================
+
+    /**
+     * Update src/asset_map file with current asset manifest.
+     * Called from asset API routes after upload/delete operations.
+     */
+    async updateAssetMap(assetMapContent: string): Promise<{ success: boolean; error?: string }> {
+        try {
+            const file = {
+                filePath: 'src/asset_map',
+                fileContents: assetMapContent,
+                filePurpose: 'Asset manifest mapping available project assets to their URLs',
+            };
+            await this.fileManager.saveGeneratedFile(file, 'chore: update asset map');
+            this.logger().info('Asset map updated');
+            return { success: true };
+        } catch (error) {
+            const msg = error instanceof Error ? error.message : String(error);
+            this.logger().error('Failed to update asset map:', error);
+            return { success: false, error: msg };
+        }
+    }
+
+    // ==========================================
     // Conversation Management
     // ==========================================
 
@@ -820,6 +845,11 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
         // Try with public/ prefix if not found
         if (!file && !normalized.startsWith('public/')) {
             file = this.fileManager.getFile(`public/${normalized}`);
+        }
+
+        // Try with src/ prefix if not found (generated files like config, asset_map live under src/)
+        if (!file && !normalized.startsWith('src/')) {
+            file = this.fileManager.getFile(`src/${normalized}`);
         }
 
         if (!file) {

@@ -59,6 +59,8 @@ import type{
 	CommentsListData,
 	CommentCreateData,
 	CommentLikeToggleData,
+	AssetItem,
+	AssetListResponse,
 } from '@/api-types';
 import {
 	RateLimitExceededError,
@@ -106,6 +108,7 @@ interface RequestOptions {
 	method?: 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH';
 	headers?: Record<string, string>;
 	body?: unknown;
+	rawBody?: BodyInit;
 	credentials?: RequestCredentials;
 	skipJsonParsing?: boolean; // Skip JSON parsing for streaming responses
 }
@@ -333,7 +336,13 @@ class ApiClient {
 			credentials: options.credentials || 'include',
 		};
 
-		if (options.body) {
+		if (options.rawBody) {
+			config.body = options.rawBody;
+			// Remove Content-Type so the browser sets it with the correct boundary for FormData
+			if (options.rawBody instanceof FormData) {
+				delete (config.headers as Record<string, string>)['Content-Type'];
+			}
+		} else if (options.body) {
 			config.body =
 				typeof options.body === 'string'
 					? options.body
@@ -1172,6 +1181,36 @@ class ApiClient {
 	async deleteComment(commentId: string): Promise<ApiResponse<{ deleted: boolean }>> {
 		return this.request<{ deleted: boolean }>(
 			`/api/comments/${commentId}`,
+			{ method: 'DELETE' },
+		);
+	}
+
+	// ========================================
+	// Asset Management
+	// ========================================
+
+	async listProjectAssets(agentId: string): Promise<ApiResponse<AssetListResponse>> {
+		return this.request<AssetListResponse>(`/api/projects/${agentId}/assets`);
+	}
+
+	async uploadProjectAsset(
+		agentId: string,
+		file: File,
+		category: string,
+	): Promise<ApiResponse<AssetItem>> {
+		const formData = new FormData();
+		formData.append('file', file);
+		formData.append('category', category);
+
+		return this.request<AssetItem>(`/api/projects/${agentId}/assets`, {
+			method: 'POST',
+			rawBody: formData,
+		});
+	}
+
+	async deleteProjectAsset(agentId: string, assetKey: string): Promise<ApiResponse<{ deleted: boolean }>> {
+		return this.request<{ deleted: boolean }>(
+			`/api/projects/${agentId}/assets/${assetKey}`,
 			{ method: 'DELETE' },
 		);
 	}

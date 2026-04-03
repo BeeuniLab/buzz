@@ -26,8 +26,9 @@ import { AppService } from '../../../database';
 import { RateLimitExceededError } from 'shared/types/errors';
 import { ImageAttachment, type ProcessedImageAttachment } from '../../../types/image-attachment';
 import { OperationOptions } from '../../operations/common';
-import { ImageType, uploadImage, detectBlankScreenshot } from 'worker/utils/images';
-import { ScreenshotSecurity } from 'worker/utils/screenshot-security';
+import { ImageType, uploadImage } from 'worker/utils/images';
+import { generateCoverImage } from '../../assistants/coverGenerator';
+
 import { DeepDebugResult } from '../types';
 
 import { ICodingAgent } from '../../services/interfaces/ICodingAgent';
@@ -43,15 +44,6 @@ import { isDev } from 'worker/utils/envs';
 import { InMemoryAnalyzer } from '../../../services/static-analysis';
 import { getTemplateDetails as fetchTemplateDetails, listTemplates } from '../../../services/templates/templateCatalog';
 
-// Screenshot capture configuration
-const SCREENSHOT_CONFIG = {
-    PAGE_LOAD_TIMEOUT: 15000,    // 15s for page load
-    WAIT_FOR_TIMEOUT: 2000,      // 2s additional wait after network idle
-    MAX_RETRIES: 2,              // 2 retries = 3 total attempts
-    RETRY_DELAY_BASE: 2000,      // 2s base delay between retries
-    MIN_FILE_SIZE: 10000,        // 10KB minimum for valid screenshot
-    MIN_ENTROPY: 2.0,            // Minimum entropy threshold
-};
 
 export interface BaseCodingOperations {
     regenerateFile: FileRegenerationOperation;
@@ -132,7 +124,8 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
         try {
             await Promise.all([
                 this.deployPreview(),
-                this.generateReadme()
+                this.generateReadme(),
+                this.generateCover(),
             ]);
             this.logger.info("Deployment and initialization completed successfully");
         } catch (error) {
@@ -309,6 +302,38 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
             file: readme
         });
         this.logger.info('README.md generated successfully');
+    }
+
+    async generateCover() {
+        const blueprint = this.state.blueprint as PhasicBlueprint;
+        if (!blueprint?.title) {
+            this.logger.warn('Skipping cover generation: no blueprint title');
+            return;
+        }
+
+        try {
+            this.logger.info('Generating cover image');
+            const result = await generateCoverImage(this.env, blueprint);
+
+            const agentId = this.getAgentId();
+            const r2Key = `screenshots/${agentId}/cover.png`;
+            await this.env.TEMPLATES_BUCKET.put(r2Key, result.imageBytes, {
+                httpMetadata: { contentType: result.contentType },
+            });
+
+            const protocol = this.env.CUSTOM_DOMAIN?.startsWith('localhost') ? 'http' : 'https';
+            const screenshotUrl = `${protocol}://${this.env.CUSTOM_DOMAIN}/api/${r2Key}`;
+
+            const appService = new AppService(this.env);
+            await appService.updateApp(agentId, {
+                screenshotUrl,
+                screenshotCapturedAt: new Date(),
+            });
+
+            this.logger.info('Cover image generated and stored', { r2Key });
+        } catch (error) {
+            this.logger.error('Cover generation failed (non-blocking):', error);
+        }
     }
 
     async setBlueprint(blueprint: Blueprint): Promise<void> {
@@ -1181,215 +1206,5 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
             this.logger.error('Error processing user input', error);
             throw error;
         }
-    }
-
-    /**
-     * Capture screenshot of the given URL using Cloudflare Browser Rendering REST API.
-     * Includes retry logic with blank screenshot detection.
-     */
-    public async captureScreenshot(
-        url: string,
-        viewport: { width: number; height: number } = { width: 1280, height: 720 }
-    ): Promise<string> {
-        if (!this.env.DB || !this.getAgentId()) {
-            const error = 'Cannot capture screenshot: DB or agentId not available';
-            this.logger.warn(error);
-            this.broadcast(WebSocketMessageResponses.SCREENSHOT_CAPTURE_ERROR, {
-                error,
-                configurationError: true
-            });
-            throw new Error(error);
-        }
-
-        if (!url) {
-            const error = 'URL is required for screenshot capture';
-            this.broadcast(WebSocketMessageResponses.SCREENSHOT_CAPTURE_ERROR, {
-                error,
-                url,
-                viewport
-            });
-            throw new Error(error);
-        }
-
-        this.logger.info('Capturing screenshot via REST API', { url, viewport });
-
-        // Notify start of screenshot capture
-        this.broadcast(WebSocketMessageResponses.SCREENSHOT_CAPTURE_STARTED, {
-            message: `Capturing screenshot of ${url}`,
-            url,
-            viewport
-        });
-
-        const maxRetries = SCREENSHOT_CONFIG.MAX_RETRIES;
-        let lastError: Error | null = null;
-        let lastBlankReason: string | null = null;
-
-        for (let attempt = 0; attempt <= maxRetries; attempt++) {
-            try {
-                // Log retry attempt
-                if (attempt > 0) {
-                    this.logger.info(`Screenshot retry attempt ${attempt}/${maxRetries}`, {
-                        url,
-                        previousBlankReason: lastBlankReason
-                    });
-                }
-
-                // Capture screenshot
-                const base64Screenshot = await this.executeScreenshotCapture(url, viewport);
-
-                // Detect if screenshot is blank
-                const blankDetection = detectBlankScreenshot(
-                    base64Screenshot,
-                    SCREENSHOT_CONFIG.MIN_FILE_SIZE,
-                    SCREENSHOT_CONFIG.MIN_ENTROPY
-                );
-
-                if (blankDetection.isBlank) {
-                    lastBlankReason = blankDetection.reason;
-                    this.logger.warn(`Blank screenshot detected on attempt ${attempt + 1}`, {
-                        reason: blankDetection.reason,
-                        url
-                    });
-
-                    // If we have retries left, wait and try again
-                    if (attempt < maxRetries) {
-                        const delay = SCREENSHOT_CONFIG.RETRY_DELAY_BASE * Math.pow(2, attempt);
-                        this.logger.info(`Waiting ${delay}ms before retry...`);
-                        await new Promise(resolve => setTimeout(resolve, delay));
-                        continue;
-                    }
-
-                    // On final attempt, use the screenshot anyway
-                    this.logger.warn('All retry attempts resulted in blank screenshot, using last capture');
-                }
-
-                // Process and store the screenshot
-                return await this.processAndStoreScreenshot(base64Screenshot, url, viewport);
-
-            } catch (error) {
-                lastError = error instanceof Error ? error : new Error(String(error));
-                this.logger.error(`Screenshot capture attempt ${attempt + 1} failed:`, error);
-
-                // If we have retries left, wait and try again
-                if (attempt < maxRetries) {
-                    const delay = SCREENSHOT_CONFIG.RETRY_DELAY_BASE * Math.pow(2, attempt);
-                    await new Promise(resolve => setTimeout(resolve, delay));
-                }
-            }
-        }
-
-        // All attempts failed
-        const errorMessage = lastError?.message || lastBlankReason || 'Unknown error after retries';
-        this.broadcast(WebSocketMessageResponses.SCREENSHOT_CAPTURE_ERROR, {
-            error: `Screenshot capture failed after ${maxRetries + 1} attempts: ${errorMessage}`,
-            url,
-            viewport
-        });
-        throw new Error(`Screenshot capture failed: ${errorMessage}`);
-    }
-
-    /**
-     * Execute a single screenshot capture attempt using Cloudflare Browser Rendering API.
-     */
-    private async executeScreenshotCapture(
-        url: string,
-        viewport: { width: number; height: number }
-    ): Promise<string> {
-        const apiUrl = `https://api.cloudflare.com/client/v4/accounts/${this.env.CLOUDFLARE_ACCOUNT_ID}/browser-rendering/snapshot`;
-
-        const response = await fetch(apiUrl, {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${this.env.CLOUDFLARE_API_TOKEN}`,
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                url: url,
-                viewport: viewport,
-                gotoOptions: {
-                    waitUntil: 'networkidle2',
-                    timeout: SCREENSHOT_CONFIG.PAGE_LOAD_TIMEOUT
-                },
-                waitForTimeout: SCREENSHOT_CONFIG.WAIT_FOR_TIMEOUT,
-                screenshotOptions: {
-                    fullPage: false,
-                    type: 'png'
-                }
-            }),
-        });
-
-        if (!response.ok) {
-            const errorText = await response.text();
-            throw new Error(`Browser Rendering API failed: ${response.status} - ${errorText}`);
-        }
-
-        const result = await response.json() as {
-            success: boolean;
-            result: {
-                screenshot: string;
-                content: string;
-            };
-        };
-
-        if (!result.success || !result.result.screenshot) {
-            throw new Error('Browser Rendering API succeeded but no screenshot returned');
-        }
-
-        return result.result.screenshot;
-    }
-
-    /**
-     * Process and store a captured screenshot.
-     */
-    private async processAndStoreScreenshot(
-        base64Screenshot: string,
-        url: string,
-        viewport: { width: number; height: number }
-    ): Promise<string> {
-        const screenshot: ImageAttachment = {
-            id: this.getAgentId(),
-            filename: 'latest.png',
-            mimeType: 'image/png',
-            base64Data: base64Screenshot
-        };
-        const uploadedImage = await uploadImage(this.env, screenshot, ImageType.SCREENSHOTS);
-
-        // Persist in database
-        try {
-            const appService = new AppService(this.env);
-            await appService.updateAppScreenshot(this.getAgentId(), uploadedImage.publicUrl);
-        } catch (dbError) {
-            const error = `Database update failed: ${dbError instanceof Error ? dbError.message : 'Unknown database error'}`;
-            this.broadcast(WebSocketMessageResponses.SCREENSHOT_CAPTURE_ERROR, {
-                error,
-                url,
-                viewport,
-                screenshotCaptured: true,
-                databaseError: true
-            });
-            throw new Error(error);
-        }
-
-        this.logger.info('Screenshot captured and stored successfully', {
-            url,
-            storage: uploadedImage.publicUrl.startsWith('data:') ? 'database' : (uploadedImage.publicUrl.includes('/api/screenshots/') ? 'r2' : 'images'),
-            length: base64Screenshot.length
-        });
-
-        // Sign the URL if it points to our internal screenshot endpoint
-        const security = new ScreenshotSecurity(this.env);
-        const signedUrl = await security.signUrl(uploadedImage.publicUrl, this.getAgentId());
-
-        // Notify successful screenshot capture
-        this.broadcast(WebSocketMessageResponses.SCREENSHOT_CAPTURE_SUCCESS, {
-            message: `Successfully captured screenshot of ${url}`,
-            url,
-            viewport,
-            screenshotSize: base64Screenshot.length,
-            timestamp: new Date().toISOString(),
-            screenshotUrl: signedUrl,
-        });
-
-        return signedUrl;
     }
 }

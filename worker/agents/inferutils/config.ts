@@ -129,7 +129,7 @@ const DEFAULT_AGENT_CONFIG: AgentConfig = {
     },
     blueprint: {
         name: AIModels.OPENAI_5_4,
-        reasoning_effort: 'high',
+        reasoning_effort: 'medium',
         max_tokens: 64000,
         fallbackModel: AIModels.OPENAI_5_MINI,
         temperature: 1,
@@ -171,7 +171,7 @@ const DEFAULT_AGENT_CONFIG: AgentConfig = {
     },
     deepDebugger: {
         name: AIModels.OPENAI_5_4,
-        reasoning_effort: 'high',
+        reasoning_effort: 'medium',
         max_tokens: 8000,
         temperature: 1,
         fallbackModel: AIModels.OPENAI_5_MINI,
@@ -185,7 +185,7 @@ const DEFAULT_AGENT_CONFIG: AgentConfig = {
     },
     agenticProjectBuilder: {
         name: AIModels.OPENAI_5_4,
-        reasoning_effort: 'high',
+        reasoning_effort: 'medium',
         max_tokens: 8000,
         temperature: 1,
         fallbackModel: AIModels.OPENAI_5_MINI,

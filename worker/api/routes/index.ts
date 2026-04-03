@@ -7,7 +7,6 @@ import { setupAnalyticsRoutes } from './analyticsRoutes';
 import { setupModelConfigRoutes } from './modelConfigRoutes';
 import { setupModelProviderRoutes } from './modelProviderRoutes';
 import { setupCodegenRoutes } from './codegenRoutes';
-import { setupScreenshotRoutes } from './imagesRoutes';
 import { setupCommentRoutes } from './commentRoutes';
 import { setupSentryRoutes } from './sentryRoutes';
 import { setupCapabilitiesRoutes } from './capabilitiesRoutes';
@@ -16,6 +15,8 @@ import { Hono } from "hono";
 import { AppEnv } from "../../types/appenv";
 import { setupStatusRoutes } from './statusRoutes';
 import { setupAdminRoutes } from './adminRoutes';
+import { setupAssetRoutes } from './assetRoutes';
+import { setupScreenshotRoutes } from './imagesRoutes';
 
 export function setupRoutes(app: Hono<AppEnv>): void {
     // Health check route
@@ -71,6 +72,10 @@ export function setupRoutes(app: Hono<AppEnv>): void {
     // Model provider routes
     setupModelProviderRoutes(app);
 
-    // Screenshot serving routes (public)
+
+    // Asset management routes (authenticated)
+    setupAssetRoutes(app);
+
+    // Screenshot/cover image serving (public)
     setupScreenshotRoutes(app);
 }

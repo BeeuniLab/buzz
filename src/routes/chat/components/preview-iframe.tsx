@@ -104,29 +104,6 @@ export const PreviewIframe = forwardRef<HTMLIFrameElement, PreviewIframeProps>(
 			}
 		}, [webSocket]);
 
-		/**
-		 * Request screenshot capture via WebSocket
-		 */
-		const requestScreenshot = useCallback((url: string) => {
-			if (!webSocket || webSocket.readyState !== WebSocket.OPEN) {
-				console.warn('Cannot request screenshot: WebSocket not connected');
-				return;
-			}
-
-			console.log('Requesting screenshot capture');
-			
-			try {
-				webSocket.send(JSON.stringify({
-					type: 'capture_screenshot',
-					data: {
-						url,
-						viewport: { width: 1280, height: 720 },
-					},
-				}));
-			} catch (error) {
-				console.error('Failed to send screenshot request:', error);
-			}
-		}, [webSocket]);
 
 		/**
 		 * Attempt to load the preview with retry logic
@@ -175,14 +152,12 @@ export const PreviewIframe = forwardRef<HTMLIFrameElement, PreviewIframeProps>(
 					errorMessage: null,
 				});
 
-				// Wait for page to render before revealing iframe and capturing screenshot
-				console.log(`Waiting ${POST_LOAD_WAIT}ms before showing preview and capturing screenshot`);
+				// Wait for page to render before revealing iframe
 				postLoadTimeoutRef.current = setTimeout(() => {
 					setLoadState(prev => ({
 						...prev,
 						status: 'loaded',
 					}));
-					requestScreenshot(url);
 				}, POST_LOAD_WAIT);
 			} else {
 				// Not available yet - retry with backoff
@@ -201,7 +176,7 @@ export const PreviewIframe = forwardRef<HTMLIFrameElement, PreviewIframeProps>(
 					loadWithRetry(url, nextAttempt);
 				}, delay);
 			}
-		}, [testAvailability, requestScreenshot, requestRedeploy]);
+		}, [testAvailability, requestRedeploy]);
 
 		/**
 		 * Force a fresh reload from scratch

@@ -18,12 +18,6 @@ function GeneralPreview({ className }: { className?: string }) {
 
 const GENERAL_VIEWS: ViewDefinition[] = [
 	{
-		id: 'editor',
-		label: 'Code',
-		iconName: 'Code2',
-		tooltip: 'View and edit code',
-	},
-	{
 		id: 'docs',
 		label: 'Docs',
 		iconName: 'FileText',

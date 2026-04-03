@@ -76,17 +76,6 @@ export function handleWebSocketMessage(
                     logger.error('Error during preview deployment:', error);
                 });
                 break;
-            case WebSocketMessageRequests.CAPTURE_SCREENSHOT:
-                agent.getBehavior().captureScreenshot(parsedMessage.data.url, parsedMessage.data.viewport).then((screenshotResult) => {
-                    if (!screenshotResult) {
-                        logger.error('Failed to capture screenshot');
-                        return;
-                    }
-                    logger.info('Screenshot captured successfully!', screenshotResult);
-                }).catch((error: unknown) => {
-                    logger.error('Error during screenshot capture:', error);
-                });
-                break;
             case WebSocketMessageRequests.STOP_GENERATION: {
                 logger.info('User requested to stop generation');
                 

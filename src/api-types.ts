@@ -300,6 +300,23 @@ export interface ActiveSessionsData {
   }>;
 }
 
+// Asset management types
+export type AssetCategory = 'images' | '3d' | 'audio' | 'fonts' | 'other';
+
+export interface AssetItem {
+  key: string;
+  name: string;
+  size: number;
+  type: string;
+  category: AssetCategory;
+  uploadedAt: string;
+}
+
+export interface AssetListResponse {
+  assets: AssetItem[];
+  totalCount: number;
+}
+
 // API Keys Response - matches controller response format
 export interface ApiKeysData {
   keys: Array<{

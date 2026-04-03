@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router';
-import type { AppDetailsData, FileType } from '@/api-types';
+import type { AppDetailsData } from '@/api-types';
 import { apiClient, ApiError } from '@/lib/api-client';
 import { appEvents } from '@/lib/app-events';
 import { useCopyToClipboard } from '@/hooks/use-copy-to-clipboard';
@@ -18,8 +18,6 @@ import {
 	Globe,
 	Trash2,
 } from 'lucide-react';
-import { MonacoEditor } from '@/components/monaco-editor/monaco-editor';
-import { getFileType } from '@/utils/string';
 import { Button } from '@/components/ui/button';
 import {
 	Card,
@@ -35,9 +33,6 @@ import { toggleFavorite } from '@/hooks/use-apps';
 import { toast } from 'sonner';
 import { capitalizeFirstLetter, cn, getPreviewUrl } from '@/lib/utils';
 import { ConfirmDeleteDialog } from '@/components/shared/ConfirmDeleteDialog';
-
-const GAME_WIDTH = 720;
-const GAME_HEIGHT = 1280;
 
 // Use proper types from API types
 type AppDetails = AppDetailsData;
@@ -78,7 +73,6 @@ export default function AppView() {
 	const [app, setApp] = useState<AppDetails | null>(null);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
-	const { copy: copyFile } = useCopyToClipboard({ successMessage: 'Code copied to clipboard' });
 	const { copy: copyPrompt } = useCopyToClipboard({ successMessage: 'Prompt copied to clipboard' });
 	const [activeTab, setActiveTab] = useState('preview');
 	const [isDeploying, setIsDeploying] = useState(false);
@@ -86,26 +80,8 @@ export default function AppView() {
 	const [isUpdatingVisibility, setIsUpdatingVisibility] = useState(false);
 	const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
 	const [isDeleting, setIsDeleting] = useState(false);
-	const [activeFilePath, setActiveFilePath] = useState<string>();
 	const previewIframeRef = useRef<HTMLIFrameElement>(null);
-	const phoneFrameRef = useRef<HTMLDivElement>(null);
-	const [phoneScale, setPhoneScale] = useState(1);
 
-	useEffect(() => {
-		const container = phoneFrameRef.current;
-		if (!container) return;
-
-		const updateScale = () => {
-			const { clientWidth, clientHeight } = container;
-			const scaleX = clientWidth / GAME_WIDTH;
-			const scaleY = clientHeight / GAME_HEIGHT;
-			setPhoneScale(Math.max(scaleX, scaleY));
-		};
-		updateScale();
-		const observer = new ResizeObserver(updateScale);
-		observer.observe(container);
-		return () => observer.disconnect();
-	}, []);
 
 	const fetchAppDetails = useCallback(async () => {
 		if (!id) return;
@@ -147,39 +123,6 @@ export default function AppView() {
 		fetchAppDetails();
 	}, [id, fetchAppDetails]);
 
-
-	// Convert agent files to chat FileType format
-	const files = useMemo<FileType[]>(() => {
-		if (!app?.agentSummary?.generatedCode) return [];
-		return app.agentSummary.generatedCode
-			.filter((file) => file && file.filePath && typeof file.filePath === 'string')
-			.map((file) => ({
-				filePath: file.filePath,
-				fileContents: file.fileContents || '',
-				explanation: file.filePurpose,
-				language: getFileType(file.filePath),
-				isGenerating: false,
-				needsFixing: false,
-				hasErrors: false,
-			}));
-	}, [app?.agentSummary?.generatedCode]);
-
-	// Get active file
-	const activeFile = useMemo(() => {
-		return files.find((file) => file.filePath === activeFilePath);
-	}, [files, activeFilePath]);
-
-	// Auto-select first file when files are loaded
-	useEffect(() => {
-		if (files.length > 0 && !activeFilePath) {
-			setActiveFilePath(files[0].filePath);
-		}
-	}, [files, activeFilePath]);
-
-	// File click handler
-	const handleFileClick = useCallback((file: FileType) => {
-		setActiveFilePath(file.filePath);
-	}, []);
 
 	// Action configuration for reusability
 	const actionConfigs: Record<string, ActionConfig> = useMemo(
@@ -489,8 +432,8 @@ export default function AppView() {
 	const appUrl = getAppUrl();
 
 	return (
-		<div className="h-screen bg-bg-3 flex flex-col overflow-hidden">
-			<div className="container mx-auto px-4 pt-2 pb-4 space-y-2 flex flex-col flex-1 min-h-0">
+		<div className="min-h-screen bg-bg-3 flex flex-col">
+			<div className="container mx-auto px-4 pt-2 pb-4 space-y-2 flex flex-col flex-1">
 				{/* App Info Section */}
 				<div className="flex flex-col items-start justify-between gap-4 text-bg-4 w-fit rounded-lg px-5 pb-0">
 					<div className="flex-1">
@@ -585,14 +528,14 @@ export default function AppView() {
 				<Tabs
 					value={activeTab}
 					onValueChange={setActiveTab}
-					className="flex flex-col flex-1 min-h-0 gap-2"
+					className="flex flex-col flex-1 gap-2"
 				>
 					{/* Tab switcher */}
 					<div className="flex items-center gap-4">
 						{/* Using proper TabsList and TabsTrigger components */}
 						<TabsList className="inline-flex h-auto w-fit items-center gap-0.5 bg-bg-2 dark:bg-bg-1 rounded-md p-0.5 border border-border-primary/30">
-						<TabsTrigger 
-							value="preview" 
+						<TabsTrigger
+							value="preview"
 							className="px-3 py-1.5 rounded text-xs font-medium data-[state=active]:bg-bg-4 dark:data-[state=active]:bg-bg-3 data-[state=active]:text-text-primary data-[state=active]:shadow-sm"
 						>
 							<Eye className={cn(
@@ -601,18 +544,8 @@ export default function AppView() {
 							)} />
 							Preview
 						</TabsTrigger>
-						<TabsTrigger 
-							value="code" 
-							className="px-3 py-1.5 rounded text-xs font-medium data-[state=active]:bg-bg-4 dark:data-[state=active]:bg-bg-3 data-[state=active]:text-text-primary data-[state=active]:shadow-sm"
-						>
-							<Code2 className={cn(
-								"h-3.5 w-3.5 mr-1.5",
-								activeTab === 'code' ? 'text-accent' : 'text-accent/60'
-							)} />
-							Code
-						</TabsTrigger>
-						<TabsTrigger 
-							value="prompt" 
+						<TabsTrigger
+							value="prompt"
 							className="px-3 py-1.5 rounded text-xs font-medium data-[state=active]:bg-bg-4 dark:data-[state=active]:bg-bg-3 data-[state=active]:text-text-primary data-[state=active]:shadow-sm"
 						>
 							<MessageSquare className={cn(
@@ -625,34 +558,30 @@ export default function AppView() {
 						
 					</div>
 
-					<TabsContent value="preview" className="flex-1 flex flex-col min-h-0">
-						<Card className="px-2 flex-1 flex flex-col min-h-0">
-							<CardContent className="p-0 flex-1 flex flex-col min-h-0">
-								<div className="relative flex-1 flex flex-col min-h-0">
+					<TabsContent value="preview" className="flex-1 flex flex-col">
+						<Card className="px-2 flex-1 flex flex-col">
+							<CardContent className="p-0 flex-1 flex flex-col">
+								<div className="relative flex-1 flex flex-col">
 									{appUrl ? (
-										<div className="flex items-center justify-center bg-bg-3 overflow-hidden p-4 flex-1 min-h-0">
-											<div
-												ref={phoneFrameRef}
-												className="h-full max-h-full aspect-[9/16] rounded-2xl overflow-hidden shadow-2xl border border-border-primary bg-black relative"
-											>
-												<div style={{
-													position: 'absolute',
-													top: 0,
-													left: 0,
-													width: GAME_WIDTH,
-													height: GAME_HEIGHT,
-													transform: `scale(${phoneScale})`,
-													transformOrigin: 'top left',
-												}}>
-													<iframe
-														ref={previewIframeRef}
-														src={appUrl}
-														title={`${app.title} Preview`}
-														allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope"
-														sandbox="allow-scripts allow-same-origin allow-pointer-lock allow-forms allow-modals allow-orientation-lock allow-popups allow-presentation"
-														style={{ border: 'none', width: '100%', height: '100%' }}
-													/>
-												</div>
+										<div className="flex items-center justify-center bg-bg-3 p-4">
+											<div className="w-full max-w-[360px] aspect-[9/16] rounded-2xl overflow-hidden shadow-2xl border border-border-primary bg-black relative">
+												<iframe
+													ref={previewIframeRef}
+													src={appUrl}
+													title={`${app.title} Preview`}
+													allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope"
+													sandbox="allow-scripts allow-same-origin allow-pointer-lock allow-forms allow-modals allow-orientation-lock allow-popups allow-presentation"
+													style={{
+														position: 'absolute',
+														top: 0,
+														left: 0,
+														border: 'none',
+														width: 720,
+														height: 1280,
+														transform: 'scale(0.5)',
+														transformOrigin: 'top left',
+													}}
+												/>
 											</div>
 										</div>
 									) : (
@@ -694,139 +623,8 @@ export default function AppView() {
 						</Card>
 					</TabsContent>
 
-					<TabsContent value="code" className="flex-1 min-h-0 overflow-y-auto">
-						<Card className="flex flex-col" style={{ maxHeight: '600px' }}>
-							<CardHeader>
-								<div className="flex items-center justify-between">
-									<div>
-										<CardTitle>Generated Code</CardTitle>
-										{app?.agentSummary && (
-											<p className="text-sm text-muted-foreground">
-												{files.length} files generated
-											</p>
-										)}
-									</div>
-									{activeFile && (
-										<Button
-											variant="ghost"
-																			size="sm"
-																			onClick={() => {
-																			void copyFile(activeFile.fileContents);
-																		}}
-																			className="gap-2"
-										>
-											<Copy className="h-3 w-3" />
-											Copy File
-										</Button>
-									)}
-								</div>
-							</CardHeader>
-							<CardContent className="p-0 flex-1 flex flex-col overflow-hidden">
-								{files.length > 0 ? (
-									<div className="h-[450px] relative bg-bg-3 overflow-hidden">
-										<div className="h-full flex">
-											<div className="w-full max-w-[250px] bg-bg-3 border-r border-text/10 h-full overflow-y-auto">
-												<div className="p-2 px-3 text-sm flex items-center gap-1 text-text-primary/50 font-medium border-b bg-bg-3">
-													<Code2 className="size-4" />
-													Files
-												</div>
-												<div className="flex flex-col">
-													{files.map((file) => (
-														<button
-															key={file.filePath}
-															onClick={() =>
-																handleFileClick(
-																	file,
-																)
-															}
-															className={cn(
-																'flex items-center w-full gap-2 py-2 px-3 text-left text-sm transition-colors',
-																activeFile?.filePath ===
-																	file.filePath
-																	? 'bg-blue-100 text-blue-900 border-r-2 border-blue-500'
-																	: 'hover:bg-bg-3 text-text-tertiary hover:text-text-primary',
-															)}
-														>
-															<Code2 className="h-4 w-4 flex-shrink-0" />
-															<span className="truncate font-mono text-xs">
-																{file.filePath}
-															</span>
-														</button>
-													))}
-												</div>
-											</div>
-
-											<div className="flex-1 flex flex-col">
-												{activeFile ? (
-													<>
-														<div className="flex items-center justify-between p-3 border-b bg-bg-3">
-															<div className="flex items-center gap-2 flex-1">
-																<Code2 className="h-4 w-4" />
-																<span className="text-sm font-mono">
-																	{
-																		activeFile.filePath
-																	}
-																</span>
-																{activeFile.explanation && (
-																	<span className="text-xs text-text-tertiary ml-3">
-																		{
-																			activeFile.explanation
-																		}
-																	</span>
-																)}
-															</div>
-														</div>
-
-														<div className="flex-1 min-h-0">
-															<MonacoEditor
-																className="h-full"
-																createOptions={{
-																	value: activeFile.fileContents,
-																	language:
-																		activeFile.language ||
-																		'plaintext',
-																	readOnly: true,
-																	minimap: {
-																		enabled: false,
-																	},
-																	lineNumbers:
-																		'on',
-																	scrollBeyondLastLine: false,
-																	fontSize: 13,
-																	theme: 'vibesdk',
-																	automaticLayout: true,
-																}}
-															/>
-														</div>
-													</>
-												) : (
-													<div className="flex-1 flex items-center justify-center">
-														<p className="text-text-tertiary">
-															Select a file to
-															view
-														</p>
-													</div>
-												)}
-											</div>
-										</div>
-									</div>
-								) : (
-									<div className="flex items-center justify-center h-[400px]">
-										<p className="text-muted-foreground">
-											{app?.agentSummary === null 
-												? 'Loading code...' 
-												: 'No code has been generated yet.'
-											}
-										</p>
-									</div>
-								)}
-							</CardContent>
-						</Card>
-					</TabsContent>
-
 					<TabsContent
 						value="prompt"
-						className="flex-1 min-h-0 overflow-y-auto"
 					>
 						<Card>
 							<CardHeader>

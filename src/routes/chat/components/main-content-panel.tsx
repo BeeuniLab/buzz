@@ -12,6 +12,7 @@ import { ViewHeader } from './view-header';
 import { PreviewHeaderActions } from './preview-header-actions';
 import { EditorHeaderActions } from './editor-header-actions';
 import { Copy } from './copy';
+import { AssetsPanel } from './assets-panel';
 import { featureRegistry } from '@/features';
 import type { FileType, BlueprintType, BehaviorType, TemplateDetails, ProjectType } from '@/api-types';
 import type { ContentDetectionResult } from '../utils/content-detector';
@@ -64,8 +65,8 @@ function PhoneFrame({ children }: { children: ReactNode }) {
 
 interface MainContentPanelProps {
 	// View state
-	view: 'editor' | 'preview' | 'docs' | 'blueprint' | 'presentation';
-	onViewChange: (mode: 'preview' | 'editor' | 'docs' | 'blueprint' | 'presentation') => void;
+	view: 'editor' | 'preview' | 'docs' | 'blueprint' | 'presentation' | 'assets';
+	onViewChange: (mode: 'preview' | 'editor' | 'docs' | 'blueprint' | 'presentation' | 'assets') => void;
 
 	// Content detection
 	hasDocumentation: boolean;
@@ -75,7 +76,6 @@ interface MainContentPanelProps {
 	projectType: ProjectType;
 	previewUrl?: string;
 	previewAvailable: boolean;
-	showTooltip: boolean;
 	shouldRefreshPreview: boolean;
 	manualRefreshTrigger: number;
 	onManualRefresh: () => void;
@@ -99,6 +99,7 @@ interface MainContentPanelProps {
 	// Other
 	behaviorType?: BehaviorType;
 	websocket?: WebSocket;
+	agentId?: string;
 
 	// Refs
 	previewRef: RefObject<HTMLIFrameElement | null>;
@@ -114,7 +115,6 @@ export function MainContentPanel(props: MainContentPanelProps) {
 		projectType,
 		previewUrl,
 		previewAvailable,
-		showTooltip,
 		shouldRefreshPreview,
 		manualRefreshTrigger,
 		onManualRefresh,
@@ -127,6 +127,7 @@ export function MainContentPanel(props: MainContentPanelProps) {
 		isGeneratingBlueprint,
 		behaviorType,
 		websocket,
+		agentId,
 		previewRef,
 		editorRef,
 		templateDetails,
@@ -139,10 +140,9 @@ export function MainContentPanel(props: MainContentPanelProps) {
 	}, []);
 
 	const commonHeaderProps = {
-		view: view as 'preview' | 'editor' | 'docs' | 'blueprint' | 'presentation',
+		view: view as 'preview' | 'editor' | 'docs' | 'blueprint' | 'presentation' | 'assets',
 		onViewChange,
 		previewAvailable,
-		showTooltip,
 		hasDocumentation,
 		previewUrl,
 		projectType,
@@ -216,7 +216,7 @@ export function MainContentPanel(props: MainContentPanelProps) {
 					files={allFiles}
 					activeFile={activeFile}
 					currentView={view}
-					onViewChange={(v) => onViewChange(v as 'preview' | 'editor' | 'docs' | 'blueprint' | 'presentation')}
+					onViewChange={(v) => onViewChange(v as 'preview' | 'editor' | 'docs' | 'blueprint' | 'presentation' | 'assets')}
 					templateDetails={templateDetails}
 					blueprint={blueprint}
 					previewRef={previewRef}
@@ -262,7 +262,7 @@ export function MainContentPanel(props: MainContentPanelProps) {
 					files={allFiles}
 					activeFile={activeFile}
 					currentView={view}
-					onViewChange={(v) => onViewChange(v as 'preview' | 'editor' | 'docs' | 'blueprint' | 'presentation')}
+					onViewChange={(v) => onViewChange(v as 'preview' | 'editor' | 'docs' | 'blueprint' | 'presentation' | 'assets')}
 					templateDetails={templateDetails}
 					blueprint={blueprint}
 					previewRef={previewRef}
@@ -380,6 +380,12 @@ export function MainContentPanel(props: MainContentPanelProps) {
 		);
 	};
 
+	const renderAssetsView = () =>
+		renderViewWithHeader(
+			<span className="text-sm font-mono text-text-50/70">Assets</span>,
+			<AssetsPanel agentId={agentId} />,
+		);
+
 	const renderView = () => {
 		switch (view) {
 			case 'docs':
@@ -391,6 +397,8 @@ export function MainContentPanel(props: MainContentPanelProps) {
 				return renderBlueprintView();
 			case 'editor':
 				return renderEditorView();
+			case 'assets':
+				return renderAssetsView();
 			default:
 				return null;
 		}

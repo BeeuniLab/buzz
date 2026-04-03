@@ -33,13 +33,7 @@ export const WebSocketMessageResponses: Record<string, WebSocketMessageType> = {
     CLOUDFLARE_DEPLOYMENT_STARTED: 'cloudflare_deployment_started',
     CLOUDFLARE_DEPLOYMENT_COMPLETED: 'cloudflare_deployment_completed', 
     CLOUDFLARE_DEPLOYMENT_ERROR: 'cloudflare_deployment_error',
-    
-    // Screenshot messages
-    SCREENSHOT_CAPTURE_STARTED: 'screenshot_capture_started',
-    SCREENSHOT_CAPTURE_SUCCESS: 'screenshot_capture_success',
-    SCREENSHOT_CAPTURE_ERROR: 'screenshot_capture_error',
-    SCREENSHOT_ANALYSIS_RESULT: 'screenshot_analysis_result',
-    
+
     ERROR: 'error',
     RATE_LIMIT_ERROR: 'rate_limit_error',
 
@@ -89,7 +83,6 @@ export const WebSocketMessageRequests = {
     UPDATE_QUERY: 'update_query',
     RUNTIME_ERROR_FOUND: 'runtime_error_found',
     PREVIEW_FAILED: 'preview_failed',
-    CAPTURE_SCREENSHOT: 'capture_screenshot',
     STOP_GENERATION: 'stop_generation',
     RESUME_GENERATION: 'resume_generation',
     

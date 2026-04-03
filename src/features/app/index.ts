@@ -9,12 +9,6 @@ import { AppHeaderActions } from './components/AppHeaderActions';
 
 const APP_VIEWS: ViewDefinition[] = [
 	{
-		id: 'editor',
-		label: 'Code',
-		iconName: 'Code2',
-		tooltip: 'View and edit source code',
-	},
-	{
 		id: 'preview',
 		label: 'Preview',
 		iconName: 'Eye',

@@ -250,50 +250,6 @@ export type CloudflareDeploymentErrorMessage = {
 	error: string;
 };
 
-type ScreenshotCaptureStartedMessage = {
-	type: 'screenshot_capture_started';
-	message: string;
-	url: string;
-	viewport: { width: number; height: number };
-};
-
-type ScreenshotCaptureSuccessMessage = {
-	type: 'screenshot_capture_success';
-	message: string;
-	url: string;
-	viewport: { width: number; height: number };
-	screenshotSize: number;
-	timestamp: string;
-	screenshotUrl?: string;
-};
-
-type ScreenshotCaptureErrorMessage = {
-	type: 'screenshot_capture_error';
-	error: string;
-	url: string;
-	viewport: { width: number; height: number };
-	statusCode?: number;
-	statusText?: string;
-	apiResponse?: unknown;
-	screenshotCaptured?: boolean;
-	databaseError?: boolean;
-	configurationError?: boolean;
-};
-
-type ScreenshotAnalysisResultMessage = {
-	type: 'screenshot_analysis_result';
-	message: string;
-	analysis: {
-		hasIssues: boolean;
-		issues: string[];
-		suggestions: string[];
-		uiCompliance: {
-			matchesBlueprint: boolean;
-			deviations: string[];
-		};
-	};
-};
-
 
 type UserSuggestionsProcessingMessage = {
 	type: 'user_suggestions_processing';
@@ -571,10 +527,6 @@ export type WebSocketMessage =
 	| CloudflareDeploymentStartedMessage
 	| CloudflareDeploymentCompletedMessage
 	| CloudflareDeploymentErrorMessage
-	| ScreenshotCaptureStartedMessage
-	| ScreenshotCaptureSuccessMessage
-	| ScreenshotCaptureErrorMessage
-	| ScreenshotAnalysisResultMessage
 	| ErrorMessage
     | RateLimitErrorMessage
 	| UserSuggestionsProcessingMessage

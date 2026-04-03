@@ -24,7 +24,7 @@ export interface SimpleCodeGenerationOutputs {
     files: FileOutputType[];
 }
 
-const SYSTEM_PROMPT = `You are an expert Cloudflare developer specializing in Cloudflare Workers and Workflows.
+const SYSTEM_PROMPT = `You are an expert full-stack developer specializing in interactive web experiences.
 
 Your task is to generate production-ready code files specifically based on the provided specifications.
 
@@ -67,28 +67,26 @@ Generate complete, production-ready code for all specified files.
 `;
 
 const README_GENERATION_PROMPT = `<TASK>
-Generate a comprehensive README.md file for this project based on the provided blueprint and template information.
-The README should be professional, well-structured, and provide clear instructions for users and developers.
+Generate a README.md file for this project that showcases the creative experience, not the technical implementation.
+This README is for audiences and creators browsing the project — not for developers setting up a dev environment.
 </TASK>
 
 <INSTRUCTIONS>
-- Create a professional README with proper markdown formatting
+- Create a visually appealing README with proper markdown formatting
 - Do not add any images or screenshots
-- Include project title, description, and key features from the blueprint
-- Add technology stack section based on the template dependencies
-- Include setup/installation instructions using bun (not npm/yarn)
-- Add usage examples and development instructions
-- Include a deployment section with Cloudflare-specific instructions
-- **IMPORTANT**: Add a \`[cloudflarebutton]\` placeholder near the top and another in the deployment section for the Cloudflare deploy button. Write the **EXACT** string except the backticks and DON'T enclose it in any other button or anything. We will replace it with https://deploy.workers.cloudflare.com/?url=\${repositoryUrl} when the repository is created.
-- Structure the content clearly with appropriate headers and sections
-- Be concise but comprehensive - focus on essential information
-- Use professional tone suitable for open source projects
+- **Project Title & Description**: Lead with a compelling creative description — what is this experience? What's the concept? What emotions or reactions does it evoke?
+- **Features & Interactions**: Highlight the key interactions and experiences — what can users do? What makes it special or unique?
+- **Creative Vision**: Briefly describe the design philosophy, visual style, mood, or inspiration behind the project
+- **How to Experience**: Simple instructions like "Visit the live URL" or "Click the link below to try it" — NOT developer setup instructions
+- Do NOT include: Prerequisites, Installation, Development setup, Technology stack, Deployment instructions, deploy buttons, or any developer-facing documentation
+- Tone: creative showcase — imagine this is a portfolio piece or a social media post about the project
+- Keep it concise and engaging — aim for something someone would actually want to read
 </INSTRUCTIONS>
 
-Generate the complete README.md content in markdown format. 
-Do not provide any additional text or explanation. 
-All your output will be directly saved in the README.md file. 
-Do not provide and markdown fence \`\`\` \`\`\` around the content either! Just pure raw markdown content!`;
+Generate the complete README.md content in markdown format.
+Do not provide any additional text or explanation.
+All your output will be directly saved in the README.md file.
+Do not provide any markdown fence \`\`\` \`\`\` around the content either! Just pure raw markdown content!`;
 
 const formatRequirements = (requirements: string[]): string => {
     return requirements.map((req, index) => `${index + 1}. ${req}`).join('\n');

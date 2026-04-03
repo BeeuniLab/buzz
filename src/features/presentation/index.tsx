@@ -18,12 +18,6 @@ const PRESENTATION_VIEWS: ViewDefinition[] = [
 		tooltip: 'View presentation slides',
 	},
 	{
-		id: 'editor',
-		label: 'Code',
-		iconName: 'Code2',
-		tooltip: 'Edit slide source code',
-	},
-	{
 		id: 'docs',
 		label: 'Docs',
 		iconName: 'FileText',

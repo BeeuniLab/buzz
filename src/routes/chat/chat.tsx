@@ -148,7 +148,7 @@ export default function Chat() {
 	const navigate = useNavigate();
 
 	const [activeFilePath, setActiveFilePath] = useState<string>();
-	const [view, setView] = useState<'editor' | 'preview' | 'docs' | 'blueprint' | 'presentation'>(
+	const [view, setView] = useState<'editor' | 'preview' | 'docs' | 'blueprint' | 'presentation' | 'assets'>(
 		'editor',
 	);
 
@@ -211,7 +211,6 @@ export default function Chat() {
 	const messagesContainerRef = useRef<HTMLDivElement>(null);
 
 	const [newMessage, setNewMessage] = useState('');
-	const [showTooltip, setShowTooltip] = useState(false);
 
 	const { images, addImages, removeImage, clearImages, isProcessing } = useImageUpload({
 		onError: (error) => {
@@ -249,6 +248,9 @@ export default function Chat() {
 			result = featureModule.processFiles(result, templateDetails);
 		}
 
+		// Only show src/ files in the editor — other files are template defaults the AI cannot modify
+		result = result.filter(f => f.filePath.startsWith('src/'));
+
 		return result;
 	}, [files, templateDetails, projectType]);
 
@@ -263,7 +265,7 @@ export default function Chat() {
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, []);
 
-	const handleViewModeChange = useCallback((mode: 'preview' | 'editor' | 'docs' | 'blueprint' | 'presentation') => {
+	const handleViewModeChange = useCallback((mode: 'preview' | 'editor' | 'docs' | 'blueprint' | 'presentation' | 'assets') => {
 		setView(mode);
 	}, []);
 
@@ -384,8 +386,6 @@ export default function Chat() {
 		// Auto-switch to docs ONLY when NEW markdown is being generated
 		if (hasDocumentation && newMarkdownAdded && isGeneratingMarkdown) {
 			setView('docs');
-			setShowTooltip(true);
-			setTimeout(() => setShowTooltip(false), 3000);
 			hasSeenPreview.current = true;
 		} else if (isStaticContent && files.length > 0 && !hasDocumentation) {
 			// For other static content (non-documentation), show editor view
@@ -404,10 +404,6 @@ export default function Chat() {
 
 			if (shouldSwitch) {
 				setView('preview');
-				setShowTooltip(true);
-				setTimeout(() => {
-					setShowTooltip(false);
-				}, 3000);
 				hasSeenPreview.current = true;
 			}
 		}
@@ -658,8 +654,6 @@ export default function Chat() {
 									phaseTimeline={phaseTimeline}
 									files={files}
 									view={view}
-									activeFile={activeFile}
-									onFileClick={handleFileClick}
 									isThinkingNext={isThinking}
 									isPreviewDeploying={isPreviewDeploying}
 									progress={progress}
@@ -741,7 +735,6 @@ export default function Chat() {
 								projectType={projectType}
 								previewUrl={previewUrl}
 								previewAvailable={previewAvailable}
-								showTooltip={showTooltip}
 								shouldRefreshPreview={shouldRefreshPreview}
 								manualRefreshTrigger={manualRefreshTrigger}
 								onManualRefresh={() => setManualRefreshTrigger(Date.now())}
@@ -757,6 +750,7 @@ export default function Chat() {
 								previewRef={previewRef}
 								editorRef={editorRef}
 								templateDetails={templateDetails}
+								agentId={chatId}
 							/>
 						</motion.div>
 					)}

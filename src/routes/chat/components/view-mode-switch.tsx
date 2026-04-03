@@ -1,6 +1,5 @@
 import clsx from 'clsx';
-import { AnimatePresence, motion } from 'framer-motion';
-import { Eye, Code, FileText, Presentation } from 'lucide-react';
+import { Eye, FileText, Presentation, Image } from 'lucide-react';
 import { featureRegistry } from '@/features';
 import type { ProjectType } from '@/api-types';
 
@@ -14,15 +13,13 @@ export function ViewModeSwitch({
 	view,
 	onChange,
 	previewAvailable = false,
-	showTooltip = false,
 	hasDocumentation = false,
 	previewUrl,
 	projectType,
 }: {
-	view: 'preview' | 'editor' | 'docs' | 'blueprint' | 'presentation'
-	onChange: (mode: 'preview' | 'editor' | 'docs' | 'blueprint' | 'presentation') => void;
+	view: 'preview' | 'editor' | 'docs' | 'blueprint' | 'presentation' | 'assets'
+	onChange: (mode: 'preview' | 'editor' | 'docs' | 'blueprint' | 'presentation' | 'assets') => void;
 	previewAvailable: boolean;
-	showTooltip: boolean;
 	hasDocumentation: boolean;
 	previewUrl?: string;
 	projectType?: ProjectType;
@@ -43,19 +40,6 @@ export function ViewModeSwitch({
 
 	return (
 		<div className="flex items-center gap-1 bg-bg-1 rounded-md p-0.5 relative">
-			<AnimatePresence>
-				{showTooltip && (
-					<motion.div
-						initial={{ opacity: 0, scale: 0.4 }}
-						animate={{ opacity: 1, scale: 1 }}
-						exit={{ opacity: 0, scale: 0 }}
-						className="absolute z-50 top-10 left-0 bg-bg-2 text-text-primary text-xs px-2 py-1 rounded whitespace-nowrap animate-fade-in"
-					>
-						You can view code anytime from here
-					</motion.div>
-				)}
-			</AnimatePresence>
-
 			{/* Preview button - show when app has preview URL */}
 			{previewUrl && (
 				<button
@@ -73,16 +57,16 @@ export function ViewModeSwitch({
 			)}
 
 			<button
-				onClick={() => onChange('editor')}
+				onClick={() => onChange('assets')}
 				className={clsx(
 					'p-1 flex items-center justify-between h-full rounded-md transition-colors',
-					view === 'editor'
+					view === 'assets'
 						? 'bg-bg-4 text-text-primary'
 						: 'text-text-50/70 hover:text-text-primary hover:bg-accent',
 				)}
-				title="Code"
+				title="Assets"
 			>
-				<Code className="size-4" />
+				<Image className="size-4" />
 			</button>
 
 			{/* Docs button - show when documentation exists */}

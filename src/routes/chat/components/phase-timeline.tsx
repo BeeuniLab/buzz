@@ -1,5 +1,5 @@
 import clsx from 'clsx';
-import { Loader, Check, AlertCircle, ChevronDown, ChevronRight, ArrowUp, XCircle } from 'lucide-react';
+import { Loader, Check, AlertCircle, ArrowUp, XCircle } from 'lucide-react';
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import type { RefObject } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
@@ -175,8 +175,6 @@ interface PhaseTimelineProps {
 	phaseTimeline: PhaseTimelineItem[];
 	files: FileType[];
 	view: string;
-	activeFile?: FileType;
-	onFileClick: (file: FileType) => void;
 	isThinkingNext?: boolean;
 	isPreviewDeploying?: boolean;
 	progress: number;
@@ -228,41 +226,11 @@ function truncatePhaseName(name: string, maxLength: number = 40): string {
 	return name.length > maxLength ? `${name.slice(0, maxLength)}...` : name;
 }
 
-// Helper function to calculate incremental line count for a file in a specific phase
-function calculateIncrementalLineCount(
-	currentFilePath: string,
-	currentPhaseIndex: number,
-	phaseTimeline: PhaseTimelineItem[],
-	globalFiles: FileType[]
-): number {
-	const globalFile = globalFiles.find(f => f.filePath === currentFilePath);
-	if (!globalFile) return 0;
-
-	const currentTotalLines = globalFile.fileContents.split('\n').length;
-
-	// Find the previous phase that contains this same file
-	for (let i = currentPhaseIndex - 1; i >= 0; i--) {
-		const previousPhase = phaseTimeline[i];
-		const previousPhaseFile = previousPhase.files.find(f => f.path === currentFilePath);
-
-		if (previousPhaseFile && previousPhaseFile.contents) {
-			const previousLines = previousPhaseFile.contents.split('\n').length;
-			return Math.max(0, currentTotalLines - previousLines); // Ensure non-negative
-		}
-	}
-
-	// If this is the first appearance of the file, return the total line count
-	return currentTotalLines;
-}
-
-
 export function PhaseTimeline({
 	projectStages,
 	phaseTimeline,
 	files,
 	view,
-	activeFile,
-	onFileClick,
 	isThinkingNext,
 	isPreviewDeploying,
 	progress,
@@ -275,20 +243,11 @@ export function PhaseTimeline({
 	isGenerating = false,
 	isThinking = false
 }: PhaseTimelineProps) {
-	const [expandedPhases, setExpandedPhases] = useState<Set<string>>(new Set());
 	const [showCollapsedBar, setShowCollapsedBar] = useState(false);
 	const [isCollapsedBarExpanded, setIsCollapsedBarExpanded] = useState(false);
 	const componentRef = useRef<HTMLDivElement>(null);
 	const lastPhaseRef = useRef<HTMLDivElement>(null);
 	const timelineCardRef = useRef<HTMLDivElement>(null);
-
-	// Auto-expand only the currently generating or validating phase
-	useEffect(() => {
-		const activePhase = phaseTimeline.find(p => p.status === 'generating' || p.status === 'validating');
-		if (activePhase) {
-			setExpandedPhases(new Set([activePhase.id]));
-		}
-	}, [phaseTimeline]);
 
 	// Reset collapsed bar expanded state when it disappears
 	useEffect(() => {
@@ -389,18 +348,6 @@ export function PhaseTimeline({
 			badge: undefined
 		};
 	}, [phaseTimeline, isThinkingNext, isPreviewDeploying, progress, total, projectStages]);
-
-	const togglePhase = (phaseId: string) => {
-		setExpandedPhases(prev => {
-			const newSet = new Set(prev);
-			if (newSet.has(phaseId)) {
-				newSet.delete(phaseId);
-			} else {
-				newSet.add(phaseId);
-			}
-			return newSet;
-		});
-	};
 
 	const scrollToTop = useCallback(() => {
 		if (parentScrollRef?.current) {
@@ -716,22 +663,9 @@ export function PhaseTimeline({
 												<div className="absolute left-[5px] w-[0.5px] h-full top-3 bg-border-primary/40" />
 											)}
 											{/* Phase Implementation Header */}
-											<button
-												onClick={() => (phase.status === 'completed' || phase.status === 'cancelled') && togglePhase(phase.id)}
-												className="flex items-start gap-2 relative z-0 w-full text-left hover:bg-zinc-50/5 rounded px-1 py-1 transition-colors group"
-												disabled={phase.status !== 'completed' && phase.status !== 'cancelled'}
+											<div
+												className="flex items-start gap-2 relative z-0 w-full text-left px-1 py-1"
 											>
-												{/* Expand/Collapse chevron for completed/cancelled phases */}
-												{(phase.status === 'completed' || phase.status === 'cancelled') && (
-													<div className="flex-shrink-0 opacity-60 group-hover:opacity-100 transition-opacity mt-0.5">
-														{expandedPhases.has(phase.id) ? (
-															<ChevronDown className="size-3" />
-														) : (
-															<ChevronRight className="size-3" />
-														)}
-													</div>
-												)}
-
 												<div className="flex-shrink-0 mt-0.5">
 													<StatusIcon status={phase.status} size="sm" />
 												</div>
@@ -742,74 +676,13 @@ export function PhaseTimeline({
 													 `Implementing ${phase.name}`}
 												</span>
 
-												{/* File count badge for collapsed completed/cancelled phases */}
-												{(phase.status === 'completed' || phase.status === 'cancelled') && !expandedPhases.has(phase.id) && (
+												{/* File count badge */}
+												{(phase.status === 'completed' || phase.status === 'cancelled') && (
 													<span className="text-xs text-text-primary/50 bg-zinc-100 dark:bg-zinc-800 px-1.5 py-0.5 rounded flex-shrink-0">
 														{phase.files.length} files
 													</span>
 												)}
-											</button>
-
-											{/* Phase Files - Show when implementing, validating, or expanded */}
-											{(phase.status === 'generating' || phase.status === 'validating' || ((phase.status === 'completed' || phase.status === 'cancelled') && expandedPhases.has(phase.id))) && (
-												<div className="ml-6 space-y-0.5">
-													{phase.files.map((phaseFile) => {
-														// Check if this file exists in the global files array for click handling
-														const globalFile = files.find(f => f.filePath === phaseFile.path);
-														const isFileActive = view === 'editor' && activeFile?.filePath === phaseFile.path;
-
-														return (
-															<button
-																key={phaseFile.path}
-																onClick={() => globalFile && onFileClick(globalFile)}
-																className="flex items-start gap-2 py-1 transition-colors font-mono w-full text-left group hover:bg-zinc-50/5 rounded px-2 min-h-0"
-																aria-selected={isFileActive}
-																disabled={!globalFile}
-															>
-																{/* Status Icon BEFORE filename */}
-																<span className="flex-shrink-0">
-																	<StatusIcon status={phaseFile.status} size="sm" />
-																</span>
-
-																{/* File Path with proper truncation and wrapping */}
-																<div className="flex-1 min-w-0">
-																	<span
-																		className={clsx(
-																			'text-xs text-left block transition-colors break-all leading-tight',
-																			isFileActive
-																				? 'text-brand font-medium'
-																				: globalFile ? 'text-text-primary/80 group-hover:text-text-primary' : 'text-text-primary/50',
-																		)}
-																		title={phaseFile.path}
-																	>
-																		{truncateFilePath(phaseFile.path)}
-																	</span>
-																</div>
-
-																{/* Incremental line count with responsive width and truncation */}
-																{globalFile && (() => {
-																	const incrementalLines = calculateIncrementalLineCount(
-																		phaseFile.path,
-																		phaseIndex,
-																		phaseTimeline,
-																		files
-																	);
-																	const displayCount = incrementalLines > 999 ? `${Math.floor(incrementalLines / 1000)}k` : incrementalLines.toString();
-
-																	return (
-																		<span
-																			className="flex-shrink-0 text-text-tertiary text-xs font-mono text-right w-12 ml-2"
-																			title={`${incrementalLines} lines added in this phase`}
-																		>
-																			+{displayCount}
-																		</span>
-																	);
-																})()}
-															</button>
-														);
-													})}
-												</div>
-											)}
+											</div>
 										</div>
 									))}
 
@@ -847,29 +720,15 @@ export function PhaseTimeline({
 										</div>
 									)}
 
-									{/* Fallback for existing files when no phase timeline */}
-									{phaseTimeline.length === 0 && files.map((file) => {
-										const isFileActive = view === 'editor' && activeFile?.filePath === file.filePath;
-										return (
-											<button
-												key={file.filePath}
-												onClick={() => onFileClick(file)}
-												className="flex items-start gap-2 py-1 font-mono w-full text-left group hover:bg-zinc-50/5 rounded px-2 min-h-0"
-											>
-												<span className="flex-shrink-0">
-													{file.isGenerating ? <StatusLoader size="sm" color="accent" /> : <StatusCheck size="sm" color="green" />}
-												</span>
-												<div className="flex-1 min-w-0">
-													<span className={clsx('text-xs block break-all leading-tight', isFileActive ? 'text-brand font-medium' : 'text-text-primary/80')}>
-														{truncateFilePath(file.filePath)}
-													</span>
-												</div>
-												<span className="flex-shrink-0 text-text-tertiary text-xs font-mono text-right w-12 ml-2">
-													+{file.fileContents.split('\n').length}
-												</span>
-											</button>
-										);
-									})}
+									{/* File count summary for agentic mode (no phase timeline) */}
+									{phaseTimeline.length === 0 && files.length > 0 && (
+										<div className="text-xs text-text-tertiary px-2 py-1">
+											{files.filter(f => f.isGenerating).length > 0
+												? `Generating ${files.length} files...`
+												: `${files.length} files generated`
+											}
+										</div>
+									)}
 								</div>
 							)}
 
