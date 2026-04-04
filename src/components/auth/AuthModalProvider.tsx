@@ -74,12 +74,9 @@ export function AuthModalProvider({ children }: AuthModalProviderProps) {
     setGlobalAuthModalTrigger(showAuthModal);
   }, [showAuthModal]);
 
-  // Auto-show login modal once per session for unauthenticated users
+  // Auto-show login modal for unauthenticated users on page load
   useEffect(() => {
     if (isLoading || isAuthenticated) return;
-    const key = 'auth_prompt_shown';
-    if (sessionStorage.getItem(key)) return;
-    sessionStorage.setItem(key, '1');
     showAuthModal();
   }, [isLoading, isAuthenticated, showAuthModal]);
 
