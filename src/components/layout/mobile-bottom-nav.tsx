@@ -17,8 +17,9 @@ export function MobileBottomNav() {
 
 	if (!isMobile) return null;
 
-	// Hide on chat/build routes (immersive contexts)
+	// Hide on chat/build routes (immersive contexts) and feed routes (feed has its own control bar)
 	if (location.pathname.startsWith('/chat')) return null;
+	if (location.pathname === '/' || location.pathname.startsWith('/feed')) return null;
 
 	return (
 		<nav className="mobile-bottom-nav fixed bottom-0 left-0 right-0 z-50 h-14 bg-bg-2 border-t-2 border-[var(--neo-border-color)] flex items-center justify-around">

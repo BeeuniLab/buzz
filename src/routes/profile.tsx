@@ -83,10 +83,15 @@ export default function Profile() {
       .finally(() => setPublicLoading(false));
   }, [userId, isOwnProfile]);
 
-  // Own profile: require auth
+  // Own profile: require auth — use effect to avoid setState during render
+  React.useEffect(() => {
+    if (isOwnProfile && !user) {
+      requireAuth({ actionContext: 'to view your profile' });
+      navigate('/', { replace: true });
+    }
+  }, [isOwnProfile, user, requireAuth, navigate]);
+
   if (isOwnProfile && !user) {
-    requireAuth({ actionContext: 'to view your profile' });
-    navigate('/', { replace: true });
     return null;
   }
 

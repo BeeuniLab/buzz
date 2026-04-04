@@ -364,14 +364,16 @@ class ApiClient {
 			const data = await response.json() as ApiResponse<T>;
 
 			if (!response.ok) {
-                if (
-                    response.status === 401 &&
-                    globalAuthModalTrigger &&
-                    this.shouldTriggerAuthModal(endpoint)
-                ) {
-                    const authContext = this.getAuthContextForEndpoint(endpoint);
-                    globalAuthModalTrigger(authContext);
-                }
+				if (response.status === 401) {
+					// Auth-checking endpoints: return the failed response gracefully
+					if (!this.shouldTriggerAuthModal(endpoint)) {
+						return { response, data };
+					}
+					if (globalAuthModalTrigger) {
+						const authContext = this.getAuthContextForEndpoint(endpoint);
+						globalAuthModalTrigger(authContext);
+					}
+				}
 
                 const errorData = data.error;
                 if (errorData && errorData.type) {

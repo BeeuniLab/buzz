@@ -835,6 +835,27 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
                 headers: { 'Content-Type': 'text/plain' }
             });
         }
+
+        // Handle /__buzzplay-host/v1/ API routes — games expect these but there's no
+        // independent worker deployment, so return graceful degradation responses.
+        const buzzplayApi = '/__buzzplay-host/v1';
+        if (url.pathname.startsWith(`${buzzplayApi}/`)) {
+            const corsHeaders = {
+                'Content-Type': 'application/json; charset=utf-8',
+                'Access-Control-Allow-Origin': '*',
+                'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+                'Access-Control-Allow-Headers': '*',
+            };
+            const apiPath = url.pathname.slice(buzzplayApi.length);
+
+            if (apiPath === '/health') {
+                return new Response(JSON.stringify({ ok: true, persistence: 'none', auth: false, sessionCookieDomain: null }), { headers: corsHeaders });
+            }
+
+            // All other host APIs (state, leaderboard, auth) — not available in preview mode
+            return new Response(JSON.stringify({ error: 'Not available in preview mode' }), { status: 501, headers: corsHeaders });
+        }
+
         const normalized = normalizePath(filePath);
         let file = this.fileManager.getFile(normalized);
 

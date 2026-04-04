@@ -17,17 +17,28 @@ export interface FeedItemHandle {
 interface FeedItemProps {
 	app: AppWithUserAndStats;
 	isActive?: boolean;
+	onPlayStateChange?: (playing: boolean) => void;
+	containMode?: boolean;
 }
 
 export const FeedItem = React.forwardRef<FeedItemHandle, FeedItemProps>(
-	function FeedItem({ app, isActive = true }, ref) {
+	function FeedItem({ app, isActive = true, onPlayStateChange, containMode = false }, ref) {
 		const [imgError, setImgError] = React.useState(false);
 		const [playing, setPlaying] = React.useState(false);
 		const [previewUrl, setPreviewUrl] = React.useState<string | null>(null);
 		const [deploying, setDeploying] = React.useState(false);
 		const [iframeKey, setIframeKey] = React.useState(0);
 		const containerRef = React.useRef<HTMLDivElement>(null);
+		const iframeRef = React.useRef<HTMLIFrameElement>(null);
 		const [scale, setScale] = React.useState(1);
+		const [offset, setOffset] = React.useState({ x: 0, y: 0 });
+
+		// Stop audio when game becomes inactive — blank the iframe src before React unmounts it
+		React.useEffect(() => {
+			if (!isActive && playing && iframeRef.current) {
+				iframeRef.current.src = 'about:blank';
+			}
+		}, [isActive, playing]);
 
 		// Calculate scale to fit game resolution into container
 		React.useEffect(() => {
@@ -38,14 +49,24 @@ export const FeedItem = React.forwardRef<FeedItemHandle, FeedItemProps>(
 				const { clientWidth, clientHeight } = container;
 				const scaleX = clientWidth / GAME_WIDTH;
 				const scaleY = clientHeight / GAME_HEIGHT;
-				setScale(Math.max(scaleX, scaleY));
+				if (containMode && playing) {
+					const s = Math.min(scaleX, scaleY);
+					setScale(s);
+					setOffset({
+						x: (clientWidth - GAME_WIDTH * s) / 2,
+						y: (clientHeight - GAME_HEIGHT * s) / 2,
+					});
+				} else {
+					setScale(Math.max(scaleX, scaleY));
+					setOffset({ x: 0, y: 0 });
+				}
 			};
 
 			updateScale();
 			const observer = new ResizeObserver(updateScale);
 			observer.observe(container);
 			return () => observer.disconnect();
-		}, []);
+		}, [containMode, playing]);
 
 		const startPlay = async () => {
 			if (deploying) return;
@@ -63,6 +84,7 @@ export const FeedItem = React.forwardRef<FeedItemHandle, FeedItemProps>(
 					if (url) {
 						setPreviewUrl(url);
 						setPlaying(true);
+						onPlayStateChange?.(true);
 					} else {
 						toast.error('No preview available for this app');
 					}
@@ -99,14 +121,15 @@ export const FeedItem = React.forwardRef<FeedItemHandle, FeedItemProps>(
 				>
 					{playing && previewUrl && isActive ? (
 						<iframe
+							ref={iframeRef}
 							key={iframeKey}
 							src={previewUrl}
 							title={`Play ${app.title}`}
 							allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope"
 							style={{
 								position: 'absolute',
-								top: 0,
-								left: 0,
+								top: offset.y,
+								left: offset.x,
 								border: 'none',
 								width: GAME_WIDTH,
 								height: GAME_HEIGHT,

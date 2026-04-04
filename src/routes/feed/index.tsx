@@ -1,5 +1,5 @@
 import React from 'react';
-import { ChevronUp, ChevronDown, Loader2, Heart, Bookmark, Send, RotateCcw, MessageCircle } from 'lucide-react';
+import { ChevronUp, ChevronDown, Loader2, Heart, Bookmark, Send, RotateCcw, MessageCircle, Compass, SkipBack, SkipForward } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { apiClient } from '@/lib/api-client';
 import { FeedItem } from './FeedItem';
@@ -25,7 +25,8 @@ export default function FeedPage() {
 	const [initialAppLoaded, setInitialAppLoaded] = React.useState(!appId);
 	const [commentsOpen, setCommentsOpen] = React.useState(false);
 	const [commentCount, setCommentCount] = React.useState(0);
-	const [actionsCollapsed, setActionsCollapsed] = React.useState(false);
+	const [isPlaying, setIsPlaying] = React.useState(false);
+	const [actionsExpanded, setActionsExpanded] = React.useState(false);
 
 	// Stable seed per session — regenerated when user navigates to feed root
 	const feedSeedRef = React.useRef(Math.floor(Math.random() * 1000000));
@@ -364,7 +365,10 @@ export default function FeedPage() {
 	const scrollContent = (
 		<div
 			ref={containerRef}
-			className="h-full overflow-y-auto snap-y snap-mandatory"
+			className={cn(
+				'h-full overflow-y-auto',
+				isMobile && isPlaying ? 'overflow-hidden' : 'snap-y snap-mandatory',
+			)}
 			style={{ scrollbarWidth: 'none' }}
 		>
 			{apps.map((app, i) => (
@@ -376,6 +380,8 @@ export default function FeedPage() {
 					<FeedItem
 						app={app}
 						isActive={i === currentIndex}
+						onPlayStateChange={isMobile ? (playing) => setIsPlaying(playing) : undefined}
+						containMode={isMobile && isPlaying}
 						ref={(handle) => {
 							if (handle) feedItemRefs.current.set(i, handle);
 							else feedItemRefs.current.delete(i);
@@ -392,59 +398,140 @@ export default function FeedPage() {
 	);
 
 	if (isMobile) {
-		// Mobile: full-screen with overlay action buttons, accounting for bottom nav (h-14 = 3.5rem)
-		return (
-			<div className="w-full bg-black overflow-hidden relative" style={{ height: 'calc(100% - 3.5rem)' }}>
-				{scrollContent}
+		const commentsDrawer = currentApp && (
+			<CommentsDrawer
+				appId={currentApp.id}
+				open={commentsOpen}
+				onOpenChange={(open) => {
+					setCommentsOpen(open);
+					if (!open) {
+						apiClient.getComments(currentApp.id, { limit: 50 }).then((res) => {
+							if (res.success && res.data) {
+								const replyTotal = res.data.comments.reduce((sum, c) => sum + (c.replyCount || 0), 0);
+								setCommentCount(res.data.totalCount + replyTotal);
+							}
+						}).catch(() => {});
+					}
+				}}
+			/>
+		);
 
-				{/* Overlay action buttons — bottom right, above bottom nav */}
-				<div className="absolute right-2 bottom-4 z-30 flex flex-col items-center gap-3">
-					<div
-						className="flex flex-col items-center gap-3 overflow-hidden transition-all duration-300 ease-in-out"
-						style={{ maxHeight: actionsCollapsed ? '0px' : '500px', opacity: actionsCollapsed ? 0 : 1 }}
-					>
-						{actionButtons}
+		// Always render scrollContent; when playing, wrap in fixed fullscreen + control bar
+		return (
+			<>
+				<div className="fixed inset-0 z-[60] bg-black flex flex-col">
+					{/* Game area */}
+					<div className="flex-1 min-h-0 relative overflow-hidden">
+						{scrollContent}
 					</div>
-					<button
-						onClick={() => setActionsCollapsed((v) => !v)}
-						className="rounded-full p-2 bg-black/40 backdrop-blur-sm text-white transition-transform duration-300"
-						style={{ transform: actionsCollapsed ? 'rotate(180deg)' : 'rotate(0deg)' }}
-					>
-						<ChevronDown className="h-5 w-5" />
-					</button>
+
+					{/* Expandable action panel — floats above control bar */}
+					{actionsExpanded && (
+						<div className="absolute bottom-12 right-2 z-10 flex flex-col items-center gap-3 pb-3 animate-in slide-in-from-bottom-2 fade-in duration-200">
+							<button onClick={handleReplay} className="flex flex-col items-center gap-1">
+								<div className="rounded-full p-3 bg-black/60 backdrop-blur-sm text-white">
+									<RotateCcw className="h-5 w-5" />
+								</div>
+								<span className="text-[10px] text-white/70">Replay</span>
+							</button>
+							<button onClick={handleShare} className="flex flex-col items-center gap-1">
+								<div className="rounded-full p-3 bg-black/60 backdrop-blur-sm text-white">
+									<Send className="h-5 w-5" />
+								</div>
+								<span className="text-[10px] text-white/70">Share</span>
+							</button>
+							<button onClick={() => { if (requireAuth({ actionContext: 'to comment' })) setCommentsOpen(true); }} className="flex flex-col items-center gap-1">
+								<div className="rounded-full p-3 bg-black/60 backdrop-blur-sm text-white">
+									<MessageCircle className="h-5 w-5" />
+								</div>
+								<span className="text-[10px] text-white/70">{commentCount || ''}</span>
+							</button>
+							<button onClick={handleStar} className="flex flex-col items-center gap-1">
+								<div className={cn('rounded-full p-3', currentApp?.userStarred ? 'bg-red-500/20 text-red-500' : 'bg-black/60 backdrop-blur-sm text-white')}>
+									<Heart className={cn('h-5 w-5', currentApp?.userStarred && 'fill-current')} />
+								</div>
+								<span className="text-[10px] text-white/70">{currentApp?.starCount || ''}</span>
+							</button>
+							<button onClick={handleFavorite} className="flex flex-col items-center gap-1">
+								<div className={cn('rounded-full p-3', currentApp?.userFavorited ? 'bg-accent/20 text-accent' : 'bg-black/60 backdrop-blur-sm text-white')}>
+									<Bookmark className={cn('h-5 w-5', currentApp?.userFavorited && 'fill-current')} />
+								</div>
+								<span className="text-[10px] text-white/70">Favorite</span>
+							</button>
+							{currentApp && (
+								<button
+									onClick={() => navigate(currentApp.userId ? `/profile/${currentApp.userId}` : '/profile')}
+									title={currentApp.userName || 'Anonymous'}
+								>
+									<Avatar className="h-8 w-8 ring-2 ring-white/30">
+										<AvatarImage src={currentApp.userAvatar ?? undefined} />
+										<AvatarFallback className="text-xs font-semibold bg-black/60 text-white">
+											{currentApp.userName?.charAt(0).toUpperCase() || '?'}
+										</AvatarFallback>
+									</Avatar>
+								</button>
+							)}
+						</div>
+					)}
+
+					{/* Control bar */}
+					<div className="shrink-0 h-12 bg-black/90 border-t border-white/10 flex items-center justify-between px-3">
+						{/* Left: Discover */}
+						<button
+							onClick={() => navigate('/discover')}
+							className="p-2 text-white/70 active:text-white"
+						>
+							<Compass className="h-5 w-5" />
+						</button>
+
+						{/* Center: prev / replay / next */}
+						<div className="flex items-center gap-6">
+							<button
+								onClick={() => scrollTo('up')}
+								disabled={currentIndex === 0}
+								className="p-2 text-white/70 active:text-white disabled:text-white/20"
+							>
+								<SkipBack className="h-5 w-5" />
+							</button>
+							<button
+								onClick={handleReplay}
+								className="p-2 text-white/70 active:text-white"
+							>
+								<RotateCcw className="h-5 w-5" />
+							</button>
+							<button
+								onClick={() => scrollTo('down')}
+								disabled={currentIndex === apps.length - 1}
+								className="p-2 text-white/70 active:text-white disabled:text-white/20"
+							>
+								<SkipForward className="h-5 w-5" />
+							</button>
+						</div>
+
+						{/* Right: compact icons + expand toggle */}
+						<div className="flex items-center gap-2">
+							{!actionsExpanded && (
+								<>
+									<button onClick={handleStar} className="p-1">
+										<Heart className={cn('h-4 w-4', currentApp?.userStarred ? 'text-red-500 fill-current' : 'text-white/70')} />
+									</button>
+									<button onClick={() => { if (requireAuth({ actionContext: 'to comment' })) setCommentsOpen(true); }} className="p-1">
+										<MessageCircle className="h-4 w-4 text-white/70" />
+									</button>
+								</>
+							)}
+							<button
+								onClick={() => setActionsExpanded((v) => !v)}
+								className="p-1 text-white/70 active:text-white"
+							>
+								<ChevronUp className={cn('h-4 w-4 transition-transform duration-200', actionsExpanded && 'rotate-180')} />
+							</button>
+						</div>
+					</div>
 				</div>
 
-				{/* App title overlay — bottom left */}
-				{currentApp && (
-					<div
-						className="absolute left-3 bottom-4 z-30 max-w-[60%] transition-all duration-300 ease-in-out"
-						style={{ opacity: actionsCollapsed ? 0 : 1, transform: actionsCollapsed ? 'translateY(20px)' : 'translateY(0)' }}
-					>
-						<p className="text-white font-bold text-sm drop-shadow-lg">{currentApp.title}</p>
-						{currentApp.userName && (
-							<p className="text-white/70 text-xs drop-shadow-lg">@{currentApp.userName}</p>
-						)}
-					</div>
-				)}
-
-				{currentApp && (
-					<CommentsDrawer
-						appId={currentApp.id}
-						open={commentsOpen}
-						onOpenChange={(open) => {
-							setCommentsOpen(open);
-							if (!open) {
-								apiClient.getComments(currentApp.id, { limit: 50 }).then((res) => {
-									if (res.success && res.data) {
-										const replyTotal = res.data.comments.reduce((sum, c) => sum + (c.replyCount || 0), 0);
-										setCommentCount(res.data.totalCount + replyTotal);
-									}
-								}).catch(() => {});
-							}
-						}}
-					/>
-				)}
-			</div>
+				{commentsDrawer}
+			</>
 		);
 	}
 

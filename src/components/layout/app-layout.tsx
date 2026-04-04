@@ -18,7 +18,8 @@ export function AppLayout({ children }: AppLayoutProps) {
   const { user } = useAuth();
   const isBuildContext = pathname.startsWith('/build') || pathname.startsWith('/chat') || pathname.startsWith('/app');
   const showMobileSidebarTrigger = isMobile && user && isBuildContext && !pathname.startsWith('/chat');
-  const hideBottomNav = pathname.startsWith('/chat');
+  const isFeedRoute = pathname === '/' || pathname.startsWith('/feed');
+  const hideBottomNav = pathname.startsWith('/chat') || isFeedRoute;
   return (
     <AppsDataProvider>
       <SidebarProvider
