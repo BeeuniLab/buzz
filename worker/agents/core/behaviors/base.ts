@@ -321,8 +321,7 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
                 httpMetadata: { contentType: result.contentType },
             });
 
-            const protocol = this.env.CUSTOM_DOMAIN?.startsWith('localhost') ? 'http' : 'https';
-            const screenshotUrl = `${protocol}://${this.env.CUSTOM_DOMAIN}/api/${r2Key}`;
+            const screenshotUrl = `/api/${r2Key}`;
 
             const appService = new AppService(this.env);
             await appService.updateApp(agentId, {

@@ -447,8 +447,7 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
                 await this.env.TEMPLATES_BUCKET.put(r2Key, coverBytes, {
                     httpMetadata: { contentType: 'image/webp' },
                 });
-                const protocol = this.env.CUSTOM_DOMAIN?.startsWith('localhost') ? 'http' : 'https';
-                screenshotUrl = `${protocol}://${this.env.CUSTOM_DOMAIN}/api/${r2Key}`;
+                screenshotUrl = `/api/${r2Key}`;
             }
 
             // Save to D1
