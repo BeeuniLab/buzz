@@ -266,8 +266,9 @@ export type RegisterResponseData = SessionResponse & {
 };
 
 export type ProfileResponseData = {
-  user: AuthUser;
-  sessionId: string;
+  authenticated: boolean;
+  user?: AuthUser;
+  sessionId?: string;
 };
 
 export interface AuthProvidersResponseData {

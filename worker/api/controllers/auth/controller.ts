@@ -203,9 +203,10 @@ export class AuthController extends BaseController {
     static async getProfile(_request: Request, _env: Env, _ctx: ExecutionContext, routeContext: RouteContext): Promise<Response> {
         try {
             if (!routeContext.user) {
-                return AuthController.createErrorResponse('Unauthorized', 401);
+                return AuthController.createSuccessResponse({ authenticated: false });
             }
             return AuthController.createSuccessResponse({
+                authenticated: true,
                 user: mapUserResponse(routeContext.user),
                 sessionId: routeContext.sessionId
             });

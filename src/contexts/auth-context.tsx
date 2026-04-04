@@ -124,7 +124,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       try {
         const response = await apiClient.getProfile(true);
 
-        if (!response.success) {
+        if (!response.success || !response.data?.user) {
           // Session invalid, user needs to login again
           setUser(null);
           setToken(null);
