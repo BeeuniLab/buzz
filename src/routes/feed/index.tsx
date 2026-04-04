@@ -10,7 +10,7 @@ import type { AppWithUserAndStats } from '@/api-types';
 import { CommentsDrawer } from '@/components/comments/CommentsDrawer';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useAuthGuard } from '@/hooks/useAuthGuard';
-import { Dialog, DialogContent } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 
 export default function FeedPage() {
 	const { appId } = useParams<{ appId?: string }>();
@@ -275,6 +275,7 @@ export default function FeedPage() {
 	const shareDialog = (
 		<Dialog open={shareDialogOpen} onOpenChange={setShareDialogOpen}>
 			<DialogContent className="sm:max-w-xs max-w-[calc(100%-2rem)]" showCloseButton={false}>
+				<DialogTitle className="sr-only">Share</DialogTitle>
 				<div className="flex flex-col items-center gap-3">
 					{currentApp?.screenshotUrl && (
 						<div className="w-full aspect-video rounded-lg overflow-hidden border-2 border-[var(--neo-border-color)]">
