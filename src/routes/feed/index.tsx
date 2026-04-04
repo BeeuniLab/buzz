@@ -1,5 +1,5 @@
 import React from 'react';
-import { ChevronUp, ChevronDown, Loader2, Heart, Bookmark, Send, RotateCcw, MessageCircle, Compass, SkipBack, SkipForward, Link2, Check, Share2 } from 'lucide-react';
+import { ChevronUp, ChevronDown, Loader2, Heart, Bookmark, Send, RotateCcw, MessageCircle, Compass, SkipBack, SkipForward, Link2, Check } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { apiClient } from '@/lib/api-client';
 import { FeedItem } from './FeedItem';
@@ -10,7 +10,7 @@ import type { AppWithUserAndStats } from '@/api-types';
 import { CommentsDrawer } from '@/components/comments/CommentsDrawer';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useAuthGuard } from '@/hooks/useAuthGuard';
-import { Dialog, DialogContent } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 
 export default function FeedPage() {
 	const { appId } = useParams<{ appId?: string }>();
@@ -259,6 +259,14 @@ export default function FeedPage() {
 
 	const handleShare = () => {
 		if (!currentApp) return;
+		// Mobile with native share: skip dialog, go straight to share sheet
+		if (isMobile && typeof navigator.share === 'function') {
+			navigator.share({
+				title: currentApp.title || 'Check out this app',
+				url: `${window.location.origin}/feed/${currentApp.id}`,
+			}).catch(() => {});
+			return;
+		}
 		setLinkCopied(false);
 		setShareDialogOpen(true);
 	};
@@ -272,22 +280,10 @@ export default function FeedPage() {
 		});
 	};
 
-	const handleNativeShare = async () => {
-		try {
-			await navigator.share({
-				title: currentApp?.title || 'Check out this app',
-				url: getShareUrl(),
-			});
-		} catch {
-			// User cancelled or share failed — ignore
-		}
-	};
-
-	const canNativeShare = typeof navigator.share === 'function';
-
 	const shareDialog = (
 		<Dialog open={shareDialogOpen} onOpenChange={setShareDialogOpen}>
 			<DialogContent className="sm:max-w-xs" showCloseButton={false}>
+				<DialogTitle className="sr-only">Share</DialogTitle>
 				<div className="flex flex-col gap-3">
 					{currentApp?.screenshotUrl && (
 						<div className="rounded-lg overflow-hidden border-2 border-[var(--neo-border-color)]">
@@ -308,15 +304,6 @@ export default function FeedPage() {
 						{linkCopied ? <Check className="h-4 w-4" /> : <Link2 className="h-4 w-4" />}
 						{linkCopied ? 'Copied' : 'Copy Link'}
 					</button>
-					{canNativeShare && (
-						<button
-							onClick={handleNativeShare}
-							className="flex items-center justify-center gap-2 rounded-lg border-2 border-[var(--neo-border-color)] bg-bg-4 text-text-primary px-4 py-3 font-bold text-sm transition-all shadow-[3px_3px_0px_0px_var(--neo-border-color)] hover:-translate-x-[0.5px] hover:-translate-y-[0.5px] hover:shadow-[4px_4px_0px_0px_var(--neo-border-color)] active:translate-x-[1px] active:translate-y-[1px] active:shadow-[0px_0px_0px_0px_var(--neo-border-color)]"
-						>
-							<Share2 className="h-4 w-4" />
-							More Options
-						</button>
-					)}
 				</div>
 			</DialogContent>
 		</Dialog>
