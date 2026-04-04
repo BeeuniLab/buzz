@@ -70,8 +70,8 @@ Set these in `.dev.vars` (local) or `.prod.vars` (production):
 | `GOOGLE_AI_STUDIO_API_KEY` | Google Gemini API key ([ai.google.dev](https://ai.google.dev)) |
 | `JWT_SECRET` | Random string for session management |
 | `SECRETS_ENCRYPTION_KEY` | Encryption key for user secrets |
-| `CUSTOM_DOMAIN` | Your main domain (e.g. `buzzplay.beeuni.ai`) |
-| `CUSTOM_PREVIEW_DOMAIN` | Preview subdomain parent (e.g. `preview.buzzplay.beeuni.ai`) |
+| `CUSTOM_DOMAIN` | Your main domain (e.g. `buzzplay.app`) |
+| `CUSTOM_PREVIEW_DOMAIN` | Preview subdomain parent (e.g. `preview.buzzplay.app`) |
 
 ### Optional Environment Variables
 
@@ -88,16 +88,16 @@ Preview URLs use the pattern `b-{agentId}-{token}.{CUSTOM_PREVIEW_DOMAIN}`. Conf
 1. Main domain: `CUSTOM_DOMAIN` CNAME pointing to your Worker
 2. Preview wildcard: `*.{CUSTOM_PREVIEW_DOMAIN}` CNAME pointing to the same origin, proxied
 
-Example for `buzzplay.beeuni.ai`:
+Example for `buzzplay.app`:
 ```
-buzzplay.beeuni.ai        → CNAME → your-worker.workers.dev  (proxied)
-*.preview.buzzplay.beeuni.ai → CNAME → buzzplay.beeuni.ai     (proxied)
+buzzplay.app        → CNAME → your-worker.workers.dev  (proxied)
+*.preview.buzzplay.app → CNAME → buzzplay.app     (proxied)
 ```
 
 Set in environment:
 ```bash
-CUSTOM_DOMAIN="buzzplay.beeuni.ai"
-CUSTOM_PREVIEW_DOMAIN="preview.buzzplay.beeuni.ai"
+CUSTOM_DOMAIN="buzzplay.app"
+CUSTOM_PREVIEW_DOMAIN="preview.buzzplay.app"
 ```
 
 ### OAuth Setup (Optional)
