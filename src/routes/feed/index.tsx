@@ -263,6 +263,7 @@ export default function FeedPage() {
 		if (isMobile && typeof navigator.share === 'function') {
 			navigator.share({
 				title: currentApp.title || 'Check out this app',
+				text: `Play ${currentApp.title || 'this app'} on BuzzPlay!`,
 				url: `${window.location.origin}/feed/${currentApp.id}`,
 			}).catch(() => {});
 			return;
