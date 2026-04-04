@@ -274,17 +274,31 @@ export default function FeedPage() {
 
 	const shareDialog = (
 		<Dialog open={shareDialogOpen} onOpenChange={setShareDialogOpen}>
-			<DialogContent className="sm:max-w-xs" showCloseButton={false}>
-				<button
-					onClick={handleCopyLink}
-					className={cn(
-						'flex items-center justify-center gap-2 rounded-lg border-2 border-[var(--neo-border-color)] px-4 py-3 font-bold text-sm transition-all shadow-[3px_3px_0px_0px_var(--neo-border-color)] hover:-translate-x-[0.5px] hover:-translate-y-[0.5px] hover:shadow-[4px_4px_0px_0px_var(--neo-border-color)] active:translate-x-[1px] active:translate-y-[1px] active:shadow-[0px_0px_0px_0px_var(--neo-border-color)]',
-						linkCopied ? 'bg-green-500 text-white' : 'bg-bg-4 text-text-primary'
+			<DialogContent className="sm:max-w-xs max-w-[calc(100%-2rem)]" showCloseButton={false}>
+				<div className="flex flex-col items-center gap-3">
+					{currentApp?.screenshotUrl && (
+						<div className="w-full aspect-video rounded-lg overflow-hidden border-2 border-[var(--neo-border-color)]">
+							<img
+								src={currentApp.screenshotUrl}
+								alt={currentApp.title || 'App preview'}
+								className="w-full h-full object-cover"
+							/>
+						</div>
 					)}
-				>
-					{linkCopied ? <Check className="h-4 w-4" /> : <Link2 className="h-4 w-4" />}
-					{linkCopied ? 'Copied' : 'Copy Link'}
-				</button>
+					{currentApp?.title && (
+						<p className="text-sm font-bold text-text-primary text-center truncate w-full">{currentApp.title}</p>
+					)}
+					<button
+						onClick={handleCopyLink}
+						className={cn(
+							'w-full flex items-center justify-center gap-2 rounded-lg border-2 border-[var(--neo-border-color)] px-4 py-3 font-bold text-sm transition-all shadow-[3px_3px_0px_0px_var(--neo-border-color)] hover:-translate-x-[0.5px] hover:-translate-y-[0.5px] hover:shadow-[4px_4px_0px_0px_var(--neo-border-color)] active:translate-x-[1px] active:translate-y-[1px] active:shadow-[0px_0px_0px_0px_var(--neo-border-color)]',
+							linkCopied ? 'bg-green-500 text-white' : 'bg-bg-4 text-text-primary'
+						)}
+					>
+						{linkCopied ? <Check className="h-4 w-4" /> : <Link2 className="h-4 w-4" />}
+						{linkCopied ? 'Copied' : 'Copy Link'}
+					</button>
+				</div>
 			</DialogContent>
 		</Dialog>
 	);
