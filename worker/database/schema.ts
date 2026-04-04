@@ -59,6 +59,25 @@ export const users = sqliteTable('users', {
 }));
 
 /**
+ * Invite codes table — gated access for app creation
+ */
+export const inviteCodes = sqliteTable('invite_codes', {
+    id: text('id').primaryKey(),
+    code: text('code').notNull().unique(),
+    maxUses: integer('max_uses').default(0), // 0 = unlimited
+    usedCount: integer('used_count').default(0).notNull(),
+    expiresAt: integer('expires_at', { mode: 'timestamp' }),
+    isActive: integer('is_active', { mode: 'boolean' }).default(true).notNull(),
+    createdAt: integer('created_at', { mode: 'timestamp' }).default(sql`CURRENT_TIMESTAMP`),
+    createdBy: text('created_by'),
+}, (table) => ({
+    codeIdx: uniqueIndex('invite_codes_code_idx').on(table.code),
+}));
+
+export type InviteCode = typeof inviteCodes.$inferSelect;
+export type NewInviteCode = typeof inviteCodes.$inferInsert;
+
+/**
  * Sessions table - JWT session management with refresh token support
  */
 export const sessions = sqliteTable('sessions', {

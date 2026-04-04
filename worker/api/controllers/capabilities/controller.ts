@@ -44,6 +44,7 @@ export class CapabilitiesController extends BaseController {
 		const capabilities: PlatformCapabilities = {
 			features,
 			version: config.version,
+			inviteCodeRequired: env.INVITE_CODE_REQUIRED === 'true',
 		};
 
 		logger.info('Returning platform capabilities', {

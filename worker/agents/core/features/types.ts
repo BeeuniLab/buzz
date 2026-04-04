@@ -100,6 +100,9 @@ export interface PlatformCapabilities {
 
 	/** Platform version */
 	version: string;
+
+	/** Whether invite codes are required for creating apps */
+	inviteCodeRequired?: boolean;
 }
 
 /**

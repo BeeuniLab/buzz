@@ -22,6 +22,7 @@ export interface AuthUser {
     timezone?: string;
     provider?: string;
     emailVerified?: boolean;
+    inviteCodeVerified?: boolean;
     createdAt?: Date;
     isAnonymous?: boolean;
 }

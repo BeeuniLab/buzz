@@ -1,6 +1,7 @@
 import { Outlet } from 'react-router';
 import { AuthProvider } from './contexts/auth-context';
 import { AuthModalProvider } from './components/auth/AuthModalProvider';
+import { InviteCodeProvider } from './components/invite-code/InviteCodeProvider';
 import { ThemeProvider } from './contexts/theme-context';
 import { VaultProvider } from './contexts/vault-context';
 import { Toaster } from './components/ui/sonner';
@@ -16,10 +17,12 @@ export default function App() {
           <AuthProvider>
             <VaultProvider>
               <AuthModalProvider>
+                <InviteCodeProvider>
                 <AppLayout>
                   <Outlet />
                 </AppLayout>
                 <Toaster richColors position="top-right" />
+                </InviteCodeProvider>
               </AuthModalProvider>
             </VaultProvider>
           </AuthProvider>

@@ -269,7 +269,60 @@ export class AuthController extends BaseController {
             return AuthController.handleError(error, 'update profile');
         }
     }
-    
+
+    /**
+     * Verify invite code
+     * POST /api/auth/invite-code/verify
+     */
+    static async verifyInviteCode(request: Request, env: Env, _ctx: ExecutionContext, routeContext: RouteContext): Promise<Response> {
+        try {
+            const user = routeContext.user;
+            if (!user) {
+                return AuthController.createErrorResponse('Unauthorized', 401);
+            }
+
+            if (env.INVITE_CODE_REQUIRED !== 'true') {
+                return AuthController.createSuccessResponse({ verified: true });
+            }
+
+            const body = await request.json() as { code?: string };
+            const code = (body.code || '').trim();
+            if (!code) {
+                return AuthController.createErrorResponse('Invite code is required', 400);
+            }
+
+            // Look up code in database
+            const result = await env.DB.prepare(
+                'SELECT id, code, max_uses, used_count, expires_at, is_active FROM invite_codes WHERE code = ? COLLATE NOCASE'
+            ).bind(code).first<{ id: string; code: string; max_uses: number; used_count: number; expires_at: number | null; is_active: number }>();
+
+            if (!result || !result.is_active) {
+                return AuthController.createErrorResponse('Invalid invite code', 400);
+            }
+
+            if (result.expires_at && result.expires_at < Date.now() / 1000) {
+                return AuthController.createErrorResponse('Invite code has expired', 400);
+            }
+
+            if (result.max_uses > 0 && result.used_count >= result.max_uses) {
+                return AuthController.createErrorResponse('Invite code has reached its usage limit', 400);
+            }
+
+            // Increment usage count
+            await env.DB.prepare(
+                'UPDATE invite_codes SET used_count = used_count + 1 WHERE id = ?'
+            ).bind(result.id).run();
+
+            // Mark user as verified
+            const userService = new UserService(env);
+            await userService.setInviteCodeVerified(user.id);
+
+            return AuthController.createSuccessResponse({ verified: true });
+        } catch (error) {
+            return AuthController.handleError(error, 'verify invite code');
+        }
+    }
+
     /**
      * Initiate OAuth flow
      * GET /api/auth/oauth/:provider

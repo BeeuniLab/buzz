@@ -264,17 +264,20 @@ export function mapUserResponse(
 	}
 
 	// Map from User schema type
+	const dbUser = user as Partial<User> & { id: string; email: string };
+	const prefs = (typeof dbUser.preferences === 'string' ? JSON.parse(dbUser.preferences) : dbUser.preferences) as Record<string, unknown> | null;
 	return {
-		id: user.id,
-		email: user.email,
-		displayName: user.displayName || undefined,
-		username: user.username || undefined,
-		avatarUrl: user.avatarUrl || undefined,
-		bio: user.bio || undefined,
-		timezone: user.timezone || undefined,
-		provider: user.provider || undefined,
-		emailVerified: user.emailVerified || undefined,
-		createdAt: user.createdAt || undefined,
+		id: dbUser.id,
+		email: dbUser.email,
+		displayName: dbUser.displayName || undefined,
+		username: dbUser.username || undefined,
+		avatarUrl: dbUser.avatarUrl || undefined,
+		bio: dbUser.bio || undefined,
+		timezone: dbUser.timezone || undefined,
+		provider: dbUser.provider || undefined,
+		emailVerified: dbUser.emailVerified || undefined,
+		inviteCodeVerified: prefs?.inviteCodeVerified === true || undefined,
+		createdAt: dbUser.createdAt || undefined,
 	};
 }
 

@@ -144,7 +144,8 @@
             "version": "1.0.0"
         },
         "CUSTOM_DOMAIN": "buzzplay.app",
-        "LLM_PROXY_URL": "https://api.phsharp.com/v1"
+        "LLM_PROXY_URL": "https://api.phsharp.com/v1",
+        "INVITE_CODE_REQUIRED": "true"
     },
 	"workers_dev": false,
 	"preview_urls": false

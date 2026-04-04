@@ -1122,6 +1122,13 @@ class ApiClient {
 		return this.request<ProfileResponseData>('/api/auth/profile', undefined, noToast);
 	}
 
+	async verifyInviteCode(code: string): Promise<ApiResponse<{ verified: boolean }>> {
+		return this.request<{ verified: boolean }>('/api/auth/invite-code/verify', {
+			method: 'POST',
+			body: JSON.stringify({ code }),
+		});
+	}
+
 	/**
 	 * Logout current user
 	 */

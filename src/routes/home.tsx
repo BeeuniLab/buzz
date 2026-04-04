@@ -5,6 +5,7 @@ import { ProjectModeSelector, type ProjectModeOption } from '../components/proje
 import { MAX_AGENT_QUERY_LENGTH, SUPPORTED_IMAGE_MIME_TYPES, type ProjectType } from '@/api-types';
 import { useFeature } from '@/features';
 import { useAuthGuard } from '../hooks/useAuthGuard';
+import { useInviteCode } from '../hooks/useInviteCode';
 import clsx from 'clsx';
 import { useImageUpload } from '@/hooks/use-image-upload';
 import { useDragDrop } from '@/hooks/use-drag-drop';
@@ -15,6 +16,7 @@ import { toast } from 'sonner';
 export default function Home() {
 	const navigate = useNavigate();
 	const { requireAuth } = useAuthGuard();
+	const { requireInviteCode } = useInviteCode();
 	const textareaRef = useRef<HTMLTextAreaElement>(null);
 	const [projectMode, setProjectMode] = useState<ProjectType>('app');
 	const [query, setQuery] = useState('');
@@ -99,10 +101,15 @@ export default function Home() {
 			return;
 		}
 
-		// User is already authenticated, navigate immediately
-		navigate(intendedUrl);
-		// Clear images after navigation
-		clearImages();
+		// User is already authenticated, check invite code
+		const goToChat = () => {
+			navigate(intendedUrl);
+			clearImages();
+		};
+		if (!requireInviteCode({ onSuccess: goToChat })) {
+			return;
+		}
+		goToChat();
 	};
 
 	// Auto-resize textarea based on content

@@ -58,10 +58,21 @@ export class UserService extends BaseService {
     async updateUserActivity(userId: string): Promise<void> {
         await this.database
             .update(schema.users)
-            .set({ 
+            .set({
                 lastActiveAt: new Date(),
                 updatedAt: new Date()
             })
+            .where(eq(schema.users.id, userId));
+    }
+
+    async setInviteCodeVerified(userId: string): Promise<void> {
+        const user = await this.findUser({ id: userId });
+        if (!user) return;
+        const prefs = (typeof user.preferences === 'string' ? JSON.parse(user.preferences) : user.preferences) as Record<string, unknown> | null;
+        const merged = { ...prefs, inviteCodeVerified: true };
+        await this.database
+            .update(schema.users)
+            .set({ preferences: JSON.stringify(merged), updatedAt: new Date() })
             .where(eq(schema.users.id, userId));
     }
 
