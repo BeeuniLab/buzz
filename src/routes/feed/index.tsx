@@ -1,5 +1,5 @@
 import React from 'react';
-import { ChevronUp, ChevronDown, Loader2, Heart, Bookmark, Send, RotateCcw, MessageCircle, Compass, SkipBack, SkipForward, Link2, Check } from 'lucide-react';
+import { ChevronUp, ChevronDown, Loader2, Heart, Bookmark, Send, RotateCcw, MessageCircle, Compass, SkipBack, SkipForward, Link2, Check, Share2 } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { apiClient } from '@/lib/api-client';
 import { FeedItem } from './FeedItem';
@@ -10,7 +10,7 @@ import type { AppWithUserAndStats } from '@/api-types';
 import { CommentsDrawer } from '@/components/comments/CommentsDrawer';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useAuthGuard } from '@/hooks/useAuthGuard';
-import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent } from '@/components/ui/dialog';
 
 export default function FeedPage() {
 	const { appId } = useParams<{ appId?: string }>();
@@ -263,42 +263,60 @@ export default function FeedPage() {
 		setShareDialogOpen(true);
 	};
 
+	const getShareUrl = () => currentApp ? `${window.location.origin}/feed/${currentApp.id}` : '';
+
 	const handleCopyLink = () => {
-		if (!currentApp) return;
-		const url = `${window.location.origin}/feed/${currentApp.id}`;
-		navigator.clipboard.writeText(url).then(() => {
+		navigator.clipboard.writeText(getShareUrl()).then(() => {
 			setLinkCopied(true);
 			setTimeout(() => setLinkCopied(false), 2000);
 		});
 	};
 
+	const handleNativeShare = async () => {
+		try {
+			await navigator.share({
+				title: currentApp?.title || 'Check out this app',
+				url: getShareUrl(),
+			});
+		} catch {
+			// User cancelled or share failed — ignore
+		}
+	};
+
+	const canNativeShare = typeof navigator.share === 'function';
+
 	const shareDialog = (
-		<Dialog open={shareDialogOpen} onOpenChange={setShareDialogOpen} modal={false}>
-			<DialogContent className="sm:max-w-xs max-w-[calc(100%-2rem)]" showCloseButton={false} aria-describedby={undefined}>
-				<DialogTitle className="sr-only">Share</DialogTitle>
-				<div className="flex flex-col items-center gap-3">
+		<Dialog open={shareDialogOpen} onOpenChange={setShareDialogOpen}>
+			<DialogContent className="sm:max-w-xs" showCloseButton={false}>
+				<div className="flex flex-col gap-3">
 					{currentApp?.screenshotUrl && (
-						<div className="w-full aspect-video rounded-lg overflow-hidden border-2 border-[var(--neo-border-color)]">
+						<div className="rounded-lg overflow-hidden border-2 border-[var(--neo-border-color)]">
 							<img
 								src={currentApp.screenshotUrl}
 								alt={currentApp.title || 'App preview'}
-								className="w-full h-full object-cover"
+								className="w-full aspect-video object-cover"
 							/>
 						</div>
-					)}
-					{currentApp?.title && (
-						<p className="text-sm font-bold text-text-primary text-center truncate w-full">{currentApp.title}</p>
 					)}
 					<button
 						onClick={handleCopyLink}
 						className={cn(
-							'w-full flex items-center justify-center gap-2 rounded-lg border-2 border-[var(--neo-border-color)] px-4 py-3 font-bold text-sm transition-all shadow-[3px_3px_0px_0px_var(--neo-border-color)] hover:-translate-x-[0.5px] hover:-translate-y-[0.5px] hover:shadow-[4px_4px_0px_0px_var(--neo-border-color)] active:translate-x-[1px] active:translate-y-[1px] active:shadow-[0px_0px_0px_0px_var(--neo-border-color)]',
+							'flex items-center justify-center gap-2 rounded-lg border-2 border-[var(--neo-border-color)] px-4 py-3 font-bold text-sm transition-all shadow-[3px_3px_0px_0px_var(--neo-border-color)] hover:-translate-x-[0.5px] hover:-translate-y-[0.5px] hover:shadow-[4px_4px_0px_0px_var(--neo-border-color)] active:translate-x-[1px] active:translate-y-[1px] active:shadow-[0px_0px_0px_0px_var(--neo-border-color)]',
 							linkCopied ? 'bg-green-500 text-white' : 'bg-bg-4 text-text-primary'
 						)}
 					>
 						{linkCopied ? <Check className="h-4 w-4" /> : <Link2 className="h-4 w-4" />}
 						{linkCopied ? 'Copied' : 'Copy Link'}
 					</button>
+					{canNativeShare && (
+						<button
+							onClick={handleNativeShare}
+							className="flex items-center justify-center gap-2 rounded-lg border-2 border-[var(--neo-border-color)] bg-bg-4 text-text-primary px-4 py-3 font-bold text-sm transition-all shadow-[3px_3px_0px_0px_var(--neo-border-color)] hover:-translate-x-[0.5px] hover:-translate-y-[0.5px] hover:shadow-[4px_4px_0px_0px_var(--neo-border-color)] active:translate-x-[1px] active:translate-y-[1px] active:shadow-[0px_0px_0px_0px_var(--neo-border-color)]"
+						>
+							<Share2 className="h-4 w-4" />
+							More Options
+						</button>
+					)}
 				</div>
 			</DialogContent>
 		</Dialog>
