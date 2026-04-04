@@ -273,8 +273,8 @@ export default function FeedPage() {
 	};
 
 	const shareDialog = (
-		<Dialog open={shareDialogOpen} onOpenChange={setShareDialogOpen}>
-			<DialogContent className="sm:max-w-xs max-w-[calc(100%-2rem)]" showCloseButton={false}>
+		<Dialog open={shareDialogOpen} onOpenChange={setShareDialogOpen} modal={false}>
+			<DialogContent className="sm:max-w-xs max-w-[calc(100%-2rem)]" showCloseButton={false} aria-describedby={undefined}>
 				<DialogTitle className="sr-only">Share</DialogTitle>
 				<div className="flex flex-col items-center gap-3">
 					{currentApp?.screenshotUrl && (

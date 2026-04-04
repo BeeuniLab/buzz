@@ -189,7 +189,7 @@ export function CommentsDrawer({ appId, open, onOpenChange }: CommentsDrawerProp
 
 	return (
 		<Drawer open={open} onOpenChange={onOpenChange} direction="right">
-			<DrawerContent className="!w-[400px] !sm:max-w-[400px] h-full flex flex-col rounded-none">
+			<DrawerContent className="!w-[400px] !sm:max-w-[400px] h-full flex flex-col rounded-none" aria-describedby={undefined}>
 				{/* Header */}
 				<div className="flex items-center justify-between px-5 py-4 border-b border-border-primary">
 					<div className="flex items-center gap-3">
