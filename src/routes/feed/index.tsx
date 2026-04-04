@@ -10,7 +10,7 @@ import type { AppWithUserAndStats } from '@/api-types';
 import { CommentsDrawer } from '@/components/comments/CommentsDrawer';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useAuthGuard } from '@/hooks/useAuthGuard';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent } from '@/components/ui/dialog';
 
 export default function FeedPage() {
 	const { appId } = useParams<{ appId?: string }>();
@@ -274,27 +274,17 @@ export default function FeedPage() {
 
 	const shareDialog = (
 		<Dialog open={shareDialogOpen} onOpenChange={setShareDialogOpen}>
-			<DialogContent className="sm:max-w-sm">
-				<DialogHeader>
-					<DialogTitle>Share</DialogTitle>
-				</DialogHeader>
-				<div className="flex flex-col gap-3">
-					<div className="flex items-center gap-2 rounded-lg border-2 border-[var(--neo-border-color)] bg-bg-3 px-3 py-2">
-						<span className="flex-1 truncate text-sm text-text-secondary">
-							{currentApp ? `${window.location.origin}/feed/${currentApp.id}` : ''}
-						</span>
-					</div>
-					<button
-						onClick={handleCopyLink}
-						className={cn(
-							'flex items-center justify-center gap-2 rounded-lg border-2 border-[var(--neo-border-color)] px-4 py-2.5 font-bold text-sm transition-all shadow-[3px_3px_0px_0px_var(--neo-border-color)] hover:-translate-x-[0.5px] hover:-translate-y-[0.5px] hover:shadow-[4px_4px_0px_0px_var(--neo-border-color)] active:translate-x-[1px] active:translate-y-[1px] active:shadow-[0px_0px_0px_0px_var(--neo-border-color)]',
-							linkCopied ? 'bg-green-500 text-white' : 'bg-bg-4 text-text-primary'
-						)}
-					>
-						{linkCopied ? <Check className="h-4 w-4" /> : <Link2 className="h-4 w-4" />}
-						{linkCopied ? 'Copied' : 'Copy Link'}
-					</button>
-				</div>
+			<DialogContent className="sm:max-w-xs" showCloseButton={false}>
+				<button
+					onClick={handleCopyLink}
+					className={cn(
+						'flex items-center justify-center gap-2 rounded-lg border-2 border-[var(--neo-border-color)] px-4 py-3 font-bold text-sm transition-all shadow-[3px_3px_0px_0px_var(--neo-border-color)] hover:-translate-x-[0.5px] hover:-translate-y-[0.5px] hover:shadow-[4px_4px_0px_0px_var(--neo-border-color)] active:translate-x-[1px] active:translate-y-[1px] active:shadow-[0px_0px_0px_0px_var(--neo-border-color)]',
+						linkCopied ? 'bg-green-500 text-white' : 'bg-bg-4 text-text-primary'
+					)}
+				>
+					{linkCopied ? <Check className="h-4 w-4" /> : <Link2 className="h-4 w-4" />}
+					{linkCopied ? 'Copied' : 'Copy Link'}
+				</button>
 			</DialogContent>
 		</Dialog>
 	);
