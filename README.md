@@ -41,19 +41,9 @@ bun install
 npm install
 ```
 
-### 2. Run Setup Wizard
+### 2. Configure Environment Variables
 
-```bash
-bun run setup
-```
-
-The interactive setup script will:
-- Ask for your Cloudflare API token and Account ID
-- Detect or create required resources (D1 database, KV namespace, R2 bucket)
-- Prompt for AI provider keys and OAuth credentials
-- Generate `.dev.vars` with all required secrets
-- Update `wrangler.jsonc` with your resource IDs
-- Optionally generate `.prod.vars` for production
+Create a `.dev.vars` file with your secrets (see project documentation for required variables).
 
 ### 3. Database Migrations
 
