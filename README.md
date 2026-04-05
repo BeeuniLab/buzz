@@ -27,37 +27,89 @@ Every project runs as a self-contained single-page experience in a portrait canv
 
 ## Local Development
 
-### Quick Setup
+### Prerequisites
+
+- [Node.js](https://nodejs.org/) v20+ (or [Bun](https://bun.sh/))
+- A Cloudflare account with API token and Account ID
+- At least one LLM API key (e.g. Google AI Studio)
+
+### 1. Install Dependencies
 
 ```bash
-# Install dependencies
 bun install
+# or
+npm install
+```
 
-# Run automated setup
+### 2. Run Setup Wizard
+
+```bash
 bun run setup
 ```
 
-The setup script guides you through:
-- Configuring credentials and resources
-- Setting up AI providers and OAuth
-- Creating `.dev.vars` for local development
-- Database setup and migrations
-- Template deployment to local R2
+The interactive setup script will:
+- Ask for your Cloudflare API token and Account ID
+- Detect or create required resources (D1 database, KV namespace, R2 bucket)
+- Prompt for AI provider keys and OAuth credentials
+- Generate `.dev.vars` with all required secrets
+- Update `wrangler.jsonc` with your resource IDs
+- Optionally generate `.prod.vars` for production
 
-### Development Server
+### 3. Database Migrations
+
+Apply all D1 migrations to your local database:
+
+```bash
+bun run db:migrate:local
+```
+
+This runs all SQL files in `migrations/` against the local D1 instance.
+
+### 4. Deploy Templates to Local R2
+
+Templates provide the scaffolding for generated projects:
+
+```bash
+cd templates
+LOCAL_R2=true bash deploy_templates.sh
+cd ..
+```
+
+### 5. Generate Invite Codes (if enabled)
+
+If `INVITE_CODE_REQUIRED` is set to `"true"` in `wrangler.jsonc`, users need an invite code to create apps:
+
+```bash
+# Generate 5 codes for local dev
+node scripts/generate-invite-codes.js 5
+
+# With a custom prefix
+node scripts/generate-invite-codes.js 5 --prefix BUZZ
+```
+
+### 6. Start Development Server
 
 ```bash
 bun run dev
 ```
 
-Visit `http://localhost:5173`.
+Visit `http://localhost:5173`. The Vite dev server handles the frontend, and Wrangler runs the Worker backend locally.
 
-### Build & Type Check
+### Common Commands
 
-```bash
-bun run build      # tsc -b --incremental && vite build
-bun run tsc        # Type check only
-```
+| Command | Description |
+|---------|-------------|
+| `bun run dev` | Start local dev server (frontend + worker) |
+| `bun run build` | Type check + Vite production build |
+| `bun run typecheck` | Type check only (`tsc --noEmit`) |
+| `bun run test` | Run tests with Vitest |
+| `bun run test:watch` | Run tests in watch mode |
+| `bun run db:migrate:local` | Apply D1 migrations locally |
+| `bun run db:migrate:remote` | Apply D1 migrations to production |
+| `bun run db:studio` | Open Drizzle Studio for local DB |
+| `bun run db:studio:remote` | Open Drizzle Studio for production DB |
+| `bun run cf-typegen` | Regenerate `worker-configuration.d.ts` from wrangler config |
+| `bun run lint` | Run ESLint |
 
 ## Configuration
 
@@ -121,6 +173,16 @@ CUSTOM_PREVIEW_DOMAIN="preview.buzzplay.app"
 ## Deployment
 
 ```bash
+# Apply database migrations to production
+bun run db:migrate:remote
+
+# Deploy templates to remote R2
+cd templates && bash deploy_templates.sh && cd ..
+
+# Generate production invite codes (if needed)
+node scripts/generate-invite-codes.js 10 --remote --prefix BUZZ
+
+# Deploy worker + frontend
 bun run deploy
 ```
 
