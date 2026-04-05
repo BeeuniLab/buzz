@@ -184,7 +184,6 @@ Templates are managed separately in `templates/`:
 
 ```bash
 cd templates
-LOCAL_R2=true bash deploy_templates.sh   # Local R2
 bash deploy_templates.sh                  # Remote R2
 ```
 
