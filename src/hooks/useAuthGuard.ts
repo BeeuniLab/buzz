@@ -25,10 +25,15 @@ export interface AuthGuardReturn {
  * Hook that provides authentication guard functionality
  */
 export function useAuthGuard(): AuthGuardReturn {
-  const { isAuthenticated, user } = useAuth();
+  const { isAuthenticated, user, isLoading } = useAuth();
   const { showAuthModal } = useAuthModal();
 
   const requireAuth = useCallback((options: AuthGuardOptions = {}) => {
+    // Still loading auth state — don't show modal, treat as pending
+    if (isLoading) {
+      return true;
+    }
+
     // If already authenticated, check if anonymous users are allowed
     if (isAuthenticated) {
       if (options.requireFullAuth && user?.isAnonymous) {
@@ -45,7 +50,7 @@ export function useAuthGuard(): AuthGuardReturn {
     // Show login modal with context, pending action, and intended URL
     showAuthModal(options.actionContext, options.onSuccess, options.intendedUrl);
     return false;
-  }, [isAuthenticated, user?.isAnonymous, showAuthModal]);
+  }, [isAuthenticated, isLoading, user?.isAnonymous, showAuthModal]);
 
   return {
     isAuthenticated,

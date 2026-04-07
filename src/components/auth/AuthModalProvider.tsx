@@ -34,7 +34,6 @@ export function AuthModalProvider({ children }: AuthModalProviderProps) {
   const [pendingAction, setPendingAction] = useState<(() => void) | undefined>();
   const [intendedUrl, setIntendedUrlState] = useState<string | undefined>();
   const { login, loginWithEmail, register, error, clearError, isAuthenticated, isLoading } = useAuth();
-  const hasShownAutoPrompt = React.useRef(false);
 
   const showAuthModal = useCallback((context?: string, onSuccess?: () => void, intendedUrl?: string) => {
     setModalContext(context);
@@ -76,12 +75,19 @@ export function AuthModalProvider({ children }: AuthModalProviderProps) {
   }, [showAuthModal]);
 
   // Auto-show login modal for unauthenticated users on initial page load only
+  // Uses a ref to track the resolved auth state and a brief delay to avoid
+  // flashing on OAuth redirects where the cookie is set but profile hasn't loaded
+  const authResolvedRef = React.useRef(false);
+
   useEffect(() => {
-    if (isLoading || hasShownAutoPrompt.current) return;
-    hasShownAutoPrompt.current = true;
-    if (!isAuthenticated) {
-      showAuthModal();
+    if (isLoading) return;
+    if (isAuthenticated) {
+      authResolvedRef.current = true;
+      return;
     }
+    if (authResolvedRef.current) return;
+    authResolvedRef.current = true;
+    showAuthModal();
   }, [isLoading, isAuthenticated, showAuthModal]);
 
   const value: AuthModalContextType = {
