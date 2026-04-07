@@ -145,18 +145,18 @@ export default function Profile() {
       {/* Profile Header Banner */}
       <div className="bg-bg-2 border-b border-border-primary">
         <div className="container mx-auto px-4 py-6">
-          <div className="flex items-center gap-6">
-            {/* Avatar */}
-            <Avatar className="h-20 w-20 ring-4 ring-bg-3 shadow-xl flex-shrink-0">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-6">
+            {/* Avatar + Name row */}
+            <div className="flex items-center gap-4">
+              <Avatar className="h-16 w-16 sm:h-20 sm:w-20 ring-4 ring-bg-3 shadow-xl flex-shrink-0">
               <AvatarImage src={displayAvatar || undefined} />
               <AvatarFallback className="text-2xl bg-gradient-to-br from-[#f48120] to-[#faae42] text-white">
                 {displayName.charAt(0).toUpperCase()}
               </AvatarFallback>
             </Avatar>
 
-            {/* Name + share */}
-            <div className="flex items-center gap-3 flex-1 min-w-0">
-              <h1 className="text-2xl font-bold truncate">@{displayUsername}</h1>
+              <div className="flex items-center gap-2 min-w-0">
+                <h1 className="text-xl sm:text-2xl font-bold truncate">@{displayUsername}</h1>
               <button
                 onClick={handleShare}
                 className="p-2 rounded-full hover:bg-bg-3 transition-colors flex-shrink-0"
@@ -164,6 +164,7 @@ export default function Profile() {
               >
                 <Share2 className="h-4 w-4 text-text-tertiary" />
               </button>
+              </div>
             </div>
 
             {/* Stats */}
