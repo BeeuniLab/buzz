@@ -377,17 +377,16 @@ class ApiClient {
 
                 const errorData = data.error;
                 if (errorData && errorData.type) {
-                       // Send a toast notification for typed errors
-                    if (!noToast) {
-                        toast.error(errorData.message);
-                    }
                     switch (errorData.type) {
                         case SecurityErrorType.CSRF_VIOLATION:
-                            // Handle CSRF failures with retry
+                            // Handle CSRF failures with retry (don't toast on first attempt)
                             if (response.status === 403 && !isRetry) {
                                 // Clear expired token and retry with fresh one
                                 this.csrfTokenInfo = null;
-                                return this.requestRaw(endpoint, options, true);
+                                return this.requestRaw(endpoint, options, true, noToast);
+                            }
+                            if (!noToast) {
+                                toast.error(errorData.message);
                             }
                             break;
                         case SecurityErrorType.RATE_LIMITED:
@@ -396,6 +395,9 @@ class ApiClient {
                             throw RateLimitExceededError.fromRateLimitError(errorData as unknown as RateLimitError);
                         default:
                             // Security error
+                            if (!noToast) {
+                                toast.error(errorData.message);
+                            }
                             throw new SecurityError(errorData.type, errorData.message);
                         }
                     }
