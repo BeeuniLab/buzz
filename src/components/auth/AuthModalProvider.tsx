@@ -34,6 +34,7 @@ export function AuthModalProvider({ children }: AuthModalProviderProps) {
   const [pendingAction, setPendingAction] = useState<(() => void) | undefined>();
   const [intendedUrl, setIntendedUrlState] = useState<string | undefined>();
   const { login, loginWithEmail, register, error, clearError, isAuthenticated, isLoading } = useAuth();
+  const hasShownAutoPrompt = React.useRef(false);
 
   const showAuthModal = useCallback((context?: string, onSuccess?: () => void, intendedUrl?: string) => {
     setModalContext(context);
@@ -74,10 +75,13 @@ export function AuthModalProvider({ children }: AuthModalProviderProps) {
     setGlobalAuthModalTrigger(showAuthModal);
   }, [showAuthModal]);
 
-  // Auto-show login modal for unauthenticated users on page load
+  // Auto-show login modal for unauthenticated users on initial page load only
   useEffect(() => {
-    if (isLoading || isAuthenticated) return;
-    showAuthModal();
+    if (isLoading || hasShownAutoPrompt.current) return;
+    hasShownAutoPrompt.current = true;
+    if (!isAuthenticated) {
+      showAuthModal();
+    }
   }, [isLoading, isAuthenticated, showAuthModal]);
 
   const value: AuthModalContextType = {
