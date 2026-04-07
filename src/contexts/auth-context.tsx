@@ -282,16 +282,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } catch (error) {
       console.error('Logout error:', error);
     } finally {
-      // Clear state regardless of API response
-      setUser(null);
-      setToken(null);
-      setSession(null);
       if (refreshTimerRef.current) {
         clearInterval(refreshTimerRef.current);
       }
-      navigate('/');
+      window.location.href = '/';
     }
-  }, [navigate]);
+  }, []);
 
   // Refresh user profile
   const refreshUser = useCallback(async () => {
