@@ -167,12 +167,29 @@ export async function enforceAuthRequirement(c: Context<AppEnv>) : Promise<Respo
         return errorResponse('No authentication level found', 500);
     }
     
+    // For public routes, try to authenticate but don't reject on failure
+    if (!user && requirement.level === 'public') {
+        try {
+            const userSession = await authMiddleware(c.req.raw, c.env);
+            if (userSession) {
+                user = userSession.user;
+                c.set('user', user);
+                c.set('sessionId', userSession.sessionId);
+                Sentry.setUser({ id: user.id, email: user.email });
+                const config = await getUserConfigurableSettings(c.env, user.id);
+                c.set('config', config);
+            }
+        } catch {
+            // Ignore auth errors for public routes
+        }
+    }
+
     // Only perform auth if we need it or don't have user yet
     if (!user && (requirement.level === 'authenticated' || requirement.level === 'owner-only')) {
         const request = c.req.raw;
         const env = c.env;
         const params = c.req.param();
-        
+
         // Strategy 1: Ticket-based auth (if configured and ticket present)
         if (authOptions?.ticketAuth && hasTicketParam(request)) {
             const ticketAuth = await authenticateViaTicket(request, env, authOptions.ticketAuth, params);
@@ -181,10 +198,10 @@ export async function enforceAuthRequirement(c: Context<AppEnv>) : Promise<Respo
                 c.set('user', user);
                 c.set('sessionId', ticketAuth.sessionId);
                 Sentry.setUser({ id: user.id, email: user.email });
-                
+
                 const config = await getUserConfigurableSettings(c.env, user.id);
                 c.set('config', config);
-                
+
                 // Skip rate limiting for ticket auth (already rate-limited at ticket creation)
                 logger.info('Authenticated via ticket', { userId: user.id, resourceType: authOptions.ticketAuth.resourceType });
             } else {
@@ -192,7 +209,7 @@ export async function enforceAuthRequirement(c: Context<AppEnv>) : Promise<Respo
                 return errorResponse('Invalid or expired ticket', 403);
             }
         }
-        
+
         // Strategy 2: Standard JWT auth (header/cookie)
         if (!user) {
             const userSession = await authMiddleware(c.req.raw, c.env);
