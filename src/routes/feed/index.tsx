@@ -449,6 +449,7 @@ export default function FeedPage() {
 			<CommentsDrawer
 				appId={currentApp.id}
 				open={commentsOpen}
+				direction="bottom"
 				onOpenChange={(open) => {
 					setCommentsOpen(open);
 					if (!open) {

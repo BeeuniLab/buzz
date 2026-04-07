@@ -13,9 +13,10 @@ interface CommentsDrawerProps {
 	appId: string;
 	open: boolean;
 	onOpenChange: (open: boolean) => void;
+	direction?: 'right' | 'bottom';
 }
 
-export function CommentsDrawer({ appId, open, onOpenChange }: CommentsDrawerProps) {
+export function CommentsDrawer({ appId, open, onOpenChange, direction = 'right' }: CommentsDrawerProps) {
 	const { user } = useAuth();
 	const navigate = useNavigate();
 	const [comments, setComments] = React.useState<CommentData[]>([]);
@@ -188,8 +189,16 @@ export function CommentsDrawer({ appId, open, onOpenChange }: CommentsDrawerProp
 	};
 
 	return (
-		<Drawer open={open} onOpenChange={onOpenChange} direction="right">
-			<DrawerContent className="!w-[400px] !sm:max-w-[400px] h-full flex flex-col rounded-none">
+		<Drawer open={open} onOpenChange={onOpenChange} direction={direction}>
+			<DrawerContent
+				className={cn(
+					direction === 'bottom'
+						? 'h-[75vh] z-[70]'
+						: '!w-[400px] !sm:max-w-[400px] h-full rounded-none',
+					'flex flex-col'
+				)}
+				overlayClassName={direction === 'bottom' ? 'z-[70]' : undefined}
+			>
 				{/* Header */}
 				<div className="flex items-center justify-between px-5 py-4 border-b border-border-primary">
 					<div className="flex items-center gap-3">
