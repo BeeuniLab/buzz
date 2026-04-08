@@ -31,7 +31,7 @@ export function getProviderInfo(modelValue?: string): ProviderInfo {
 	if (modelValue.includes('anthropic/') || modelValue.includes('claude')) {
 		return { name: 'Anthropic', color: 'bg-orange-100 text-orange-800 dark:bg-orange-900/20 dark:text-orange-400' };
 	}
-	if (modelValue.includes('google-ai-studio/') || modelValue.includes('gemini')) {
+	if (modelValue.includes('google-ai-studio/') || modelValue.includes('google/') || modelValue.includes('gemini')) {
 		return { name: 'Google', color: 'bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-400' };
 	}
 

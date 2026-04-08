@@ -285,6 +285,14 @@ export async function getConfigurationForModel(
     apiKey: string,
     defaultHeaders?: Record<string, string>,
 }> {
+    // Vercel AI Gateway: unified endpoint that expects provider/model format
+    if (env.VERCEL_AI_GATEWAY_API_KEY) {
+        return {
+            baseURL: 'https://ai-gateway.vercel.sh/v1',
+            apiKey: env.VERCEL_AI_GATEWAY_API_KEY,
+        };
+    }
+
     // Custom LLM proxy: when LLM_PROXY_URL is set, route all requests through it
     // This supports OpenAI-compatible proxies (e.g. newapi, one-api) that handle
     // multi-provider routing internally via the model name.
@@ -578,9 +586,10 @@ export async function infer<OutputSchema extends z.AnyZodObject>({
         // Remove [*.] from model name
         modelName = modelName.replace(/\[.*?\]/, '');
 
-        // Strip provider prefix (e.g. "google-ai-studio/gemini-2.5-flash" -> "gemini-2.5-flash")
-        // when using LLM proxy, as proxies expect bare model names
-        if (env.LLM_PROXY_URL && modelName.includes('/')) {
+        // Strip provider prefix (e.g. "google/gemini-2.5-flash" -> "gemini-2.5-flash")
+        // when using LLM proxy, as proxies expect bare model names.
+        // Vercel AI Gateway expects provider/model format, so skip stripping.
+        if (env.LLM_PROXY_URL && !env.VERCEL_AI_GATEWAY_API_KEY && modelName.includes('/')) {
             modelName = modelName.split('/').slice(1).join('/');
         }
 

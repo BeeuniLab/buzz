@@ -44,14 +44,23 @@ export interface CoverGenerationResult {
 /**
  * Generate a cover image for a project using gpt-image-1.5 via Images API.
  * Returns PNG (the proxy does not support WebP output format).
- * Requires LLM_PROXY_URL and LLM_PROXY_API_KEY environment variables.
+ * Requires LLM_PROXY_URL/LLM_PROXY_API_KEY or VERCEL_AI_GATEWAY_API_KEY.
  */
 export async function generateCoverImage(
 	env: Env,
 	blueprint: PhasicBlueprint,
 ): Promise<CoverGenerationResult> {
-	if (!env.LLM_PROXY_URL || !env.LLM_PROXY_API_KEY) {
-		throw new Error('LLM_PROXY_URL and LLM_PROXY_API_KEY are required for cover generation');
+	let apiKey: string;
+	let baseURL: string;
+
+	if (env.VERCEL_AI_GATEWAY_API_KEY) {
+		apiKey = env.VERCEL_AI_GATEWAY_API_KEY;
+		baseURL = 'https://ai-gateway.vercel.sh/v1';
+	} else if (env.LLM_PROXY_URL && env.LLM_PROXY_API_KEY) {
+		apiKey = env.LLM_PROXY_API_KEY;
+		baseURL = env.LLM_PROXY_URL;
+	} else {
+		throw new Error('VERCEL_AI_GATEWAY_API_KEY or LLM_PROXY_URL/LLM_PROXY_API_KEY are required for cover generation');
 	}
 
 	const prompt = buildCoverPrompt(blueprint);
@@ -59,8 +68,8 @@ export async function generateCoverImage(
 	logger.info('Generating cover image', { title: blueprint.title, model: COVER_MODEL });
 
 	const client = new OpenAI({
-		apiKey: env.LLM_PROXY_API_KEY,
-		baseURL: env.LLM_PROXY_URL,
+		apiKey,
+		baseURL,
 	});
 
 	const response = await client.images.generate({
