@@ -153,7 +153,7 @@ export default function Chat() {
 
 	const [activeFilePath, setActiveFilePath] = useState<string>();
 	const [view, setView] = useState<'editor' | 'preview' | 'docs' | 'blueprint' | 'presentation' | 'assets'>(
-		'editor',
+		'preview',
 	);
 
 	// Debug panel state
@@ -392,12 +392,8 @@ export default function Chat() {
 			setView('docs');
 			hasSeenPreview.current = true;
 		} else if (isStaticContent && files.length > 0 && !hasDocumentation) {
-			// For other static content (non-documentation), show editor view
-			setView('editor');
-			// Auto-select first file if none selected
-			if (!activeFilePath) {
-				setActiveFilePath(files[0].filePath);
-			}
+			// For other static content (non-documentation), show preview view
+			setView('preview');
 			hasSeenPreview.current = true;
 		} else if (previewUrl) {
 			const isExistingChat = urlChatId !== 'new';
@@ -465,7 +461,7 @@ export default function Chat() {
 			view === 'blueprint' &&
 			!isGeneratingBlueprint
 		) {
-			setView('editor');
+			setView('preview');
 		}
 	}, [isGeneratingBlueprint, view]);
     
