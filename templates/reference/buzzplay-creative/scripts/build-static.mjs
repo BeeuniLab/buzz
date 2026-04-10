@@ -33,7 +33,10 @@ const assetsRoot = join(root, 'assets');
 if (await exists(assetsRoot)) {
 	await cp(assetsRoot, join(dist, 'assets'), { recursive: true });
 } else {
-	await mkdir(join(dist, 'assets', 'images'), { recursive: true });
+	const defaultAssetDirs = ['images', 'audio', 'video', 'fonts', '3d'];
+	for (const sub of defaultAssetDirs) {
+		await mkdir(join(dist, 'assets', sub), { recursive: true });
+	}
 }
 
 console.log('build-static: wrote', dist);

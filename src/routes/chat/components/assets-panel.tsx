@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { Upload, Trash2, RefreshCw, Image, Music, Box, Type, File } from 'lucide-react';
+import { Upload, Trash2, RefreshCw, Image, Music, Box, Type, File, Video } from 'lucide-react';
 import clsx from 'clsx';
 import { apiClient } from '@/lib/api-client';
 import type { AssetItem, AssetCategory } from '@/api-types';
@@ -7,16 +7,19 @@ import type { AssetItem, AssetCategory } from '@/api-types';
 const CATEGORY_TABS: { label: string; value: AssetCategory | 'all'; icon: React.ComponentType<{ className?: string }> }[] = [
 	{ label: 'All', value: 'all', icon: File },
 	{ label: 'Images', value: 'images', icon: Image },
+	{ label: 'Video', value: 'video', icon: Video },
 	{ label: '3D', value: '3d', icon: Box },
 	{ label: 'Audio', value: 'audio', icon: Music },
 	{ label: 'Fonts', value: 'fonts', icon: Type },
 ];
 
-const ACCEPT_MAP: Record<string, string> = {
+const ACCEPT_MAP: Record<AssetCategory, string> = {
 	images: 'image/*',
+	video: 'video/mp4,video/webm,video/quicktime,.mp4,.webm,.mov',
 	'3d': '.glb,.gltf,.obj,.fbx',
 	audio: 'audio/*',
 	fonts: '.woff,.woff2,.ttf',
+	other: '*/*',
 };
 
 function formatFileSize(bytes: number): string {
@@ -56,11 +59,11 @@ export function AssetsPanel({ agentId }: AssetsPanelProps) {
 	}, [fetchAssets]);
 
 	const handleUpload = useCallback(async (files: FileList) => {
-		if (!agentId || files.length === 0) return;
+		if (!agentId || files.length === 0 || selectedCategory === 'all') return;
 		setUploading(true);
 		try {
+			const category = selectedCategory;
 			for (const file of Array.from(files)) {
-				const category = selectedCategory === 'all' ? inferCategory(file.name) : selectedCategory;
 				const response = await apiClient.uploadProjectAsset(agentId, file, category);
 				if (response.success && response.data) {
 					setAssets(prev => [response.data!, ...prev]);
@@ -96,9 +99,9 @@ export function AssetsPanel({ agentId }: AssetsPanelProps) {
 		return `/api/projects/${agentId}/assets/file/${asset.key}`;
 	};
 
-	const acceptTypes = selectedCategory === 'all'
-		? Object.values(ACCEPT_MAP).join(',')
-		: ACCEPT_MAP[selectedCategory] || '*/*';
+	const acceptTypes =
+		selectedCategory === 'all' ? '' : ACCEPT_MAP[selectedCategory];
+	const canUpload = selectedCategory !== 'all';
 
 	if (!agentId) {
 		return (
@@ -130,22 +133,30 @@ export function AssetsPanel({ agentId }: AssetsPanelProps) {
 					))}
 				</div>
 				<div className="flex-1" />
-				<button
-					onClick={() => fileInputRef.current?.click()}
-					disabled={uploading}
-					className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-accent text-white rounded-md hover:opacity-90 transition-opacity disabled:opacity-50"
-				>
-					{uploading ? <RefreshCw className="size-3 animate-spin" /> : <Upload className="size-3" />}
-					Upload
-				</button>
-				<input
-					ref={fileInputRef}
-					type="file"
-					multiple
-					accept={acceptTypes}
-					className="hidden"
-					onChange={(e) => e.target.files && handleUpload(e.target.files)}
-				/>
+				{canUpload ? (
+					<>
+						<button
+							type="button"
+							onClick={() => fileInputRef.current?.click()}
+							disabled={uploading}
+							className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-accent text-white rounded-md hover:opacity-90 transition-opacity disabled:opacity-50"
+						>
+							{uploading ? <RefreshCw className="size-3 animate-spin" /> : <Upload className="size-3" />}
+							Upload
+						</button>
+						<input
+							ref={fileInputRef}
+							type="file"
+							multiple
+							accept={acceptTypes}
+							className="hidden"
+							onChange={(e) => e.target.files && handleUpload(e.target.files)}
+						/>
+					</>
+				) : (
+					<span className="text-[10px] text-text-50/50 text-right max-w-[160px] leading-tight">
+					</span>
+				)}
 			</div>
 
 			{/* Asset grid */}
@@ -224,18 +235,10 @@ function AssetCard({
 function CategoryIcon({ category, className }: { category: AssetCategory; className?: string }) {
 	switch (category) {
 		case 'images': return <Image className={className} />;
+		case 'video': return <Video className={className} />;
 		case '3d': return <Box className={className} />;
 		case 'audio': return <Music className={className} />;
 		case 'fonts': return <Type className={className} />;
 		default: return <File className={className} />;
 	}
-}
-
-function inferCategory(filename: string): string {
-	const ext = filename.substring(filename.lastIndexOf('.')).toLowerCase();
-	if (['.webp', '.png', '.jpg', '.jpeg', '.gif', '.svg', '.ico'].includes(ext)) return 'images';
-	if (['.glb', '.gltf', '.obj', '.fbx'].includes(ext)) return '3d';
-	if (['.mp3', '.wav', '.ogg'].includes(ext)) return 'audio';
-	if (['.woff', '.woff2', '.ttf'].includes(ext)) return 'fonts';
-	return 'other';
 }

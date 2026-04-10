@@ -318,24 +318,42 @@ export class UserConversationProcessor extends AgentOperation<GenerationContext,
     async execute(inputs: UserConversationInputs, options: OperationOptions<GenerationContext>): Promise<UserConversationOutputs> {
         const { env, logger, context, agent } = options;
         const { userMessage, conversationState, errors, images, projectUpdates } = inputs;
+        const imageAttachments = images?.filter((a) => a.mimeType.startsWith('image/')) ?? [];
+        const nonImageAttachments = images?.filter((a) => !a.mimeType.startsWith('image/')) ?? [];
         logger.info("Processing user message", { 
             messageLength: inputs.userMessage.length,
             hasImages: !!images && images.length > 0,
-            imageCount: images?.length || 0
+            imageCount: images?.length || 0,
+            visionImageCount: imageAttachments.length,
+            otherMediaCount: nonImageAttachments.length,
         });
 
         try {
             const systemPromptMessages = getSystemPromptWithProjectContext(SYSTEM_PROMPT, context, CodeSerializerType.SIMPLE);
             
-            // Create user message with optional images for inference
-            const userPromptForInference = buildUserMessageWithContext(userMessage, errors, projectUpdates, true);
-            const userMessageForInference = images && images.length > 0
-                ? createMultiModalUserMessage(
-                    userPromptForInference,
-                    await imagesToBase64(env, images),
-                    'high'
-                )
-                : createUserMessage(userPromptForInference);
+            const nonImageLines =
+                nonImageAttachments.length > 0
+                    ? nonImageAttachments.map(
+                          (m) =>
+                              `- ${m.r2Key.split('/').pop() ?? 'file'} (${m.mimeType}): ${m.publicUrl}`,
+                      )
+                    : [];
+            const mediaBlock =
+                nonImageLines.length > 0
+                    ? `\n\n[User-uploaded media — also listed in project assets / src/asset_map]\n${nonImageLines.join('\n')}`
+                    : '';
+
+            // Vision: only image/* as multimodal parts; audio/video as URLs in text (gateway chat schema).
+            const userPromptForInference =
+                buildUserMessageWithContext(userMessage, errors, projectUpdates, true) + mediaBlock;
+            const userMessageForInference =
+                imageAttachments.length > 0
+                    ? createMultiModalUserMessage(
+                          userPromptForInference,
+                          await imagesToBase64(env, imageAttachments),
+                          'high',
+                      )
+                    : createUserMessage(userPromptForInference);
 
             let extractedUserResponse = "";
             
@@ -421,15 +439,17 @@ export class UserConversationProcessor extends AgentOperation<GenerationContext,
             };
 
             
-            // For conversation history, store only text (images are ephemeral and not persisted)
-            const userPromptForHistory = buildUserMessageWithContext(userMessage, errors, projectUpdates, false);
-            const userMessageForHistory = images && images.length > 0
-                ? createMultiModalUserMessage(
-                    userPromptForHistory,
-                    images.map(img => img.r2Key),
-                    'high'
-                )
-                : createUserMessage(userPromptForHistory);
+            // History: image r2Keys for replay via prepareMessagesForInference; audio/video only in text (avoid non-image binary in image_url).
+            const userPromptForHistory =
+                buildUserMessageWithContext(userMessage, errors, projectUpdates, false) + mediaBlock;
+            const userMessageForHistory =
+                imageAttachments.length > 0
+                    ? createMultiModalUserMessage(
+                          userPromptForHistory,
+                          imageAttachments.map((img) => img.r2Key),
+                          'high',
+                      )
+                    : createUserMessage(userPromptForHistory);
 
             
             const messages = [{...userMessageForHistory, conversationId: IdGenerator.generateConversationId()}];

@@ -407,6 +407,8 @@ export interface AgentConfig {
     conversationalResponse: ModelConfig;
     deepDebugger: ModelConfig;
     agenticProjectBuilder: ModelConfig;
+    /** Short Flash-Lite captions for user assets (asset_map descriptions). */
+    assetMediaCaption: ModelConfig;
 }
 
 // Provider and reasoning effort types for validation

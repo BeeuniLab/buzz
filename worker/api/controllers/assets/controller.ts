@@ -4,7 +4,7 @@ import type { RouteContext } from '../../types/route-context';
 import { createLogger } from '../../../logger';
 import { sanitizeAgentAssetFilename, syncAgentAssetMap } from '../../../utils/agentAssets';
 
-type AssetCategory = 'images' | '3d' | 'audio' | 'fonts' | 'other';
+type AssetCategory = 'images' | 'video' | '3d' | 'audio' | 'fonts' | 'other';
 
 interface AssetItem {
 	key: string;
@@ -24,7 +24,7 @@ const MIME_MAP: Record<string, string> = {
 	'.webp': 'image/webp', '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg',
 	'.gif': 'image/gif', '.svg': 'image/svg+xml', '.ico': 'image/x-icon',
 	'.mp3': 'audio/mpeg', '.wav': 'audio/wav', '.ogg': 'audio/ogg',
-	'.mp4': 'video/mp4', '.webm': 'video/webm',
+	'.mp4': 'video/mp4', '.webm': 'video/webm', '.mov': 'video/quicktime',
 	'.woff': 'font/woff', '.woff2': 'font/woff2', '.ttf': 'font/ttf',
 	'.glb': 'model/gltf-binary', '.gltf': 'model/gltf+json', '.obj': 'model/obj',
 	'.fbx': 'application/octet-stream',
@@ -32,15 +32,16 @@ const MIME_MAP: Record<string, string> = {
 
 const CATEGORY_EXTENSIONS: Record<string, string[]> = {
 	images: ['.webp', '.png', '.jpg', '.jpeg', '.gif', '.svg', '.ico'],
+	video: ['.mp4', '.webm', '.mov'],
 	'3d': ['.glb', '.gltf', '.obj', '.fbx'],
 	audio: ['.mp3', '.wav', '.ogg'],
 	fonts: ['.woff', '.woff2', '.ttf'],
 };
 
-function categorizeByExtension(filename: string): 'images' | '3d' | 'audio' | 'fonts' | 'other' {
+function categorizeByExtension(filename: string): AssetCategory {
 	const ext = filename.substring(filename.lastIndexOf('.')).toLowerCase();
 	for (const [category, extensions] of Object.entries(CATEGORY_EXTENSIONS)) {
-		if (extensions.includes(ext)) return category as 'images' | '3d' | 'audio' | 'fonts';
+		if (extensions.includes(ext)) return category as AssetCategory;
 	}
 	return 'other';
 }

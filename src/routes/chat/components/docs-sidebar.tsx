@@ -38,7 +38,7 @@ export function DocsSidebar({ files, activeFile, onFileSelect }: DocsSidebarProp
 	};
 
 	return (
-		<div className="w-64 bg-bg-2 border-r border-border-primary flex flex-col overflow-hidden">
+		<div className="docs-sidebar h-full min-h-0 w-full bg-bg-2 flex flex-col overflow-hidden">
 			{/* Header */}
 			<div className="px-4 py-3 border-b border-border-primary">
 				<h3 className="text-sm font-medium text-text-primary">Documentation</h3>

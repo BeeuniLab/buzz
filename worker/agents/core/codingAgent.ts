@@ -30,7 +30,7 @@ import { SecretsClient, type UserSecretsStoreStub } from '../../services/secrets
 import { StateMigration } from './stateMigration';
 import { PendingWsTicket, TicketConsumptionResult } from '../../types/auth-types';
 import { WsTicketManager } from '../../utils/wsTicketManager';
-import { computeAgentAssetMapJson } from '../../utils/agentAssets';
+import { computeAgentAssetMapJson, parseAssetMapJson } from '../../utils/agentAssets';
 
 const DEFAULT_CONVERSATION_SESSION_ID = 'default';
 
@@ -480,6 +480,12 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
     // Asset Map Sync
     // ==========================================
 
+    /** Current `src/asset_map` contents for merge (URLs from R2 + preserved descriptions). */
+    async readSrcAssetMap(): Promise<string | null> {
+        const f = this.fileManager.getFile('src/asset_map');
+        return f?.fileContents ?? null;
+    }
+
     /**
      * Update src/asset_map file with current asset manifest.
      * Called from asset API routes after upload/delete operations.
@@ -502,10 +508,31 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
     }
 
     async syncProjectAssetMapFromR2(): Promise<void> {
-        const json = await computeAgentAssetMapJson(this.env, this.getAgentId());
+        const existing = await this.readSrcAssetMap();
+        const json = await computeAgentAssetMapJson(this.env, this.getAgentId(), existing);
         const result = await this.updateAssetMap(json);
         if (!result.success) {
             this.logger().error('syncProjectAssetMapFromR2 failed', { error: result.error });
+        }
+    }
+
+    async mergeAssetMapDescriptions(descriptionsByRelativePath: Record<string, string>): Promise<void> {
+        if (Object.keys(descriptionsByRelativePath).length === 0) {
+            return;
+        }
+        const raw = await this.readSrcAssetMap();
+        const map = parseAssetMapJson(raw ?? undefined);
+        for (const [rel, d] of Object.entries(descriptionsByRelativePath)) {
+            const t = d.trim();
+            if (!t) continue;
+            const entry = map[rel];
+            if (entry?.url) {
+                map[rel] = { url: entry.url, description: t };
+            }
+        }
+        const result = await this.updateAssetMap(JSON.stringify(map, null, 2));
+        if (!result.success) {
+            this.logger().error('mergeAssetMapDescriptions failed', { error: result.error });
         }
     }
 

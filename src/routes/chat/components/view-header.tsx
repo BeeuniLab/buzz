@@ -25,8 +25,10 @@ export function ViewHeader({
 	projectType,
 }: ViewHeaderProps) {
 	return (
-		<div className={`grid grid-cols-3 ${HEADER_STYLES.padding} ${HEADER_STYLES.container}`}>
-			<div className="flex items-center">
+		<div
+			className={`grid grid-cols-[auto_minmax(0,1fr)_auto] items-center min-h-10 bg-bg-2 border-b ${HEADER_STYLES.padding}`}
+		>
+			<div className="flex min-w-0 items-center">
 				<ViewModeSwitch
 					view={view}
 					onChange={onViewChange}
@@ -36,10 +38,10 @@ export function ViewHeader({
 					projectType={projectType}
 				/>
 			</div>
-			<div className="flex items-center justify-center">
-				{centerContent}
+			<div className="flex min-w-0 items-center justify-center overflow-hidden px-0.5">
+				<div className="w-full min-w-0 max-w-full">{centerContent}</div>
 			</div>
-			<div className="flex items-center justify-end">
+			<div className="flex min-w-0 items-center justify-end">
 				{rightActions}
 			</div>
 		</div>

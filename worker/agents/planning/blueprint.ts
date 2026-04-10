@@ -399,13 +399,29 @@ export async function generateBlueprint(
             dependencies: templateDetails?.deps,
         }));
 
-        const userMessage = images && images.length > 0
-            ? createMultiModalUserMessage(
-                `CLIENT REQUEST: "${query}"`,
-                await imagesToBase64(env, images), 
-                'high'
-              )
-            : createUserMessage(`CLIENT REQUEST: "${query}"`);
+        const baseQuery = `CLIENT REQUEST: "${query}"`;
+        let userMessage;
+        if (!images?.length) {
+            userMessage = createUserMessage(baseQuery);
+        } else {
+            const imageOnly = images.filter((i) => i.mimeType.startsWith('image/'));
+            const nonImage = images.filter((i) => !i.mimeType.startsWith('image/'));
+            let userText = baseQuery;
+            if (nonImage.length > 0) {
+                const lines = nonImage
+                    .map((f) => `${f.r2Key.split('/').pop() ?? 'file'} (${f.mimeType})`)
+                    .join('; ');
+                userText += `\n\n[User-attached non-image assets: ${lines}]`;
+            }
+            userMessage =
+                imageOnly.length > 0
+                    ? createMultiModalUserMessage(
+                          userText,
+                          await imagesToBase64(env, imageOnly),
+                          'high',
+                      )
+                    : createUserMessage(userText);
+        }
 
         const messages = [
             systemPromptMessage,

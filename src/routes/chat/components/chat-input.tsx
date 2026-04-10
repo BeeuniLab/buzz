@@ -1,10 +1,11 @@
 import { type FormEvent, type RefObject } from 'react';
-import { ArrowRight, Image as ImageIcon } from 'react-feather';
+import { ArrowRight } from 'react-feather';
 import { WebSocket } from 'partysocket';
 import { X } from 'lucide-react';
 import { ImageAttachmentPreview } from '@/components/image-attachment-preview';
+import { AttachmentPickerDropdown } from '@/components/attachment-picker-dropdown';
 import { sendWebSocketMessage } from '../utils/websocket-helpers';
-import { SUPPORTED_IMAGE_MIME_TYPES, type ImageAttachment } from '@/api-types';
+import { type ImageAttachment } from '@/api-types';
 
 const MAX_WORDS = 4000;
 const countWords = (text: string): number => {
@@ -44,7 +45,6 @@ interface ChatInputProps {
 
 	// Refs
 	chatFormRef: RefObject<HTMLFormElement | null>;
-	imageInputRef: RefObject<HTMLInputElement | null>;
 }
 
 export function ChatInput({
@@ -64,8 +64,9 @@ export function ChatInput({
 	isDebugging,
 	websocket,
 	chatFormRef,
-	imageInputRef,
 }: ChatInputProps) {
+	const attachDisabled = isChatDisabled || isProcessing;
+
 	const handleTextChange = (newValue: string) => {
 		const newWordCount = countWords(newValue);
 
@@ -73,14 +74,6 @@ export function ChatInput({
 		if (newWordCount <= MAX_WORDS) {
 			onMessageChange(newValue);
 		}
-	};
-
-	const handleImageInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-		const files = Array.from(e.target.files || []);
-		if (files.length > 0) {
-			onAddImages(files);
-		}
-		e.target.value = '';
 	};
 
 	const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -115,19 +108,10 @@ export function ChatInput({
 			className="shrink-0 p-4 pb-1 md:pb-5 bg-transparent"
 			{...chatDragHandlers}
 		>
-			<input
-				ref={imageInputRef}
-				type="file"
-				accept={SUPPORTED_IMAGE_MIME_TYPES.join(',')}
-				multiple
-				onChange={handleImageInputChange}
-				className="hidden"
-				disabled={isChatDisabled}
-			/>
 			<div className="relative">
 				{isChatDragging && (
 					<div className="absolute inset-0 flex items-center justify-center bg-accent/10 backdrop-blur-sm rounded-xl z-50 pointer-events-none">
-						<p className="text-accent font-medium">Drop images here</p>
+						<p className="text-accent font-medium">Drop images, audio, or video here</p>
 					</div>
 				)}
 				{images.length > 0 && (
@@ -179,19 +163,16 @@ export function ChatInput({
 							</span>
 						</button>
 					)}
-					<button
-						type="button"
-						onClick={() => imageInputRef.current?.click()}
-						disabled={isChatDisabled || isProcessing}
-						className="p-1.5 rounded-md hover:bg-bg-3 text-text-secondary hover:text-text-primary transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-						aria-label="Upload image"
-						title="Upload image"
-					>
-						<ImageIcon className="size-4" strokeWidth={1.5} />
-					</button>
+					<AttachmentPickerDropdown
+						onFilesSelected={(files) => {
+							void onAddImages(files);
+						}}
+						disabled={attachDisabled}
+						inputsDisabled={isChatDisabled}
+					/>
 					<button
 						type="submit"
-						disabled={!newMessage.trim() || isChatDisabled}
+						disabled={(!newMessage.trim() && images.length === 0) || isChatDisabled}
 						className="p-1.5 rounded-md bg-accent/90 hover:bg-accent/80 disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-transparent text-white disabled:text-text-primary transition-colors"
 					>
 						<ArrowRight className="size-4" />

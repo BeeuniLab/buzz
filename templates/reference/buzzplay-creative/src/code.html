@@ -45,8 +45,8 @@
 	 *   - window.gameConfig is hydrated from src/config
 	 *   - Host calls window.run('play') or window.run('edit')
 	 *
-	 * Assets: put images under assets/ at project root;
-	 *   after build they are served as /assets/images/foo.webp.
+	 * Assets: put files under assets/ at project root (e.g. images/, audio/, video/);
+	 *   after build they are served as /assets/images/foo.webp, /assets/video/clip.mp4, etc.
 	 *   Or use lib.getAsset(id) for CDN-hosted asset_map entries.
 	 */
 	(function () {
@@ -86,7 +86,9 @@
 
 		function getAssetUrl(id) {
 			const info = lib.getAsset(id);
-			return info ? info.url : null;
+			if (!info) return null;
+			if (typeof info === 'string') return info;
+			return typeof info.url === 'string' ? info.url : null;
 		}
 
 		async function loadImage(id) {

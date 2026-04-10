@@ -1,4 +1,9 @@
-import { createSystemMessage, createUserMessage, createMultiModalUserMessage } from '../inferutils/common';
+import {
+	createSystemMessage,
+	createUserMessage,
+	createMultiModalUserMessage,
+	type Message,
+} from '../inferutils/common';
 import { TemplateInfo } from 'worker/types/project-types';
 import { createLogger } from '../../logger';
 import { executeInference } from '../inferutils/infer';
@@ -10,6 +15,32 @@ import type { ImageAttachment } from '../../types/image-attachment';
 import { ProjectType } from '../core/types';
 
 const logger = createLogger('TemplateSelector');
+
+/** Vision only for image/*; audio/video as filename hints (same pattern as chat). */
+function buildTemplateSelectionUserMessage(
+	userPrompt: string,
+	images: ImageAttachment[] | undefined,
+): Message {
+	if (!images?.length) {
+		return createUserMessage(userPrompt);
+	}
+	const imageAttachments = images.filter((a) => a.mimeType.startsWith('image/'));
+	const nonImage = images.filter((a) => !a.mimeType.startsWith('image/'));
+	let text = userPrompt;
+	if (nonImage.length > 0) {
+		const lines = nonImage.map((f) => `${f.filename} (${f.mimeType})`).join('; ');
+		text += `\n\n**Note:** User also attached non-image file(s) (not sent as vision): ${lines}. Infer intent from names, types, and the text request.`;
+	}
+	if (imageAttachments.length === 0) {
+		return createUserMessage(text);
+	}
+	return createMultiModalUserMessage(
+		text,
+		imageAttachments.map((img) => `data:${img.mimeType};base64,${img.base64Data}`),
+		'high',
+	);
+}
+
 interface SelectTemplateArgs {
     env: Env;
     query: string;
@@ -76,13 +107,7 @@ async function predictProjectType(
 
 Analyze the request carefully and classify accordingly.`;
 
-        const userMessage = images && images.length > 0
-            ? createMultiModalUserMessage(
-                userPrompt,
-                images.map(img => `data:${img.mimeType};base64,${img.base64Data}`),
-                'high'
-              )
-            : createUserMessage(userPrompt);
+        const userMessage = buildTemplateSelectionUserMessage(userPrompt, images);
 
         const messages = [
             createSystemMessage(systemPrompt),
@@ -252,17 +277,11 @@ Template detail: ${templateDescriptions}
 ${actualProjectType === 'app' ? '3. Appropriate style for the project type. Try to come up with unique styles that might look nice and unique. Be creative about your choices. But don\'t pick brutalist all the time.' : ''}
 
 Analyze each template's features, frameworks, and architecture to make the best match.
-${images && images.length > 0 ? `\n**Note:** User provided ${images.length} image(s) - consider visual requirements and UI style from the images.` : ''}
+${images && images.length > 0 ? `\n**Note:** User provided reference attachment(s); use vision for images where included; for other file types rely on filenames and the request text.` : ''}
 
 ENTROPY SEED: ${generateSecureToken(64)} - for unique results`;
 
-        const userMessage = images && images.length > 0
-            ? createMultiModalUserMessage(
-                userPrompt,
-                images.map(img => `data:${img.mimeType};base64,${img.base64Data}`),
-                'high'
-              )
-            : createUserMessage(userPrompt);
+        const userMessage = buildTemplateSelectionUserMessage(userPrompt, images);
 
         const messages = [
             createSystemMessage(systemPrompt),

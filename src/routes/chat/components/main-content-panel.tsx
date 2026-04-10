@@ -281,20 +281,25 @@ export function MainContentPanel(props: MainContentPanelProps) {
 		);
 
 		return renderViewWithHeader(
-			<div className="flex items-center gap-2">
-				<span className="text-sm font-mono text-text-50/70">
+			<div className="flex w-full min-w-0 items-center gap-2">
+				<span
+					className="min-w-0 flex-1 truncate text-left text-sm font-mono text-text-50/70"
+					title={previewTitle}
+				>
 					{previewTitle}
 				</span>
-				<Copy text={previewUrl} />
-				{showManualRefresh && (
-					<button
-						className="p-1 hover:bg-bg-2 rounded transition-colors"
-						onClick={onManualRefresh}
-						title="Refresh preview"
-					>
-						<RefreshCw className="size-4 text-text-primary/50" />
-					</button>
-				)}
+				<div className="flex shrink-0 items-center gap-1">
+					<Copy text={previewUrl} />
+					{showManualRefresh && (
+						<button
+							className="p-1 hover:bg-bg-2 rounded transition-colors"
+							onClick={onManualRefresh}
+							title="Refresh preview"
+						>
+							<RefreshCw className="size-4 text-text-primary/50" />
+						</button>
+					)}
+				</div>
 			</div>,
 			previewContent,
 			headerActions
@@ -343,9 +348,18 @@ export function MainContentPanel(props: MainContentPanelProps) {
 		}
 
 		return renderViewWithHeader(
-			<div className="flex items-center gap-2">
-				<span className="text-sm font-mono text-text-50/70">{activeFile.filePath}</span>
-				{previewUrl && <Copy text={previewUrl} />}
+			<div className="flex w-full min-w-0 items-center gap-2">
+				<span
+					className="min-w-0 flex-1 truncate text-left text-sm font-mono text-text-50/70"
+					title={activeFile.filePath}
+				>
+					{activeFile.filePath}
+				</span>
+				{previewUrl && (
+					<div className="shrink-0">
+						<Copy text={previewUrl} />
+					</div>
+				)}
 			</div>,
 			<div className="flex-1 relative">
 				<div className="absolute inset-0 flex" ref={editorRef}>

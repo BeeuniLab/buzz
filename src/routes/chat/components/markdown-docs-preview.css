@@ -1,6 +1,8 @@
 @media print {
   /* Hide navigation and UI elements */
   .docs-sidebar,
+  .docs-file-panel,
+  .docs-toc,
   .export-buttons,
   button,
   [role="navigation"],
@@ -149,8 +151,8 @@
 }
 
 /* Print button styling (hide only during print) */
-.export-button-container {
-  print {
+@media print {
+  .export-button-container {
     display: none !important;
   }
 }

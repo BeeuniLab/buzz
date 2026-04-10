@@ -149,9 +149,11 @@ export class AgenticCodingBehavior extends BaseCodingBehavior<AgenticState> impl
             this.logger.info('Uploaded images for queued request', {
                 imageCount: processedImages.length
             });
-            void this.infrastructure.syncProjectAssetMapFromR2().catch(err =>
-                this.logger.error('Failed to sync asset map after image upload', { error: err }),
-            );
+            try {
+                await this.syncAndCaptionUploadedAssets(processedImages);
+            } catch (err) {
+                this.logger.error('Failed to sync/caption assets after upload', { error: err });
+            }
         }
 
         await this.queueUserRequest(userMessage, processedImages);
@@ -284,14 +286,28 @@ export class AgenticCodingBehavior extends BaseCodingBehavior<AgenticState> impl
                 });
                 let compiledMessage: Message;
                 const images = this.pendingUserImages;
-                if (images && images.length > 0) {
+                const imageOnly =
+                    images?.filter((img) => img.mimeType.startsWith('image/')) ?? [];
+                const nonImageMedia =
+                    images?.filter((img) => !img.mimeType.startsWith('image/')) ?? [];
+                const mediaLines =
+                    nonImageMedia.length > 0
+                        ? `\n\n[User-uploaded media]\n${nonImageMedia
+                              .map(
+                                  (m) =>
+                                      `- ${m.r2Key.split('/').pop() ?? 'file'} (${m.mimeType}): ${m.publicUrl}`,
+                              )
+                              .join('\n')}`
+                        : '';
+                const textBody = pendingUserInputs.join('\n') + mediaLines;
+                if (imageOnly.length > 0) {
                     compiledMessage = createMultiModalUserMessage(
-                        pendingUserInputs.join('\n'),
-                        images.map(img => img.r2Key),
-                        'high'
+                        textBody,
+                        imageOnly.map((img) => img.r2Key),
+                        'high',
                     );
                 } else {
-                    compiledMessage = createUserMessage(pendingUserInputs.join('\n'));
+                    compiledMessage = createUserMessage(textBody);
                 }
                 // Save the message to conversation history
                 this.infrastructure.addConversationMessage({

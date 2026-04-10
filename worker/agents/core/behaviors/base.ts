@@ -28,6 +28,7 @@ import { ImageAttachment, type ProcessedImageAttachment } from '../../../types/i
 import { OperationOptions } from '../../operations/common';
 import { uploadImageAsAgentAsset } from 'worker/utils/images';
 import { uniqueAgentAssetRelativePath } from 'worker/utils/agentAssets';
+import { generateAssetMediaCaption } from 'worker/utils/assetMediaCaption';
 import { generateCoverImage } from '../../assistants/coverGenerator';
 
 import { DeepDebugResult } from '../types';
@@ -1135,6 +1136,38 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
     }
 
     /**
+     * Sync R2 manifest into src/asset_map, then Flash-Lite captions for new uploads (scheme A).
+     */
+    protected async syncAndCaptionUploadedAssets(uploaded: ProcessedImageAttachment[]): Promise<void> {
+        if (uploaded.length === 0) return;
+
+        await this.infrastructure.syncProjectAssetMapFromR2();
+
+        const opts = this.getOperationOptions();
+        const agentId = opts.agentId;
+        const prefix = `assets/${agentId}/`;
+        const descriptions: Record<string, string> = {};
+
+        for (const att of uploaded) {
+            if (!att.r2Key.startsWith(prefix)) continue;
+            const rel = att.r2Key.slice(prefix.length);
+            try {
+                const text = await generateAssetMediaCaption(opts.env, opts.inferenceContext, att);
+                if (text) descriptions[rel] = text;
+            } catch (err) {
+                opts.logger.warn('Asset media caption failed', {
+                    rel,
+                    error: err instanceof Error ? err.message : String(err),
+                });
+            }
+        }
+
+        if (Object.keys(descriptions).length > 0) {
+            await this.infrastructure.mergeAssetMapDescriptions(descriptions);
+        }
+    }
+
+    /**
      * Handle user input during conversational code generation
      * Processes user messages and updates pendingUserInputs state
      */
@@ -1170,9 +1203,11 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
                 );
 
                 this.logger.info('Uploaded images', { uploadedImages });
-                void this.infrastructure.syncProjectAssetMapFromR2().catch(err =>
-                    this.logger.error('Failed to sync asset map after image upload', { error: err }),
-                );
+                try {
+                    await this.syncAndCaptionUploadedAssets(uploadedImages);
+                } catch (err) {
+                    this.logger.error('Failed to sync/caption assets after upload', { error: err });
+                }
             }
 
             // Process the user message using conversational assistant

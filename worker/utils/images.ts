@@ -3,7 +3,7 @@
 // Image storage helpers
 // ===============================
 
-import { ImageAttachment, ProcessedImageAttachment, SupportedImageMimeType } from "worker/types/image-attachment";
+import { ImageAttachment, ProcessedImageAttachment, SupportedChatMediaMimeType } from "worker/types/image-attachment";
 import { getAgentAssetFilePublicUrl, getPublicUrlForBucketKey } from "./agentAssets";
 
 export function base64ToUint8Array(base64: string): Uint8Array {
@@ -56,7 +56,7 @@ export async function uploadImageToCloudflareImages(
     throw new Error('Cloudflare Images upload succeeded without variants');
 }
 
-/** Store user image under assets/{agentId}/… so it appears in the project asset list and editor. */
+/** Store user media (image/audio/video) under assets/{agentId}/… for asset_map + preview. */
 export async function uploadImageAsAgentAsset(
 	env: Env,
 	agentId: string,
@@ -67,7 +67,7 @@ export async function uploadImageAsAgentAsset(
 	const bytes = base64ToUint8Array(image.base64Data!);
 
 	let cfImagesUrl = '';
-	if (env.USE_CLOUDFLARE_IMAGES) {
+	if (env.USE_CLOUDFLARE_IMAGES && image.mimeType.startsWith('image/')) {
 		try {
 			cfImagesUrl = await uploadImageToCloudflareImages(env, image, 'user-asset', bytes);
 		} catch (err) {
@@ -98,7 +98,7 @@ export async function uploadImageAsAgentAsset(
 }
 
 function sanitizeBase64Data(dataUrl: string): string {
-    return dataUrl.replace(/^data:image\/\w+;base64,/, '');
+	return dataUrl.replace(/^data:[^;]+;base64,/, '');
 }
 
 export async function hashImageB64url(dataUrl: string): Promise<string> {
@@ -139,7 +139,7 @@ export async function downloadR2Image(env: Env, r2Key: string) : Promise<Process
         throw new Error('Failed to fetch image from R2');
     }
     const arrayBuffer = await response.arrayBuffer();
-    const mimeType = response.httpMetadata!.contentType! as SupportedImageMimeType;
+    const mimeType = response.httpMetadata!.contentType! as SupportedChatMediaMimeType;
     const customMetadata = response.customMetadata;
     const cfImagesUrl = customMetadata?.cfImagesUrl;
     const base64 = Buffer.from(arrayBuffer).toString('base64');

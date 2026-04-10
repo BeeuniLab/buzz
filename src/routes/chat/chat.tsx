@@ -14,7 +14,13 @@ import { UserMessage, AIMessage } from './components/messages';
 import { PhaseTimeline } from './components/phase-timeline';
 import { type DebugMessage } from './components/debug-panel';
 import { useChat } from './hooks/use-chat';
-import { type BlueprintType, type PhasicBlueprint, SUPPORTED_IMAGE_MIME_TYPES, type ProjectType, type FileType } from '@/api-types';
+import {
+	type BlueprintType,
+	type PhasicBlueprint,
+	SUPPORTED_CHAT_MEDIA_MIME_TYPES,
+	type ProjectType,
+	type FileType,
+} from '@/api-types';
 import { featureRegistry } from '@/features';
 import { useFileContentStream } from './hooks/use-file-content-stream';
 import { logger } from '@/utils/logger';
@@ -217,11 +223,11 @@ export default function Chat() {
 	const [newMessage, setNewMessage] = useState('');
 
 	const { images, addImages, removeImage, clearImages, isProcessing } = useImageUpload({
+		mode: 'chat-media',
 		onError: (error) => {
-			console.error('Chat image upload error:', error);
+			console.error('Chat attachment error:', error);
 		},
 	});
-	const imageInputRef = useRef<HTMLInputElement>(null);
 
 	// Fake stream bootstrap files
 	const { streamedFiles: streamedBootstrapFiles } =
@@ -484,7 +490,7 @@ export default function Chat() {
 	const chatFormRef = useRef<HTMLFormElement>(null);
 	const { isDragging: isChatDragging, dragHandlers: chatDragHandlers } = useDragDrop({
 		onFilesDropped: addImages,
-		accept: [...SUPPORTED_IMAGE_MIME_TYPES],
+		accept: [...SUPPORTED_CHAT_MEDIA_MIME_TYPES],
 		disabled: isChatDisabled,
 	});
 
@@ -492,20 +498,19 @@ export default function Chat() {
 		(e: FormEvent) => {
 			e.preventDefault();
 
-			// Don't submit if chat is disabled or message is empty
-			if (isChatDisabled || !newMessage.trim()) {
+			if (isChatDisabled || (!newMessage.trim() && images.length === 0)) {
 				return;
 			}
 
-			// When generation is active, send as conversational AI suggestion
+			const text = newMessage.trim();
 			websocket?.send(
 				JSON.stringify({
 					type: 'user_suggestion',
-					message: newMessage,
+					message: text,
 					images: images.length > 0 ? images : undefined,
 				}),
 			);
-			sendUserMessage(newMessage);
+			sendUserMessage(text || '(Attached media)');
 			setNewMessage('');
 			// Clear images after sending
 			if (images.length > 0) {
@@ -717,7 +722,6 @@ export default function Chat() {
 					isDebugging={isDebugging}
 					websocket={websocket}
 					chatFormRef={chatFormRef}
-					imageInputRef={imageInputRef}
 				/>
 				</motion.div>
 

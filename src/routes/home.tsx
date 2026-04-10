@@ -2,14 +2,14 @@ import { useRef, useState, useEffect, useMemo } from 'react';
 import { ArrowRight, Info } from 'react-feather';
 import { useNavigate } from 'react-router';
 import { ProjectModeSelector, type ProjectModeOption } from '../components/project-mode-selector';
-import { MAX_AGENT_QUERY_LENGTH, SUPPORTED_IMAGE_MIME_TYPES, type ProjectType } from '@/api-types';
+import { MAX_AGENT_QUERY_LENGTH, SUPPORTED_CHAT_MEDIA_MIME_TYPES, type ProjectType } from '@/api-types';
 import { useFeature } from '@/features';
 import { useAuthGuard } from '../hooks/useAuthGuard';
 import { useInviteCode } from '../hooks/useInviteCode';
 import clsx from 'clsx';
 import { useImageUpload } from '@/hooks/use-image-upload';
 import { useDragDrop } from '@/hooks/use-drag-drop';
-import { ImageUploadButton } from '@/components/image-upload-button';
+import { AttachmentPickerDropdown } from '@/components/attachment-picker-dropdown';
 import { ImageAttachmentPreview } from '@/components/image-attachment-preview';
 import { toast } from 'sonner';
 
@@ -50,15 +50,16 @@ export default function Home() {
 	}, [isLoadingCapabilities, modeOptions, projectMode]);
 
 	const { images, addImages, removeImage, clearImages, isProcessing } = useImageUpload({
+		mode: 'chat-media',
 		onError: (error) => {
-			console.error('Image upload error:', error);
+			console.error('Attachment upload error:', error);
 			toast.error(error);
 		},
 	});
 
 	const { isDragging, dragHandlers } = useDragDrop({
 		onFilesDropped: addImages,
-		accept: [...SUPPORTED_IMAGE_MIME_TYPES],
+		accept: [...SUPPORTED_CHAT_MEDIA_MIME_TYPES],
 	});
 
 
@@ -278,7 +279,7 @@ export default function Home() {
 						>
 							{isDragging && (
 								<div className="absolute inset-0 flex items-center justify-center bg-neo-cyan/20 backdrop-blur-sm rounded-lg z-30 pointer-events-none border-2 border-dashed border-[var(--neo-border-color)]">
-									<p className="text-[#1a1a1a] font-bold">Drop images here</p>
+									<p className="text-[#1a1a1a] font-bold">Drop images, audio, or video here</p>
 								</div>
 							)}
 							<textarea
@@ -325,9 +326,12 @@ export default function Home() {
 							)}
 
 							<div className={clsx('flex items-center gap-2', showModeSelector && 'ml-4')}>
-								<ImageUploadButton
-									onFilesSelected={addImages}
+								<AttachmentPickerDropdown
+									onFilesSelected={(files) => {
+										void addImages(files);
+									}}
 									disabled={isProcessing}
+									triggerClassName="p-1.5 rounded-lg border-2 border-[var(--neo-border-color)] shadow-[2px_2px_0px_0px_var(--neo-border-color)] bg-bg-4 hover:bg-bg-3 text-[#1a1a1a] transition-all duration-150 disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-0.5"
 								/>
 								<button
 									type="submit"
@@ -347,7 +351,7 @@ export default function Home() {
 					<div className="flex items-start gap-2 px-4 py-3 rounded-xl bg-neo-yellow/20 border-2 border-[var(--neo-border-color)] shadow-[3px_3px_0px_0px_var(--neo-border-color)]">
 						<Info className="size-4 text-[#1a1a1a] flex-shrink-0 mt-0.5" />
 						<p className="text-xs text-text-secondary leading-relaxed font-medium">
-							<span className="font-bold text-text-primary">Images Beta:</span> Images guide app layout and design but may not be replicated exactly.
+							<span className="font-bold text-text-primary">Attachments:</span> Images, audio, and video can guide layout and intent; visuals may not be replicated exactly.
 						</p>
 					</div>
 				</div>

@@ -113,6 +113,13 @@ const PLATFORM_AGENT_CONFIG: AgentConfig = {
         temperature: 1,
         fallbackModel: AIModels.GEMINI_3_FLASH_PREVIEW,
     },
+    assetMediaCaption: {
+        name: AIModels.GEMINI_3_1_FLASH_LITE_PREVIEW,
+        reasoning_effort: 'low',
+        max_tokens: 512,
+        temperature: 0,
+        fallbackModel: AIModels.GEMINI_3_FLASH_PREVIEW,
+    },
 };
 
 //======================================================================================
@@ -181,6 +188,13 @@ const DEFAULT_AGENT_CONFIG: AgentConfig = {
         temperature: 1,
         fallbackModel: AIModels.GEMINI_3_FLASH_PREVIEW,
     },
+    assetMediaCaption: {
+        name: AIModels.GEMINI_3_1_FLASH_LITE_PREVIEW,
+        reasoning_effort: 'low',
+        max_tokens: 512,
+        temperature: 0,
+        fallbackModel: AIModels.GEMINI_3_FLASH_PREVIEW,
+    },
 };
 
 export const AGENT_CONFIG: AgentConfig = env.PLATFORM_MODEL_PROVIDERS 
@@ -215,6 +229,10 @@ export const AGENT_CONSTRAINTS: Map<AgentActionKey, AgentConstraintConfig> = new
 	}],
 	['templateSelection', {
 		allowedModels: new Set(LiteModels),
+		enabled: true,
+	}],
+	['assetMediaCaption', {
+		allowedModels: new Set(LiteModels.filter((id) => id !== AIModels.DISABLED)),
 		enabled: true,
 	}],
 ]);

@@ -1,4 +1,38 @@
+import type { AssetMapEntry } from 'shared/types/asset-map';
 import { getProtocolForHost } from './urls';
+
+/**
+ * Parse existing asset_map file. Accepts legacy values that were plain URL strings.
+ */
+export function parseAssetMapJson(raw: string | null | undefined): Record<string, AssetMapEntry> {
+	if (!raw || !raw.trim()) {
+		return {};
+	}
+	try {
+		const parsed = JSON.parse(raw) as unknown;
+		if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+			return {};
+		}
+		const out: Record<string, AssetMapEntry> = {};
+		for (const [key, v] of Object.entries(parsed as Record<string, unknown>)) {
+			if (typeof v === 'string') {
+				out[key] = { url: v };
+				continue;
+			}
+			if (v && typeof v === 'object' && typeof (v as { url?: unknown }).url === 'string') {
+				const o = v as { url: string; description?: unknown };
+				const entry: AssetMapEntry = { url: o.url };
+				if (typeof o.description === 'string' && o.description.trim() !== '') {
+					entry.description = o.description.trim();
+				}
+				out[key] = entry;
+			}
+		}
+		return out;
+	} catch {
+		return {};
+	}
+}
 
 export function sanitizeAgentAssetFilename(name: string): string {
 	return name.replace(/[^a-zA-Z0-9._-]/g, '_');
@@ -23,45 +57,69 @@ export function getPublicUrlForBucketKey(env: Env, r2Key: string): string {
 	return `${base}/api/${r2Key}`;
 }
 
-export async function computeAgentAssetMapJson(env: Env, agentId: string): Promise<string> {
+/**
+ * Build asset_map JSON from R2 listing. Preserves `description` for paths that still exist in R2.
+ * Values are always `{ url }` or `{ url, description? }` (scheme A).
+ */
+export async function computeAgentAssetMapJson(
+	env: Env,
+	agentId: string,
+	existingFileContent?: string | null,
+): Promise<string> {
+	const existing = parseAssetMapJson(existingFileContent ?? undefined);
 	const prefix = `assets/${agentId}/`;
 	const listed = await env.TEMPLATES_BUCKET.list({ prefix, limit: 500 });
 
 	const protocol = getProtocolForHost(env.CUSTOM_DOMAIN);
 	const baseUrl = `${protocol}://${env.CUSTOM_DOMAIN}/api/projects/${agentId}/assets/file`;
 
-	const assetMap: Record<string, string> = {};
+	const assetMap: Record<string, AssetMapEntry> = {};
 	for (const obj of listed.objects) {
 		const relativePath = obj.key.replace(prefix, '');
-		assetMap[relativePath] = `${baseUrl}/${relativePath}`;
+		const url = `${baseUrl}/${relativePath}`;
+		const prev = existing[relativePath];
+		if (prev?.description) {
+			assetMap[relativePath] = { url, description: prev.description };
+		} else {
+			assetMap[relativePath] = { url };
+		}
 	}
 
 	return JSON.stringify(assetMap, null, 2);
 }
 
 export async function syncAgentAssetMap(env: Env, agentId: string): Promise<void> {
-	const assetMapContent = await computeAgentAssetMapJson(env, agentId);
 	const { getAgentStubLightweight } = await import('../agents');
 	const agentInstance = await getAgentStubLightweight(env, agentId);
+	const existing = await agentInstance.readSrcAssetMap();
+	const assetMapContent = await computeAgentAssetMapJson(env, agentId, existing);
 	await agentInstance.updateAssetMap(assetMapContent);
 }
 
-/** Stable relative path under assets/{agentId}/ for an image (dedupes same batch). */
+export function assetCategoryFolderForMime(mimeType: string): 'images' | 'audio' | 'video' | 'other' {
+	if (mimeType.startsWith('image/')) return 'images';
+	if (mimeType.startsWith('audio/')) return 'audio';
+	if (mimeType.startsWith('video/')) return 'video';
+	return 'other';
+}
+
+/** Stable relative path under assets/{agentId}/ (images|audio|video|other); dedupes same batch. */
 export function uniqueAgentAssetRelativePath(
-	image: { id: string; filename: string },
+	file: { id: string; filename: string; mimeType: string },
 	index: number,
 	used: Set<string>,
 ): string {
-	const base = sanitizeAgentAssetFilename(image.filename);
-	let rel = `images/${base}`;
+	const folder = assetCategoryFolderForMime(file.mimeType);
+	const base = sanitizeAgentAssetFilename(file.filename);
+	let rel = `${folder}/${base}`;
 	if (used.has(rel)) {
 		const lastDot = base.lastIndexOf('.');
 		const stem = lastDot > 0 ? base.slice(0, lastDot) : base;
 		const ext = lastDot > 0 ? base.slice(lastDot) : '';
-		rel = `images/${stem}_${image.id.slice(0, 8)}${ext}`;
+		rel = `${folder}/${stem}_${file.id.slice(0, 8)}${ext}`;
 	}
 	if (used.has(rel)) {
-		rel = `images/upload_${index}_${base}`;
+		rel = `${folder}/upload_${index}_${base}`;
 	}
 	used.add(rel);
 	return rel;

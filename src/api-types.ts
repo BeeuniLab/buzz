@@ -239,11 +239,14 @@ export interface StreamingResponse {
 export type AgentStreamingResponse = StreamingResponse;
 
 export {
-	type ImageAttachment, 
-	isSupportedImageType, 
+	type ImageAttachment,
+	isSupportedImageType,
+	isSupportedChatMediaType,
 	MAX_IMAGE_SIZE_BYTES,
 	MAX_IMAGES_PER_MESSAGE,
-	SUPPORTED_IMAGE_MIME_TYPES
+	MAX_CHAT_MEDIA_PER_MESSAGE,
+	SUPPORTED_IMAGE_MIME_TYPES,
+	SUPPORTED_CHAT_MEDIA_MIME_TYPES,
 } from 'worker/types/image-attachment';
 
 // Auth types imported from worker
@@ -302,7 +305,9 @@ export interface ActiveSessionsData {
 }
 
 // Asset management types
-export type AssetCategory = 'images' | '3d' | 'audio' | 'fonts' | 'other';
+export type AssetCategory = 'images' | 'video' | '3d' | 'audio' | 'fonts' | 'other';
+
+export type { AssetMapEntry } from 'shared/types/asset-map';
 
 export interface AssetItem {
   key: string;

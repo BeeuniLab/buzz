@@ -15,8 +15,9 @@ lib/
                       Falls back to sessionStorage when KV is unavailable.
 assets/
   images/             Static images (PNG, WebP, SVG ...)
-  fonts/              Custom font files (WOFF2, TTF ...)
   audio/              Sound effects and music (MP3, OGG, WAV ...)
+  video/              Short clips (MP4, WebM, MOV ...)
+  fonts/              Custom font files (WOFF2, TTF ...)
   3d/                 3D models and textures (GLB, GLTF, OBJ ...)
 worker/
   host.ts             Cloudflare Worker: serves static files + /__buzzplay-host/v1 API
@@ -83,7 +84,7 @@ Each entry is keyed by a descriptive ID (e.g. `"player_idle"`, `"salon_backgroun
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
 | `url` | string | yes | CDN or relative URL to the asset file |
-| `type` | string | yes | `"image"`, `"audio"`, `"3d"` |
+| `type` | string | yes | `"image"`, `"audio"`, `"video"`, `"3d"` |
 | `subtype` | string | no | `"background"`, `"character"`, `"item"`, `"ui"`, `"effect"`, `"music"`, `"sfx"` |
 | `prompt` | string | no | Generation prompt used to create this asset (for AI reproducibility) |
 | `description` | string | no | Human-readable description of the asset |

@@ -25,7 +25,28 @@ export type ImageContent = {
 	};
 };
 
-export type MessageContent = string | (TextContent | ImageContent)[] | null;
+/** OpenAI Chat Completions audio part (gateway may route to Gemini). */
+export type InputAudioContentPart = {
+	type: 'input_audio';
+	input_audio: {
+		data: string;
+		format: 'wav' | 'mp3';
+	};
+};
+
+/** OpenAI Chat Completions file part (video / non-mp3-wav audio as inline base64). */
+export type FileContentPart = {
+	type: 'file';
+	file: {
+		file_data?: string;
+		filename?: string;
+	};
+};
+
+export type MessageContent =
+	| string
+	| (TextContent | ImageContent | InputAudioContentPart | FileContentPart)[]
+	| null;
 
 // Define a proper message type that matches OpenAI's requirements and supports multi-modal content
 export type Message = {
@@ -86,12 +107,9 @@ export function createMultiModalUserMessage(
 	text: string,
 	imageUrls: string | string[],
 	detail?: 'auto' | 'low' | 'high',
-): {
-	role: MessageRole;
-	content: (TextContent | ImageContent)[];
-} {
+): Message {
 	const urls = Array.isArray(imageUrls) ? imageUrls : [imageUrls];
-	
+
 	return {
 		role: 'user' as MessageRole,
 		content: [
@@ -99,7 +117,7 @@ export function createMultiModalUserMessage(
 				type: 'text',
 				text,
 			},
-			...urls.map(url => ({
+			...urls.map((url) => ({
 				type: 'image_url' as const,
 				image_url: {
 					url,

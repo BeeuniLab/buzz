@@ -93,7 +93,8 @@
 
 	function resolveAsset(id) {
 		var m = window.__assetMap && window.__assetMap[id];
-		if (!m) return undefined;
+		if (m === undefined || m === null) return undefined;
+		if (typeof m === 'string') return { url: m };
 		if (typeof m.url === 'string') return m;
 		if (m.animation && typeof m.animation.url === 'string')
 			return Object.assign({}, m, { url: m.animation.url });
@@ -218,13 +219,16 @@
 
 		getAsset: function (id) {
 			var m = window.__assetMap && window.__assetMap[id];
-			if (!m) return undefined;
+			if (m === undefined || m === null) return undefined;
+			if (typeof m === 'string') return { url: m };
 			return m;
 		},
 
 		getAnimationPlayer: function (assetId) {
 			var raw = window.__assetMap && window.__assetMap[assetId];
-			if (!raw || !raw.url) return null;
+			if (raw === undefined || raw === null) return null;
+			if (typeof raw === 'string') raw = { url: raw };
+			if (!raw.url || typeof raw.url !== 'string') return null;
 			var img = __imageCache[assetId];
 			var anim = raw.animation;
 			if (anim && Array.isArray(anim.frames) && anim.frames.length) {

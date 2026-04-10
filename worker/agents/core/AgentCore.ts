@@ -46,4 +46,7 @@ export interface AgentInfrastructure<TState extends BaseProjectState> {
 
     /** Refresh src/asset_map from R2 assets/{agentId}/ prefix (after user uploads). */
     syncProjectAssetMapFromR2(): Promise<void>;
+
+    /** Merge LLM-generated descriptions into existing asset_map entries (same relative paths). */
+    mergeAssetMapDescriptions(descriptionsByRelativePath: Record<string, string>): Promise<void>;
 }

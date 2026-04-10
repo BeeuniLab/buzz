@@ -7,6 +7,7 @@ import { DocsSidebar } from './docs-sidebar';
 import { ExportButton } from './export-button';
 import { exportMarkdownAsFile } from '@/utils/markdown-export';
 import type { FileType } from '@/api-types';
+import { useIsMobile } from '@/hooks/use-mobile';
 import './markdown-docs-preview.css';
 
 interface MarkdownDocsPreviewProps {
@@ -18,6 +19,8 @@ export function MarkdownDocsPreview({
 	files,
 	isGenerating: _isGenerating,
 }: MarkdownDocsPreviewProps) {
+	const isMobile = useIsMobile();
+
 	// Prioritize README as default, otherwise first file
 	const defaultFile = useMemo(() => {
 		const readmeFile = files.find((f) =>
@@ -92,34 +95,50 @@ export function MarkdownDocsPreview({
 		return content;
 	}, [activeFile]);
 
-	return (
-		<div className="flex-1 flex overflow-hidden">
-			{/* Sidebar */}
-			<DocsSidebar
-				files={files}
-				activeFile={activeFilePath}
-				onFileSelect={handleFileSelect}
-			/>
+	const showMobileFileSelect = isMobile && files.length > 1;
 
-			{/* Main content area */}
-			<div className="flex-1 flex flex-col overflow-hidden">
-				{/* Header */}
-				<div className="flex items-center gap-3 px-6 h-12 bg-bg-2 border-b border-border-primary">
-					{/* Left: File name and status */}
-					<div className="flex items-center gap-3 flex-1">
-						<span className="text-sm font-medium text-text-primary">
-							{activeFile?.filePath || 'Documentation'}
-						</span>
+	return (
+		<div className="docs-markdown-layout flex-1 flex flex-col md:flex-row overflow-hidden min-h-0">
+			{/* File tree: desktop only (mobile uses header select) */}
+			<div className="docs-file-panel hidden md:flex md:w-52 lg:w-56 shrink-0 min-h-0 flex-col border-r border-border-primary bg-bg-2">
+				<DocsSidebar
+					files={files}
+					activeFile={activeFilePath}
+					onFileSelect={handleFileSelect}
+				/>
+			</div>
+
+			{/* Main column: grows; min-w-0 so flex gives it the remaining width */}
+			<div className="flex-1 flex flex-col min-w-0 min-h-0 overflow-hidden">
+				<div className="flex items-center gap-2 md:gap-3 px-4 md:px-6 h-12 shrink-0 bg-bg-2 border-b border-border-primary">
+					<div className="flex items-center gap-2 md:gap-3 flex-1 min-w-0">
+						{showMobileFileSelect ? (
+							<select
+								className="w-full min-w-0 text-xs bg-bg-1 border border-border-primary rounded-md px-2 py-1.5 text-text-primary"
+								value={activeFilePath}
+								onChange={(e) => handleFileSelect(e.target.value)}
+								aria-label="Choose documentation file"
+							>
+								{files.map((f) => (
+									<option key={f.filePath} value={f.filePath}>
+										{f.filePath.split('/').pop() ?? f.filePath}
+									</option>
+								))}
+							</select>
+						) : (
+							<span className="text-sm font-medium text-text-primary truncate">
+								{activeFile?.filePath || 'Documentation'}
+							</span>
+						)}
 						{activeFile?.isGenerating && (
-							<div className="flex items-center gap-2 text-xs text-accent">
+							<div className="flex items-center gap-2 text-xs text-accent shrink-0">
 								<Loader className="size-3 animate-spin" />
-								<span>Generating...</span>
+								<span className="hidden sm:inline">Generating...</span>
 							</div>
 						)}
 					</div>
 
-					{/* Right: Export buttons */}
-					<div className="flex items-center gap-2 export-button-container">
+					<div className="flex items-center gap-2 export-button-container shrink-0">
 						<ExportButton
 							icon={FileText}
 							onClick={handleExportMarkdown}
@@ -135,10 +154,8 @@ export function MarkdownDocsPreview({
 					</div>
 				</div>
 
-				{/* Content with TOC */}
-				<div className="flex-1 flex overflow-hidden">
-					{/* Main markdown content */}
-					<div className="flex-1 overflow-y-auto px-6 py-8">
+				<div className="flex-1 flex min-h-0 min-w-0 overflow-hidden">
+					<div className="flex-1 min-w-0 overflow-y-auto px-4 sm:px-6 lg:px-10 py-6 lg:py-8">
 						{!activeFile ? (
 							<div className="flex flex-col items-center justify-center h-full gap-4 text-text-secondary">
 								<p>No documentation file selected</p>
@@ -149,7 +166,10 @@ export function MarkdownDocsPreview({
 								<p>Waiting for content...</p>
 							</div>
 						) : (
-							<article ref={contentRef} className="prose prose-sm prose-invert max-w-none">
+							<article
+								ref={contentRef}
+								className="prose prose-sm prose-invert max-w-none w-full"
+							>
 								<ReactMarkdown
 									remarkPlugins={[remarkGfm]}
 									rehypePlugins={[[rehypeExternalLinks, { target: '_blank' }]]}
@@ -171,24 +191,24 @@ export function MarkdownDocsPreview({
 						)}
 					</div>
 
-					{/* Table of contents (if headings exist) */}
+					{/* TOC: large screens only — keeps the reading column wide */}
 					{tableOfContents.length > 0 && (
-						<div className="w-56 border-l border-border-primary bg-bg-2 overflow-y-auto py-6 px-4">
-							<h4 className="text-xs font-semibold text-text-secondary uppercase tracking-wider mb-3">
+						<aside className="docs-toc hidden xl:flex xl:w-48 2xl:w-52 shrink-0 flex-col border-l border-border-primary bg-bg-2 overflow-y-auto py-6 px-3 2xl:px-4">
+							<h4 className="text-xs font-semibold text-text-secondary uppercase tracking-wider mb-3 px-1">
 								On This Page
 							</h4>
-							<nav>
+							<nav className="px-1">
 								<ul className="space-y-2">
 									{tableOfContents.map((heading, idx) => (
 										<li
 											key={idx}
 											style={{
-												paddingLeft: `${(heading.level - 1) * 12}px`,
+												paddingLeft: `${(heading.level - 1) * 10}px`,
 											}}
 										>
 											<a
 												href={`#${heading.id}`}
-												className="text-xs text-text-tertiary hover:text-text-primary transition-colors block"
+												className="text-xs text-text-tertiary hover:text-text-primary transition-colors block break-words"
 											>
 												{heading.text}
 											</a>
@@ -196,7 +216,7 @@ export function MarkdownDocsPreview({
 									))}
 								</ul>
 							</nav>
-						</div>
+						</aside>
 					)}
 				</div>
 			</div>
