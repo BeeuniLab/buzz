@@ -26,7 +26,8 @@ import { AppService } from '../../../database';
 import { RateLimitExceededError } from 'shared/types/errors';
 import { ImageAttachment, type ProcessedImageAttachment } from '../../../types/image-attachment';
 import { OperationOptions } from '../../operations/common';
-import { ImageType, uploadImage } from 'worker/utils/images';
+import { uploadImageAsAgentAsset } from 'worker/utils/images';
+import { uniqueAgentAssetRelativePath } from 'worker/utils/agentAssets';
 import { generateCoverImage } from '../../assistants/coverGenerator';
 
 import { DeepDebugResult } from '../types';
@@ -1159,11 +1160,19 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
             // If there are images, upload them and pass the URLs to the conversation processor
             let uploadedImages: ProcessedImageAttachment[] = [];
             if (images) {
-                uploadedImages = await Promise.all(images.map(async (image) => {
-                    return await uploadImage(this.env, image, ImageType.UPLOADS);
-                }));
+                const usedPaths = new Set<string>();
+                const agentId = this.getAgentId();
+                uploadedImages = await Promise.all(
+                    images.map(async (image, index) => {
+                        const relativePath = uniqueAgentAssetRelativePath(image, index, usedPaths);
+                        return uploadImageAsAgentAsset(this.env, agentId, image, relativePath);
+                    }),
+                );
 
                 this.logger.info('Uploaded images', { uploadedImages });
+                void this.infrastructure.syncProjectAssetMapFromR2().catch(err =>
+                    this.logger.error('Failed to sync asset map after image upload', { error: err }),
+                );
             }
 
             // Process the user message using conversational assistant

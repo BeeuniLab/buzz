@@ -43,4 +43,7 @@ export interface AgentInfrastructure<TState extends BaseProjectState> {
         hasCommits: boolean;
         templateDetails: TemplateDetails | null;
     }>;
+
+    /** Refresh src/asset_map from R2 assets/{agentId}/ prefix (after user uploads). */
+    syncProjectAssetMapFromR2(): Promise<void>;
 }

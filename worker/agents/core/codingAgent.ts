@@ -30,6 +30,7 @@ import { SecretsClient, type UserSecretsStoreStub } from '../../services/secrets
 import { StateMigration } from './stateMigration';
 import { PendingWsTicket, TicketConsumptionResult } from '../../types/auth-types';
 import { WsTicketManager } from '../../utils/wsTicketManager';
+import { computeAgentAssetMapJson } from '../../utils/agentAssets';
 
 const DEFAULT_CONVERSATION_SESSION_ID = 'default';
 
@@ -497,6 +498,14 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
             const msg = error instanceof Error ? error.message : String(error);
             this.logger().error('Failed to update asset map:', error);
             return { success: false, error: msg };
+        }
+    }
+
+    async syncProjectAssetMapFromR2(): Promise<void> {
+        const json = await computeAgentAssetMapJson(this.env, this.getAgentId());
+        const result = await this.updateAssetMap(json);
+        if (!result.success) {
+            this.logger().error('syncProjectAssetMapFromR2 failed', { error: result.error });
         }
     }
 

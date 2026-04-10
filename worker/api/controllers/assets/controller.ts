@@ -2,7 +2,7 @@ import { BaseController } from '../baseController';
 import type { ControllerResponse, ApiResponse } from '../types';
 import type { RouteContext } from '../../types/route-context';
 import { createLogger } from '../../../logger';
-import { getAgentStubLightweight } from '../../../agents';
+import { sanitizeAgentAssetFilename, syncAgentAssetMap } from '../../../utils/agentAssets';
 
 type AssetCategory = 'images' | '3d' | 'audio' | 'fonts' | 'other';
 
@@ -48,28 +48,6 @@ function categorizeByExtension(filename: string): 'images' | '3d' | 'audio' | 'f
 function getMimeType(filename: string): string {
 	const ext = filename.substring(filename.lastIndexOf('.')).toLowerCase();
 	return MIME_MAP[ext] || 'application/octet-stream';
-}
-
-/**
- * List all assets for an agent and sync the asset_map file to the agent's git filesystem.
- * Runs in the background — failures are logged but do not affect the API response.
- */
-async function syncAssetMap(env: Env, agentId: string): Promise<void> {
-	const prefix = `assets/${agentId}/`;
-	const listed = await env.TEMPLATES_BUCKET.list({ prefix, limit: 500 });
-
-	const protocol = env.CUSTOM_DOMAIN?.startsWith('localhost') ? 'http' : 'https';
-	const baseUrl = `${protocol}://${env.CUSTOM_DOMAIN}/api/projects/${agentId}/assets/file`;
-
-	const assetMap: Record<string, string> = {};
-	for (const obj of listed.objects) {
-		const relativePath = obj.key.replace(prefix, '');
-		assetMap[relativePath] = `${baseUrl}/${relativePath}`;
-	}
-
-	const assetMapContent = JSON.stringify(assetMap, null, 2);
-	const agentInstance = await getAgentStubLightweight(env, agentId);
-	await agentInstance.updateAssetMap(assetMapContent);
 }
 
 export class AssetController extends BaseController {
@@ -137,7 +115,7 @@ export class AssetController extends BaseController {
 				return AssetController.createErrorResponse('File too large (max 10MB)', 400);
 			}
 
-			const filename = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+			const filename = sanitizeAgentAssetFilename(file.name);
 			const relativePath = `${category}/${filename}`;
 			const r2Key = `assets/${agentId}/${relativePath}`;
 			const contentType = file.type || getMimeType(filename);
@@ -157,7 +135,7 @@ export class AssetController extends BaseController {
 
 			// Sync asset_map to agent in the background
 			ctx.waitUntil(
-				syncAssetMap(env, agentId).catch(err =>
+				syncAgentAssetMap(env, agentId).catch(err =>
 					AssetController.logger.error('Failed to sync asset map after upload', { error: err }),
 				),
 			);
@@ -193,7 +171,7 @@ export class AssetController extends BaseController {
 
 			// Sync asset_map to agent in the background
 			ctx.waitUntil(
-				syncAssetMap(env, agentId).catch(err =>
+				syncAgentAssetMap(env, agentId).catch(err =>
 					AssetController.logger.error('Failed to sync asset map after delete', { error: err }),
 				),
 			);

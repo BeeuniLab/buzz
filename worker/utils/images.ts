@@ -4,7 +4,7 @@
 // ===============================
 
 import { ImageAttachment, ProcessedImageAttachment, SupportedImageMimeType } from "worker/types/image-attachment";
-import { getProtocolForHost } from "./urls";
+import { getAgentAssetFilePublicUrl, getPublicUrlForBucketKey } from "./agentAssets";
 
 export function base64ToUint8Array(base64: string): Uint8Array {
     const binary = atob(base64);
@@ -15,15 +15,16 @@ export function base64ToUint8Array(base64: string): Uint8Array {
     return bytes;
 }
 
-export enum ImageType {
-    SCREENSHOTS = 'screenshots',
-    UPLOADS = 'uploads',
-}
-
-export async function uploadImageToCloudflareImages(env: Env, image: ImageAttachment, type: ImageType, bytes?: Uint8Array): Promise<string> {
+/** Upload to Cloudflare Images; `cfFilenameSegment` disambiguates filenames in the CF dashboard. */
+export async function uploadImageToCloudflareImages(
+	env: Env,
+	image: ImageAttachment,
+	cfFilenameSegment: string,
+	bytes?: Uint8Array,
+): Promise<string> {
     const url = `https://api.cloudflare.com/client/v4/accounts/${env.CLOUDFLARE_ACCOUNT_ID}/images/v1`;
 
-    const filename = `${image.id}-${type}-${image.filename}`;
+    const filename = `${image.id}-${cfFilenameSegment}-${image.filename}`;
 
     const data = bytes ?? base64ToUint8Array(image.base64Data!);
     const blob = new Blob([data], { type: image.mimeType });
@@ -55,48 +56,45 @@ export async function uploadImageToCloudflareImages(env: Env, image: ImageAttach
     throw new Error('Cloudflare Images upload succeeded without variants');
 }
 
-export function getPublicUrlForR2Image(env: Env, r2Key: string): string {
-    const protocol = getProtocolForHost(env.CUSTOM_DOMAIN);
-    const base = `${protocol}://${env.CUSTOM_DOMAIN}`;
-    const url = `${base}/api/${r2Key}`;
-    return url;
-}
+/** Store user image under assets/{agentId}/… so it appears in the project asset list and editor. */
+export async function uploadImageAsAgentAsset(
+	env: Env,
+	agentId: string,
+	image: ImageAttachment,
+	relativePath: string,
+): Promise<ProcessedImageAttachment> {
+	const hashPromise = hashImageB64url(image.base64Data!);
+	const bytes = base64ToUint8Array(image.base64Data!);
 
-export async function uploadImageToR2(env: Env, image: ImageAttachment, type: ImageType, cfImagesUrl?: string, bytes?: Uint8Array): Promise<{ url: string; r2Key: string }> {
-    const data = bytes ?? base64ToUint8Array(image.base64Data!);
-    const r2Key = `${type}/${image.id}/${encodeURIComponent(image.filename)}`;
-    await env.TEMPLATES_BUCKET.put(r2Key, data, { httpMetadata: { contentType: image.mimeType }, customMetadata: { "cfImagesUrl": cfImagesUrl || '' } });
+	let cfImagesUrl = '';
+	if (env.USE_CLOUDFLARE_IMAGES) {
+		try {
+			cfImagesUrl = await uploadImageToCloudflareImages(env, image, 'user-asset', bytes);
+		} catch (err) {
+			console.warn('Cloudflare Images upload failed, will try R2 fallback', {
+				error: err instanceof Error ? err.message : String(err),
+				image,
+				type: 'agent-asset',
+			});
+		}
+	}
 
-    return { url: getPublicUrlForR2Image(env, r2Key), r2Key };
-}
+	const r2Key = `assets/${agentId}/${relativePath}`;
+	await env.TEMPLATES_BUCKET.put(r2Key, bytes, {
+		httpMetadata: { contentType: image.mimeType },
+		customMetadata: { cfImagesUrl: cfImagesUrl || '' },
+	});
 
-export async function uploadImage(env: Env, image: ImageAttachment, type: ImageType): Promise<ProcessedImageAttachment> {
-    // Hash in parallel to uploads
-    const hashPromise = hashImageB64url(image.base64Data!);
-    // Compute bytes once for both CF Images and R2
-    const bytes = base64ToUint8Array(image.base64Data!);
+	const url = getAgentAssetFilePublicUrl(env, agentId, relativePath);
+	const hash = await hashPromise;
 
-    // Obtain CF Images URL first (when enabled) so we can pass it into R2 metadata
-    let cfImagesUrl = '';
-    if (env.USE_CLOUDFLARE_IMAGES) {
-        try {
-            cfImagesUrl = await uploadImageToCloudflareImages(env, image, type, bytes);
-        } catch (err) {
-            console.warn('Cloudflare Images upload failed, will try R2 fallback', { error: err instanceof Error ? err.message : String(err), image, type });
-        }
-    }
-
-    // Upload to R2 with cfImagesUrl in custom metadata when available
-    const { r2Key, url } = await uploadImageToR2(env, image, type, cfImagesUrl, bytes);
-    const hash = await hashPromise;
-
-    return {
-        ...image,
-        publicUrl: cfImagesUrl || url,
-        hash,
-        mimeType: image.mimeType,
-        r2Key,
-    }
+	return {
+		...image,
+		publicUrl: cfImagesUrl || url,
+		hash,
+		mimeType: image.mimeType,
+		r2Key,
+	};
 }
 
 function sanitizeBase64Data(dataUrl: string): string {
@@ -149,7 +147,8 @@ export async function downloadR2Image(env: Env, r2Key: string) : Promise<Process
     return {
         base64Data: sanitizeBase64Data(base64),
         r2Key,
-        publicUrl: cfImagesUrl || getPublicUrlForR2Image(env, r2Key),
+        publicUrl: cfImagesUrl || getPublicUrlForBucketKey(env, r2Key),
         hash: await hashImageB64url(base64),
-        mimeType,    }
+        mimeType,
+    };
 }

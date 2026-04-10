@@ -21,7 +21,8 @@ import { compactifyContext } from '../../utils/conversationCompactifier';
 import { ConversationMessage, createMultiModalUserMessage, createUserMessage, Message } from '../../inferutils/common';
 import { AbortError } from 'worker/agents/inferutils/core';
 import { ImageAttachment, ProcessedImageAttachment } from 'worker/types/image-attachment';
-import { ImageType, uploadImage } from 'worker/utils/images';
+import { uploadImageAsAgentAsset } from 'worker/utils/images';
+import { uniqueAgentAssetRelativePath } from 'worker/utils/agentAssets';
 
 interface AgenticOperations extends BaseCodingOperations {
     generateNextPhase: PhaseGenerationOperation;
@@ -136,13 +137,21 @@ export class AgenticCodingBehavior extends BaseCodingBehavior<AgenticState> impl
         let processedImages: ProcessedImageAttachment[] | undefined;
 
         if (images && images.length > 0) {
-            processedImages = await Promise.all(images.map(async (image) => {
-                return await uploadImage(this.env, image, ImageType.UPLOADS);
-            }));
+            const usedPaths = new Set<string>();
+            const agentId = this.getAgentId();
+            processedImages = await Promise.all(
+                images.map(async (image, index) => {
+                    const relativePath = uniqueAgentAssetRelativePath(image, index, usedPaths);
+                    return uploadImageAsAgentAsset(this.env, agentId, image, relativePath);
+                }),
+            );
 
             this.logger.info('Uploaded images for queued request', {
                 imageCount: processedImages.length
             });
+            void this.infrastructure.syncProjectAssetMapFromR2().catch(err =>
+                this.logger.error('Failed to sync asset map after image upload', { error: err }),
+            );
         }
 
         await this.queueUserRequest(userMessage, processedImages);

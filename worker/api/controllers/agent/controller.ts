@@ -19,7 +19,8 @@ import { RateLimitService } from '../../../services/rate-limit/rateLimits';
 import { validateWebSocketOrigin } from '../../../middleware/security/websocket';
 import { createLogger } from '../../../logger';
 import { getPreviewDomain } from 'worker/utils/urls';
-import { ImageType, uploadImage } from 'worker/utils/images';
+import { uploadImageAsAgentAsset } from 'worker/utils/images';
+import { uniqueAgentAssetRelativePath, syncAgentAssetMap } from 'worker/utils/agentAssets';
 import { ProcessedImageAttachment } from 'worker/types/image-attachment';
 import { getTemplateImportantFiles } from 'worker/services/templates/utils';
 import { hasTicketParam } from '../../../middleware/auth/ticketAuth';
@@ -51,7 +52,7 @@ export class CodingAgentController extends BaseController {
     /**
      * Start the incremental code generation process
      */
-    static async startCodeGeneration(request: Request, env: Env, _: ExecutionContext, context: RouteContext): Promise<Response> {
+    static async startCodeGeneration(request: Request, env: Env, ctx: ExecutionContext, context: RouteContext): Promise<Response> {
         try {
             this.logger.info('Starting code generation process');
 
@@ -146,10 +147,14 @@ export class CodingAgentController extends BaseController {
             const httpStatusUrl = `${url.origin}/api/agent/${agentId}`;
 
             let uploadedImages: ProcessedImageAttachment[] = [];
-            if (body.images) {
-                uploadedImages = await Promise.all(body.images.map(async (image) => {
-                    return uploadImage(env, image, ImageType.UPLOADS);
-                }));
+            if (body.images && body.images.length > 0) {
+                const usedPaths = new Set<string>();
+                uploadedImages = await Promise.all(
+                    body.images.map(async (image, index) => {
+                        const relativePath = uniqueAgentAssetRelativePath(image, index, usedPaths);
+                        return uploadImageAsAgentAsset(env, agentId, image, relativePath);
+                    }),
+                );
             }
 
             writer.write({
@@ -182,6 +187,13 @@ export class CodingAgentController extends BaseController {
 
             const agentPromise = agentInstance.initialize(initArgs) as Promise<AgentState>;
             agentPromise.then(async (_state: AgentState) => {
+                if (uploadedImages.length > 0) {
+                    ctx.waitUntil(
+                        syncAgentAssetMap(env, agentId).catch(err =>
+                            this.logger.error('Failed to sync asset map after create with images', { error: err }),
+                        ),
+                    );
+                }
                 writer.write("terminate");
                 writer.close();
                 this.logger.info(`Agent ${agentId} terminated successfully`);
