@@ -9,6 +9,7 @@ import {
 import { AgentComponent } from '../AgentComponent';
 import type { AgentInfrastructure } from '../AgentCore';
 import { WebSocketMessageResponses } from '../../constants';
+import { AppService } from '../../../database/services/AppService';
 import {
 	getAdditionalExportStrategy,
 	type AdditionalExportStrategy,
@@ -49,27 +50,51 @@ export class ProjectObjective<
 				projectType: this.projectType,
 			});
 
-			if (!this.state.sessionId) {
-				this.broadcast(WebSocketMessageResponses.CLOUDFLARE_DEPLOYMENT_ERROR, {
-					message: 'Deployment failed: No active session',
-					error: 'No active session',
-				});
-				return {
-					success: false,
-					target,
-					error: 'No active session',
-				};
+			if (!this.state.sandboxInstanceId) {
+				this.logger.info('No sandbox instance, deploying to sandbox first');
+				await this.deploymentManager.deployToSandbox();
+
+				if (!this.state.sandboxInstanceId) {
+					this.broadcast(WebSocketMessageResponses.CLOUDFLARE_DEPLOYMENT_ERROR, {
+						message: 'Deployment failed: Sandbox service unavailable',
+						error: 'Sandbox service unavailable',
+					});
+					return {
+						success: false,
+						target,
+						error: 'Failed to deploy to sandbox service',
+					};
+				}
 			}
 
-			this.broadcast(WebSocketMessageResponses.CLOUDFLARE_DEPLOYMENT_ERROR, {
-				message: 'Deployment to Cloudflare is not available in this mode',
-				error: 'Cloudflare deployment not available',
+			const result = await this.deploymentManager.deployToCloudflare({
+				target,
+				callbacks: {
+					onStarted: (data) =>
+						this.broadcast(WebSocketMessageResponses.CLOUDFLARE_DEPLOYMENT_STARTED, data),
+					onCompleted: (data) =>
+						this.broadcast(WebSocketMessageResponses.CLOUDFLARE_DEPLOYMENT_COMPLETED, data),
+					onError: (data) =>
+						this.broadcast(WebSocketMessageResponses.CLOUDFLARE_DEPLOYMENT_ERROR, data),
+				},
 			});
 
+			if (result.deploymentUrl && result.deploymentId) {
+				const appService = new AppService(this.env);
+				await appService.updateDeploymentId(this.getAgentId(), result.deploymentId);
+				this.logger.info('Updated deployment ID in database', {
+					deploymentId: result.deploymentId,
+				});
+			}
+
 			return {
-				success: false,
+				success: !!result.deploymentUrl,
 				target,
-				error: 'Cloudflare deployment not available',
+				url: result.deploymentUrl || undefined,
+				metadata: {
+					deploymentId: result.deploymentId,
+					workersUrl: result.deploymentUrl,
+				},
 			};
 		} catch (error) {
 			const message = error instanceof Error ? error.message : 'Unknown deployment error';

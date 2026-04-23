@@ -1,0 +1,21 @@
+{
+  "slides": [
+    "Slide01.jsx",
+    "Slide02.jsx",
+    "Slide03.jsx",
+    "Slide04.jsx",
+    "Slide05.jsx",
+    "Slide06.jsx",
+    "Slide07.jsx",
+    "Slide08.jsx",
+    "Slide09.jsx",
+    "Slide11.jsx",
+    "Slide10.jsx"
+  ],
+  "metadata": {
+    "title": "[MODIFY] DEMO Glass Morphism Presentation",
+    "description": "[MODIFY] DEMO TEMPLATE: A beautiful presentation showcasing glass morphism effects, smooth animations, and data visualizations",
+    "theme": "dark",
+    "transition": "slide"
+  }
+}

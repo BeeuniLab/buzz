@@ -1,0 +1,272 @@
+{
+    "id": "slide03",
+    "root": {
+        "type": "div",
+        "className": "layout-default justify-center",
+        "children": [
+            {
+                "type": "div",
+                "className": "mb-12 text-center",
+                "children": [
+                    {
+                        "type": "h2",
+                        "className": "slide-title text-gradient",
+                        "text": "Section Title"
+                    },
+                    {
+                        "type": "p",
+                        "className": "slide-subtitle mx-auto",
+                        "text": "A brief description that introduces the content below."
+                    }
+                ]
+            },
+            {
+                "type": "div",
+                "className": "grid-3 h-full max-h-[500px]",
+                "children": [
+                    {
+                        "type": "div",
+                        "className": "glass-panel",
+                        "children": [
+                            {
+                                "type": "div",
+                                "className": "icon-box",
+                                "children": [
+                                    {
+                                        "type": "svg",
+                                        "icon": "Zap",
+                                        "className": "text-cyan-400",
+                                        "size": 32
+                                    }
+                                ]
+                            },
+                            {
+                                "type": "h3",
+                                "className": "slide-heading",
+                                "text": "Feature One Title"
+                            },
+                            {
+                                "type": "p",
+                                "className": "slide-caption mb-4",
+                                "text": "A description of what this feature provides to your audience."
+                            },
+                            {
+                                "type": "ul",
+                                "className": "space-y-2",
+                                "children": [
+                                    {
+                                        "type": "li",
+                                        "className": "text-sm text-white/60 flex items-center gap-2",
+                                        "children": [
+                                            {
+                                                "type": "div",
+                                                "className": "w-1 h-1 rounded-full bg-cyan-400"
+                                            },
+                                            {
+                                                "type": "span",
+                                                "text": "Auto-layouts"
+                                            }
+                                        ]
+                                    },
+                                    {
+                                        "type": "li",
+                                        "className": "text-sm text-white/60 flex items-center gap-2",
+                                        "children": [
+                                            {
+                                                "type": "div",
+                                                "className": "w-1 h-1 rounded-full bg-cyan-400"
+                                            },
+                                            {
+                                                "type": "span",
+                                                "text": "Smart themes"
+                                            }
+                                        ]
+                                    },
+                                    {
+                                        "type": "li",
+                                        "className": "text-sm text-white/60 flex items-center gap-2",
+                                        "children": [
+                                            {
+                                                "type": "div",
+                                                "className": "w-1 h-1 rounded-full bg-cyan-400"
+                                            },
+                                            {
+                                                "type": "span",
+                                                "text": "Live preview"
+                                            }
+                                        ]
+                                    }
+                                ]
+                            }
+                        ]
+                    },
+                    {
+                        "type": "div",
+                        "className": "glass-panel",
+                        "children": [
+                            {
+                                "type": "div",
+                                "className": "icon-box",
+                                "children": [
+                                    {
+                                        "type": "svg",
+                                        "icon": "Layout",
+                                        "className": "text-purple-400",
+                                        "size": 32
+                                    }
+                                ]
+                            },
+                            {
+                                "type": "h3",
+                                "className": "slide-heading",
+                                "text": "Feature Two Title"
+                            },
+                            {
+                                "type": "p",
+                                "className": "slide-caption mb-4",
+                                "text": "Another description highlighting a different aspect or capability."
+                            },
+                            {
+                                "type": "ul",
+                                "className": "space-y-2",
+                                "children": [
+                                    {
+                                        "type": "li",
+                                        "className": "text-sm text-white/60 flex items-center gap-2",
+                                        "children": [
+                                            {
+                                                "type": "div",
+                                                "className": "w-1 h-1 rounded-full bg-purple-400"
+                                            },
+                                            {
+                                                "type": "span",
+                                                "text": "Responsive grids"
+                                            }
+                                        ]
+                                    },
+                                    {
+                                        "type": "li",
+                                        "className": "text-sm text-white/60 flex items-center gap-2",
+                                        "children": [
+                                            {
+                                                "type": "div",
+                                                "className": "w-1 h-1 rounded-full bg-purple-400"
+                                            },
+                                            {
+                                                "type": "span",
+                                                "text": "Flex containers"
+                                            }
+                                        ]
+                                    },
+                                    {
+                                        "type": "li",
+                                        "className": "text-sm text-white/60 flex items-center gap-2",
+                                        "children": [
+                                            {
+                                                "type": "div",
+                                                "className": "w-1 h-1 rounded-full bg-purple-400"
+                                            },
+                                            {
+                                                "type": "span",
+                                                "text": "Auto-scaling"
+                                            }
+                                        ]
+                                    }
+                                ]
+                            }
+                        ]
+                    },
+                    {
+                        "type": "div",
+                        "className": "glass-panel",
+                        "children": [
+                            {
+                                "type": "div",
+                                "className": "icon-box",
+                                "children": [
+                                    {
+                                        "type": "svg",
+                                        "icon": "Palette",
+                                        "className": "text-pink-400",
+                                        "size": 32
+                                    }
+                                ]
+                            },
+                            {
+                                "type": "h3",
+                                "className": "slide-heading",
+                                "text": "Feature Three Title"
+                            },
+                            {
+                                "type": "p",
+                                "className": "slide-caption mb-4",
+                                "text": "A third description showcasing additional functionality or benefits."
+                            },
+                            {
+                                "type": "ul",
+                                "className": "space-y-2",
+                                "children": [
+                                    {
+                                        "type": "li",
+                                        "className": "text-sm text-white/60 flex items-center gap-2",
+                                        "children": [
+                                            {
+                                                "type": "div",
+                                                "className": "w-1 h-1 rounded-full bg-pink-400"
+                                            },
+                                            {
+                                                "type": "span",
+                                                "text": "Color palettes"
+                                            }
+                                        ]
+                                    },
+                                    {
+                                        "type": "li",
+                                        "className": "text-sm text-white/60 flex items-center gap-2",
+                                        "children": [
+                                            {
+                                                "type": "div",
+                                                "className": "w-1 h-1 rounded-full bg-pink-400"
+                                            },
+                                            {
+                                                "type": "span",
+                                                "text": "Typography"
+                                            }
+                                        ]
+                                    },
+                                    {
+                                        "type": "li",
+                                        "className": "text-sm text-white/60 flex items-center gap-2",
+                                        "children": [
+                                            {
+                                                "type": "div",
+                                                "className": "w-1 h-1 rounded-full bg-pink-400"
+                                            },
+                                            {
+                                                "type": "span",
+                                                "text": "Glassmorphism"
+                                            }
+                                        ]
+                                    }
+                                ]
+                            }
+                        ]
+                    }
+                ]
+            }
+        ]
+    },
+    "metadata": {
+        "title": "Features Grid",
+        "notes": "3-column feature grid with nested bullet points",
+        "background": {
+            "type": "mesh",
+            "colors": [
+                "#06b6d4",
+                "#0ea5e9",
+                "#22d3ee"
+            ],
+            "animation": "medium"
+        }
+    }
+}

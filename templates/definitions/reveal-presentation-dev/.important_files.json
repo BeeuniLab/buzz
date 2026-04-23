@@ -1,0 +1,10 @@
+[
+  "prompts/usage.md",
+  "prompts/selection.md",
+  "public/slides/",
+  "public/slides/manifest.json",
+  "public/theme-config.js",
+  "public/slides-library.jsx",
+  "public/slides-styles.css",
+  "package.json"
+]

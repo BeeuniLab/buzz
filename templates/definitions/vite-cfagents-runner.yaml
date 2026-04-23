@@ -1,0 +1,14 @@
+name: "vite-cfagents-runner"
+description: "Vite/React application with Cloudflare Agents SDK and MCP support"
+base_reference: "vite-reference"
+projectType: app
+
+package_patches:
+  name: "vite-cfagents-runner"
+  dependencies:
+    "@modelcontextprotocol/sdk": "^1.16.0"
+    "@modelcontextprotocol/server-filesystem": "^2025.7.1"
+    "agents": "^0.0.109"
+    "mcp-client": "^1.4.0"
+    "mcp-remote": "^0.1.18"
+    "openai": "^5.10.1"

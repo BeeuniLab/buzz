@@ -1,0 +1,7 @@
+name: "c-code-react-runner"
+description: "React/Vite application with Cloudflare Workers integration"
+base_reference: "vite-reference"
+projectType: app
+# Patch package.json to match original template name
+package_patches:
+  name: "c-code-react-runner"

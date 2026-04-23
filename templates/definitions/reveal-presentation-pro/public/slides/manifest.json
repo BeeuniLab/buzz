@@ -1,0 +1,15 @@
+{
+    "slides": [
+        "demo-slide01.json",
+        "demo-slide02.json",
+        "demo-slide03.json",
+        "demo-slide04.json",
+        "demo-slide05.json",
+        "demo-slide06.json"
+    ],
+    "metadata": {
+        "title": "Reveal Presentation Pro - Showcase",
+        "theme": "dark",
+        "transition": "slide"
+    }
+}

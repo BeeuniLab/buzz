@@ -1,0 +1,244 @@
+{
+    "id": "slide05",
+    "root": {
+        "type": "div",
+        "className": "layout-default justify-center",
+        "children": [
+            {
+                "type": "div",
+                "className": "mb-10 text-center",
+                "children": [
+                    {
+                        "type": "h2",
+                        "className": "slide-title text-gradient",
+                        "text": "Section Title"
+                    }
+                ]
+            },
+            {
+                "type": "div",
+                "className": "grid-2 gap-responsive-lg",
+                "children": [
+                    {
+                        "type": "div",
+                        "className": "glass-panel",
+                        "children": [
+                            {
+                                "type": "div",
+                                "className": "flex items-center gap-4 mb-4",
+                                "children": [
+                                    {
+                                        "type": "div",
+                                        "className": "icon-box mb-0",
+                                        "children": [
+                                            {
+                                                "type": "svg",
+                                                "icon": "Code",
+                                                "className": "text-cyan-400",
+                                                "size": 28
+                                            }
+                                        ]
+                                    },
+                                    {
+                                        "type": "h3",
+                                        "className": "slide-heading",
+                                        "text": "Capability One"
+                                    }
+                                ]
+                            },
+                            {
+                                "type": "p",
+                                "className": "slide-caption mb-4",
+                                "text": "Description of what this capability provides to users."
+                            },
+                            {
+                                "type": "div",
+                                "className": "flex gap-2 flex-wrap",
+                                "children": [
+                                    {
+                                        "type": "div",
+                                        "className": "px-3 py-1 bg-cyan-500/10 border border-cyan-500/20 rounded text-xs text-cyan-400 font-mono",
+                                        "text": "Tag A"
+                                    },
+                                    {
+                                        "type": "div",
+                                        "className": "px-3 py-1 bg-cyan-500/10 border border-cyan-500/20 rounded text-xs text-cyan-400 font-mono",
+                                        "text": "Tag B"
+                                    },
+                                    {
+                                        "type": "div",
+                                        "className": "px-3 py-1 bg-cyan-500/10 border border-cyan-500/20 rounded text-xs text-cyan-400 font-mono",
+                                        "text": "Tag C"
+                                    }
+                                ]
+                            }
+                        ]
+                    },
+                    {
+                        "type": "div",
+                        "className": "glass-panel",
+                        "children": [
+                            {
+                                "type": "div",
+                                "className": "flex items-center gap-4 mb-4",
+                                "children": [
+                                    {
+                                        "type": "div",
+                                        "className": "icon-box mb-0",
+                                        "children": [
+                                            {
+                                                "type": "svg",
+                                                "icon": "Globe",
+                                                "className": "text-purple-400",
+                                                "size": 28
+                                            }
+                                        ]
+                                    },
+                                    {
+                                        "type": "h3",
+                                        "className": "slide-heading",
+                                        "text": "Capability Two"
+                                    }
+                                ]
+                            },
+                            {
+                                "type": "p",
+                                "className": "slide-caption mb-4",
+                                "text": "Description of what this capability provides to users."
+                            },
+                            {
+                                "type": "div",
+                                "className": "bg-white/5 border border-white/10 rounded-lg p-3",
+                                "children": [
+                                    {
+                                        "type": "div",
+                                        "className": "text-2xl font-bold text-purple-400",
+                                        "text": "123"
+                                    },
+                                    {
+                                        "type": "div",
+                                        "className": "text-xs text-white/50",
+                                        "text": "Metric label"
+                                    }
+                                ]
+                            }
+                        ]
+                    },
+                    {
+                        "type": "div",
+                        "className": "glass-panel",
+                        "children": [
+                            {
+                                "type": "div",
+                                "className": "flex items-center gap-4 mb-4",
+                                "children": [
+                                    {
+                                        "type": "div",
+                                        "className": "icon-box mb-0",
+                                        "children": [
+                                            {
+                                                "type": "svg",
+                                                "icon": "Shield",
+                                                "className": "text-pink-400",
+                                                "size": 28
+                                            }
+                                        ]
+                                    },
+                                    {
+                                        "type": "h3",
+                                        "className": "slide-heading",
+                                        "text": "Capability Three"
+                                    }
+                                ]
+                            },
+                            {
+                                "type": "p",
+                                "className": "slide-caption mb-4",
+                                "text": "Description of what this capability provides to users."
+                            },
+                            {
+                                "type": "div",
+                                "className": "flex gap-2",
+                                "children": [
+                                    {
+                                        "type": "div",
+                                        "className": "px-2 py-1 bg-pink-500/10 border border-pink-500/20 rounded text-xs text-pink-400",
+                                        "text": "Badge A"
+                                    },
+                                    {
+                                        "type": "div",
+                                        "className": "px-2 py-1 bg-pink-500/10 border border-pink-500/20 rounded text-xs text-pink-400",
+                                        "text": "Badge B"
+                                    }
+                                ]
+                            }
+                        ]
+                    },
+                    {
+                        "type": "div",
+                        "className": "glass-panel",
+                        "children": [
+                            {
+                                "type": "div",
+                                "className": "flex items-center gap-4 mb-4",
+                                "children": [
+                                    {
+                                        "type": "div",
+                                        "className": "icon-box mb-0",
+                                        "children": [
+                                            {
+                                                "type": "svg",
+                                                "icon": "Cpu",
+                                                "className": "text-emerald-400",
+                                                "size": 28
+                                            }
+                                        ]
+                                    },
+                                    {
+                                        "type": "h3",
+                                        "className": "slide-heading",
+                                        "text": "Capability Four"
+                                    }
+                                ]
+                            },
+                            {
+                                "type": "p",
+                                "className": "slide-caption mb-4",
+                                "text": "Description of what this capability provides to users."
+                            },
+                            {
+                                "type": "div",
+                                "className": "bg-white/5 border border-white/10 rounded-lg p-3",
+                                "children": [
+                                    {
+                                        "type": "div",
+                                        "className": "text-2xl font-bold text-emerald-400",
+                                        "text": "Tech"
+                                    },
+                                    {
+                                        "type": "div",
+                                        "className": "text-xs text-white/50",
+                                        "text": "Technology label"
+                                    }
+                                ]
+                            }
+                        ]
+                    }
+                ]
+            }
+        ]
+    },
+    "metadata": {
+        "title": "Advanced Grid",
+        "notes": "2x2 feature grid with nested metrics and tags",
+        "background": {
+            "type": "mesh",
+            "colors": [
+                "#10b981",
+                "#14b8a6",
+                "#34d399"
+            ],
+            "animation": "medium"
+        }
+    }
+}

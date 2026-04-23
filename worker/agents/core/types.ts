@@ -14,11 +14,11 @@ export type ProjectType = 'app' | 'workflow' | 'presentation' | 'general';
 
 /**
  * Runtime type - WHERE it runs during dev
- * - browser: Browser preview (full apps with UI)
+ * - sandbox: Cloudflare Containers (full apps with UI)
  * - worker: Dynamic Worker Loaders (backend only)
  * - none: No runtime (static export only)
  */
-export type RuntimeType = 'browser' | 'worker' | 'none';
+export type RuntimeType = 'sandbox' | 'worker' | 'none';
 
 /** Base initialization arguments shared by all agents */
 interface BaseAgentInitArgs {

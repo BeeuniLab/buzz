@@ -1,0 +1,152 @@
+{
+    "id": "slide01",
+    "root": {
+        "type": "div",
+        "className": "layout-center",
+        "children": [
+            {
+                "type": "div",
+                "className": "flex-col flex-center animate-enter relative z-10",
+                "children": [
+                    {
+                        "type": "div",
+                        "className": "glass-panel px-12 py-4 rounded-full mb-12 flex-center gap-3 border-cyan-500/30 shadow-glow-sm",
+                        "children": [
+                            {
+                                "type": "span",
+                                "className": "w-2 h-2 rounded-full bg-cyan-400 animate-pulse"
+                            },
+                            {
+                                "type": "span",
+                                "className": "text-sm font-mono tracking-wider text-cyan-300 uppercase",
+                                "text": "Template Name"
+                            }
+                        ]
+                    },
+                    {
+                        "type": "h1",
+                        "className": "slide-title text-gradient text-center max-w-5xl leading-tight mb-8",
+                        "text": "Your Presentation is being made"
+                    },
+                    {
+                        "type": "p",
+                        "className": "slide-subtitle text-center max-w-2xl mx-auto mb-4",
+                        "text": "We are building a beautiful presentation for you. Please hang tight!"
+                    },
+                    {
+                        "type": "div",
+                        "className": "flex gap-8 mb-12 text-center",
+                        "children": [
+                            {
+                                "type": "div",
+                                "className": "flex-col flex-center",
+                                "children": [
+                                    {
+                                        "type": "div",
+                                        "className": "text-4xl font-bold mb-2 bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent",
+                                        "text": "123"
+                                    },
+                                    {
+                                        "type": "div",
+                                        "className": "text-sm text-white/50",
+                                        "text": "Metric Label"
+                                    }
+                                ]
+                            },
+                            {
+                                "type": "div",
+                                "className": "w-px h-16 bg-white/10"
+                            },
+                            {
+                                "type": "div",
+                                "className": "flex-col flex-center",
+                                "children": [
+                                    {
+                                        "type": "div",
+                                        "className": "text-4xl font-bold mb-2 bg-gradient-to-r from-purple-400 to-pink-500 bg-clip-text text-transparent",
+                                        "text": "456"
+                                    },
+                                    {
+                                        "type": "div",
+                                        "className": "text-sm text-white/50",
+                                        "text": "Another Metric"
+                                    }
+                                ]
+                            },
+                            {
+                                "type": "div",
+                                "className": "w-px h-16 bg-white/10"
+                            },
+                            {
+                                "type": "div",
+                                "className": "flex-col flex-center",
+                                "children": [
+                                    {
+                                        "type": "div",
+                                        "className": "text-4xl font-bold mb-2 bg-gradient-to-r from-emerald-400 to-teal-500 bg-clip-text text-transparent",
+                                        "text": "XYZ"
+                                    },
+                                    {
+                                        "type": "div",
+                                        "className": "text-sm text-white/50",
+                                        "text": "Third Metric"
+                                    }
+                                ]
+                            }
+                        ]
+                    },
+                    {
+                        "type": "div",
+                        "className": "flex gap-6",
+                        "children": [
+                            {
+                                "type": "div",
+                                "className": "glass-panel px-8 py-4 rounded-full text-base font-semibold text-white/90 hover:bg-white/10 cursor-pointer flex items-center gap-2 group border border-white/20",
+                                "children": [
+                                    {
+                                        "type": "span",
+                                        "text": "Sample Action"
+                                    },
+                                    {
+                                        "type": "svg",
+                                        "icon": "ArrowRight",
+                                        "size": 18,
+                                        "className": "group-hover:translate-x-1 transition-transform"
+                                    }
+                                ]
+                            },
+                            {
+                                "type": "div",
+                                "className": "px-8 py-4 rounded-full text-base font-semibold text-white/60 hover:text-white/90 cursor-pointer flex items-center gap-2 group",
+                                "children": [
+                                    {
+                                        "type": "svg",
+                                        "icon": "Star",
+                                        "size": 18,
+                                        "className": "text-yellow-400"
+                                    },
+                                    {
+                                        "type": "span",
+                                        "text": "Secondary Action"
+                                    }
+                                ]
+                            }
+                        ]
+                    }
+                ]
+            }
+        ]
+    },
+    "metadata": {
+        "title": "Title Slide",
+        "notes": "Main title with stats and dual CTAs",
+        "background": {
+            "type": "mesh-particles",
+            "colors": [
+                "#1e293b",
+                "#0f172a"
+            ],
+            "animation": "medium"
+        }
+    }
+}

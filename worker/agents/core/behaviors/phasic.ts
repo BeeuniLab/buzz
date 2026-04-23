@@ -108,7 +108,9 @@ export class PhasicCodingBehavior extends BaseCodingBehavior<PhasicState> implem
             query,
             blueprint,
             templateName: templateInfo.templateDetails.name,
+            sandboxInstanceId: undefined,
             generatedPhases: [],
+            commandsHistory: [],
             lastPackageJson: packageJson,
             sessionId: sessionId!,
             hostname,
@@ -122,6 +124,7 @@ export class PhasicCodingBehavior extends BaseCodingBehavior<PhasicState> implem
             templateInfo.templateDetails.allFiles,
             {
                 projectName,
+                commandsHistory: []
             }
         );
         
@@ -520,7 +523,9 @@ export class PhasicCodingBehavior extends BaseCodingBehavior<PhasicState> implem
             },
             this.getOperationOptions()
         )
-        // Install commands removed (sandbox no longer available)
+        if (result.installCommands && result.installCommands.length > 0) {
+            this.executeCommands(result.installCommands);
+        }
 
         // Execute delete commands if any
         const filesToDelete = result.files.filter(f => f.changes?.toLowerCase().trim() === 'delete');
@@ -636,10 +641,11 @@ export class PhasicCodingBehavior extends BaseCodingBehavior<PhasicState> implem
 
         if (result.commands && result.commands.length > 0) {
             this.logger.info("Phase implementation suggested install commands:", result.commands);
+            await this.executeCommands(result.commands, false);
         }
 
         if (safeFiles.length > 0) {
-            await this.deployPreview();
+            await this.deployToSandbox(safeFiles, false, phase.name, true);
             if (postPhaseFixing) {
                 await this.applyDeterministicCodeFixes();
                 if (this.getInferenceContext().enableFastSmartCodeFix) {
@@ -706,7 +712,7 @@ export class PhasicCodingBehavior extends BaseCodingBehavior<PhasicState> implem
 
             if (fastCodeFixer.length > 0) {
                 await this.fileManager.saveGeneratedFiles(fastCodeFixer, "fix: Fast smart code fixes");
-                await this.deployPreview();
+                await this.deployToSandbox(fastCodeFixer);
                 this.logger.info("Fast smart code fixes applied successfully");
             }
             this.logger.info(`Fast smart code fixes applied in ${Date.now() - startTime}ms`);            

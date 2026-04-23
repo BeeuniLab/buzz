@@ -1,0 +1,17 @@
+/**
+ * Minimal JS reference: static assets + tiny Worker
+ */
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "minimal-js-reference",
+  "main": "worker/index.ts",
+  "compatibility_date": "2025-04-24",
+  "assets": {
+    "directory": "public",
+    "not_found_handling": "single-page-application",
+    "run_worker_first": ["/api/*"]
+  },
+  "observability": {
+    "enabled": true
+  }
+}

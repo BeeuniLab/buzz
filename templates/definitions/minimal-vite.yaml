@@ -1,0 +1,56 @@
+name: "minimal-vite"
+description: "Minimal Vite + TypeScript + Cloudflare Workers scaffolding for AI agents to build any kind of app"
+base_reference: "vite-reference"
+projectType: app
+disabled: true
+
+# Start with empty deps, only include what's explicitly specified
+inherit_dependencies: false
+
+package_patches:
+  name: "minimal-vite"
+  dependencies:
+    # Core essentials only - minimal footprint for AI to build upon
+    "@typescript-eslint/eslint-plugin": "^8.38.0"
+    "@typescript-eslint/parser": "^8.38.0"
+    "@typescript-eslint/typescript-estree": "^8.39.0"
+    "clsx": "^2.1.1"
+    "eslint-import-resolver-typescript": "^4.4.4"
+    "eslint-plugin-import": "^2.32.0"
+    "hono": "^4.9.8"
+    "pino": "^9.11.0"
+    "react": "^18.3.1"
+    "react-dom": "^18.3.1"
+    "tailwind-merge": "^3.3.1"
+    "wrangler": "^4.39.0"
+  devDependencies:
+    "@cloudflare/vite-plugin": "^1.17.1"
+    "@cloudflare/workers-types": "^4.20250424.0"
+    "@eslint/js": "^9.22.0"
+    "@types/node": "^22.15.3"
+    "@types/react": "^18.3.1"
+    "@types/react-dom": "^18.3.1"
+    "@vitejs/plugin-react": "^4.3.4"
+    "autoprefixer": "^10.4.21"
+    "eslint": "^9.31.0"
+    "eslint-plugin-react-hooks": "^5.2.0"
+    "eslint-plugin-react-refresh": "^0.4.19"
+    "globals": "^16.0.0"
+    "postcss": "^8.5.3"
+    "tailwindcss": "^3.4.17"
+    "tailwindcss-animate": "^1.0.7"
+    "typescript": "5.8"
+    "typescript-eslint": "^8.26.1"
+    "vite": "^6.3.1"
+
+excludes:
+  - "src/components/**"
+  - "src/pages/**"
+  - "src/assets/**"
+  - "src/hooks/**"
+  - "src/lib/**"
+  - "src/App.css"
+  - "worker/userRoutes.ts"
+  - "worker/core-utils.ts"
+  - "components.json"
+  - "public/vite.svg"

@@ -1,0 +1,9 @@
+[
+  "eslint.config.js",
+  ".gitignore",
+  ".important_files.json",
+  ".donttouch_files.json",
+  ".redacted_files.json",
+  "public/_dev/",
+  "worker/"
+]

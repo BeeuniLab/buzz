@@ -1,0 +1,30 @@
+name: "reveal-presentation-pro"
+description: "Advanced Reveal.js presentation template with glass morphism design, runtime JSX compilation, and comprehensive slide components"
+base_reference: "minimal-js-reference"
+projectType: presentation
+renderMode: browser
+slideDirectory: "public/slides"
+
+package_patches:
+  name: "reveal-presentation-pro"
+  scripts:
+    lint:fix: "eslint --cache --fix ."
+    format: "prettier --write \"**/*.{js,jsx,json,md,css}\""
+    format:check: "prettier --check \"**/*.{js,jsx,json,md,css}\""
+  devDependencies:
+    eslint-plugin-import: "^2"
+    eslint-plugin-react-hooks: "^5"
+    eslint-plugin-react-refresh: "^0.4"
+    prettier: "^3"
+    wrangler: "^4.47.0"
+
+template_specific_files:
+  - .editorconfig
+  - .prettierrc
+  - wrangler.jsonc
+  - eslint.config.js
+  - prompts/
+  - public/
+  - .donttouch_files.json
+  - .important_files.json
+  - .redacted_files.json

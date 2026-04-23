@@ -1,0 +1,457 @@
+.skip-link {
+  position: absolute;
+  top: -40px;
+  left: 0;
+  background: #000;
+  color: #fff;
+  padding: 8px;
+  text-decoration: none;
+  z-index: 100;
+}
+
+.skip-link:focus {
+  top: 0;
+}
+
+:root {
+  --glow-white-lg: 0 0 80px rgba(255, 255, 255, 0.3), 0 0 40px rgba(255, 255, 255, 0.2), 0 4px 20px rgba(0, 0, 0, 0.5);
+  --glow-white-md: 0 0 60px rgba(255, 255, 255, 0.3), 0 0 30px rgba(255, 255, 255, 0.2), 0 4px 16px rgba(0, 0, 0, 0.5);
+  --glow-blue-sm: 0 0 40px rgba(59, 130, 246, 0.2);
+  --glow-blue-md: 0 0 60px rgba(59, 130, 246, 0.25);
+
+  --glass-bg: rgba(255, 255, 255, 0.015);
+  --glass-bg-medium: rgba(255, 255, 255, 0.025);
+  --glass-border: rgba(255, 255, 255, 0.06);
+  --glass-inner-highlight: rgba(255, 255, 255, 0.03);
+  
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.08), 0 1px 4px rgba(0, 0, 0, 0.04);
+  --shadow-md: 0 8px 16px rgba(0, 0, 0, 0.12), 0 4px 8px rgba(0, 0, 0, 0.06);
+  --shadow-lg: 0 12px 24px rgba(0, 0, 0, 0.15), 0 6px 12px rgba(0, 0, 0, 0.08);
+  --shadow-xl: 0 20px 40px rgba(0, 0, 0, 0.2), 0 10px 20px rgba(0, 0, 0, 0.12);
+}
+
+/* High-quality font rendering */
+html {
+  text-rendering: optimizeLegibility;
+  font-feature-settings: 'kern' 1, 'liga' 1;
+  font-kerning: normal;
+}
+
+/* Override Reveal.js fonts with Inter */
+.reveal,
+.reveal * {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+}
+
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+}
+
+/* Text glow effects - creates fluorescent quality */
+.text-shadow-glow-white-lg {
+  text-shadow: var(--glow-white-lg);
+}
+
+.text-shadow-glow-white-md {
+  text-shadow: var(--glow-white-md);
+}
+
+.text-shadow-glow-blue-sm {
+  text-shadow: var(--glow-blue-sm);
+}
+
+.text-shadow-glow-blue-md {
+  text-shadow: var(--glow-blue-md);
+}
+
+.drop-shadow-glow-sm {
+  filter: drop-shadow(0 6px 12px rgba(0, 0, 0, 0.3));
+}
+
+.drop-shadow-glow-md {
+  filter: drop-shadow(0 8px 16px rgba(0, 0, 0, 0.3));
+}
+
+html, body, #root {
+  height: 100%;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+}
+
+.reveal-viewport {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background:
+    radial-gradient(circle at 20% 80%, rgba(99, 102, 241, 0.15) 0%, transparent 50%),
+    radial-gradient(circle at 80% 20%, rgba(139, 92, 246, 0.15) 0%, transparent 50%),
+    radial-gradient(circle at 40% 40%, rgba(59, 130, 246, 0.1) 0%, transparent 40%),
+    linear-gradient(135deg, #0a0e1a 0%, #0f172a 25%, #1e293b 50%, #0f172a 75%, #0a0e1a 100%);
+  background-size: 100% 100%, 100% 100%, 100% 100%, 400% 400%;
+  animation: gradientShift 20s ease infinite;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell',
+    sans-serif;
+}
+
+.reveal-viewport .reveal {
+  width: 100%;
+  height: 100%;
+}
+
+@keyframes gradientShift {
+  0% {
+    background-position: 0% 0%, 0% 0%, 0% 0%, 0% 50%;
+  }
+  50% {
+    background-position: 0% 0%, 0% 0%, 0% 0%, 100% 50%;
+  }
+  100% {
+    background-position: 0% 0%, 0% 0%, 0% 0%, 0% 50%;
+  }
+}
+
+.reveal-viewport.dark {
+  background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%);
+}
+
+.reveal-viewport.light {
+  background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 50%, #f8fafc 100%);
+}
+
+.reveal .slides {
+  text-align: left;
+}
+
+.reveal .slides section {
+  height: 100%;
+  padding: 0;
+}
+
+.reveal h1,
+.reveal h2,
+.reveal h3,
+.reveal h4,
+.reveal h5,
+.reveal h6 {
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+  text-transform: none;
+  margin: 0;
+  color: rgb(243 244 246);
+}
+
+.reveal p {
+  margin: 0;
+  line-height: 1.6;
+}
+
+.reveal .progress {
+  background: rgba(255, 255, 255, 0.1);
+  height: 4px;
+}
+
+/* Glass Morphism */
+.glass {
+  background: var(--glass-bg);
+  backdrop-filter: blur(32px) saturate(120%);
+  -webkit-backdrop-filter: blur(32px) saturate(120%);
+  border: 1px solid var(--glass-border);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15), inset 0 1px 0 var(--glass-inner-highlight);
+}
+
+.glass-medium {
+  background: var(--glass-bg-medium);
+  backdrop-filter: blur(36px) saturate(120%);
+  -webkit-backdrop-filter: blur(36px) saturate(120%);
+  border: 1px solid var(--glass-border);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2), 0 2px 8px rgba(0, 0, 0, 0.1), inset 0 1px 0 var(--glass-inner-highlight);
+}
+
+.glass-strong {
+  background: var(--glass-bg-medium);
+  backdrop-filter: blur(40px) saturate(120%);
+  -webkit-backdrop-filter: blur(40px) saturate(120%);
+  border: 1px solid var(--glass-border);
+  box-shadow: 0 10px 32px rgba(0, 0, 0, 0.25), inset 0 1px 0 var(--glass-inner-highlight);
+}
+
+/* Shadow effects */
+.shadow-glow-sm {
+  box-shadow: 0 0 16px rgba(59, 130, 246, 0.25), var(--shadow-sm);
+}
+
+.shadow-glow-md {
+  box-shadow: 0 0 32px rgba(59, 130, 246, 0.35), var(--shadow-md);
+}
+
+/* Elevation shadows */
+.shadow-elevation-sm { box-shadow: var(--shadow-sm); }
+.shadow-elevation-md { box-shadow: var(--shadow-md); }
+.shadow-elevation-lg { box-shadow: var(--shadow-lg); }
+.shadow-elevation-xl { box-shadow: var(--shadow-xl); }
+
+.reveal .progress span {
+  background: linear-gradient(90deg, #3b82f6, #06b6d4);
+  transition: all 0.3s ease;
+}
+
+.reveal .controls {
+  color: rgba(255, 255, 255, 0.5);
+  bottom: 40px;
+  right: 40px;
+}
+
+.reveal .controls button {
+  transition: all 0.3s ease;
+}
+
+.reveal .controls button:hover {
+  color: rgba(255, 255, 255, 1);
+  transform: scale(1.1);
+}
+
+.reveal .slide-number {
+  background: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(10px);
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-size: 18px;
+  color: rgba(255, 255, 255, 0.8);
+  bottom: 20px;
+  right: 20px;
+}
+
+.reveal .backgrounds {
+  filter: blur(0px);
+}
+
+.reveal section img {
+  border: none;
+  box-shadow: none;
+  background: none;
+}
+
+.reveal pre {
+  width: 100%;
+  box-shadow: none;
+  margin: 0;
+}
+
+.reveal pre code {
+  max-height: none;
+  padding: 0;
+  overflow: visible;
+  word-wrap: normal;
+}
+
+.reveal code {
+  font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', 'Monaco', 'Courier New', monospace;
+}
+
+.reveal blockquote {
+  background: rgba(255, 255, 255, 0.05);
+  border-left: 4px solid #3b82f6;
+  padding: 20px 30px;
+  margin: 20px 0;
+  border-radius: 8px;
+  backdrop-filter: blur(10px);
+}
+
+.reveal ul,
+.reveal ol {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.reveal table {
+  border-collapse: collapse;
+  width: 100%;
+}
+
+.reveal table th,
+.reveal table td {
+  padding: 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.reveal table th {
+  font-weight: 600;
+  text-align: left;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.reveal a {
+  color: #3b82f6;
+  text-decoration: none;
+  transition: all 0.3s ease;
+}
+
+.reveal a:hover {
+  color: #06b6d4;
+  text-decoration: underline;
+}
+
+.reveal .r-frame {
+  border: none;
+  box-shadow: 0 10px 50px rgba(0, 0, 0, 0.3);
+}
+
+.reveal .r-stretch {
+  max-height: 100%;
+}
+
+@media print {
+  .reveal-viewport {
+    background: white;
+  }
+}
+
+.reveal section .fragment {
+  transition: all 0.3s ease;
+}
+
+.reveal section .fragment.visible {
+  opacity: 1;
+  transform: none;
+}
+
+.reveal .slide-background {
+  transition: all 0.8s ease;
+}
+
+* {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Note: Main animations are defined in Tailwind config (index.html)
+ * Custom animations specific to presentations are defined here */
+
+/* Typography enhancements */
+.text-gradient {
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Button pulse glow effect - presentation specific */
+@keyframes pulse-glow {
+  0%, 100% {
+    box-shadow: 0 0 20px rgba(59, 130, 246, 0.4), 0 8px 16px rgba(0, 0, 0, 0.2);
+  }
+  50% {
+    box-shadow: 0 0 40px rgba(59, 130, 246, 0.6), 0 8px 20px rgba(0, 0, 0, 0.3);
+  }
+}
+
+.animate-pulse-glow {
+  animation: pulse-glow 2s ease-in-out infinite;
+}
+
+.animate-fade-in-delay {
+  animation: fade-in 0.6s ease-out 0.2s both;
+}
+
+.animate-delay-500 {
+  animation-delay: 500ms;
+}
+
+.animate-float {
+  will-change: transform;
+}
+
+.hover-lift {
+  will-change: transform, box-shadow;
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.hover-lift:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 16px 32px rgba(0, 0, 0, 0.18), 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.hover-glow {
+  will-change: box-shadow, transform;
+  transition: box-shadow 0.3s cubic-bezier(0.4, 0, 0.2, 1), transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.hover-glow:hover {
+  box-shadow: 0 0 40px rgba(59, 130, 246, 0.5), 0 8px 24px rgba(0, 0, 0, 0.2);
+  transform: scale(1.01);
+}
+
+/* Slide Typography System */
+.slide-title {
+  font-size: 4.5rem;
+  font-weight: 700;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+  animation: slide-up 0.4s ease-out;
+}
+
+.slide-subtitle,
+.slide-heading {
+  font-size: 2.25rem;
+  color: rgb(243 244 246);
+  line-height: 1.375;
+}
+
+.slide-subtitle { font-weight: 300; }
+.slide-heading { font-weight: 600; }
+
+.slide-content,
+.slide-body {
+  font-size: 1.875rem;
+  line-height: 1.625;
+}
+
+.slide-content { color: rgb(243 244 246); }
+.slide-body { color: rgb(209 213 219); }
+
+.slide-caption {
+  font-size: 1.5rem;
+  color: rgb(156 163 175);
+  font-weight: 300;
+}
+
+.slide-display,
+.slide-stat {
+  font-size: 6rem;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.slide-stat {
+  margin-bottom: 1rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.gradient-divider {
+  height: 1px;
+  background-image: linear-gradient(to right, transparent, rgb(156 163 175), transparent);
+  opacity: 0.4;
+}
+
+.glass-inline {
+  background: var(--glass-bg);
+  backdrop-filter: blur(24px) saturate(120%);
+  -webkit-backdrop-filter: blur(24px) saturate(120%);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--shadow-sm);
+  border-radius: 0.75rem;
+  padding: 0.75rem 1.5rem;
+}
+
+.absolute-center {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}

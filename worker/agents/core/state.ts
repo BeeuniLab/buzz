@@ -51,10 +51,12 @@ export interface BaseProjectState {
     shouldBeGenerating: boolean;
     
     // Common file storage
+    sandboxInstanceId?: string;
     generatedFilesMap: Record<string, FileState>;
     
     // Common infrastructure
     fileServingToken?: FileServingToken;
+    commandsHistory?: string[];
     lastPackageJson?: string;
     pendingUserInputs: string[];
     projectUpdatesAccumulator: string[];

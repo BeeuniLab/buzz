@@ -1,0 +1,7 @@
+[
+  ".redacted_files.json",
+  ".donttouch_files.json",
+  ".important_files.json",
+  "scripts/dev.ts"
+]
+

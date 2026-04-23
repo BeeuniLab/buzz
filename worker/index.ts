@@ -7,9 +7,11 @@ import { DORateLimitStore as BaseDORateLimitStore } from './services/rate-limit/
 import { getPreviewDomain } from './utils/urls';
 import { proxyToAiGateway } from './services/aigateway-proxy/controller';
 import { isOriginAllowed } from './config/security';
+import { proxyToSandbox } from './services/sandbox/request-handler';
 import { getAgentStub } from './agents';
 
 // Durable Object and Service exports
+export { UserAppSandboxService } from './services/sandbox/sandboxSdkClient';
 export { CodeGeneratorAgent } from './agents/core/codingAgent';
 export { UserSecretsStore } from './services/secrets/UserSecretsStore';
 
@@ -31,8 +33,8 @@ function setOriginControl(env: Env, request: Request, currentHeaders: Headers): 
 
 /**
  * Handles requests for user-deployed applications on subdomains.
- * It attempts to serve browser files from agents, or dispatches the request
- * to a permanently deployed worker via namespaces.
+ * It first attempts to proxy to a live development sandbox. If that fails,
+ * it dispatches the request to a permanently deployed worker via namespaces.
  * This function will NOT fall back to the main worker.
  *
  * @param request The incoming Request object.
@@ -66,8 +68,35 @@ async function handleUserAppRequest(request: Request, env: Env): Promise<Respons
 		}
 	}
 
-	// Attempt to dispatch to a deployed worker.
-	logger.info(`Attempting dispatch to permanent worker for: ${hostname}`);
+	// 1. Attempt to proxy to a live development sandbox.
+	const sandboxResponse = await proxyToSandbox(request, env);
+	if (sandboxResponse) {
+		logger.info(`Serving response from sandbox for: ${hostname}`);
+        if (sandboxResponse.headers.get('Upgrade')?.toLowerCase() === 'websocket') {
+            logger.info(`Serving websocket response from sandbox for: ${hostname}`);
+            return sandboxResponse;
+        }
+
+		let headers = new Headers(sandboxResponse.headers);
+
+        if (sandboxResponse.status === 500) {
+            headers.set('X-Preview-Type', 'sandbox-error');
+        } else {
+            headers.set('X-Preview-Type', 'sandbox');
+        }
+        headers = setOriginControl(env, request, headers);
+        headers.append('Vary', 'Origin');
+		headers.set('Access-Control-Expose-Headers', 'X-Preview-Type');
+
+		return new Response(sandboxResponse.body, {
+			status: sandboxResponse.status,
+			statusText: sandboxResponse.statusText,
+			headers,
+		});
+	}
+
+	// 2. Attempt to dispatch to a deployed worker.
+	logger.info(`Sandbox miss for ${hostname}, attempting dispatch to permanent worker.`);
 	if (!isDispatcherAvailable(env)) {
 		logger.warn(`Dispatcher not available, cannot serve: ${hostname}`);
 		return new Response('This application is not currently available.', { status: 404 });

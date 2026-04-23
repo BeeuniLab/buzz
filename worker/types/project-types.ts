@@ -56,7 +56,7 @@ export const TemplateInfoSchema = z.object({
         selection: z.string(),
         usage: z.string(),
     }),
-    renderMode: z.enum(['browser']).optional(),
+    renderMode: z.enum(['sandbox', 'browser']).optional(),
     slideDirectory: z.string().optional(),
     disabled: z.boolean(),
 })
@@ -161,4 +161,3 @@ export const DeploymentResultSchema = z.object({
     error: z.string().optional(),
 })
 export type DeploymentResult = z.infer<typeof DeploymentResultSchema>
-

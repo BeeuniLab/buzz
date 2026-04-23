@@ -1,0 +1,27 @@
+{
+  "name": "minimal-js-reference",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "bun scripts/dev.ts",
+    "build": "wrangler build",
+    "deploy": "wrangler deploy",
+    "lint": "eslint --cache -f json --quiet ."
+  },
+  "dependencies": {
+    "hono": "^4"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4",
+    "@eslint/js": "^9",
+    "eslint": "^9",
+    "globals": "^16",
+    "typescript": "^5",
+    "typescript-eslint": "^8",
+    "wrangler": "^4"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

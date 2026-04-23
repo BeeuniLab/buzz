@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="en-US">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Reveal.js Presentation</title>
+
+    <link rel="preconnect" href="https://cdn.tailwindcss.com">
+    <link rel="preconnect" href="https://esm.sh">
+    <link rel="preconnect" href="https://cdnjs.cloudflare.com">
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        darkMode: 'class',
+        theme: {
+          extend: {
+            fontFamily: {
+              sans: ['Inter', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif'],
+              display: ['Cal Sans', 'Inter', 'system-ui', 'sans-serif'],
+              mono: ['JetBrains Mono', 'Fira Code', 'Consolas', 'monospace']
+            },
+            fontSize: {
+              '2xs': ['0.625rem', { lineHeight: '0.75rem' }],
+              '3xl': ['1.875rem', { lineHeight: '2.25rem' }],
+              '4xl': ['2.25rem', { lineHeight: '2.5rem' }],
+              '5xl': ['3rem', { lineHeight: '1.1' }],
+              '6xl': ['3.75rem', { lineHeight: '1.1' }],
+              '7xl': ['4.5rem', { lineHeight: '1.1' }],
+              '8xl': ['6rem', { lineHeight: '1' }],
+              '9xl': ['8rem', { lineHeight: '1' }]
+            },
+            spacing: {
+              '18': '4.5rem',
+              '72': '18rem',
+              '84': '21rem',
+              '96': '24rem',
+              '128': '32rem',
+              'slide-x': '6rem',
+              'slide-y': '4rem',
+              'slide-center-x': '5rem'
+            },
+            opacity: {
+              '12': '0.12',
+              '15': '0.15'
+            },
+            borderRadius: {
+              '4xl': '2rem',
+              '5xl': '2.5rem'
+            },
+            colors: {
+              text: {
+                primary: 'rgb(243 244 246)',
+                secondary: 'rgb(209 213 219)',
+                tertiary: 'rgb(156 163 175)'
+              }
+            },
+            boxShadow: {
+              soft: '0 2px 15px -3px rgba(0, 0, 0, 0.07), 0 10px 20px -2px rgba(0, 0, 0, 0.04)',
+              glow: '0 0 20px -5px rgba(99, 102, 241, 0.4)',
+              'glow-lg': '0 0 40px -10px rgba(99, 102, 241, 0.3)',
+              glass: '0 8px 32px 0 rgba(31, 38, 135, 0.37)'
+            },
+            keyframes: {
+              'fade-in': {
+                '0%': { opacity: '0', transform: 'translateY(10px)' },
+                '100%': { opacity: '1', transform: 'translateY(0)' }
+              },
+              'slide-up': {
+                '0%': { transform: 'translateY(20px)', opacity: '0' },
+                '100%': { transform: 'translateY(0)', opacity: '1' }
+              },
+              'scale-in': {
+                '0%': { transform: 'scale(0.95)', opacity: '0' },
+                '100%': { transform: 'scale(1)', opacity: '1' }
+              },
+              shimmer: {
+                '0%': { transform: 'translateX(-100%)' },
+                '100%': { transform: 'translateX(100%)' }
+              },
+              glow: {
+                '0%, 100%': { boxShadow: '0 0 20px -5px rgba(99, 102, 241, 0.4)' },
+                '50%': { boxShadow: '0 0 40px -5px rgba(99, 102, 241, 0.6)' }
+              },
+              float: {
+                '0%, 100%': { transform: 'translateY(0px)' },
+                '50%': { transform: 'translateY(-10px)' }
+              }
+            },
+            animation: {
+              'fade-in': 'fade-in 0.6s ease-out',
+              'slide-up': 'slide-up 0.4s ease-out',
+              'scale-in': 'scale-in 0.3s ease-out',
+              shimmer: 'shimmer 2s infinite',
+              glow: 'glow 2s ease-in-out infinite',
+              float: 'float 3s ease-in-out infinite'
+            },
+            backgroundImage: {
+              'gradient-rainbow': 'linear-gradient(135deg, #667eea 0%, #764ba2 25%, #f093fb 50%, #f5576c 75%, #4facfe 100%)',
+              'gradient-primary': 'linear-gradient(135deg, #667eea, #764ba2)',
+              'gradient-mesh': 'radial-gradient(at 40% 20%, hsla(28,100%,74%,1) 0px, transparent 50%), radial-gradient(at 80% 0%, hsla(189,100%,56%,1) 0px, transparent 50%), radial-gradient(at 0% 50%, hsla(355,100%,93%,1) 0px, transparent 50%), radial-gradient(at 80% 50%, hsla(340,100%,76%,1) 0px, transparent 50%), radial-gradient(at 0% 100%, hsla(22,100%,77%,1) 0px, transparent 50%), radial-gradient(at 80% 100%, hsla(242,100%,70%,1) 0px, transparent 50%), radial-gradient(at 0% 0%, hsla(343,100%,76%,1) 0px, transparent 50%)'
+            }
+          }
+        }
+      }
+    </script>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <!-- Reveal.js core CSS (structure and layout) -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/5.1.0/reveal.min.css" integrity="sha512-0AUO8B5ll9y1ERV/55xq3HeccBGnvAJQsVGitNac/iQCLyDTGLUBMPqlupIWp/rJg0hV3WWHusXchEIdqFAv1Q==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+
+    <!-- Custom CSS (includes font overrides) -->
+    <link rel="stylesheet" href="/slides-styles.css">
+
+    <!-- Prism.js for syntax highlighting -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-typescript.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-jsx.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-javascript.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+  </head>
+  <body>
+    <a href="#main-content" class="skip-link">Skip to content</a>
+    <div id="root" role="main"></div>
+
+    <!-- Import maps for ESM modules -->
+    <script type="importmap">
+      {
+        "imports": {
+          "react": "https://esm.sh/react@18.3.1",
+          "react-dom": "https://esm.sh/react-dom@18.3.1",
+          "react-dom/client": "https://esm.sh/react-dom@18.3.1/client",
+          "react/jsx-runtime": "https://esm.sh/react@18.3.1/jsx-runtime",
+          "react/jsx-dev-runtime": "https://esm.sh/react@18.3.1/jsx-dev-runtime",
+          "lucide-react": "https://esm.sh/lucide-react@0.454.0?external=react,react-dom",
+          "recharts": "https://esm.sh/recharts@2.13.0?external=react,react-dom",
+          "reveal.js": "https://cdnjs.cloudflare.com/ajax/libs/reveal.js/5.1.0/reveal.esm.js",
+          "clsx": "https://esm.sh/clsx@2.1.1",
+          "tailwind-merge": "https://esm.sh/tailwind-merge@2.5.5",
+          "framer-motion": "https://esm.sh/framer-motion@11.11.17?external=react,react-dom",
+          "prism-react-renderer": "https://cdn.skypack.dev/prism-react-renderer@1.3.5",
+          "prism-react-renderer/": "https://cdn.skypack.dev/prism-react-renderer@1.3.5/"
+        }
+      }
+    </script>
+
+    <!-- Babel standalone for runtime JSX compilation -->
+    <script
+      src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.26.7/babel.min.js"
+      integrity="sha512-w5ad08hkU1rAnKtcRpzsFZtSY+ms16X03dQolUcPWphka2QdqmLlsKZV6H9D5fDRC8yxR7J80OtB57LQAhjYpQ=="
+      crossorigin="anonymous"
+      referrerpolicy="no-referrer"
+    ></script>
+
+    <!-- html2canvas for thumbnail generation -->
+    <script
+      src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"
+      integrity="sha512-BNaRQnYJYiPSqHHDb58B0yaPfCu+Wgds8Gp/gU33kqBtgNS4tSPHuGibyoeqMV/TJlSKda6FXzoEyYGjTe+vXA=="
+      crossorigin="anonymous"
+      referrerpolicy="no-referrer"
+    ></script>
+
+    <!-- Runtime entry point -->
+    <script type="module" src="/_dev/runtime/loader.js"></script>
+  </body>
+</html>

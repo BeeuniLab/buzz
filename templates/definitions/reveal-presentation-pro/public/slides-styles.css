@@ -1,0 +1,424 @@
+/* ====================
+   Reveal Presentation Pro - World-Class Design System
+   ==================== */
+
+:root {
+    /* === Theme Tokens === */
+    --font-display: 'Inter', system-ui, sans-serif;
+    --font-body: 'Inter', system-ui, sans-serif;
+    --font-mono: 'JetBrains Mono', monospace;
+
+    /* Premium Color Palette (Deep, Rich, Sophisticated) */
+    --bg-gradient: radial-gradient(circle at 50% 0%, #1e293b 0%, #0f172a 100%);
+    --text-primary: #f8fafc;
+    --text-secondary: #94a3b8;
+    --text-tertiary: #64748b;
+
+    /* Accent Gradients */
+    --accent-primary: linear-gradient(135deg, #38bdf8 0%, #818cf8 100%);
+    --accent-secondary: linear-gradient(135deg, #f472b6 0%, #c084fc 100%);
+    --accent-success: linear-gradient(135deg, #34d399 0%, #2dd4bf 100%);
+
+    /* Glassmorphism System (Refined) */
+    --glass-bg: rgba(255, 255, 255, 0.03);
+    --glass-border: rgba(255, 255, 255, 0.08);
+    --glass-highlight: rgba(255, 255, 255, 0.15);
+    --glass-blur: blur(24px);
+    --glass-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.5);
+
+    /* Spacing & Layout (Responsive) */
+    --slide-padding: clamp(2rem, 4vw, 4rem);
+    --card-radius: clamp(1rem, 1.5vw, 1.5rem);
+    --grid-gap: clamp(1rem, 2vw, 2rem);
+}
+
+/* === Global Reset & Base === */
+*,
+*::before,
+*::after {
+    box-sizing: border-box;
+}
+
+html,
+body,
+#root,
+.reveal-viewport {
+    height: 100%;
+    width: 100%;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    font-family: var(--font-body);
+    color: var(--text-primary);
+    background: #0f172a;
+    /* Fallback */
+}
+
+.reveal-viewport {
+    background: var(--bg-gradient);
+}
+
+/* === Typography (Elegant & Tight) === */
+.slide-title {
+    font-family: var(--font-display);
+    font-size: clamp(3.5rem, 7vw, 6rem);
+    font-weight: 800;
+    line-height: 1.05;
+    letter-spacing: -0.03em;
+    margin-bottom: 1.5rem;
+    text-wrap: balance;
+    color: var(--text-primary);
+}
+
+.slide-title.gradient {
+    background: var(--accent-primary);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    filter: drop-shadow(0 0 30px rgba(56, 189, 248, 0.2));
+}
+
+.slide-subtitle {
+    font-size: clamp(1rem, 1.8vw, 1.5rem);
+    color: var(--text-secondary);
+    font-weight: 400;
+    line-height: 1.5;
+    max-width: 65ch;
+    margin-bottom: clamp(1.5rem, 3vw, 3rem);
+}
+
+.slide-heading {
+    font-family: var(--font-display);
+    font-size: clamp(1.125rem, 1.8vw, 1.5rem);
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    color: var(--text-primary);
+    margin-bottom: clamp(0.25rem, 0.6vw, 0.5rem);
+}
+
+.slide-caption {
+    font-size: clamp(0.875rem, 1.2vw, 1rem);
+    color: var(--text-secondary);
+    line-height: 1.4;
+}
+
+.stat-number {
+    font-family: var(--font-display);
+    font-size: clamp(3rem, 5vw, 5rem);
+    font-weight: 900;
+    line-height: 1;
+    letter-spacing: -0.04em;
+    font-variant-numeric: tabular-nums;
+    background: var(--accent-primary);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+/* === Components: Glass Panel === */
+.glass-panel {
+    background: var(--glass-bg);
+    backdrop-filter: var(--glass-blur);
+    -webkit-backdrop-filter: var(--glass-blur);
+    border: 1px solid var(--glass-border);
+    border-top: 1px solid var(--glass-highlight);
+    box-shadow: var(--glass-shadow);
+    border-radius: var(--card-radius);
+    padding: clamp(1.5rem, 3vw, 2.5rem);
+    transition: transform 0.4s cubic-bezier(0.2, 0.8, 0.2, 1),
+        box-shadow 0.4s cubic-bezier(0.2, 0.8, 0.2, 1),
+        border-color 0.4s ease;
+    transform: translateZ(0);
+    /* Hardware accel */
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    /* Fill parent */
+}
+
+.glass-panel:hover {
+    transform: translateY(-6px) translateZ(0);
+    box-shadow: 0 30px 60px -15px rgba(0, 0, 0, 0.6);
+    border-color: rgba(255, 255, 255, 0.2);
+}
+
+/* Legacy Support / Aliases */
+.glass-card,
+.glass,
+.glass-purple,
+.glass-blue,
+.glass-cyan,
+.glass-emerald {
+    background: var(--glass-bg);
+    backdrop-filter: var(--glass-blur);
+    -webkit-backdrop-filter: var(--glass-blur);
+    border: 1px solid var(--glass-border);
+    border-top: 1px solid var(--glass-highlight);
+    box-shadow: var(--glass-shadow);
+    border-radius: var(--card-radius);
+    padding: clamp(1.5rem, 3vw, 2.5rem);
+    transition: transform 0.4s cubic-bezier(0.2, 0.8, 0.2, 1),
+        box-shadow 0.4s cubic-bezier(0.2, 0.8, 0.2, 1),
+        border-color 0.4s ease;
+    transform: translateZ(0);
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+}
+
+.glass-card:hover,
+.glass:hover,
+.glass-purple:hover,
+.glass-blue:hover,
+.glass-cyan:hover,
+.glass-emerald:hover {
+    transform: translateY(-6px) translateZ(0);
+    box-shadow: 0 30px 60px -15px rgba(0, 0, 0, 0.6);
+    border-color: rgba(255, 255, 255, 0.2);
+}
+
+/* === Components: Layout Grids === */
+.layout-default {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    width: 100%;
+    padding: var(--slide-padding);
+}
+
+.layout-center {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    height: 100%;
+    width: 100%;
+    padding: var(--slide-padding);
+}
+
+.layout-split {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 4rem;
+    height: 100%;
+    width: 100%;
+    align-items: center;
+    padding: var(--slide-padding);
+}
+
+.grid-2 {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: var(--grid-gap);
+    width: 100%;
+}
+
+.grid-3 {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: var(--grid-gap);
+    width: 100%;
+}
+
+.bento-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    grid-template-rows: repeat(2, 1fr);
+    gap: var(--grid-gap);
+    width: 100%;
+    height: 100%;
+}
+
+@media (max-width: 1000px) {
+
+    .grid-3,
+    .bento-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    .bento-grid {
+        grid-template-rows: auto;
+    }
+}
+
+@media (max-width: 900px) {
+    .grid-2 {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 600px) {
+
+    .grid-3,
+    .bento-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .bento-grid {
+        grid-template-rows: auto;
+    }
+}
+
+.col-span-2 {
+    grid-column: span 2;
+}
+
+.row-span-2 {
+    grid-row: span 2;
+}
+
+/* === Reveal.js Overrides === */
+.reveal .slides {
+    text-align: left;
+}
+
+.reveal .slides section {
+    height: 100%;
+    padding: 0;
+}
+
+.reveal .controls {
+    color: rgba(255, 255, 255, 0.3);
+}
+
+.reveal .progress {
+    height: 3px;
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.reveal .progress span {
+    background: var(--accent-primary);
+}
+
+/* Reset Reveal Typography */
+.reveal h1,
+.reveal h2,
+.reveal h3,
+.reveal h4,
+.reveal h5,
+.reveal h6 {
+    font-family: inherit;
+    color: inherit;
+    text-transform: none;
+    margin: 0;
+}
+
+/* === Utilities === */
+.flex-center {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.flex-col {
+    display: flex;
+    flex-direction: column;
+}
+
+.gap-4 {
+    gap: 1rem;
+}
+
+.gap-6 {
+    gap: 1.5rem;
+}
+
+.text-gradient {
+    background: var(--accent-primary);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.text-gradient-secondary {
+    background: var(--accent-secondary);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.w-full {
+    width: 100%;
+}
+
+.h-full {
+    height: 100%;
+}
+
+/* === Responsive Text Utilities === */
+.text-xs-responsive {
+    font-size: clamp(0.75rem, 1vw, 0.875rem);
+}
+
+.text-sm-responsive {
+    font-size: clamp(0.875rem, 1.2vw, 1rem);
+}
+
+.text-base-responsive {
+    font-size: clamp(1rem, 1.4vw, 1.125rem);
+}
+
+.text-lg-responsive {
+    font-size: clamp(1.125rem, 1.6vw, 1.25rem);
+}
+
+.text-xl-responsive {
+    font-size: clamp(1.25rem, 1.8vw, 1.5rem);
+}
+
+.text-2xl-responsive {
+    font-size: clamp(1.5rem, 2.5vw, 2rem);
+}
+
+.text-3xl-responsive {
+    font-size: clamp(1.75rem, 3vw, 2.5rem);
+}
+
+/* === Responsive Spacing Utilities === */
+.gap-responsive {
+    gap: clamp(0.75rem, 1.5vw, 1rem);
+}
+
+.gap-responsive-lg {
+    gap: clamp(1rem, 2vw, 1.5rem);
+}
+
+.mb-responsive {
+    margin-bottom: clamp(0.5rem, 1vw, 0.75rem);
+}
+
+.mb-responsive-lg {
+    margin-bottom: clamp(1rem, 2vw, 1.5rem);
+}
+
+.p-responsive {
+    padding: clamp(1rem, 2vw, 1.5rem);
+}
+
+.p-responsive-sm {
+    padding: clamp(0.75rem, 1.5vw, 1rem);
+}
+
+/* === Card Variants === */
+.card-compact {
+    padding: clamp(1rem, 2vw, 1.5rem);
+}
+
+.card-stat {
+    padding: clamp(1rem, 2vw, 1.5rem);
+    display: flex;
+    flex-direction: column;
+}
+
+/* === Icons & Visuals === */
+.icon-box {
+    width: 3.5rem;
+    height: 3.5rem;
+    border-radius: 1rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255, 255, 255, 0.1);
+    margin-bottom: 1.5rem;
+}

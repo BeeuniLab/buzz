@@ -75,6 +75,8 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
         conversationMessages: [],
         metadata: {} as InferenceMetadata,
         shouldBeGenerating: false,
+        sandboxInstanceId: undefined,
+        commandsHistory: [],
         lastPackageJson: '',
         pendingUserInputs: [],
         projectUpdatesAccumulator: [],
@@ -111,6 +113,7 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
                 getLogger: () => this.logger(),
                 env: this.env
             },
+            10, // MAX_COMMANDS_HISTORY
         );
     }
     private createObjective(projectType: ProjectType): ProjectObjective<BaseProjectState> {

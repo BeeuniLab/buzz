@@ -84,6 +84,8 @@ export class AgenticCodingBehavior extends BaseCodingBehavior<AgenticState> impl
                 plan: []
             },
             templateName: templateInfo?.templateDetails?.name || (this.projectType === 'general' ? 'scratch' : ''),
+            sandboxInstanceId: undefined,
+            commandsHistory: [],
             lastPackageJson: packageJson,
             sessionId: sessionId!,
             hostname,
@@ -98,6 +100,7 @@ export class AgenticCodingBehavior extends BaseCodingBehavior<AgenticState> impl
                 templateInfo.templateDetails.allFiles,
                 {
                     projectName,
+                    commandsHistory: []
                 }
             );
             
@@ -119,7 +122,7 @@ export class AgenticCodingBehavior extends BaseCodingBehavior<AgenticState> impl
             );
             
             this.logger.info('Committed customized template files to git');
-            this.deployPreview();
+            this.deployToSandbox();
         }
         this.logger.info(`Agent ${this.getAgentId()} session: ${this.state.sessionId} initialized successfully`);
         return this.state;

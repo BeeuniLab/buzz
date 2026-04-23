@@ -4,15 +4,18 @@ import { RenderToolCall } from '../operations/UserConversationProcessor';
 import { toolWebSearchDefinition } from './toolkit/web-search';
 import { toolFeedbackDefinition } from './toolkit/feedback';
 import { createQueueRequestTool } from './toolkit/queue-request';
+import { createGetLogsTool } from './toolkit/get-logs';
 import { createDeployPreviewTool } from './toolkit/deploy-preview';
 import { createDeepDebuggerTool } from "./toolkit/deep-debugger";
 import { createRenameProjectTool } from './toolkit/rename-project';
 import { createAlterBlueprintTool } from './toolkit/alter-blueprint';
 import { createReadFilesTool } from './toolkit/read-files';
+import { createExecCommandsTool } from './toolkit/exec-commands';
 import { createRunAnalysisTool } from './toolkit/run-analysis';
 import { createRegenerateFileTool } from './toolkit/regenerate-file';
 import { createGenerateFilesTool } from './toolkit/generate-files';
 import { createWaitTool } from './toolkit/wait';
+import { createGetRuntimeErrorsTool } from './toolkit/get-runtime-errors';
 import { createWaitForGenerationTool } from './toolkit/wait-for-generation';
 import { createWaitForDebugTool } from './toolkit/wait-for-debug';
 import { createGitTool } from './toolkit/git';
@@ -46,6 +49,7 @@ export function buildTools(
         toolWebSearchDefinition,
         toolFeedbackDefinition,
         createQueueRequestTool(agent, logger),
+        createGetLogsTool(agent, logger),
         createDeployPreviewTool(agent, logger),
         createWaitForGenerationTool(agent, logger),
         createWaitForDebugTool(agent, logger),
@@ -60,8 +64,11 @@ export function buildTools(
 
 export function buildDebugTools(session: DeepDebuggerSession, logger: StructuredLogger, toolRenderer?: RenderToolCall): ToolDefinition<any, any>[] {
     const tools = [
+        createGetLogsTool(session.agent, logger),
+        createGetRuntimeErrorsTool(session.agent, logger),
         createReadFilesTool(session.agent, logger),
         createRunAnalysisTool(session.agent, logger),
+        createExecCommandsTool(session.agent, logger),
         createRegenerateFileTool(session.agent, logger),
         createGenerateFilesTool(session.agent, logger),
         createDeployPreviewTool(session.agent, logger),

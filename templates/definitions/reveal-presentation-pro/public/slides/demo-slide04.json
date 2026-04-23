@@ -1,0 +1,100 @@
+{
+    "id": "slide04",
+    "root": {
+        "type": "div",
+        "className": "layout-default justify-center",
+        "children": [
+            {
+                "type": "div",
+                "className": "mb-8 text-center mx-auto",
+                "children": [
+                    {
+                        "type": "h2",
+                        "className": "slide-title text-gradient",
+                        "text": "Section Title"
+                    },
+                    {
+                        "type": "p",
+                        "className": "slide-subtitle text-center",
+                        "text": "A brief subtitle describing the content below"
+                    }
+                ]
+            },
+            {
+                "type": "div",
+                "className": "grid-2 gap-responsive-lg",
+                "children": [
+                    {
+                        "type": "StatCard",
+                        "props": {
+                            "title": "Metric A",
+                            "value": "1,234",
+                            "trend": "+12%",
+                            "icon": "Users",
+                            "className": "w-full"
+                        }
+                    },
+                    {
+                        "type": "StatCard",
+                        "props": {
+                            "title": "Metric B",
+                            "value": "56%",
+                            "trend": "+3.4%",
+                            "icon": "TrendingUp",
+                            "className": "w-full"
+                        }
+                    },
+                    {
+                        "type": "GlassCard",
+                        "props": {
+                            "className": "col-span-2"
+                        },
+                        "children": [
+                            {
+                                "type": "h3",
+                                "className": "slide-heading mb-4",
+                                "text": "Subsection Title"
+                            },
+                            {
+                                "type": "Timeline",
+                                "props": {
+                                    "items": [
+                                        {
+                                            "date": "Phase 1",
+                                            "title": "First Stage",
+                                            "description": "Initial milestone or event description"
+                                        },
+                                        {
+                                            "date": "Phase 2",
+                                            "title": "Second Stage",
+                                            "description": "Follow-up milestone or event description"
+                                        },
+                                        {
+                                            "date": "Phase 3",
+                                            "title": "Third Stage",
+                                            "description": "Final milestone or event description"
+                                        }
+                                    ],
+                                    "className": "w-full"
+                                }
+                            }
+                        ]
+                    }
+                ]
+            }
+        ]
+    },
+    "metadata": {
+        "title": "Component Library",
+        "notes": "Demonstrates StatCard, GlassCard, and Timeline custom components with proper children handling",
+        "background": {
+            "type": "mesh",
+            "colors": [
+                "#8b5cf6",
+                "#ec4899",
+                "#a855f7"
+            ],
+            "animation": "medium"
+        }
+    }
+}

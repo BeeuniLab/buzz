@@ -1,0 +1,7 @@
+name: "vite-cf-DO-runner"
+description: "Vite/React application with Cloudflare Durable Objects"
+base_reference: "vite-reference"
+projectType: app
+
+package_patches:
+  name: "vite-cf-do-runner"

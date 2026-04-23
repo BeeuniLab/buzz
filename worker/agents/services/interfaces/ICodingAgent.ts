@@ -1,7 +1,9 @@
 import { FileOutputType, FileConceptType, Blueprint } from "worker/agents/schemas";
+import { BaseSandboxService } from "worker/services/sandbox/BaseSandboxService";
+import { ExecuteCommandsResponse, PreviewType, RuntimeError } from "worker/services/sandbox/sandboxTypes";
 import { StaticAnalysisResponse, TemplateFile } from "worker/types/project-types";
 import { ProcessedImageAttachment } from "worker/types/image-attachment";
-import { BehaviorType, DeepDebugResult, ProjectType } from "worker/agents/core/types";
+import { BehaviorType, DeepDebugResult, DeploymentTarget, ProjectType } from "worker/agents/core/types";
 import { RenderToolCall } from "worker/agents/operations/UserConversationProcessor";
 import { WebSocketMessageType, WebSocketMessageData } from "worker/api/websocketTypes";
 import { GitVersionControl } from "worker/agents/git/git";
@@ -14,9 +16,17 @@ export interface ICodingAgent {
 
     setMVPGenerated(): boolean;
 
+    getLogs(reset?: boolean, durationSeconds?: number): Promise<string>;
+
+    fetchRuntimeErrors(clear?: boolean): Promise<RuntimeError[]>;
+
+    deployToSandbox(files?: FileOutputType[], redeploy?: boolean, commitMessage?: string, clearLogs?: boolean): Promise<PreviewType | null>;
+
     deployPreview(clearLogs?: boolean, forceRedeploy?: boolean): Promise<string>;
 
     broadcast<T extends WebSocketMessageType>(msg: T, data?: WebSocketMessageData<T>): void;
+
+    deployToCloudflare(target?: DeploymentTarget): Promise<{ deploymentUrl?: string; workersUrl?: string } | null>;
 
     queueUserRequest(request: string, images?: ProcessedImageAttachment[]): void;
 
@@ -39,6 +49,8 @@ export interface ICodingAgent {
     deleteFiles(paths: string[]): Promise<{ success: boolean, error?: string }>;
 
     runStaticAnalysisCode(files?: string[]): Promise<StaticAnalysisResponse>;
+
+    execCommands(commands: string[], shouldSave: boolean, timeout?: number): Promise<ExecuteCommandsResponse>;
 
     updateBlueprint(patch: Partial<Blueprint>): Promise<Blueprint>;
 
@@ -67,4 +79,6 @@ export interface ICodingAgent {
     ): Promise<DeepDebugResult>;
 
     get git(): GitVersionControl;
+
+    getSandboxServiceClient(): BaseSandboxService;
 }
