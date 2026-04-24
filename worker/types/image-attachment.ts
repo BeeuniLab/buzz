@@ -38,11 +38,41 @@ export interface ImageAttachment {
 }
 
 export interface ProcessedImageAttachment {
+	id?: string;
+	filename?: string;
 	mimeType: SupportedChatMediaMimeType;
 	base64Data?: string;
 	r2Key: string;
 	publicUrl: string;
 	hash: string;
+	size?: number;
+	dimensions?: {
+		width: number;
+		height: number;
+	};
+}
+
+export interface InitialUserAttachment {
+	filename: string;
+	mimeType: SupportedChatMediaMimeType;
+	assetKey: string;
+	publicUrl: string;
+}
+
+export function toInitialUserAttachment(
+	attachment: Pick<ProcessedImageAttachment, 'filename' | 'mimeType' | 'r2Key' | 'publicUrl'>,
+): InitialUserAttachment {
+	const assetKey = attachment.r2Key.startsWith('assets/')
+		? attachment.r2Key.split('/').slice(2).join('/')
+		: attachment.r2Key;
+	const filename = attachment.filename || assetKey.split('/').pop() || 'attachment';
+
+	return {
+		filename,
+		mimeType: attachment.mimeType,
+		assetKey,
+		publicUrl: attachment.publicUrl,
+	};
 }
 
 export function isSupportedImageType(mimeType: string): mimeType is SupportedImageMimeType {

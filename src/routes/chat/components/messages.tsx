@@ -13,6 +13,8 @@ import {
 	Image as ImageIcon,
 	FileAudio,
 	FileVideo,
+	Box,
+	Type,
 	Paperclip,
 } from 'lucide-react';
 import type { ToolEvent } from '../utils/message-helpers';
@@ -29,18 +31,47 @@ function sanitizeMessageForDisplay(message: string): string {
 	return message.replace(/<system_context>[\s\S]*?<\/system_context>\n/gi, '').trim();
 }
 
-function UserMessageAttachmentCard({
+function getAttachmentIcon(attachment: ChatAttachmentPreview) {
+	switch (attachment.category) {
+		case 'images':
+			return ImageIcon;
+		case 'video':
+			return FileVideo;
+		case 'audio':
+			return FileAudio;
+		case '3d':
+			return Box;
+		case 'fonts':
+			return Type;
+		default:
+			return Paperclip;
+	}
+}
+
+function getAttachmentLabel(attachment: ChatAttachmentPreview): string {
+	switch (attachment.category) {
+		case 'images':
+			return 'Image';
+		case 'video':
+			return 'Video';
+		case 'audio':
+			return 'Audio';
+		case '3d':
+			return '3D Asset';
+		case 'fonts':
+			return 'Font';
+		default:
+			return 'File';
+	}
+}
+
+function UserMessageImageAttachmentCard({
 	attachment,
 	onClick,
 }: {
 	attachment: ChatAttachmentPreview;
 	onClick?: (attachment: ChatAttachmentPreview) => void;
 }) {
-	const isImage = attachment.category === 'images';
-	const isVideo = attachment.category === 'video';
-	const isAudio = attachment.category === 'audio';
-	const Icon = isImage ? ImageIcon : isVideo ? FileVideo : isAudio ? FileAudio : Paperclip;
-
 	return (
 		<button
 			type="button"
@@ -48,7 +79,7 @@ function UserMessageAttachmentCard({
 			className="group flex w-full min-w-0 flex-col overflow-hidden rounded-xl border border-border-primary bg-bg-2 text-left transition-colors hover:border-accent/60"
 		>
 			<div className="relative aspect-[4/3] overflow-hidden bg-bg-1">
-				{isImage && attachment.previewUrl ? (
+				{attachment.previewUrl ? (
 					<img
 						src={attachment.previewUrl}
 						alt={attachment.filename}
@@ -57,12 +88,12 @@ function UserMessageAttachmentCard({
 					/>
 				) : (
 					<div className="flex h-full w-full items-center justify-center">
-						<Icon className="size-8 text-text-50/40" />
+						<ImageIcon className="size-8 text-text-50/40" />
 					</div>
 				)}
 			</div>
 			<div className="flex min-w-0 items-center gap-2 px-3 py-2">
-				<Icon className="size-3.5 shrink-0 text-accent" />
+				<ImageIcon className="size-3.5 shrink-0 text-accent" />
 				<div className="min-w-0">
 					<p className="truncate text-xs font-medium text-text-primary" title={attachment.filename}>
 						{attachment.filename}
@@ -71,6 +102,42 @@ function UserMessageAttachmentCard({
 						Open in assets
 					</p>
 				</div>
+			</div>
+		</button>
+	);
+}
+
+function UserMessageFileAttachmentCard({
+	attachment,
+	onClick,
+}: {
+	attachment: ChatAttachmentPreview;
+	onClick?: (attachment: ChatAttachmentPreview) => void;
+}) {
+	const Icon = getAttachmentIcon(attachment);
+	const label = getAttachmentLabel(attachment);
+
+	return (
+		<button
+			type="button"
+			onClick={() => onClick?.(attachment)}
+			className="group flex w-full min-w-0 items-center gap-3 rounded-xl border border-border-primary bg-bg-2 px-3 py-2 text-left transition-colors hover:border-accent/60"
+		>
+			<div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-bg-1 text-accent">
+				<Icon className="size-4" />
+			</div>
+			<div className="min-w-0 flex-1">
+				<div className="flex items-center gap-2">
+					<p className="truncate text-xs font-medium text-text-primary" title={attachment.filename}>
+						{attachment.filename}
+					</p>
+					<span className="shrink-0 rounded-full bg-bg-1 px-1.5 py-0.5 text-[10px] text-text-secondary">
+						{label}
+					</span>
+				</div>
+				<p className="text-[10px] text-text-secondary">
+					Open in assets
+				</p>
 			</div>
 		</button>
 	);
@@ -85,15 +152,33 @@ function UserMessageAttachments({
 }) {
 	if (attachments.length === 0) return null;
 
+	const imageAttachments = attachments.filter((attachment) => attachment.category === 'images');
+	const otherAttachments = attachments.filter((attachment) => attachment.category !== 'images');
+
 	return (
-		<div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-			{attachments.map((attachment) => (
-				<UserMessageAttachmentCard
-					key={attachment.id}
-					attachment={attachment}
-					onClick={onAttachmentClick}
-				/>
-			))}
+		<div className="flex flex-col gap-2">
+			{imageAttachments.length > 0 && (
+				<div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+					{imageAttachments.map((attachment) => (
+						<UserMessageImageAttachmentCard
+							key={attachment.id}
+							attachment={attachment}
+							onClick={onAttachmentClick}
+						/>
+					))}
+				</div>
+			)}
+			{otherAttachments.length > 0 && (
+				<div className="flex flex-col gap-2">
+					{otherAttachments.map((attachment) => (
+						<UserMessageFileAttachmentCard
+							key={attachment.id}
+							attachment={attachment}
+							onClick={onAttachmentClick}
+						/>
+					))}
+				</div>
+			)}
 		</div>
 	);
 }

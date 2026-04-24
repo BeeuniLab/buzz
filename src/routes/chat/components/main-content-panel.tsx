@@ -1,21 +1,15 @@
 import { type RefObject, type ReactNode, Suspense, useState, useCallback, useRef, useEffect } from 'react';
 import { WebSocket } from 'partysocket';
-import { MonacoEditor } from '../../../components/monaco-editor/monaco-editor';
 import { motion } from 'framer-motion';
 import { RefreshCw } from 'lucide-react';
 import { Blueprint } from './blueprint';
-import { FileExplorer } from './file-explorer';
 import { PreviewIframe } from './preview-iframe';
-import { MarkdownDocsPreview } from './markdown-docs-preview';
 import { ViewContainer } from './view-container';
 import { ViewHeader } from './view-header';
 import { PreviewHeaderActions } from './preview-header-actions';
-import { EditorHeaderActions } from './editor-header-actions';
-import { Copy } from './copy';
 import { AssetsPanel } from './assets-panel';
 import { featureRegistry } from '@/features';
 import type { FileType, BlueprintType, BehaviorType, TemplateDetails, ProjectType } from '@/api-types';
-import type { ContentDetectionResult } from '../utils/content-detector';
 import type { Edit } from '../hooks/use-chat';
 import type { ChatAssetSelectionTarget } from '../utils/chat-attachments';
 
@@ -69,10 +63,6 @@ interface MainContentPanelProps {
 	view: 'editor' | 'preview' | 'docs' | 'blueprint' | 'presentation' | 'assets';
 	onViewChange: (mode: 'preview' | 'editor' | 'docs' | 'blueprint' | 'presentation' | 'assets') => void;
 
-	// Content detection
-	hasDocumentation: boolean;
-	contentDetection: ContentDetectionResult;
-
 	// Preview state
 	projectType: ProjectType;
 	previewUrl?: string;
@@ -112,8 +102,6 @@ export function MainContentPanel(props: MainContentPanelProps) {
 	const {
 		view,
 		onViewChange,
-		hasDocumentation,
-		contentDetection,
 		projectType,
 		previewUrl,
 		previewAvailable,
@@ -123,8 +111,6 @@ export function MainContentPanel(props: MainContentPanelProps) {
 		blueprint,
 		activeFile,
 		allFiles,
-		edit,
-		onFileClick,
 		isGenerating,
 		isGeneratingBlueprint,
 		behaviorType,
@@ -146,7 +132,6 @@ export function MainContentPanel(props: MainContentPanelProps) {
 		view: view as 'preview' | 'editor' | 'docs' | 'blueprint' | 'presentation' | 'assets',
 		onViewChange,
 		previewAvailable,
-		hasDocumentation,
 		previewUrl,
 		projectType,
 	};
@@ -168,33 +153,40 @@ export function MainContentPanel(props: MainContentPanelProps) {
 		</ViewContainer>
 	);
 
-	const renderDocsView = () => {
-		if (!hasDocumentation) return null;
-
-		const markdownFiles = Object.values(contentDetection.Contents)
-			.filter(bundle => bundle.type === 'markdown')
-			.flatMap(bundle => bundle.files);
-
-		if (markdownFiles.length === 0) return null;
-
-		return renderViewWithHeader(
-			<span className="text-sm font-mono text-text-50/70">Documentation</span>,
-			<MarkdownDocsPreview
-				files={markdownFiles}
-				isGenerating={isGenerating || isGeneratingBlueprint}
-			/>
-		);
-	};
-
 	const renderPreviewView = () => {
+		const featureDefinition = featureRegistry.getDefinition(projectType);
+		const previewTitle = blueprint?.title ?? featureDefinition?.name ?? 'Preview';
+
 		if (!previewUrl) {
-			return null;
+			return renderViewWithHeader(
+				<div className="flex w-full min-w-0 items-center gap-2">
+					<span
+						className="min-w-0 flex-1 truncate text-left text-sm font-mono text-text-50/70"
+						title={previewTitle}
+					>
+						{previewTitle}
+					</span>
+				</div>,
+				<div className="flex-1 flex items-center justify-center bg-bg-3">
+					<div className="text-center p-8 max-w-md">
+						{(isGenerating || isGeneratingBlueprint) && (
+							<RefreshCw className="size-8 text-accent animate-spin mx-auto mb-4" />
+						)}
+						<h3 className="text-lg font-medium text-text-primary mb-2">
+							{(isGenerating || isGeneratingBlueprint) ? 'Preparing Preview' : 'Preview Not Ready'}
+						</h3>
+						<p className="text-text-primary/70 text-sm">
+							{(isGenerating || isGeneratingBlueprint)
+								? 'We are still generating and deploying the preview.'
+								: 'Preview will appear here once deployment is available.'}
+						</p>
+					</div>
+				</div>
+			);
 		}
 
 		// Get feature capabilities to determine preview behavior
 		const featureCapabilities = featureRegistry.getCapabilities(projectType);
-		const featureDefinition = featureRegistry.getDefinition(projectType);
-		const previewTitle = blueprint?.title ?? featureDefinition?.name ?? 'Preview';
 
 		// Check if we should show the refresh button (presentations handle refresh differently)
 		const showManualRefresh = featureCapabilities?.hasLiveReload ?? true;
@@ -291,9 +283,8 @@ export function MainContentPanel(props: MainContentPanelProps) {
 				>
 					{previewTitle}
 				</span>
-				<div className="flex shrink-0 items-center gap-1">
-					<Copy text={previewUrl} />
-					{showManualRefresh && (
+				{showManualRefresh && (
+					<div className="flex shrink-0 items-center gap-1">
 						<button
 							className="p-1 hover:bg-bg-2 rounded transition-colors"
 							onClick={onManualRefresh}
@@ -301,8 +292,8 @@ export function MainContentPanel(props: MainContentPanelProps) {
 						>
 							<RefreshCw className="size-4 text-text-primary/50" />
 						</button>
-					)}
-				</div>
+					</div>
+				)}
 			</div>,
 			previewContent,
 			headerActions
@@ -313,7 +304,6 @@ export function MainContentPanel(props: MainContentPanelProps) {
 		renderViewWithHeader(
 			<div className="flex items-center gap-2">
 				<span className="text-sm text-text-50/70 font-mono">Blueprint.md</span>
-				{previewUrl && <Copy text={previewUrl} />}
 			</div>,
 			<div className="flex-1 overflow-y-auto bg-bg-3">
 				<div className="py-12 mx-auto">
@@ -324,78 +314,6 @@ export function MainContentPanel(props: MainContentPanelProps) {
 				</div>
 			</div>
 		);
-
-	const renderEditorView = () => {
-		// Defensive fallback: show file explorer with empty editor if no activeFile
-		if (!activeFile) {
-			return renderViewWithHeader(
-				<div className="flex items-center gap-2">
-					<span className="text-sm font-mono text-text-50/70">Select a file</span>
-				</div>,
-				<div className="flex-1 relative">
-					<div className="absolute inset-0 flex" ref={editorRef}>
-						<FileExplorer
-							files={allFiles}
-							currentFile={undefined}
-							onFileClick={onFileClick}
-						/>
-						<div className="flex-1 flex items-center justify-center bg-bg-3">
-							<span className="text-text-50/50 text-sm">No file selected</span>
-						</div>
-					</div>
-				</div>,
-				<EditorHeaderActions
-					editorRef={editorRef}
-				/>
-			);
-		}
-
-		return renderViewWithHeader(
-			<div className="flex w-full min-w-0 items-center gap-2">
-				<span
-					className="min-w-0 flex-1 truncate text-left text-sm font-mono text-text-50/70"
-					title={activeFile.filePath}
-				>
-					{activeFile.filePath}
-				</span>
-				{previewUrl && (
-					<div className="shrink-0">
-						<Copy text={previewUrl} />
-					</div>
-				)}
-			</div>,
-			<div className="flex-1 relative">
-				<div className="absolute inset-0 flex" ref={editorRef}>
-					<FileExplorer
-						files={allFiles}
-						currentFile={activeFile}
-						onFileClick={onFileClick}
-					/>
-					<div className="flex-1">
-						<MonacoEditor
-							className="h-full"
-							createOptions={{
-								value: activeFile.fileContents || '',
-								language: activeFile.language || 'plaintext',
-								readOnly: true,
-								minimap: { enabled: false },
-								lineNumbers: 'on',
-								scrollBeyondLastLine: false,
-								fontSize: 13,
-								theme: 'vibesdk',
-								automaticLayout: true,
-							}}
-							find={edit?.filePath === activeFile.filePath ? edit.search : undefined}
-							replace={edit?.filePath === activeFile.filePath ? edit.replacement : undefined}
-						/>
-					</div>
-				</div>
-			</div>,
-			<EditorHeaderActions
-				editorRef={editorRef}
-			/>
-		);
-	};
 
 	const renderAssetsView = () =>
 		renderViewWithHeader(
@@ -408,15 +326,14 @@ export function MainContentPanel(props: MainContentPanelProps) {
 
 	const renderView = () => {
 		switch (view) {
-			case 'docs':
-				return renderDocsView();
 			case 'preview':
 			case 'presentation': // Presentations now use preview view
 				return renderPreviewView();
 			case 'blueprint':
 				return renderBlueprintView();
 			case 'editor':
-				return renderEditorView();
+			case 'docs':
+				return renderPreviewView();
 			case 'assets':
 				return renderAssetsView();
 			default:

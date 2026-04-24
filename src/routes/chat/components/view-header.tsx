@@ -7,8 +7,6 @@ interface ViewHeaderProps {
 	view: 'preview' | 'editor' | 'docs' | 'blueprint' | 'presentation' | 'assets';
 	onViewChange: (mode: 'preview' | 'editor' | 'docs' | 'blueprint' | 'presentation' | 'assets') => void;
 	previewAvailable: boolean;
-	hasDocumentation: boolean;
-	previewUrl?: string;
 	centerContent?: ReactNode;
 	rightActions?: ReactNode;
 	projectType?: ProjectType;
@@ -18,8 +16,6 @@ export function ViewHeader({
 	view,
 	onViewChange,
 	previewAvailable,
-    hasDocumentation,
-	previewUrl,
 	centerContent,
 	rightActions,
 	projectType,
@@ -33,8 +29,6 @@ export function ViewHeader({
 					view={view}
 					onChange={onViewChange}
 					previewAvailable={previewAvailable}
-					hasDocumentation={hasDocumentation}
-					previewUrl={previewUrl}
 					projectType={projectType}
 				/>
 			</div>

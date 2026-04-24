@@ -18,7 +18,7 @@ import {
     appendToolEvent,
     type ChatMessage,
 } from './message-helpers';
-import { parseUserMessageForDisplay } from './chat-attachments';
+import { buildInitialChatAttachments, parseUserMessageForDisplay } from './chat-attachments';
 import { completeStages, type ProjectStage } from './project-stage-helpers';
 import { sendWebSocketMessage } from './websocket-helpers';
 import type { PhaseTimelineItem } from '../hooks/use-chat';
@@ -54,6 +54,7 @@ export interface HandleMessageDeps {
     setIsDeploying: React.Dispatch<React.SetStateAction<boolean>>;
     setCloudflareDeploymentUrl: React.Dispatch<React.SetStateAction<string>>;
     setDeploymentError: React.Dispatch<React.SetStateAction<string | undefined>>;
+    setInitialPromptAttachments: React.Dispatch<React.SetStateAction<import('./chat-attachments').ChatAttachmentPreview[]>>;
     setIsGenerationPaused: React.Dispatch<React.SetStateAction<boolean>>;
     setIsGenerating: React.Dispatch<React.SetStateAction<boolean>>;
     setIsPhaseProgressActive: React.Dispatch<React.SetStateAction<boolean>>;
@@ -94,6 +95,39 @@ export interface HandleMessageDeps {
     onVaultUnlockRequired?: (reason: string) => void;
 }
 
+function preserveExistingUserAttachments(
+    restoredMessages: ChatMessage[],
+    existingMessages: ChatMessage[],
+): ChatMessage[] {
+    const existingAttachmentBuckets = new Map<string, ChatMessage[]>();
+
+    for (const message of existingMessages) {
+        if (message.role !== 'user' || !message.attachments || message.attachments.length === 0) continue;
+
+        const bucket = existingAttachmentBuckets.get(message.content) ?? [];
+        bucket.push(message);
+        existingAttachmentBuckets.set(message.content, bucket);
+    }
+
+    return restoredMessages.map((message) => {
+        if (message.role !== 'user' || (message.attachments && message.attachments.length > 0)) {
+            return message;
+        }
+
+        const bucket = existingAttachmentBuckets.get(message.content);
+        const existingMatch = bucket?.shift();
+
+        if (!existingMatch?.attachments || existingMatch.attachments.length === 0) {
+            return message;
+        }
+
+        return {
+            ...message,
+            attachments: existingMatch.attachments,
+        };
+    });
+}
+
 export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
     const extractTextContent = (content: ConversationMessage['content']): string => {
         if (!content) return '';
@@ -128,6 +162,7 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
             setIsDeploying,
             setCloudflareDeploymentUrl,
             setDeploymentError,
+            setInitialPromptAttachments,
             setIsGenerationPaused,
             setIsGenerating,
             setIsPhaseProgressActive,
@@ -198,6 +233,15 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
 
                     if (state.query && !query) {
                         setQuery(state.query);
+                    }
+
+                    const initialUserAttachments = state.initialUserAttachments ?? [];
+                    if (initialUserAttachments.length > 0) {
+                        const fallbackAgentId = state.metadata?.agentId
+                            || (urlChatId && urlChatId !== 'new' ? urlChatId : undefined);
+                        setInitialPromptAttachments(
+                            buildInitialChatAttachments(initialUserAttachments, fallbackAgentId),
+                        );
                     }
 
                     if (previewUrl) {
@@ -496,6 +540,7 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
                     
                     logger.debug('Merging conversation_state with', deduplicated.length, 'messages (', restoredMessages.length - deduplicated.length, 'duplicates removed)');
                     setMessages(prev => {
+                        const restoredWithPreservedAttachments = preserveExistingUserAttachments(deduplicated, prev);
                         const hasFetching = prev.some(m => m.role === 'assistant' && m.conversationId === 'fetching-chat');
                         const hasReconnect = prev.some(m => m.role === 'assistant' && m.conversationId === 'websocket_reconnected');
                         
@@ -504,15 +549,15 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
                                 name: 'fetching your latest conversations', 
                                 status: 'success' 
                             });
-                            return [...next, ...deduplicated];
+                            return [...next, ...restoredWithPreservedAttachments];
                         }
                         
                         if (hasReconnect) {
                             // Preserve reconnect message on top when restoring state after reconnect
-                            return [...prev, ...deduplicated];
+                            return [...prev, ...restoredWithPreservedAttachments];
                         }
                         
-                        return deduplicated;
+                        return restoredWithPreservedAttachments;
                     });
                 }
                 break;

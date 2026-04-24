@@ -4,6 +4,7 @@ import type { PhasicBlueprint, AgenticBlueprint, PhaseConceptType ,
 } from '../schemas';
 import type { InferenceMetadata } from '../inferutils/config.types';
 import { BehaviorType, Plan, ProjectType } from './types';
+import type { InitialUserAttachment } from '../../types/image-attachment';
 
 export interface FileState extends FileOutputType {
     lastDiff: string;
@@ -37,6 +38,7 @@ export interface BaseProjectState {
     // Identity
     projectName: string;
     query: string;
+    initialUserAttachments?: InitialUserAttachment[];
     sessionId: string;
     hostname: string;
 

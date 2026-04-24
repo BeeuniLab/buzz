@@ -42,6 +42,8 @@ export function AssetsPanel({ agentId, selectedAssetTarget }: AssetsPanelProps) 
 	const [highlightedAssetKey, setHighlightedAssetKey] = useState<string | null>(null);
 	const fileInputRef = useRef<HTMLInputElement>(null);
 	const assetRefs = useRef<Record<string, HTMLDivElement | null>>({});
+	const lastAutoCategoryNonceRef = useRef<number | null>(null);
+	const lastHighlightNonceRef = useRef<number | null>(null);
 
 	const fetchAssets = useCallback(async () => {
 		if (!agentId) return;
@@ -99,13 +101,18 @@ export function AssetsPanel({ agentId, selectedAssetTarget }: AssetsPanelProps) 
 
 	useEffect(() => {
 		if (!selectedAssetTarget) return;
-		if (selectedAssetTarget.category && selectedCategory !== selectedAssetTarget.category) {
+		if (lastAutoCategoryNonceRef.current === selectedAssetTarget.nonce) return;
+
+		lastAutoCategoryNonceRef.current = selectedAssetTarget.nonce;
+		if (selectedAssetTarget.category) {
 			setSelectedCategory(selectedAssetTarget.category);
 		}
-	}, [selectedAssetTarget, selectedCategory]);
+	}, [selectedAssetTarget]);
 
 	useEffect(() => {
 		if (!selectedAssetTarget) return;
+		if (lastHighlightNonceRef.current === selectedAssetTarget.nonce) return;
+
 		const matched = assets.find((asset) => {
 			if (selectedAssetTarget.assetKey) {
 				return asset.key === selectedAssetTarget.assetKey;
@@ -117,11 +124,10 @@ export function AssetsPanel({ agentId, selectedAssetTarget }: AssetsPanelProps) 
 		});
 		if (!matched) return;
 
-		if (selectedCategory !== matched.category) {
-			setSelectedCategory(matched.category);
-		}
+		lastHighlightNonceRef.current = selectedAssetTarget.nonce;
+		setSelectedCategory(matched.category);
 		setHighlightedAssetKey(matched.key);
-	}, [assets, selectedAssetTarget, selectedCategory]);
+	}, [assets, selectedAssetTarget]);
 
 	useEffect(() => {
 		if (!highlightedAssetKey) return;

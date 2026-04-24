@@ -20,7 +20,7 @@ import { OperationOptions } from 'worker/agents/operations/common';
 import { compactifyContext } from '../../utils/conversationCompactifier';
 import { ConversationMessage, createMultiModalUserMessage, createUserMessage, Message } from '../../inferutils/common';
 import { AbortError } from 'worker/agents/inferutils/core';
-import { ImageAttachment, ProcessedImageAttachment } from 'worker/types/image-attachment';
+import { ImageAttachment, ProcessedImageAttachment, toInitialUserAttachment } from 'worker/types/image-attachment';
 import { uploadImageAsAgentAsset } from 'worker/utils/images';
 import { uniqueAgentAssetRelativePath } from 'worker/utils/agentAssets';
 
@@ -75,6 +75,7 @@ export class AgenticCodingBehavior extends BaseCodingBehavior<AgenticState> impl
             ...this.state,
             projectName,
             query,
+            initialUserAttachments: (initArgs.images ?? []).map(toInitialUserAttachment),
             blueprint: {
                 title: baseName,
                 projectName,

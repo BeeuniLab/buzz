@@ -67,6 +67,7 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
         projectType: 'unknown' as ProjectType,
         projectName: "",
         query: "",
+        initialUserAttachments: [],
         sessionId: '',
         hostname: '',
         blueprint: {} as unknown as Blueprint,
@@ -393,6 +394,7 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
                 projectType: 'app' as ProjectType,
                 projectName: args.title,
                 query: args.description,
+                initialUserAttachments: [],
                 sessionId,
                 hostname: '',
                 blueprint: {

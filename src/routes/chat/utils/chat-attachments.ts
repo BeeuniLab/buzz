@@ -1,4 +1,4 @@
-import type { AssetCategory, ConversationMessage, ImageAttachment } from '@/api-types';
+import type { AssetCategory, ConversationMessage, ImageAttachment, InitialUserAttachment } from '@/api-types';
 
 export interface ChatAttachmentPreview {
 	id: string;
@@ -107,6 +107,23 @@ function parseAssetReference(raw: string): { agentId?: string; assetKey?: string
 	};
 }
 
+function extractImageReference(part: {
+	image_url?: string | { url?: string };
+}): string | undefined {
+	if (!part || typeof part !== 'object' || !('image_url' in part)) return undefined;
+
+	const imageUrl = part.image_url;
+	if (typeof imageUrl === 'string') {
+		return imageUrl;
+	}
+
+	if (imageUrl && typeof imageUrl === 'object' && 'url' in imageUrl && typeof imageUrl.url === 'string') {
+		return imageUrl.url;
+	}
+
+	return undefined;
+}
+
 export function buildOptimisticChatAttachments(images: ImageAttachment[]): ChatAttachmentPreview[] {
 	return images.map((attachment) => ({
 		id: attachment.id,
@@ -116,6 +133,21 @@ export function buildOptimisticChatAttachments(images: ImageAttachment[]): ChatA
 		previewUrl: attachment.mimeType.startsWith('image/')
 			? `data:${attachment.mimeType};base64,${attachment.base64Data}`
 			: undefined,
+	}));
+}
+
+export function buildInitialChatAttachments(
+	attachments: InitialUserAttachment[],
+	fallbackAgentId?: string,
+): ChatAttachmentPreview[] {
+	return attachments.map((attachment, index) => ({
+		id: `initial-${attachment.assetKey || attachment.filename}-${index}`,
+		filename: attachment.filename || getFilenameFromPath(attachment.assetKey || attachment.publicUrl),
+		mimeType: attachment.mimeType || getMimeTypeFromFilename(attachment.filename),
+		category: getCategoryFromMimeType(attachment.mimeType || getMimeTypeFromFilename(attachment.filename)),
+		previewUrl: buildAssetPreviewUrl(fallbackAgentId, attachment.assetKey, attachment.publicUrl),
+		assetKey: attachment.assetKey,
+		assetAgentId: fallbackAgentId,
 	}));
 }
 
@@ -187,7 +219,8 @@ export function parseUserMessageForDisplay(
 		content.forEach((part, index) => {
 			if (!('type' in part) || part.type !== 'image_url') return;
 
-			const rawReference = part.image_url.url;
+			const rawReference = extractImageReference(part);
+			if (!rawReference) return;
 			const parsed = parseAssetReference(rawReference);
 			const assetAgentId = parsed.agentId || fallbackAgentId;
 			const assetKey = parsed.assetKey;

@@ -28,7 +28,7 @@ import { isConversationalMessage, addOrUpdateMessage, createUserMessage, handleR
 import { sendWebSocketMessage } from '../utils/websocket-helpers';
 import { initialStages as defaultStages, updateStage as updateStageHelper } from '../utils/project-stage-helpers';
 import type { ProjectStage } from '../utils/project-stage-helpers';
-import type { ChatAttachmentPreview } from '../utils/chat-attachments';
+import { buildOptimisticChatAttachments, type ChatAttachmentPreview } from '../utils/chat-attachments';
 
 export type Edit = Omit<CodeFixEdits, 'type'>;
 
@@ -95,6 +95,9 @@ export function useChat({
 	const [blueprint, setBlueprint] = useState<BlueprintType>();
 	const [previewUrl, setPreviewUrl] = useState<string>();
 	const [query, setQuery] = useState<string>();
+	const [initialPromptAttachments, setInitialPromptAttachments] = useState<ChatAttachmentPreview[]>(
+		() => (userImages && userImages.length > 0 ? buildOptimisticChatAttachments(userImages) : []),
+	);
 	const [behaviorType, setBehaviorType] = useState<BehaviorType>(getInitialBehaviorType());
 	const [internalProjectType, setInternalProjectType] = useState<ProjectType>(projectType);
 	const [templateDetails, setTemplateDetails] = useState<TemplateDetails | null>(null);
@@ -211,6 +214,7 @@ export function useChat({
 			setIsDeploying,
 			setCloudflareDeploymentUrl,
 			setDeploymentError,
+			setInitialPromptAttachments,
 			setIsGenerationPaused,
 			setIsGenerating,
 			setIsPhaseProgressActive,
@@ -264,6 +268,21 @@ export function useChat({
 			clearDeploymentTimeout,
 		],
 	);
+
+	useEffect(() => {
+		if (urlChatId === 'new') {
+			setInitialPromptAttachments(
+				userImages && userImages.length > 0 ? buildOptimisticChatAttachments(userImages) : [],
+			);
+			return;
+		}
+
+		if (chatId && urlChatId === chatId) {
+			return;
+		}
+
+		setInitialPromptAttachments([]);
+	}, [chatId, urlChatId, userImages]);
 
 	// WebSocket connection with retry logic
 	const connectWithRetry = useCallback(
@@ -733,6 +752,7 @@ export function useChat({
 		bootstrapFiles,
 		chatId,
 		query,
+		initialPromptAttachments,
 		files,
 		blueprint,
 		previewUrl,

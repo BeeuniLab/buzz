@@ -1,5 +1,5 @@
 import clsx from 'clsx';
-import { Eye, FileText, Presentation, Image } from 'lucide-react';
+import { Eye, Presentation, Image } from 'lucide-react';
 import { featureRegistry } from '@/features';
 import type { ProjectType } from '@/api-types';
 
@@ -13,15 +13,11 @@ export function ViewModeSwitch({
 	view,
 	onChange,
 	previewAvailable = false,
-	hasDocumentation = false,
-	previewUrl,
 	projectType,
 }: {
 	view: 'preview' | 'editor' | 'docs' | 'blueprint' | 'presentation' | 'assets'
 	onChange: (mode: 'preview' | 'editor' | 'docs' | 'blueprint' | 'presentation' | 'assets') => void;
 	previewAvailable: boolean;
-	hasDocumentation: boolean;
-	previewUrl?: string;
 	projectType?: ProjectType;
 }) {
 	// Get feature definition to determine icon and label
@@ -34,14 +30,17 @@ export function ViewModeSwitch({
 	const iconName = previewView?.iconName;
 	const PreviewIcon = (iconName && ICON_MAP[iconName]) || Eye;
 
-	if (!previewAvailable) {
+	const showPreviewButton = previewAvailable || view === 'preview' || view === 'presentation';
+	const showAssetsButton = previewAvailable || view === 'assets';
+
+	if (!showPreviewButton && !showAssetsButton) {
 		return null;
 	}
 
 	return (
 		<div className="flex items-center gap-1 bg-bg-1 rounded-md p-0.5 relative">
-			{/* Preview button - show when app has preview URL */}
-			{previewUrl && (
+			{/* Preview button */}
+			{showPreviewButton && (
 				<button
 					onClick={() => onChange('preview')}
 					className={clsx(
@@ -56,32 +55,18 @@ export function ViewModeSwitch({
 				</button>
 			)}
 
-			<button
-				onClick={() => onChange('assets')}
-				className={clsx(
-					'p-1 flex items-center justify-between h-full rounded-md transition-colors',
-					view === 'assets'
-						? 'bg-bg-4 text-text-primary'
-						: 'text-text-50/70 hover:text-text-primary hover:bg-accent',
-				)}
-				title="Assets"
-			>
-				<Image className="size-4" />
-			</button>
-
-			{/* Docs button - show when documentation exists */}
-			{hasDocumentation && (
+			{showAssetsButton && (
 				<button
-					onClick={() => onChange('docs')}
+					onClick={() => onChange('assets')}
 					className={clsx(
 						'p-1 flex items-center justify-between h-full rounded-md transition-colors',
-						view === 'docs'
+						view === 'assets'
 							? 'bg-bg-4 text-text-primary'
 							: 'text-text-50/70 hover:text-text-primary hover:bg-accent',
 					)}
-					title="Docs"
+					title="Assets"
 				>
-					<FileText className="size-4" />
+					<Image className="size-4" />
 				</button>
 			)}
 		</div>

@@ -240,6 +240,7 @@ export type AgentStreamingResponse = StreamingResponse;
 
 export {
 	type ImageAttachment,
+	type InitialUserAttachment,
 	isSupportedImageType,
 	isSupportedChatMediaType,
 	MAX_IMAGE_SIZE_BYTES,

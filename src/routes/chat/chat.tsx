@@ -31,7 +31,7 @@ import { useDragDrop } from '@/hooks/use-drag-drop';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { sendWebSocketMessage } from './utils/websocket-helpers';
-import { detectContentType, isDocumentationPath, isMarkdownFile } from './utils/content-detector';
+import { isMarkdownFile } from './utils/content-detector';
 import { mergeFiles } from '@/utils/file-helpers';
 import { ChatModals } from './components/chat-modals';
 import { MainContentPanel } from './components/main-content-panel';
@@ -48,6 +48,12 @@ import {
 
 const isPhasicBlueprint = (blueprint?: BlueprintType | null): blueprint is PhasicBlueprint =>
 	!!blueprint && 'implementationRoadmap' in blueprint;
+
+type CanvasView = 'editor' | 'preview' | 'docs' | 'blueprint' | 'presentation' | 'assets';
+
+function normalizeCanvasView(view: CanvasView): Exclude<CanvasView, 'docs' | 'editor'> {
+	return view === 'docs' || view === 'editor' ? 'preview' : view;
+}
 
 export default function Chat() {
 	const { chatId: urlChatId } = useParams();
@@ -124,6 +130,7 @@ export default function Chat() {
 		bootstrapFiles,
 		chatId,
 		query,
+		initialPromptAttachments,
 		files,
 		isGeneratingBlueprint,
 		isBootstrapping,
@@ -163,9 +170,7 @@ export default function Chat() {
 	const navigate = useNavigate();
 
 	const [activeFilePath, setActiveFilePath] = useState<string>();
-	const [view, setView] = useState<'editor' | 'preview' | 'docs' | 'blueprint' | 'presentation' | 'assets'>(
-		'preview',
-	);
+	const [view, setView] = useState<CanvasView>('preview');
 	const [selectedAssetTarget, setSelectedAssetTarget] = useState<ChatAssetSelectionTarget | null>(null);
 
 	// Debug panel state
@@ -274,15 +279,15 @@ export default function Chat() {
 		logger.debug('handleFileClick()', file);
 		clearEdit();
 		setActiveFilePath(file.filePath);
-		setView('editor');
+		setView('preview');
 		if (!hasSwitchedFile.current) {
 			hasSwitchedFile.current = true;
 		}
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, []);
 
-	const handleViewModeChange = useCallback((mode: 'preview' | 'editor' | 'docs' | 'blueprint' | 'presentation' | 'assets') => {
-		setView(mode);
+	const handleViewModeChange = useCallback((mode: CanvasView) => {
+		setView(normalizeCanvasView(mode));
 	}, []);
 
 	const handleMessageAttachmentClick = useCallback((attachment: ChatAttachmentPreview) => {
@@ -358,26 +363,10 @@ export default function Chat() {
 		return phaseTimeline.length > 0 && phaseTimeline[0].status === 'completed';
 	}, [phaseTimeline]);
 
-	// Detect if agentic mode is showing static content (docs, markdown)
-	const isStaticContent = useMemo(() => {
-		if (behaviorType !== 'agentic' || files.length === 0) return false;
-		return files.every(file => isDocumentationPath(file.filePath.toLowerCase()));
-	}, [behaviorType, files]);
-
-	// Detect content type (documentation detection - works in any projectType)
-	const contentDetection = useMemo(() => {
-		return detectContentType(files);
-	}, [files]);
-
-    const hasDocumentation = useMemo(() => {
-        return Object.values(contentDetection.Contents).some(bundle => bundle.type === 'markdown');
-    }, [contentDetection]);
-
 	// Preview available based on projectType and content
 	const previewAvailable = useMemo(() => {
-		if (hasDocumentation || !!previewUrl) return true;
-		return false;
-	}, [hasDocumentation, previewUrl]);
+		return !!previewUrl || files.length > 0;
+	}, [files.length, previewUrl]);
 
 	const showMainView = useMemo(() => {
 		// For agentic mode: show preview panel when files exist or preview URL exists
@@ -411,14 +400,11 @@ export default function Chat() {
 
 		const markdownFiles = files.filter(isMarkdownFile);
 		const isGeneratingMarkdown = markdownFiles.some(f => f.isGenerating);
-		const newMarkdownAdded = markdownFiles.length > prevMarkdownCountRef.current;
 
-		// Auto-switch to docs ONLY when NEW markdown is being generated
-		if (hasDocumentation && newMarkdownAdded && isGeneratingMarkdown) {
-			setView('docs');
+		if (!previewUrl && files.length > 0) {
+			setView('preview');
 			hasSeenPreview.current = true;
-		} else if (isStaticContent && files.length > 0 && !hasDocumentation) {
-			// For other static content (non-documentation), show preview view
+		} else if (isGeneratingMarkdown && markdownFiles.length > prevMarkdownCountRef.current) {
 			setView('preview');
 			hasSeenPreview.current = true;
 		} else if (previewUrl) {
@@ -436,7 +422,7 @@ export default function Chat() {
 
 		// Update ref for next comparison
 		prevMarkdownCountRef.current = markdownFiles.length;
-	}, [previewUrl, isPhase1Complete, isStaticContent, files, activeFilePath, behaviorType, hasDocumentation, projectType, urlChatId]);
+	}, [previewUrl, isPhase1Complete, files, behaviorType, urlChatId]);
 
 	useEffect(() => {
 		if (chatId) {
@@ -450,7 +436,7 @@ export default function Chat() {
 		if (!edit) return;
 		if (files.some((file) => file.filePath === edit.filePath)) {
 			setActiveFilePath(edit.filePath);
-			setView('editor');
+			setView('preview');
 		}
 	}, [edit, files]);
 
@@ -461,15 +447,19 @@ export default function Chat() {
 			!hasSwitchedFile.current
 		) {
 			setActiveFilePath(streamedBootstrapFiles.at(-1)!.filePath);
-		} else if (
-			view === 'editor' &&
-			!activeFile &&
-			files.length > 0 &&
-			!hasSwitchedFile.current
-		) {
-			setActiveFilePath(files.at(-1)!.filePath);
 		}
-	}, [view, activeFile, files, isBootstrapping, streamedBootstrapFiles]);
+	}, [view, activeFile, allFiles, isBootstrapping, streamedBootstrapFiles]);
+
+	useEffect(() => {
+		if (view !== 'editor' || allFiles.length === 0 || !activeFilePath) {
+			return;
+		}
+
+		const isVisibleEditorFile = allFiles.some((file) => file.filePath === activeFilePath);
+		if (!isVisibleEditorFile) {
+			setActiveFilePath(allFiles.at(-1)!.filePath);
+		}
+	}, [view, activeFilePath, allFiles]);
 
 	// Preserve active file when generation completes
 	useEffect(() => {
@@ -616,6 +606,8 @@ export default function Chat() {
 							)}
 									<UserMessage
 										message={query ?? displayQuery}
+										attachments={initialPromptAttachments}
+										onAttachmentClick={handleMessageAttachmentClick}
 									/>
 								</>
 							)}
@@ -765,8 +757,6 @@ export default function Chat() {
 							<MainContentPanel
 								view={view}
 								onViewChange={handleViewModeChange}
-								hasDocumentation={hasDocumentation}
-								contentDetection={contentDetection}
 								projectType={projectType}
 								previewUrl={previewUrl}
 								previewAvailable={previewAvailable}
