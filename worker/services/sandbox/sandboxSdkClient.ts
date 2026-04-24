@@ -43,7 +43,7 @@ import { generateId } from '../../utils/idGenerator';
 import { ResourceProvisioner } from './resourceProvisioner';
 import { TemplateParser } from './templateParser';
 import { ResourceProvisioningResult } from './types';
-import { getPreviewDomain, resolvePreviewUrl } from '../../utils/urls';
+import { getPreviewDomain, isUsableTunnelUrl, resolvePreviewUrl, shouldUseTunnelForPreview } from '../../utils/urls';
 import { isDev } from 'worker/utils/envs'
 import { FileTreeBuilder } from './fileTreeBuilder';
 import { DeploymentTarget } from 'worker/agents/core/types';
@@ -821,10 +821,10 @@ export class SandboxSdkClient extends BaseSandboxService {
                                 
                                 // Look for the preview URL in the logs
                                 // Format: https://subdomain.trycloudflare.com
-                                const urlMatch = logLine.match(/https:\/\/[a-z0-9-]+\.trycloudflare\.com/);
-                                if (urlMatch) {
+                                const urlMatches = logLine.match(/https:\/\/[a-z0-9-]+\.trycloudflare\.com(?:\/[^\s]*)?/g);
+                                const previewURL = urlMatches?.find((candidate) => isUsableTunnelUrl(candidate));
+                                if (previewURL) {
                                     clearTimeout(timeout);
-                                    const previewURL = urlMatch[0];
                                     this.logger.info(`Found cloudflared tunnel URL: ${previewURL}`);
                                     resolve(previewURL);
                                     return;
@@ -930,7 +930,7 @@ export class SandboxSdkClient extends BaseSandboxService {
             // Allocate single port for both dev server and tunnel
             const allocatedPort = await this.allocateAvailablePort();
 
-            if (isDev(env) || env.USE_TUNNEL_FOR_PREVIEW) {
+            if (shouldUseTunnelForPreview(env)) {
                 this.logger.info('Starting cloudflared tunnel for local development', { instanceId });
                 tunnelUrlPromise = this.startCloudflaredTunnel(instanceId, allocatedPort);
             }

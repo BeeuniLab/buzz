@@ -40,6 +40,11 @@ import { useVault } from '@/hooks/use-vault';
 import { VaultUnlockModal } from '@/components/vault';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { SidebarTrigger } from '@/components/ui/sidebar';
+import {
+	buildOptimisticChatAttachments,
+	type ChatAttachmentPreview,
+	type ChatAssetSelectionTarget,
+} from './utils/chat-attachments';
 
 const isPhasicBlueprint = (blueprint?: BlueprintType | null): blueprint is PhasicBlueprint =>
 	!!blueprint && 'implementationRoadmap' in blueprint;
@@ -161,6 +166,7 @@ export default function Chat() {
 	const [view, setView] = useState<'editor' | 'preview' | 'docs' | 'blueprint' | 'presentation' | 'assets'>(
 		'preview',
 	);
+	const [selectedAssetTarget, setSelectedAssetTarget] = useState<ChatAssetSelectionTarget | null>(null);
 
 	// Debug panel state
 	const [debugMessages, setDebugMessages] = useState<DebugMessage[]>([]);
@@ -278,6 +284,20 @@ export default function Chat() {
 	const handleViewModeChange = useCallback((mode: 'preview' | 'editor' | 'docs' | 'blueprint' | 'presentation' | 'assets') => {
 		setView(mode);
 	}, []);
+
+	const handleMessageAttachmentClick = useCallback((attachment: ChatAttachmentPreview) => {
+		setSelectedAssetTarget({
+			assetKey: attachment.assetKey,
+			filename: attachment.filename,
+			category: attachment.category,
+			nonce: Date.now(),
+		});
+		setView('assets');
+		hasSwitchedFile.current = true;
+		if (isMobile) {
+			setMobilePanel('preview');
+		}
+	}, [isMobile]);
 
 	const handleResetConversation = useCallback(() => {
 		if (!websocket) return;
@@ -510,7 +530,10 @@ export default function Chat() {
 					images: images.length > 0 ? images : undefined,
 				}),
 			);
-			sendUserMessage(text || '(Attached media)');
+			sendUserMessage(
+				text || '(Attached media)',
+				images.length > 0 ? buildOptimisticChatAttachments(images) : undefined,
+			);
 			setNewMessage('');
 			// Clear images after sending
 			if (images.length > 0) {
@@ -697,6 +720,8 @@ export default function Chat() {
 										<UserMessage
 											key={message.conversationId}
 											message={message.content}
+											attachments={message.attachments}
+											onAttachmentClick={handleMessageAttachmentClick}
 										/>
 									);
 								})}
@@ -761,6 +786,7 @@ export default function Chat() {
 								editorRef={editorRef}
 								templateDetails={templateDetails}
 								agentId={chatId}
+								selectedAssetTarget={selectedAssetTarget}
 							/>
 						</motion.div>
 					)}

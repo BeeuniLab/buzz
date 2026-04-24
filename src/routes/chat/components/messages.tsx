@@ -3,11 +3,23 @@ import clsx from 'clsx';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeExternalLinks from 'rehype-external-links';
-import { LoaderCircle, Check, AlertTriangle, ChevronDown, ChevronRight, MessageSquare } from 'lucide-react';
+import {
+	LoaderCircle,
+	Check,
+	AlertTriangle,
+	ChevronDown,
+	ChevronRight,
+	MessageSquare,
+	Image as ImageIcon,
+	FileAudio,
+	FileVideo,
+	Paperclip,
+} from 'lucide-react';
 import type { ToolEvent } from '../utils/message-helpers';
 import type { ConversationMessage } from '@/api-types';
 import { useState, useEffect, useRef } from 'react';
 import { DebugSessionBubble } from './debug-session-bubble';
+import type { ChatAttachmentPreview } from '../utils/chat-attachments';
 
 /**
  * Strip internal system tags that should not be displayed to users
@@ -17,8 +29,86 @@ function sanitizeMessageForDisplay(message: string): string {
 	return message.replace(/<system_context>[\s\S]*?<\/system_context>\n/gi, '').trim();
 }
 
-export function UserMessage({ message }: { message: string }) {
+function UserMessageAttachmentCard({
+	attachment,
+	onClick,
+}: {
+	attachment: ChatAttachmentPreview;
+	onClick?: (attachment: ChatAttachmentPreview) => void;
+}) {
+	const isImage = attachment.category === 'images';
+	const isVideo = attachment.category === 'video';
+	const isAudio = attachment.category === 'audio';
+	const Icon = isImage ? ImageIcon : isVideo ? FileVideo : isAudio ? FileAudio : Paperclip;
+
+	return (
+		<button
+			type="button"
+			onClick={() => onClick?.(attachment)}
+			className="group flex w-full min-w-0 flex-col overflow-hidden rounded-xl border border-border-primary bg-bg-2 text-left transition-colors hover:border-accent/60"
+		>
+			<div className="relative aspect-[4/3] overflow-hidden bg-bg-1">
+				{isImage && attachment.previewUrl ? (
+					<img
+						src={attachment.previewUrl}
+						alt={attachment.filename}
+						className="h-full w-full object-cover transition-transform duration-200 group-hover:scale-[1.02]"
+						loading="lazy"
+					/>
+				) : (
+					<div className="flex h-full w-full items-center justify-center">
+						<Icon className="size-8 text-text-50/40" />
+					</div>
+				)}
+			</div>
+			<div className="flex min-w-0 items-center gap-2 px-3 py-2">
+				<Icon className="size-3.5 shrink-0 text-accent" />
+				<div className="min-w-0">
+					<p className="truncate text-xs font-medium text-text-primary" title={attachment.filename}>
+						{attachment.filename}
+					</p>
+					<p className="text-[10px] text-text-secondary">
+						Open in assets
+					</p>
+				</div>
+			</div>
+		</button>
+	);
+}
+
+function UserMessageAttachments({
+	attachments,
+	onAttachmentClick,
+}: {
+	attachments: ChatAttachmentPreview[];
+	onAttachmentClick?: (attachment: ChatAttachmentPreview) => void;
+}) {
+	if (attachments.length === 0) return null;
+
+	return (
+		<div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+			{attachments.map((attachment) => (
+				<UserMessageAttachmentCard
+					key={attachment.id}
+					attachment={attachment}
+					onClick={onAttachmentClick}
+				/>
+			))}
+		</div>
+	);
+}
+
+export function UserMessage({
+	message,
+	attachments = [],
+	onAttachmentClick,
+}: {
+	message: string;
+	attachments?: ChatAttachmentPreview[];
+	onAttachmentClick?: (attachment: ChatAttachmentPreview) => void;
+}) {
 	const sanitizedMessage = sanitizeMessageForDisplay(message);
+	const shouldRenderText = sanitizedMessage.trim() !== '' && !(attachments.length > 0 && sanitizedMessage.trim() === '(Attached media)');
 	
 	return (
 		<div className="flex gap-3">
@@ -29,7 +119,13 @@ export function UserMessage({ message }: { message: string }) {
 			</div>
 			<div className="flex flex-col gap-2 min-w-0">
 				<div className="font-medium text-text-50">You</div>
-				<Markdown className="text-text-primary/80">{sanitizedMessage}</Markdown>
+				{shouldRenderText && (
+					<Markdown className="text-text-primary/80">{sanitizedMessage}</Markdown>
+				)}
+				<UserMessageAttachments
+					attachments={attachments}
+					onAttachmentClick={onAttachmentClick}
+				/>
 			</div>
 		</div>
 	);

@@ -18,6 +18,7 @@ import {
     appendToolEvent,
     type ChatMessage,
 } from './message-helpers';
+import { parseUserMessageForDisplay } from './chat-attachments';
 import { completeStages, type ProjectStage } from './project-stage-helpers';
 import { sendWebSocketMessage } from './websocket-helpers';
 import type { PhaseTimelineItem } from '../hooks/use-chat';
@@ -390,10 +391,13 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
                     if (text?.includes('<Internal Memo>')) continue;
                     
                     if (msg.role === 'user') {
+                        const fallbackAgentId = urlChatId && urlChatId !== 'new' ? urlChatId : undefined;
+                        const parsedUserMessage = parseUserMessageForDisplay(msg.content, fallbackAgentId);
                         restoredMessages.push({
                             role: 'user',
                             conversationId: msg.conversationId,
-                            content: text || '',
+                            content: parsedUserMessage.text || (parsedUserMessage.attachments.length > 0 ? '(Attached media)' : ''),
+                            attachments: parsedUserMessage.attachments,
                         });
                         currentAssistant = null;
                     } else if (msg.role === 'assistant') {

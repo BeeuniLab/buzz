@@ -95,6 +95,7 @@ export abstract class BaseSandboxService {
                     frameworks: t.frameworks || [],
                     description: t.description,
                     disabled: t.disabled ?? false,
+                    hiddenFromSelection: t.hiddenFromSelection ?? false,
                     projectType: t.projectType || 'app',
                     renderMode: t.renderMode,
                     slideDirectory: t.slideDirectory,
@@ -181,6 +182,7 @@ export abstract class BaseSandboxService {
                     usage: catalogInfo?.description.usage || ''
                 },
                 disabled: catalogInfo?.disabled ?? false,
+                hiddenFromSelection: catalogInfo?.hiddenFromSelection ?? false,
                 fileTree,
                 allFiles: filesMap,
                 language: catalogInfo?.language,

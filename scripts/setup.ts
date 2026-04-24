@@ -466,7 +466,9 @@ class SetupManager {
 		// Generate or preserve required secrets
 		devVars.JWT_SECRET = this.existingConfig.JWT_SECRET || this.generateRandomSecret(64);
 		devVars.WEBHOOK_SECRET = this.existingConfig.WEBHOOK_SECRET || this.generateRandomSecret(32);
-		devVars.USE_TUNNEL_FOR_PREVIEW = 'true';
+		if (this.existingConfig.USE_TUNNEL_FOR_PREVIEW) {
+			devVars.USE_TUNNEL_FOR_PREVIEW = this.existingConfig.USE_TUNNEL_FOR_PREVIEW;
+		}
 
 		// Auto-set AI Gateway token if using AI Gateway
 		if (useAIGateway) {

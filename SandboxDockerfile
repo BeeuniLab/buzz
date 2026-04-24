@@ -58,7 +58,10 @@ ENV VITE_LOGGER_TYPE=json
 # # Reset workdir
 WORKDIR /container-server
 
+# Port 3000 is reserved by the container control plane. Port 8001 is the
+# default Vite preview port used by sandbox app previews during local dev.
 EXPOSE 3000
+EXPOSE 8001
 
 # Use startup script
 CMD ["./startup.sh"]

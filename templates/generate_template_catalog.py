@@ -251,13 +251,14 @@ def read_template_metadata_from_yaml(template_name: str, definitions_dir: Path) 
         definitions_dir: Path to the definitions directory
 
     Returns:
-        Dictionary with projectType, renderMode, and slideDirectory fields
+        Dictionary with projectType, hiddenFromSelection, renderMode, and slideDirectory fields
     """
     yaml_file = definitions_dir / f"{template_name}.yaml"
 
     default_metadata = {
         'projectType': 'app',
         'disabled': False,
+        'hiddenFromSelection': False,
         'renderMode': None,
         'slideDirectory': None
     }
@@ -289,6 +290,7 @@ def read_template_metadata_from_yaml(template_name: str, definitions_dir: Path) 
         return {
             'projectType': project_type,
             'disabled': yaml_data.get('disabled', False),
+            'hiddenFromSelection': yaml_data.get('hiddenFromSelection', False),
             'renderMode': render_mode,
             'slideDirectory': slide_directory
         }
@@ -332,6 +334,7 @@ def process_template(template_dir: Path, definitions_dir: Path) -> Dict[str, Any
         "frameworks": frameworks,
         "projectType": metadata['projectType'],
         "disabled": metadata.get('disabled', False),
+        "hiddenFromSelection": metadata.get('hiddenFromSelection', False),
         "description": {
             "selection": selection_content,
             "usage": usage_content

@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+	<title>Game</title>
+	<script src="../lib/host-stub.js"></script>
+
+	<link rel="preconnect" href="https://fonts.googleapis.com">
+	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+	<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+
+	<style>
+		*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+		body, html {
+			width: 100%; height: 100%; overflow: hidden;
+			background: #0A0A0A;
+			font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+			-webkit-font-smoothing: antialiased;
+		}
+		:root {
+			--color-primary: #4CAF50;
+			--color-accent: #FF9800;
+			--color-danger: #F44336;
+			--color-bg-dark: #0A0A0A;
+			--color-text-primary: #FFFFFF;
+			--color-text-secondary: #AAAAAA;
+		}
+		#gameCanvas { width: 100%; height: 100%; display: block; touch-action: none; }
+		.hidden { display: none !important; }
+
+		@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+		@keyframes pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.05); } }
+	</style>
+</head>
+<body>
+	<canvas id="gameCanvas"></canvas>
+
+	<script>
+	/**
+	 * Canvas game skeleton (720x1280 portrait).
+	 *
+	 * Host contract:
+	 *   - window.lib is injected by host-stub.js before this runs
+	 *   - window.gameConfig is hydrated from src/config
+	 *   - Host calls window.run('play') or window.run('edit')
+	 *
+	 * Assets: put files under assets/ at project root (e.g. images/, audio/, video/);
+	 *   after build they are served as /assets/images/foo.webp, /assets/video/clip.mp4, etc.
+	 *   Or use lib.getAsset(id) for CDN-hosted asset_map entries.
+	 */
+	(function () {
+		'use strict';
+
+		const canvas = document.getElementById('gameCanvas');
+		const ctx = canvas.getContext('2d');
+		canvas.width = 720;
+		canvas.height = 1280;
+
+		const W = canvas.width;
+		const H = canvas.height;
+
+		let isEditMode = false;
+		let lastTime = 0;
+		let gameState = {
+			mode: 'menu',  // 'menu' | 'playing' | 'paused' | 'gameover'
+			score: 0,
+			highScore: 0,
+		};
+
+		// ── Persistent State ──────────────────────────────
+		async function loadUserState() {
+			const result = await lib.getUserGameState();
+			const saved = result && result.state;
+			if (saved && saved.highScore) {
+				gameState.highScore = saved.highScore;
+			}
+		}
+
+		async function saveUserState() {
+			await lib.saveUserGameState({ highScore: gameState.highScore });
+		}
+
+		// ── Asset Loading ─────────────────────────────────
+		const assets = {};
+
+		function getAssetUrl(id) {
+			const info = lib.getAsset(id);
+			if (!info) return null;
+			if (typeof info === 'string') return info;
+			return typeof info.url === 'string' ? info.url : null;
+		}
+
+		async function loadImage(id) {
+			const url = getAssetUrl(id);
+			if (!url) return null;
+			return new Promise((resolve) => {
+				const img = new Image();
+				img.crossOrigin = 'anonymous';
+				img.onload = () => resolve(img);
+				img.onerror = () => resolve(null);
+				img.src = url;
+			});
+		}
+
+		async function preloadAssets() {
+			lib.log('Preloading assets...');
+			// assets.player = await loadImage('player_sprite');
+			lib.log('Assets loaded.');
+		}
+
+		// ── Audio ─────────────────────────────────────────
+		const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+		function playTone(freq, dur, vol) {
+			vol = vol || 0.3;
+			const osc = audioCtx.createOscillator();
+			const gain = audioCtx.createGain();
+			osc.connect(gain); gain.connect(audioCtx.destination);
+			osc.frequency.value = freq;
+			gain.gain.setValueAtTime(vol, audioCtx.currentTime);
+			gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + dur);
+			osc.start(); osc.stop(audioCtx.currentTime + dur);
+		}
+
+		// ── Input ─────────────────────────────────────────
+		const input = { x: 0, y: 0, pressed: false, tapped: false };
+
+		function canvasPos(cx, cy) {
+			const r = canvas.getBoundingClientRect();
+			return { x: (cx - r.left) * (W / r.width), y: (cy - r.top) * (H / r.height) };
+		}
+
+		canvas.addEventListener('pointerdown', (e) => {
+			const p = canvasPos(e.clientX, e.clientY);
+			input.x = p.x; input.y = p.y; input.pressed = true; input.tapped = true;
+			if (audioCtx.state === 'suspended') audioCtx.resume();
+		});
+		canvas.addEventListener('pointermove', (e) => {
+			const p = canvasPos(e.clientX, e.clientY); input.x = p.x; input.y = p.y;
+		});
+		canvas.addEventListener('pointerup', () => { input.pressed = false; });
+
+		// ── Draw Helpers ──────────────────────────────────
+		function drawText(text, x, y, opts) {
+			opts = opts || {};
+			ctx.font = (opts.bold ? '700 ' : '400 ') + (opts.size || 32) + "px 'Inter', sans-serif";
+			ctx.fillStyle = opts.color || '#FFF';
+			ctx.textAlign = opts.align || 'center';
+			ctx.textBaseline = opts.baseline || 'middle';
+			ctx.fillText(text, x, y);
+		}
+
+		// ── Scenes ────────────────────────────────────────
+		function updateMenu(dt) {
+			if (input.tapped) {
+				gameState.mode = 'playing';
+				gameState.score = 0;
+				playTone(440, 0.15);
+			}
+		}
+
+		function drawMenu() {
+			ctx.fillStyle = '#0A0A0A';
+			ctx.fillRect(0, 0, W, H);
+			drawText('Game Title', W / 2, H * 0.35, { size: 64, bold: true });
+			drawText('Tap to Start', W / 2, H * 0.55, { size: 28, color: '#AAA' });
+			if (gameState.highScore > 0) {
+				drawText('Best: ' + gameState.highScore, W / 2, H * 0.65, { size: 24, color: '#888' });
+			}
+		}
+
+		function updatePlaying(dt) {
+			// Game logic here
+		}
+
+		function drawPlaying() {
+			ctx.fillStyle = '#0A0A0A';
+			ctx.fillRect(0, 0, W, H);
+			drawText('Score: ' + gameState.score, W / 2, 50, { size: 28, bold: true });
+		}
+
+		function updateGameOver(dt) {
+			if (input.tapped) { gameState.mode = 'menu'; }
+		}
+
+		function drawGameOver() {
+			ctx.fillStyle = 'rgba(0,0,0,0.7)';
+			ctx.fillRect(0, 0, W, H);
+			drawText('Game Over', W / 2, H * 0.35, { size: 56, bold: true, color: '#F44336' });
+			drawText('Score: ' + gameState.score, W / 2, H * 0.48, { size: 36, bold: true });
+			if (gameState.score >= gameState.highScore) {
+				drawText('New Best!', W / 2, H * 0.56, { size: 24, color: '#FFD700' });
+			}
+			drawText('Tap to Continue', W / 2, H * 0.70, { size: 24, color: '#AAA' });
+		}
+
+		// ── Game Loop ─────────────────────────────────────
+		function gameLoop(ts) {
+			const dt = Math.min((ts - lastTime) / 1000, 0.1);
+			lastTime = ts;
+
+			switch (gameState.mode) {
+				case 'menu':     updateMenu(dt); break;
+				case 'playing':  updatePlaying(dt); break;
+				case 'gameover': updateGameOver(dt); break;
+			}
+			switch (gameState.mode) {
+				case 'menu':     drawMenu(); break;
+				case 'playing':  drawPlaying(); break;
+				case 'gameover': drawGameOver(); break;
+			}
+
+			input.tapped = false;
+			requestAnimationFrame(gameLoop);
+		}
+
+		// ── Entry Point (called by host) ──────────────────
+		async function run(mode) {
+			lib.log('run() called. Mode: ' + mode);
+			isEditMode = mode === 'edit';
+
+			lib.showGameParameters({
+				name: 'Game Settings',
+				params: {
+					// 'Speed': {
+					//     key: 'gameConfig.speed',
+					//     type: 'slider', min: 0.5, max: 3, step: 0.1,
+					//     onChange: (v) => { window.gameConfig.speed = v; }
+					// },
+				}
+			});
+
+			await loadUserState();
+			await preloadAssets();
+
+			gameState.mode = isEditMode ? 'playing' : 'menu';
+			lastTime = performance.now();
+			requestAnimationFrame(gameLoop);
+		}
+
+		window.run = run;
+	})();
+	</script>
+</body>
+</html>

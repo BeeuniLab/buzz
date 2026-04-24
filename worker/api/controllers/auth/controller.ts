@@ -200,14 +200,20 @@ export class AuthController extends BaseController {
      * Get current user profile
      * GET /api/auth/profile
      */
-    static async getProfile(_request: Request, _env: Env, _ctx: ExecutionContext, routeContext: RouteContext): Promise<Response> {
+    static async getProfile(_request: Request, env: Env, _ctx: ExecutionContext, routeContext: RouteContext): Promise<Response> {
         try {
             if (!routeContext.user) {
                 return AuthController.createSuccessResponse({ authenticated: false });
             }
+
+            // Re-read the user from DB so profile reflects fresh preference updates
+            // like invite-code verification within the current browser session.
+            const userService = new UserService(env);
+            const latestUser = await userService.findUser({ id: routeContext.user.id });
+
             return AuthController.createSuccessResponse({
                 authenticated: true,
-                user: mapUserResponse(routeContext.user),
+                user: mapUserResponse(latestUser ?? routeContext.user),
                 sessionId: routeContext.sessionId
             });
         } catch (error) {
@@ -283,6 +289,10 @@ export class AuthController extends BaseController {
             }
 
             if (env.INVITE_CODE_REQUIRED !== 'true') {
+                return AuthController.createSuccessResponse({ verified: true });
+            }
+
+            if (routeContext.user?.inviteCodeVerified) {
                 return AuthController.createSuccessResponse({ verified: true });
             }
 

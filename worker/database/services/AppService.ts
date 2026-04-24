@@ -7,6 +7,7 @@ import * as schema from '../schema';
 import { eq, and, or, desc, asc, sql, isNull, inArray, notInArray } from 'drizzle-orm';
 import { generateId } from '../../utils/idGenerator';
 import { formatRelativeTime } from '../../utils/timeFormatter';
+import { normalizeStoredInternalApiUrl } from '../../utils/urls';
 import type {
     EnhancedAppData,
     AppWithFavoriteStatus,
@@ -40,6 +41,14 @@ export class AppService extends BaseService {
         STARS: 3,
         FORKS: 5
     };
+
+    private normalizeAppUrls<T extends { screenshotUrl: string | null; iconUrl: string | null }>(app: T): T {
+        return {
+            ...app,
+            screenshotUrl: normalizeStoredInternalApiUrl(app.screenshotUrl) ?? null,
+            iconUrl: normalizeStoredInternalApiUrl(app.iconUrl) ?? null,
+        };
+    }
 
 
 
@@ -142,7 +151,7 @@ export class AppService extends BaseService {
                 const isFavorited = userFavorites.has(row.app.id);
                 
                 return {
-                    ...row.app,
+                    ...this.normalizeAppUrls(row.app),
                     userName: row.userName,
                     userAvatar: row.userAvatar,
                     viewCount: row.viewCount || 0,
@@ -325,7 +334,7 @@ export class AppService extends BaseService {
         const favoriteSet = new Set(favorites.map(f => f.appId));
 
         const result = apps.map(app => ({
-            ...app,
+            ...this.normalizeAppUrls(app),
             isFavorite: favoriteSet.has(app.id),
             updatedAtFormatted: formatRelativeTime(app.updatedAt)
         }));
@@ -378,7 +387,7 @@ export class AppService extends BaseService {
             } = app;
 
             return {
-                ...safeApp,
+                ...this.normalizeAppUrls(safeApp),
                 // Provide safe defaults for type compatibility
                 sessionToken: null,
                 originalPrompt: '',
@@ -490,7 +499,7 @@ export class AppService extends BaseService {
             .get();
 
         const result = {
-            ...app,
+            ...this.normalizeAppUrls(app),
             isFavorite: !!favorite,
             updatedAtFormatted: formatRelativeTime(app.updatedAt)
         };
@@ -619,7 +628,7 @@ export class AppService extends BaseService {
         ]);
         
         const result = {
-            ...app,
+            ...this.normalizeAppUrls(app),
             userName: appResult.userName,
             userAvatar: appResult.userAvatar,
             starCount,
@@ -772,7 +781,7 @@ export class AppService extends BaseService {
         const { userStars, userFavorites } = await this.addUserSpecificAppData(appIds, userId);
         
         const normalApps = basicApps.map((row: RankedAppQueryResult) => ({
-            ...row.app,
+            ...this.normalizeAppUrls(row.app),
             userName: row.userName,
             userAvatar: row.userAvatar,
             viewCount: row.viewCount || 0,

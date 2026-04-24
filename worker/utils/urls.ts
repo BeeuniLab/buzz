@@ -1,5 +1,3 @@
-import { isDev } from './envs';
-
 export const getProtocolForHost = (host: string): string => {
     if (host.startsWith('localhost') || host.startsWith('127.0.0.1') || host.startsWith('0.0.0.0') || host.startsWith('::1')) {
         return 'http';
@@ -51,13 +49,60 @@ export function migratePreviewUrl(storedUrl: string | undefined, env: Env): stri
     }
 }
 
+export function isUsableTunnelUrl(url: string | undefined): boolean {
+    if (!url) return false;
+
+    try {
+        const parsed = new URL(url);
+
+        // Cloudflare control-plane endpoint, not an application preview URL.
+        if (parsed.hostname === 'api.trycloudflare.com') {
+            return false;
+        }
+
+        return parsed.protocol === 'https:' || parsed.protocol === 'http:';
+    } catch {
+        return false;
+    }
+}
+
+export function shouldUseTunnelForPreview(env: Pick<Env, 'USE_TUNNEL_FOR_PREVIEW'>): boolean {
+    return env.USE_TUNNEL_FOR_PREVIEW?.trim().toLowerCase() === 'true';
+}
+
 export function resolvePreviewUrl(
     previewURL: string | undefined,
     tunnelURL: string | undefined,
     env: Env
 ): string | undefined {
-    if (isDev(env) || env.USE_TUNNEL_FOR_PREVIEW) {
-        return tunnelURL || previewURL;
+    const migratedPreviewUrl = migratePreviewUrl(previewURL, env);
+    const usableTunnelUrl = isUsableTunnelUrl(tunnelURL) ? tunnelURL : undefined;
+
+    if (shouldUseTunnelForPreview(env)) {
+        return usableTunnelUrl || migratedPreviewUrl;
     }
-    return migratePreviewUrl(previewURL, env);
+
+    return migratedPreviewUrl || usableTunnelUrl;
+}
+
+/**
+ * Normalize stored internal API URLs to same-origin relative paths.
+ * This avoids CSP issues caused by legacy absolute localhost URLs.
+ */
+export function normalizeStoredInternalApiUrl(storedUrl: string | null | undefined): string | null | undefined {
+    if (!storedUrl) return storedUrl;
+    if (storedUrl.startsWith('/api/')) {
+        return storedUrl;
+    }
+
+    try {
+        const parsed = new URL(storedUrl);
+        if (parsed.pathname.startsWith('/api/')) {
+            return `${parsed.pathname}${parsed.search}${parsed.hash}`;
+        }
+    } catch {
+        // Leave non-URL strings untouched.
+    }
+
+    return storedUrl;
 }

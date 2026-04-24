@@ -59,6 +59,7 @@ export const TemplateInfoSchema = z.object({
     renderMode: z.enum(['sandbox', 'browser']).optional(),
     slideDirectory: z.string().optional(),
     disabled: z.boolean(),
+    hiddenFromSelection: z.boolean().default(false),
 })
 export type TemplateInfo = z.infer<typeof TemplateInfoSchema>
 

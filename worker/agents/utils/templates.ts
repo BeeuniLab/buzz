@@ -144,6 +144,6 @@ export function createScratchTemplateDetails(): TemplateDetails {
         dontTouchFiles: [],
         redactedFiles: [],
         disabled: false,
+        hiddenFromSelection: false,
     };
 }
-

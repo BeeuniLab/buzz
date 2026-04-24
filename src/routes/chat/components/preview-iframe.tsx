@@ -31,6 +31,34 @@ const getRetryDelay = (attempt: number): number => {
 	return Math.min(1000 * Math.pow(2, attempt), 8000);
 };
 
+const shouldBypassAvailabilityProbe = (url: string): boolean => {
+	try {
+		const parsed = new URL(url);
+		const hostname = parsed.hostname.toLowerCase();
+
+		return (
+			hostname === 'localhost' ||
+			hostname === '127.0.0.1' ||
+			hostname === '0.0.0.0' ||
+			hostname === '::1' ||
+			hostname.endsWith('.localhost') ||
+			hostname.endsWith('.trycloudflare.com')
+		);
+	} catch {
+		return false;
+	}
+};
+
+const appendPreviewCacheBuster = (url: string, attempt: number): string => {
+	try {
+		const parsed = new URL(url);
+		parsed.searchParams.set('__preview_attempt', `${Date.now()}-${attempt}`);
+		return parsed.toString();
+	} catch {
+		return url;
+	}
+};
+
 // ============================================================================
 // Main Component
 // ============================================================================
@@ -139,8 +167,28 @@ export const PreviewIframe = forwardRef<HTMLIFrameElement, PreviewIframeProps>(
 				errorMessage: null,
 			});
 
+            const attemptUrl = appendPreviewCacheBuster(url, attempt + 1);
+
+            if (shouldBypassAvailabilityProbe(url)) {
+                console.log('Bypassing availability probe for local/tunnel preview URL:', attemptUrl);
+                setLoadState({
+                    status: 'postload',
+                    attempt: attempt + 1,
+                    loadedSrc: attemptUrl,
+                    errorMessage: null,
+                });
+
+                postLoadTimeoutRef.current = setTimeout(() => {
+                    setLoadState(prev => ({
+                        ...prev,
+                        status: 'loaded',
+                    }));
+                }, POST_LOAD_WAIT);
+                return;
+            }
+
 			// Test availability
-			const available = await testAvailability(url);
+			const available = await testAvailability(attemptUrl);
 
 			if (available) {
 				// Success: put component into postload state, keep loading UI visible
@@ -148,7 +196,7 @@ export const PreviewIframe = forwardRef<HTMLIFrameElement, PreviewIframeProps>(
 				setLoadState({
 					status: 'postload',
 					attempt: attempt + 1,
-					loadedSrc: url,
+					loadedSrc: attemptUrl,
 					errorMessage: null,
 				});
 

@@ -28,6 +28,7 @@ import { isConversationalMessage, addOrUpdateMessage, createUserMessage, handleR
 import { sendWebSocketMessage } from '../utils/websocket-helpers';
 import { initialStages as defaultStages, updateStage as updateStageHelper } from '../utils/project-stage-helpers';
 import type { ProjectStage } from '../utils/project-stage-helpers';
+import type { ChatAttachmentPreview } from '../utils/chat-attachments';
 
 export type Edit = Omit<CodeFixEdits, 'type'>;
 
@@ -175,8 +176,8 @@ export function useChat({
 		setMessages((prev: ChatMessage[]) => addOrUpdateMessage(prev, message));
 	}, []);
 
-	const sendUserMessage = useCallback((message: string) => {
-		setMessages(prev => [...prev, createUserMessage(message)]);
+	const sendUserMessage = useCallback((message: string, attachments?: ChatAttachmentPreview[]) => {
+		setMessages(prev => [...prev, createUserMessage(message, attachments)]);
 	}, []);
 
 	const loadBootstrapFiles = useCallback((files: FileType[]) => {

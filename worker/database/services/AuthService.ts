@@ -664,6 +664,7 @@ export class AuthService extends BaseService {
                     timezone: schema.users.timezone,
                     provider: schema.users.provider,
                     emailVerified: schema.users.emailVerified,
+                    preferences: schema.users.preferences,
                     createdAt: schema.users.createdAt,
                 })
                 .from(schema.users)

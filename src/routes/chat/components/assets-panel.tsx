@@ -3,6 +3,7 @@ import { Upload, Trash2, RefreshCw, Image, Music, Box, Type, File, Video } from 
 import clsx from 'clsx';
 import { apiClient } from '@/lib/api-client';
 import type { AssetItem, AssetCategory } from '@/api-types';
+import type { ChatAssetSelectionTarget } from '../utils/chat-attachments';
 
 const CATEGORY_TABS: { label: string; value: AssetCategory | 'all'; icon: React.ComponentType<{ className?: string }> }[] = [
 	{ label: 'All', value: 'all', icon: File },
@@ -30,14 +31,17 @@ function formatFileSize(bytes: number): string {
 
 interface AssetsPanelProps {
 	agentId?: string;
+	selectedAssetTarget?: ChatAssetSelectionTarget | null;
 }
 
-export function AssetsPanel({ agentId }: AssetsPanelProps) {
+export function AssetsPanel({ agentId, selectedAssetTarget }: AssetsPanelProps) {
 	const [assets, setAssets] = useState<AssetItem[]>([]);
 	const [loading, setLoading] = useState(false);
 	const [uploading, setUploading] = useState(false);
 	const [selectedCategory, setSelectedCategory] = useState<AssetCategory | 'all'>('all');
+	const [highlightedAssetKey, setHighlightedAssetKey] = useState<string | null>(null);
 	const fileInputRef = useRef<HTMLInputElement>(null);
+	const assetRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
 	const fetchAssets = useCallback(async () => {
 		if (!agentId) return;
@@ -92,6 +96,39 @@ export function AssetsPanel({ agentId }: AssetsPanelProps) {
 	const filteredAssets = selectedCategory === 'all'
 		? assets
 		: assets.filter(a => a.category === selectedCategory);
+
+	useEffect(() => {
+		if (!selectedAssetTarget) return;
+		if (selectedAssetTarget.category && selectedCategory !== selectedAssetTarget.category) {
+			setSelectedCategory(selectedAssetTarget.category);
+		}
+	}, [selectedAssetTarget, selectedCategory]);
+
+	useEffect(() => {
+		if (!selectedAssetTarget) return;
+		const matched = assets.find((asset) => {
+			if (selectedAssetTarget.assetKey) {
+				return asset.key === selectedAssetTarget.assetKey;
+			}
+			if (selectedAssetTarget.filename) {
+				return asset.name === selectedAssetTarget.filename;
+			}
+			return false;
+		});
+		if (!matched) return;
+
+		if (selectedCategory !== matched.category) {
+			setSelectedCategory(matched.category);
+		}
+		setHighlightedAssetKey(matched.key);
+	}, [assets, selectedAssetTarget, selectedCategory]);
+
+	useEffect(() => {
+		if (!highlightedAssetKey) return;
+		const node = assetRefs.current[highlightedAssetKey];
+		if (!node) return;
+		node.scrollIntoView({ behavior: 'smooth', block: 'center' });
+	}, [filteredAssets, highlightedAssetKey]);
 
 	const getAssetUrl = (asset: AssetItem): string | null => {
 		if (!agentId) return null;
@@ -178,6 +215,10 @@ export function AssetsPanel({ agentId }: AssetsPanelProps) {
 								asset={asset}
 								assetUrl={getAssetUrl(asset)}
 								onDelete={() => handleDelete(asset)}
+								isSelected={asset.key === highlightedAssetKey}
+								cardRef={(node) => {
+									assetRefs.current[asset.key] = node;
+								}}
 							/>
 						))}
 					</div>
@@ -191,15 +232,27 @@ function AssetCard({
 	asset,
 	assetUrl,
 	onDelete,
+	isSelected,
+	cardRef,
 }: {
 	asset: AssetItem;
 	assetUrl: string | null;
 	onDelete: () => void;
+	isSelected?: boolean;
+	cardRef?: (node: HTMLDivElement | null) => void;
 }) {
 	const isImage = asset.category === 'images';
 
 	return (
-		<div className="group relative bg-bg-2 rounded-lg border border-border-primary overflow-hidden hover:border-accent transition-colors">
+		<div
+			ref={cardRef}
+			className={clsx(
+				'group relative overflow-hidden rounded-lg border bg-bg-2 transition-colors',
+				isSelected
+					? 'border-accent ring-2 ring-accent/30'
+					: 'border-border-primary hover:border-accent',
+			)}
+		>
 			{/* Preview area */}
 			<div className="aspect-square flex items-center justify-center bg-bg-1">
 				{isImage && assetUrl ? (

@@ -17,6 +17,7 @@ import { featureRegistry } from '@/features';
 import type { FileType, BlueprintType, BehaviorType, TemplateDetails, ProjectType } from '@/api-types';
 import type { ContentDetectionResult } from '../utils/content-detector';
 import type { Edit } from '../hooks/use-chat';
+import type { ChatAssetSelectionTarget } from '../utils/chat-attachments';
 
 const GAME_WIDTH = 720;
 const GAME_HEIGHT = 1280;
@@ -100,6 +101,7 @@ interface MainContentPanelProps {
 	behaviorType?: BehaviorType;
 	websocket?: WebSocket;
 	agentId?: string;
+	selectedAssetTarget?: ChatAssetSelectionTarget | null;
 
 	// Refs
 	previewRef: RefObject<HTMLIFrameElement | null>;
@@ -128,6 +130,7 @@ export function MainContentPanel(props: MainContentPanelProps) {
 		behaviorType,
 		websocket,
 		agentId,
+		selectedAssetTarget,
 		previewRef,
 		editorRef,
 		templateDetails,
@@ -397,7 +400,10 @@ export function MainContentPanel(props: MainContentPanelProps) {
 	const renderAssetsView = () =>
 		renderViewWithHeader(
 			<span className="text-sm font-mono text-text-50/70">Assets</span>,
-			<AssetsPanel agentId={agentId} />,
+			<AssetsPanel
+				agentId={agentId}
+				selectedAssetTarget={selectedAssetTarget}
+			/>,
 		);
 
 	const renderView = () => {

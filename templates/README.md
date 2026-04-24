@@ -172,6 +172,8 @@ Supported fields in `definitions/*.yaml`:
 - `name` (string)
 - `description` (string)
 - `base_reference` (string: `vite-reference` | `next-reference`)
+- `hiddenFromSelection` (boolean; optional)
+  - Keeps a template published in the catalog/zip artifacts for runtime compatibility, while excluding it from AI template selection for new projects.
 - `package_patches` (object)
   - Shallow/deep-merge patches applied to `package.json` in the build output.
 - `excludes` (string[])

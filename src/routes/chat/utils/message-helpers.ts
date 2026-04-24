@@ -1,6 +1,7 @@
 import { toast } from 'sonner';
 import { generateId } from '@/utils/id-generator';
 import type { RateLimitError, ConversationMessage } from '@/api-types';
+import type { ChatAttachmentPreview } from './chat-attachments';
 
 export type ToolEvent = {
     name: string;
@@ -12,6 +13,7 @@ export type ToolEvent = {
 
 export type ChatMessage = Omit<ConversationMessage, 'content'> & {
     content: string;
+    attachments?: ChatAttachmentPreview[];
     ui?: {
         isThinking?: boolean;
         toolEvents?: ToolEvent[];
@@ -59,11 +61,12 @@ export function createAIMessage(
 /**
  * Create a user message
  */
-export function createUserMessage(message: string): ChatMessage {
+export function createUserMessage(message: string, attachments?: ChatAttachmentPreview[]): ChatMessage {
     return {
         role: 'user',
         conversationId: generateId(),
         content: message,
+        attachments,
     };
 }
 
