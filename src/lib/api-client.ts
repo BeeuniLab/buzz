@@ -971,9 +971,12 @@ class ApiClient {
 	 */
 	async deployPreview(
 		agentId: string,
+		noToast: boolean = false,
 	): Promise<ApiResponse<AgentPreviewResponse>> {
 		return this.request<AgentPreviewResponse>(
 			`/api/agent/${agentId}/preview`,
+			undefined,
+			noToast,
 		);
 	}
 

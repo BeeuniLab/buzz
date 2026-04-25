@@ -12,6 +12,16 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import { useAuthGuard } from '@/hooks/useAuthGuard';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 
+type AppPreviewFields = AppWithUserAndStats & {
+	previewUrl?: string | null;
+	cloudflareUrl?: string | null;
+};
+
+function getKnownPreviewUrl(app: AppWithUserAndStats | null | undefined) {
+	const previewApp = app as AppPreviewFields | null | undefined;
+	return previewApp?.previewUrl || previewApp?.cloudflareUrl || null;
+}
+
 export default function FeedPage() {
 	const { appId } = useParams<{ appId?: string }>();
 	const isMobile = useIsMobile();
@@ -29,11 +39,56 @@ export default function FeedPage() {
 	const [actionsExpanded, setActionsExpanded] = React.useState(false);
 	const [shareDialogOpen, setShareDialogOpen] = React.useState(false);
 	const [linkCopied, setLinkCopied] = React.useState(false);
+	const [previewUrlCache, setPreviewUrlCache] = React.useState<Record<string, string>>({});
 
 	// Stable seed per session — regenerated when user navigates to feed root
 	const feedSeedRef = React.useRef(Math.floor(Math.random() * 1000000));
 	const prevAppIdRef = React.useRef(appId);
 	const [refreshKey, setRefreshKey] = React.useState(0);
+	const previewUrlCacheRef = React.useRef<Record<string, string>>({});
+	const warmingPreviewIdsRef = React.useRef<Set<string>>(new Set());
+
+	const setPreviewWarming = React.useCallback((appId: string, warming: boolean) => {
+		if (warming) {
+			warmingPreviewIdsRef.current.add(appId);
+		} else {
+			warmingPreviewIdsRef.current.delete(appId);
+		}
+	}, []);
+
+	const storePreviewUrl = React.useCallback((appId: string, url: string | null | undefined) => {
+		if (!url || previewUrlCacheRef.current[appId] === url) return;
+
+		const next = {
+			...previewUrlCacheRef.current,
+			[appId]: url,
+		};
+		previewUrlCacheRef.current = next;
+		setPreviewUrlCache(next);
+	}, []);
+
+	const warmPreview = React.useCallback(async (app: AppWithUserAndStats) => {
+		if (previewUrlCacheRef.current[app.id] || warmingPreviewIdsRef.current.has(app.id)) return;
+
+		const knownPreviewUrl = getKnownPreviewUrl(app);
+		if (knownPreviewUrl) {
+			storePreviewUrl(app.id, knownPreviewUrl);
+			return;
+		}
+
+		setPreviewWarming(app.id, true);
+		try {
+			const res = await apiClient.deployPreview(app.id, true);
+			const url = res.success && res.data
+				? res.data.previewURL || res.data.tunnelURL
+				: null;
+			storePreviewUrl(app.id, url);
+		} catch (error) {
+			console.warn('[feed] Failed to prewarm preview', error);
+		} finally {
+			setPreviewWarming(app.id, false);
+		}
+	}, [setPreviewWarming, storePreviewUrl]);
 
 	// Reset feed when navigating to root (no appId) from a specific app
 	React.useEffect(() => {
@@ -50,6 +105,9 @@ export default function FeedPage() {
 			setHasMore(true);
 			setLoading(true);
 			setInitialAppLoaded(true);
+			previewUrlCacheRef.current = {};
+			warmingPreviewIdsRef.current.clear();
+			setPreviewUrlCache({});
 			setRefreshKey((k) => k + 1);
 		}
 	}, [appId]);
@@ -179,6 +237,21 @@ export default function FeedPage() {
 		container.addEventListener('scroll', handleScroll, { passive: true });
 		return () => container.removeEventListener('scroll', handleScroll);
 	}, [loading]);
+
+	// Start preparing the playable surface before the user taps play.
+	React.useEffect(() => {
+		if (apps.length === 0) return;
+
+		const timer = window.setTimeout(() => {
+			const targetIndexes = [currentIndex, currentIndex + 1];
+			for (const index of targetIndexes) {
+				const app = apps[index];
+				if (app) void warmPreview(app);
+			}
+		}, 120);
+
+		return () => window.clearTimeout(timer);
+	}, [apps, currentIndex, warmPreview]);
 
 	// Keyboard navigation
 	React.useEffect(() => {
@@ -427,8 +500,10 @@ export default function FeedPage() {
 					<FeedItem
 						app={app}
 						isActive={i === currentIndex}
+						preloadedPreviewUrl={previewUrlCache[app.id] ?? getKnownPreviewUrl(app)}
+						shouldWarmFrame={i === currentIndex}
 						onPlayStateChange={isMobile ? (playing) => setIsPlaying(playing) : undefined}
-						containMode={isMobile && isPlaying}
+						containMode={isMobile && (isPlaying || i === currentIndex)}
 						ref={(handle) => {
 							if (handle) feedItemRefs.current.set(i, handle);
 							else feedItemRefs.current.delete(i);

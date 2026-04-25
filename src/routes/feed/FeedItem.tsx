@@ -19,10 +19,19 @@ interface FeedItemProps {
 	isActive?: boolean;
 	onPlayStateChange?: (playing: boolean) => void;
 	containMode?: boolean;
+	preloadedPreviewUrl?: string | null;
+	shouldWarmFrame?: boolean;
 }
 
 export const FeedItem = React.forwardRef<FeedItemHandle, FeedItemProps>(
-	function FeedItem({ app, isActive = true, onPlayStateChange, containMode = false }, ref) {
+	function FeedItem({
+		app,
+		isActive = true,
+		onPlayStateChange,
+		containMode = false,
+		preloadedPreviewUrl = null,
+		shouldWarmFrame = false,
+	}, ref) {
 		const [imgError, setImgError] = React.useState(false);
 		const [playing, setPlaying] = React.useState(false);
 		const [previewUrl, setPreviewUrl] = React.useState<string | null>(null);
@@ -32,6 +41,17 @@ export const FeedItem = React.forwardRef<FeedItemHandle, FeedItemProps>(
 		const iframeRef = React.useRef<HTMLIFrameElement>(null);
 		const [scale, setScale] = React.useState(1);
 		const [offset, setOffset] = React.useState({ x: 0, y: 0 });
+		const [iframeLoaded, setIframeLoaded] = React.useState(false);
+
+		React.useEffect(() => {
+			if (preloadedPreviewUrl) {
+				setPreviewUrl(preloadedPreviewUrl);
+			}
+		}, [preloadedPreviewUrl]);
+
+		React.useEffect(() => {
+			setIframeLoaded(false);
+		}, [previewUrl]);
 
 		// Stop audio when game becomes inactive — blank the iframe src before React unmounts it
 		React.useEffect(() => {
@@ -49,7 +69,8 @@ export const FeedItem = React.forwardRef<FeedItemHandle, FeedItemProps>(
 				const { clientWidth, clientHeight } = container;
 				const scaleX = clientWidth / GAME_WIDTH;
 				const scaleY = clientHeight / GAME_HEIGHT;
-				if (containMode && playing) {
+				const shouldContainPreview = containMode && (playing || shouldWarmFrame);
+				if (shouldContainPreview) {
 					const s = Math.min(scaleX, scaleY);
 					setScale(s);
 					setOffset({
@@ -66,13 +87,21 @@ export const FeedItem = React.forwardRef<FeedItemHandle, FeedItemProps>(
 			const observer = new ResizeObserver(updateScale);
 			observer.observe(container);
 			return () => observer.disconnect();
-		}, [containMode, playing]);
+		}, [containMode, playing, shouldWarmFrame]);
 
 		const startPlay = async () => {
 			if (deploying) return;
+			const readyPreviewUrl = previewUrl || preloadedPreviewUrl;
 
-			if (playing && previewUrl) {
+			if (playing && readyPreviewUrl) {
 				setIframeKey((k) => k + 1);
+				return;
+			}
+
+			if (readyPreviewUrl) {
+				setPreviewUrl(readyPreviewUrl);
+				setPlaying(true);
+				onPlayStateChange?.(true);
 				return;
 			}
 
@@ -111,6 +140,14 @@ export const FeedItem = React.forwardRef<FeedItemHandle, FeedItemProps>(
 		}));
 
 		const hasImage = app.screenshotUrl && !imgError;
+		const warmFrameActive = Boolean(previewUrl && isActive && shouldWarmFrame && !playing);
+		const shouldRenderPreviewFrame = Boolean(previewUrl && isActive && (playing || shouldWarmFrame));
+		const posterClassName = warmFrameActive
+			? 'absolute left-1/2 top-1/2 z-10 aspect-[9/16] w-[44%] max-w-[220px] -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-white/25 object-cover shadow-[0_20px_70px_rgba(0,0,0,0.55)]'
+			: 'absolute inset-0 h-full w-full object-cover';
+		const fallbackClassName = warmFrameActive
+			? 'absolute left-1/2 top-1/2 z-10 aspect-[9/16] w-[44%] max-w-[220px] -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-white/25 bg-gradient-to-br from-bg-3 to-bg-2 flex items-center justify-center shadow-[0_20px_70px_rgba(0,0,0,0.55)]'
+			: 'absolute inset-0 bg-gradient-to-br from-bg-3 to-bg-2 flex items-center justify-center';
 
 		return (
 			<div className="h-full w-full snap-start snap-always relative flex-shrink-0 bg-black">
@@ -119,12 +156,13 @@ export const FeedItem = React.forwardRef<FeedItemHandle, FeedItemProps>(
 					className="absolute inset-0 cursor-pointer group overflow-hidden"
 					onClick={!playing ? startPlay : undefined}
 				>
-					{playing && previewUrl && isActive ? (
+					{shouldRenderPreviewFrame && (
 						<iframe
 							ref={iframeRef}
 							key={iframeKey}
-							src={previewUrl}
+							src={previewUrl!}
 							title={`Play ${app.title}`}
+							onLoad={() => setIframeLoaded(true)}
 							allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope"
 							style={{
 								position: 'absolute',
@@ -135,26 +173,35 @@ export const FeedItem = React.forwardRef<FeedItemHandle, FeedItemProps>(
 								height: GAME_HEIGHT,
 								transform: `scale(${scale})`,
 								transformOrigin: 'top left',
+								opacity: playing || iframeLoaded ? 1 : 0,
+								pointerEvents: playing ? 'auto' : 'none',
+								transition: 'opacity 420ms ease',
 							}}
 						/>
-					) : (
+					)}
+
+					{!playing && (
 						<>
+							{warmFrameActive && iframeLoaded && (
+								<div className="absolute inset-0 z-[5] bg-black/25 transition-opacity duration-500" />
+							)}
+
 							{hasImage ? (
 								<img
 									src={app.screenshotUrl!}
 									alt={app.title}
-									className="absolute inset-0 w-full h-full object-cover"
+									className={posterClassName}
 									onError={() => setImgError(true)}
 									loading="lazy"
 								/>
 							) : (
-								<div className="absolute inset-0 bg-gradient-to-br from-bg-3 to-bg-2 flex items-center justify-center">
+								<div className={fallbackClassName}>
 									<Code2 className="h-16 w-16 text-text-tertiary/30" />
 								</div>
 							)}
 
 							{/* Play button overlay */}
-							<div className="absolute inset-0 flex items-center justify-center bg-black/0 group-hover:bg-black/20 transition-colors">
+							<div className="absolute inset-0 z-20 flex items-center justify-center bg-black/0 transition-colors group-hover:bg-black/20">
 								{deploying ? (
 									<Loader2 className="h-14 w-14 text-white animate-spin drop-shadow-lg" />
 								) : (
@@ -166,7 +213,7 @@ export const FeedItem = React.forwardRef<FeedItemHandle, FeedItemProps>(
 
 							{/* View count badge */}
 							{app.viewCount != null && app.viewCount > 0 && (
-								<div className="absolute bottom-3 left-3 flex items-center gap-1.5 bg-black/50 backdrop-blur-sm rounded-full px-3 py-1.5 text-white text-sm">
+								<div className="absolute bottom-3 left-3 z-20 flex items-center gap-1.5 bg-black/50 backdrop-blur-sm rounded-full px-3 py-1.5 text-white text-sm">
 									<Play className="h-3.5 w-3.5 fill-white" />
 									<span>{app.viewCount.toLocaleString()}</span>
 								</div>
