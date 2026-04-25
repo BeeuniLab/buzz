@@ -30,6 +30,7 @@ export interface EnhancedAppData extends schema.App {
     starCount: number;
     userStarred: boolean;
     userFavorited: boolean;
+    userFollowingAuthor?: boolean;
     viewCount?: number;
     forkCount?: number;
     likeCount?: number;

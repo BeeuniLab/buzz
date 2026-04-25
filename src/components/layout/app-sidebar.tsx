@@ -19,6 +19,7 @@ import {
 	Monitor,
 	PlaySquare,
 	Loader2,
+	Inbox,
 } from 'lucide-react';
 import './sidebar-overrides.css';
 import { useRecentApps, useFavoriteApps, useApps } from '@/hooks/use-apps';
@@ -247,6 +248,23 @@ function DiscoverSidebar({
 							>
 								<Compass className="h-5 w-5" />
 								{!isCollapsed && <span>Discover</span>}
+							</SidebarMenuButton>
+						</SidebarMenuItem>
+						<SidebarMenuItem>
+							<SidebarMenuButton
+								onClick={() => {
+									if (requireAuth({ actionContext: 'to view your inbox', intendedUrl: '/inbox' })) {
+										navigate('/inbox');
+									}
+								}}
+								tooltip="Inbox"
+								className={cn(
+									'group hover:cursor-pointer transition-all duration-200 h-10 text-[15px]',
+									pathname.startsWith('/inbox') && 'bg-neo-yellow/40 font-bold',
+								)}
+							>
+								<Inbox className="h-5 w-5" />
+								{!isCollapsed && <span>Inbox</span>}
 							</SidebarMenuButton>
 						</SidebarMenuItem>
 						<SidebarMenuItem>
@@ -630,7 +648,7 @@ export function AppSidebar() {
 
 	const [showLoginModal, setShowLoginModal] = React.useState(false);
 
-	const isDiscoverContext = location.pathname === '/' || location.pathname.startsWith('/profile') || location.pathname.startsWith('/feed') || location.pathname.startsWith('/discover');
+	const isDiscoverContext = location.pathname === '/' || location.pathname.startsWith('/profile') || location.pathname.startsWith('/feed') || location.pathname.startsWith('/discover') || location.pathname.startsWith('/inbox');
 
 	const getInitials = () => {
 		if (!user) return '?';

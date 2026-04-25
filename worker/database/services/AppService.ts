@@ -143,8 +143,16 @@ export class AppService extends BaseService {
             }
 
             const appIds = basicApps.map((row: RankedAppQueryResult) => row.app.id);
+            const authorIds = Array.from(new Set(
+                basicApps
+                    .map((row: RankedAppQueryResult) => row.app.userId)
+                    .filter((id): id is string => Boolean(id))
+            ));
 
-            const { userStars, userFavorites } = await this.addUserSpecificAppData(appIds, userId);
+            const [{ userStars, userFavorites }, userFollowingAuthors] = await Promise.all([
+                this.addUserSpecificAppData(appIds, userId),
+                this.getUserFollowingAuthors(authorIds, userId)
+            ]);
             
             const appsWithAnalytics: EnhancedAppData[] = basicApps.map((row: RankedAppQueryResult) => {
                 const isStarred = userStars.has(row.app.id);
@@ -159,7 +167,8 @@ export class AppService extends BaseService {
                     forkCount: row.forkCount || 0,
                     likeCount: 0,
                     userStarred: isStarred,
-                    userFavorited: isFavorited
+                    userFavorited: isFavorited,
+                    userFollowingAuthor: row.app.userId ? userFollowingAuthors.has(row.app.userId) : false
                 };
             });
 
@@ -587,7 +596,7 @@ export class AppService extends BaseService {
         // Use 'fresh' strategy for user-specific queries for consistency
         const userReadDb = userId ? this.getReadDb('fresh') : readDb;
         
-        const [viewCount, starCount, isFavorite, userHasStarred] = await Promise.all([
+        const [viewCount, starCount, isFavorite, userHasStarred, userFollowingAuthor] = await Promise.all([
             // View count
             readDb
                 .select({ count: sql<number>`count(*)` })
@@ -624,6 +633,17 @@ export class AppService extends BaseService {
                     eq(schema.stars.appId, appId)
                 ))
                 .get()
+                .then(r => !!r) : false,
+
+            // Is following app author
+            userId && app.userId && app.userId !== userId ? userReadDb
+                .select({ id: schema.userFollows.id })
+                .from(schema.userFollows)
+                .where(and(
+                    eq(schema.userFollows.followerId, userId),
+                    eq(schema.userFollows.followingId, app.userId)
+                ))
+                .get()
                 .then(r => !!r) : false
         ]);
         
@@ -634,6 +654,7 @@ export class AppService extends BaseService {
             starCount,
             userStarred: userHasStarred,
             userFavorited: isFavorite,
+            userFollowingAuthor,
             viewCount
         };
         return result;
@@ -1030,6 +1051,43 @@ export class AppService extends BaseService {
         }
 
         return { userStars, userFavorites };
+    }
+
+    private async getUserFollowingAuthors(
+        authorIds: string[],
+        userId?: string
+    ): Promise<Set<string>> {
+        if (!userId || authorIds.length === 0) {
+            return new Set();
+        }
+
+        const authorIdsToCheck = authorIds.filter(authorId => authorId !== userId);
+        if (authorIdsToCheck.length === 0) {
+            return new Set();
+        }
+
+        const userReadDb = this.getReadDb('fresh');
+        const followedAuthors = new Set<string>();
+        const BATCH_SIZE = 50;
+
+        try {
+            for (let i = 0; i < authorIdsToCheck.length; i += BATCH_SIZE) {
+                const batch = authorIdsToCheck.slice(i, i + BATCH_SIZE);
+                const rows = await userReadDb
+                    .select({ followingId: schema.userFollows.followingId })
+                    .from(schema.userFollows)
+                    .where(and(
+                        eq(schema.userFollows.followerId, userId),
+                        inArray(schema.userFollows.followingId, batch)
+                    ));
+
+                rows.forEach(row => followedAuthors.add(row.followingId));
+            }
+        } catch {
+            return new Set();
+        }
+
+        return followedAuthors;
     }
 
     /**

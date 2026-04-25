@@ -240,6 +240,21 @@ export const stars = sqliteTable('stars', {
     appStarredAtIdx: index('stars_app_starred_at_idx').on(table.appId, table.starredAt),
 }));
 
+/**
+ * UserFollows table - Track follower relationships between users
+ */
+export const userFollows = sqliteTable('user_follows', {
+    id: text('id').primaryKey(),
+    followerId: text('follower_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+    followingId: text('following_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+    createdAt: integer('created_at', { mode: 'timestamp' }).default(sql`CURRENT_TIMESTAMP`),
+}, (table) => ({
+    followerFollowingIdx: uniqueIndex('user_follows_follower_following_idx').on(table.followerId, table.followingId),
+    followerIdx: index('user_follows_follower_idx').on(table.followerId),
+    followingIdx: index('user_follows_following_idx').on(table.followingId),
+    followingCreatedAtIdx: index('user_follows_following_created_at_idx').on(table.followingId, table.createdAt),
+}));
+
 // ========================================
 // COMMUNITY INTERACTIONS
 // ========================================
@@ -548,6 +563,9 @@ export type NewApiKey = typeof apiKeys.$inferInsert;
 
 export type App = typeof apps.$inferSelect;
 export type NewApp = typeof apps.$inferInsert;
+
+export type UserFollow = typeof userFollows.$inferSelect;
+export type NewUserFollow = typeof userFollows.$inferInsert;
 
 export type AppLike = typeof appLikes.$inferSelect;
 export type NewAppLike = typeof appLikes.$inferInsert;

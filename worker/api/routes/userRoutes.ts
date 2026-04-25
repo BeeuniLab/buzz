@@ -12,14 +12,24 @@ export function setupUserRoutes(app: Hono<AppEnv>): void {
     // User apps with pagination (this is what the frontend needs)
     app.get('/api/user/apps', setAuthLevel(AuthConfig.authenticated), adaptController(UserController, UserController.getApps));
 
+    // Inbox
+    app.get('/api/user/inbox/followers', setAuthLevel(AuthConfig.authenticated), adaptController(UserController, UserController.getFollowerInbox));
+
     // User profile
     app.put('/api/user/profile', setAuthLevel(AuthConfig.authenticated), adaptController(UserController, UserController.updateProfile));
+
+    // Follow / unfollow users
+    app.post('/api/users/:userId/follow', setAuthLevel(AuthConfig.authenticated), adaptController(UserController, UserController.followUser));
+    app.delete('/api/users/:userId/follow', setAuthLevel(AuthConfig.authenticated), adaptController(UserController, UserController.unfollowUser));
 
     // Public user profile by ID
     app.get('/api/users/:userId/profile', async (c) => {
         const userId = c.req.param('userId');
         const userService = new UserService(c.env);
-        const user = await userService.findUser({ id: userId });
+        const [user, followCounts] = await Promise.all([
+            userService.findUser({ id: userId }),
+            userService.getFollowCounts(userId),
+        ]);
         if (!user) {
             return c.json({ success: false, error: { message: 'User not found' } }, 404);
         }
@@ -31,6 +41,8 @@ export function setupUserRoutes(app: Hono<AppEnv>): void {
                 username: user.username,
                 avatarUrl: user.avatarUrl,
                 bio: user.bio,
+                followersCount: followCounts.followersCount,
+                followingCount: followCounts.followingCount,
             },
         });
     });

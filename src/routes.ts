@@ -10,6 +10,7 @@ import AppsPage from './routes/apps';
 import AppView from './routes/app';
 import DiscoverPage from './routes/discover';
 import FeedPage from './routes/feed';
+import Inbox from './routes/inbox';
 import { ProtectedRoute } from './routes/protected-route';
 
 const routes = [
@@ -28,6 +29,10 @@ const routes = [
 			{
 				path: 'discover',
 				Component: DiscoverPage,
+			},
+			{
+				path: 'inbox',
+				element: React.createElement(ProtectedRoute, { children: React.createElement(Inbox) }),
 			},
 			{
 				path: 'build',

@@ -5,7 +5,7 @@
 
 import { BaseService } from './BaseService';
 import * as schema from '../schema';
-import { eq, and, sql, lt, ne } from 'drizzle-orm';
+import { eq, and, sql, lt, ne, desc, inArray } from 'drizzle-orm';
 import { generateId } from '../../utils/idGenerator';
 
 /**
@@ -251,6 +251,123 @@ export class UserService extends BaseService {
         ]);
 
         return { totalApps, appsThisMonth };
+    }
+
+    async getFollowCounts(userId: string): Promise<{ followersCount: number; followingCount: number }> {
+        const [followersCount, followingCount] = await Promise.all([
+            this.database
+                .select({ count: sql<number>`COUNT(*)` })
+                .from(schema.userFollows)
+                .where(eq(schema.userFollows.followingId, userId))
+                .get()
+                .then(r => Number(r?.count) || 0),
+
+            this.database
+                .select({ count: sql<number>`COUNT(*)` })
+                .from(schema.userFollows)
+                .where(eq(schema.userFollows.followerId, userId))
+                .get()
+                .then(r => Number(r?.count) || 0)
+        ]);
+
+        return { followersCount, followingCount };
+    }
+
+    async isFollowing(followerId: string, followingId: string): Promise<boolean> {
+        const existingFollow = await this.database
+            .select({ id: schema.userFollows.id })
+            .from(schema.userFollows)
+            .where(and(
+                eq(schema.userFollows.followerId, followerId),
+                eq(schema.userFollows.followingId, followingId)
+            ))
+            .get();
+
+        return Boolean(existingFollow);
+    }
+
+    async followUser(followerId: string, followingId: string): Promise<{ isFollowing: boolean; followersCount: number; followingCount: number }> {
+        const alreadyFollowing = await this.isFollowing(followerId, followingId);
+        if (!alreadyFollowing) {
+            await this.database
+                .insert(schema.userFollows)
+                .values({
+                    id: generateId(),
+                    followerId,
+                    followingId,
+                    createdAt: new Date()
+                })
+                .run();
+        }
+
+        const counts = await this.getFollowCounts(followingId);
+        return {
+            isFollowing: true,
+            followersCount: counts.followersCount,
+            followingCount: counts.followingCount
+        };
+    }
+
+    async unfollowUser(followerId: string, followingId: string): Promise<{ isFollowing: boolean; followersCount: number; followingCount: number }> {
+        await this.database
+            .delete(schema.userFollows)
+            .where(and(
+                eq(schema.userFollows.followerId, followerId),
+                eq(schema.userFollows.followingId, followingId)
+            ))
+            .run();
+
+        const counts = await this.getFollowCounts(followingId);
+        return {
+            isFollowing: false,
+            followersCount: counts.followersCount,
+            followingCount: counts.followingCount
+        };
+    }
+
+    async getFollowerInbox(userId: string, limit: number = 50): Promise<Array<{
+        id: string;
+        followerId: string;
+        followerName: string | null;
+        followerUsername: string | null;
+        followerAvatar: string | null;
+        followedAt: Date | null;
+        isFollowingBack: boolean;
+    }>> {
+        const rows = await this.database
+            .select({
+                id: schema.userFollows.id,
+                followerId: schema.userFollows.followerId,
+                followedAt: schema.userFollows.createdAt,
+                followerName: schema.users.displayName,
+                followerUsername: schema.users.username,
+                followerAvatar: schema.users.avatarUrl,
+            })
+            .from(schema.userFollows)
+            .leftJoin(schema.users, eq(schema.userFollows.followerId, schema.users.id))
+            .where(eq(schema.userFollows.followingId, userId))
+            .orderBy(desc(schema.userFollows.createdAt))
+            .limit(limit);
+
+        const followerIds = rows.map(row => row.followerId);
+        const followingBackIds = new Set<string>();
+
+        if (followerIds.length > 0) {
+            const followingBackRows = await this.database
+                .select({ followingId: schema.userFollows.followingId })
+                .from(schema.userFollows)
+                .where(and(
+                    eq(schema.userFollows.followerId, userId),
+                    inArray(schema.userFollows.followingId, followerIds)
+                ));
+
+            followingBackRows.forEach(row => followingBackIds.add(row.followingId));
+        }
+
+        return rows.map(row => ({
+            ...row,
+            isFollowingBack: followingBackIds.has(row.followerId),
+        }));
     }
 
 }

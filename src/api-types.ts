@@ -44,6 +44,9 @@ export type {
 export type {
   UserAppsData,
   ProfileUpdateData,
+  PublicUserProfileData,
+  UserFollowData,
+  FollowerInboxData,
 } from 'worker/api/controllers/user/types';
 
 // Stats API Types

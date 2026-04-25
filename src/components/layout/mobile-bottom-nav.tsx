@@ -1,5 +1,5 @@
 import { useLocation, useNavigate } from 'react-router';
-import { Home, Compass, Plus, User } from 'lucide-react';
+import { Home, Compass, Plus, User, Inbox } from 'lucide-react';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { cn } from '@/lib/utils';
 
@@ -7,6 +7,7 @@ const NAV_ITEMS = [
 	{ icon: Home, label: 'Home', path: '/', isCreate: false },
 	{ icon: Compass, label: 'Discover', path: '/discover', isCreate: false },
 	{ icon: Plus, label: 'Create', path: '/build', isCreate: true },
+	{ icon: Inbox, label: 'Inbox', path: '/inbox', isCreate: false },
 	{ icon: User, label: 'Profile', path: '/profile', isCreate: false },
 ] as const;
 

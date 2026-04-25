@@ -4,7 +4,7 @@ import { RouteContext } from '../../types/route-context';
 import { UserService } from '../../../database/services/UserService';
 import { AppService } from '../../../database/services/AppService';
 import { Visibility, AppSortOption, SortOrder, TimePeriod } from '../../../database/types';
-import { UserAppsData, ProfileUpdateData } from './types';
+import { UserAppsData, ProfileUpdateData, UserFollowData, FollowerInboxData } from './types';
 import { createLogger } from '../../../logger';
 
 const logger = createLogger('UserController');
@@ -73,6 +73,25 @@ export class UserController extends BaseController {
     }
 
     /**
+     * Get recent follower events for inbox
+     */
+    static async getFollowerInbox(request: Request, env: Env, _ctx: ExecutionContext, context: RouteContext): Promise<ControllerResponse<ApiResponse<FollowerInboxData>>> {
+        try {
+            const user = context.user!;
+            const url = new URL(request.url);
+            const limit = Math.min(parseInt(url.searchParams.get('limit') || '50'), 100);
+
+            const userService = new UserService(env);
+            const items = await userService.getFollowerInbox(user.id, limit);
+
+            return UserController.createSuccessResponse({ items });
+        } catch (error) {
+            this.logger.error('Error getting follower inbox:', error);
+            return UserController.createErrorResponse<FollowerInboxData>('Failed to get inbox', 500);
+        }
+    }
+
+    /**
      * Update user profile
      */
     static async updateProfile(request: Request, env: Env, _ctx: ExecutionContext, context: RouteContext): Promise<ControllerResponse<ApiResponse<ProfileUpdateData>>> {
@@ -102,6 +121,58 @@ export class UserController extends BaseController {
         } catch (error) {
             this.logger.error('Error updating user profile:', error);
             return UserController.createErrorResponse<ProfileUpdateData>('Failed to update profile', 500);
+        }
+    }
+
+    static async followUser(_request: Request, env: Env, _ctx: ExecutionContext, context: RouteContext): Promise<ControllerResponse<ApiResponse<UserFollowData>>> {
+        try {
+            const user = context.user!;
+            const targetUserId = context.pathParams.userId;
+            if (!targetUserId) {
+                return UserController.createErrorResponse<UserFollowData>('User ID is required', 400);
+            }
+
+            if (targetUserId === user.id) {
+                return UserController.createErrorResponse<UserFollowData>('You cannot follow yourself', 400);
+            }
+
+            const userService = new UserService(env);
+            const targetUser = await userService.findUser({ id: targetUserId });
+            if (!targetUser) {
+                return UserController.createErrorResponse<UserFollowData>('User not found', 404);
+            }
+
+            const responseData = await userService.followUser(user.id, targetUserId);
+            return UserController.createSuccessResponse(responseData);
+        } catch (error) {
+            this.logger.error('Error following user:', error);
+            return UserController.createErrorResponse<UserFollowData>('Failed to follow user', 500);
+        }
+    }
+
+    static async unfollowUser(_request: Request, env: Env, _ctx: ExecutionContext, context: RouteContext): Promise<ControllerResponse<ApiResponse<UserFollowData>>> {
+        try {
+            const user = context.user!;
+            const targetUserId = context.pathParams.userId;
+            if (!targetUserId) {
+                return UserController.createErrorResponse<UserFollowData>('User ID is required', 400);
+            }
+
+            if (targetUserId === user.id) {
+                return UserController.createErrorResponse<UserFollowData>('You cannot unfollow yourself', 400);
+            }
+
+            const userService = new UserService(env);
+            const targetUser = await userService.findUser({ id: targetUserId });
+            if (!targetUser) {
+                return UserController.createErrorResponse<UserFollowData>('User not found', 404);
+            }
+
+            const responseData = await userService.unfollowUser(user.id, targetUserId);
+            return UserController.createSuccessResponse(responseData);
+        } catch (error) {
+            this.logger.error('Error unfollowing user:', error);
+            return UserController.createErrorResponse<UserFollowData>('Failed to unfollow user', 500);
         }
     }
 }

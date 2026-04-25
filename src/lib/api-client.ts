@@ -16,6 +16,9 @@ import type{
 	AppStarToggleData,
 	UserAppsData,
 	ProfileUpdateData,
+	PublicUserProfileData,
+	UserFollowData,
+	FollowerInboxData,
 	UserStatsData,
 	UserActivityData,
 	UserAnalyticsResponseData,
@@ -490,8 +493,24 @@ class ApiClient {
 		return this.request<PublicAppsData>(endpoint);
 	}
 
-	async getPublicUserProfile(userId: string): Promise<ApiResponse<{ id: string; displayName: string | null; username: string | null; avatarUrl: string | null; bio: string | null }>> {
-		return this.request(`/api/users/${userId}/profile`);
+	async getPublicUserProfile(userId: string): Promise<ApiResponse<PublicUserProfileData>> {
+		return this.request<PublicUserProfileData>(`/api/users/${userId}/profile`);
+	}
+
+	async getFollowerInbox(limit: number = 50): Promise<ApiResponse<FollowerInboxData>> {
+		return this.request<FollowerInboxData>(`/api/user/inbox/followers?limit=${limit}`);
+	}
+
+	async followUser(userId: string): Promise<ApiResponse<UserFollowData>> {
+		return this.request<UserFollowData>(`/api/users/${userId}/follow`, {
+			method: 'POST',
+		});
+	}
+
+	async unfollowUser(userId: string): Promise<ApiResponse<UserFollowData>> {
+		return this.request<UserFollowData>(`/api/users/${userId}/follow`, {
+			method: 'DELETE',
+		});
 	}
 
 	/**

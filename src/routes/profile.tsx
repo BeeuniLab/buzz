@@ -9,17 +9,9 @@ import { apiClient } from '@/lib/api-client';
 import { cn } from '@/lib/utils';
 import { Bookmark, Code2, Loader2, Share2 } from 'lucide-react';
 import { toast } from 'sonner';
-import type { AppWithUserAndStats } from '@/api-types';
+import type { AppWithUserAndStats, PublicUserProfileData } from '@/api-types';
 
 type ProfileTab = 'favorites' | 'created';
-
-interface PublicUserProfile {
-  id: string;
-  displayName: string | null;
-  username: string | null;
-  avatarUrl: string | null;
-  bio: string | null;
-}
 
 function formatStatCount(n: number): string {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
@@ -42,8 +34,8 @@ export default function Profile() {
   const [createdApps, setCreatedApps] = React.useState<AppWithUserAndStats[]>([]);
   const [createdLoading, setCreatedLoading] = React.useState(false);
 
-  // Public profile data (for viewing other users)
-  const [publicProfile, setPublicProfile] = React.useState<PublicUserProfile | null>(null);
+  // Public profile data, also used for social counts on your own profile
+  const [publicProfile, setPublicProfile] = React.useState<PublicUserProfileData | null>(null);
   const [publicLoading, setPublicLoading] = React.useState(false);
 
   const isOwnProfile = !userId || userId === user?.id;
@@ -68,12 +60,16 @@ export default function Profile() {
     setActiveTab(isViewingOther ? 'created' : 'favorites');
   }, [isViewingOther]);
 
-  // Fetch public profile info for other users
+  // Fetch public profile summary for social counts and public profile views
   React.useEffect(() => {
-    if (isOwnProfile || !userId) return;
+    if (!targetUserId) {
+      setPublicProfile(null);
+      return;
+    }
 
+    setPublicProfile(null);
     setPublicLoading(true);
-    apiClient.getPublicUserProfile(userId)
+    apiClient.getPublicUserProfile(targetUserId)
       .then((res) => {
         if (res.success && res.data) {
           setPublicProfile(res.data);
@@ -81,7 +77,7 @@ export default function Profile() {
       })
       .catch(() => {})
       .finally(() => setPublicLoading(false));
-  }, [userId, isOwnProfile]);
+  }, [targetUserId]);
 
   // Own profile: require auth — use effect to avoid setState during render
   React.useEffect(() => {
@@ -125,6 +121,14 @@ export default function Profile() {
   // Compute aggregate stats from created apps (now always has viewCount/starCount)
   const totalPlays = createdApps.reduce((sum, app) => sum + (app.viewCount || 0), 0);
   const totalLikes = createdApps.reduce((sum, app) => sum + (app.starCount || 0), 0);
+  const followersCount = publicProfile?.followersCount ?? 0;
+  const followingCount = publicProfile?.followingCount ?? 0;
+  const profileStats = [
+    { label: 'Followers', value: followersCount },
+    { label: 'Following', value: followingCount },
+    { label: 'Plays', value: totalPlays },
+    { label: 'Likes', value: totalLikes },
+  ];
 
   const apps = isOwnProfile
     ? (activeTab === 'favorites' ? favoriteApps : createdApps)
@@ -168,15 +172,19 @@ export default function Profile() {
             </div>
 
             {/* Stats */}
-            <div className="flex items-center gap-0 flex-shrink-0">
-              <div className="flex flex-col items-center px-5 border-r border-border-primary">
-                <span className="text-xs text-text-tertiary">Plays</span>
-                <span className="text-lg font-bold">{formatStatCount(totalPlays)}</span>
-              </div>
-              <div className="flex flex-col items-center px-5">
-                <span className="text-xs text-text-tertiary">Likes</span>
-                <span className="text-lg font-bold">{formatStatCount(totalLikes)}</span>
-              </div>
+            <div className="grid w-full grid-cols-4 pt-4 border-t border-border-primary sm:w-auto sm:flex sm:items-center sm:pt-0 sm:border-t-0 flex-shrink-0">
+              {profileStats.map((stat, index) => (
+                <div
+                  key={stat.label}
+                  className={cn(
+                    'flex flex-col items-center px-2 sm:px-5',
+                    index < profileStats.length - 1 && 'border-r border-border-primary',
+                  )}
+                >
+                  <span className="text-[11px] sm:text-xs text-text-tertiary">{stat.label}</span>
+                  <span className="text-base sm:text-lg font-bold">{formatStatCount(stat.value)}</span>
+                </div>
+              ))}
             </div>
           </div>
         </div>
