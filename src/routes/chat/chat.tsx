@@ -770,6 +770,7 @@ export default function Chat() {
 								onFileClick={handleFileClick}
 								isGenerating={isGenerating}
 								isGeneratingBlueprint={isGeneratingBlueprint}
+								isPreviewDeploying={isPreviewDeploying}
 								behaviorType={behaviorType}
 								websocket={websocket}
 								previewRef={previewRef}

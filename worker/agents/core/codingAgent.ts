@@ -4,7 +4,7 @@ import { AgenticState, AgentState, BaseProjectState, CurrentDevState, FileState,
 import { Blueprint } from "../schemas";
 import { BaseCodingBehavior } from "./behaviors/base";
 import { createObjectLogger, StructuredLogger } from '../../logger';
-import { InferenceMetadata } from "../inferutils/config.types";
+import { InferenceContext, InferenceMetadata } from "../inferutils/config.types";
 import { getMimeType } from 'hono/utils/mime';
 import { normalizePath, isPathSafe } from '../../utils/pathUtils';
 import { FileManager } from '../services/implementations/FileManager';
@@ -23,7 +23,7 @@ import { TemplateDetails } from "worker/types/project-types";
 import { WebSocketMessageResponses } from "../constants";
 import { AppService, ModelConfigService } from "worker/database";
 import { ConversationMessage, ConversationState } from "../inferutils/common";
-import { ImageAttachment } from "worker/types/image-attachment";
+import { ImageAttachment, type ProcessedImageAttachment } from "worker/types/image-attachment";
 import { RateLimitExceededError } from "shared/types/errors";
 import { ProjectObjective } from "./objectives/base";
 import { SecretsClient, type UserSecretsStoreStub } from '../../services/secrets/SecretsClient';
@@ -313,12 +313,29 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
         return this.behavior;
     }
 
+    async syncAndCaptionUploadedAssets(
+        uploaded: ProcessedImageAttachment[],
+        inferenceContext?: InferenceContext,
+    ): Promise<void> {
+        return this.behavior.syncAndCaptionUploadedAssets(uploaded, inferenceContext);
+    }
+
     async getFullState(): Promise<AgentState> {
         return await this.behavior.getFullState();
     }
 
     async getSummary(): Promise<AgentSummary> {
         return this.behavior.getSummary();
+    }
+
+    async getDesiredAppStatus(): Promise<'generating' | 'completed'> {
+        const isGenerating = this.behavior?.isCodeGenerating() ?? false;
+
+        if (isGenerating || this.state.shouldBeGenerating) {
+            return 'generating';
+        }
+
+        return this.state.mvpGenerated ? 'completed' : 'generating';
     }
 
     getPreviewUrlCache(): string {

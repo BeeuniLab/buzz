@@ -2,7 +2,7 @@ import React, { createContext, useContext, useState, useEffect, useCallback, use
 import { apiClient, ApiError } from '@/lib/api-client';
 import type { AppWithFavoriteStatus } from '@/api-types';
 import { appEvents } from '@/lib/app-events';
-import type { AppEvent, AppDeletedEvent, AppUpdatedEvent } from '@/lib/app-events';
+import type { AppEvent, AppCreatedEvent, AppDeletedEvent, AppUpdatedEvent } from '@/lib/app-events';
 import { useAuth } from '@/contexts/auth-context';
 
 interface AppsDataState {
@@ -29,6 +29,7 @@ interface AppsDataContextValue extends AppsDataState {
 const AppsDataContext = createContext<AppsDataContextValue | null>(null);
 
 const RECENT_APPS_LIMIT = 10;
+const APP_CREATED_REFETCH_DELAYS_MS = [400, 1200, 3000] as const;
 
 interface AppsDataProviderProps {
   children: React.ReactNode;
@@ -52,9 +53,45 @@ export function AppsDataProvider({ children }: AppsDataProviderProps) {
     moreRecentAvailable: false,
   });
 
+  const buildOptimisticApp = useCallback((event: AppCreatedEvent): AppWithFavoriteStatus => {
+    const now = new Date();
+
+    return {
+      id: event.appId,
+      title: event.data?.title || 'New App',
+      description: event.data?.description || null,
+      iconUrl: null,
+      originalPrompt: event.data?.description || event.data?.title || 'New App',
+      finalPrompt: event.data?.description || event.data?.title || 'New App',
+      framework: null,
+      userId: user?.id ?? null,
+      sessionToken: null,
+      visibility: 'private',
+      status: 'generating',
+      deploymentId: null,
+      githubRepositoryUrl: null,
+      githubRepositoryVisibility: null,
+      isArchived: false,
+      isFeatured: false,
+      version: 1,
+      parentAppId: null,
+      screenshotUrl: null,
+      screenshotCapturedAt: null,
+      createdAt: now,
+      updatedAt: now,
+      lastDeployedAt: null,
+      isFavorite: false,
+      updatedAtFormatted: 'Just now',
+    };
+  }, [user?.id]);
+
   // Compute recent apps from all apps to avoid duplicate API calls
   const computeRecentApps = useCallback((apps: AppWithFavoriteStatus[]) => {
     const sortedApps = [...apps].sort((a, b) => {
+      if (a.status !== b.status) {
+        return a.status === 'generating' ? -1 : 1;
+      }
+
       const aTime = a.updatedAt ? new Date(a.updatedAt).getTime() : 0;
       const bTime = b.updatedAt ? new Date(b.updatedAt).getTime() : 0;
       return bTime - aTime;
@@ -186,6 +223,8 @@ export function AppsDataProvider({ children }: AppsDataProviderProps) {
 
   // Event handlers for real-time updates
   useEffect(() => {
+    const createdRefetchTimers: number[] = [];
+
     const onDeleted = (event: AppEvent) => {
       if (event.type === 'app-deleted') {
         const deletedEvent = event as AppDeletedEvent;
@@ -205,9 +244,35 @@ export function AppsDataProvider({ children }: AppsDataProviderProps) {
       }
     };
     
-    const onCreated = () => {
-      // Refetch all data when new app is created
-      fetchAll();
+    const onCreated = (event: AppEvent) => {
+      if (event.type !== 'app-created') return;
+
+      const createdEvent = event as AppCreatedEvent;
+
+      setState(prev => {
+        const existingApp = prev.allApps.find(app => app.id === createdEvent.appId);
+        if (existingApp) {
+          return prev;
+        }
+
+        const optimisticApp = buildOptimisticApp(createdEvent);
+        const nextAllApps = [optimisticApp, ...prev.allApps];
+        const { recentApps, moreRecentAvailable } = computeRecentApps(nextAllApps);
+
+        return {
+          ...prev,
+          allApps: nextAllApps,
+          recentApps,
+          moreRecentAvailable,
+        };
+      });
+
+      for (const delay of APP_CREATED_REFETCH_DELAYS_MS) {
+        const timer = window.setTimeout(() => {
+          fetchAllApps();
+        }, delay);
+        createdRefetchTimers.push(timer);
+      }
     };
     
     const onUpdated = (event: AppEvent) => {
@@ -249,11 +314,12 @@ export function AppsDataProvider({ children }: AppsDataProviderProps) {
     const unsubscribeUpdated = appEvents.on('app-updated', onUpdated);
 
     return () => {
+      createdRefetchTimers.forEach(window.clearTimeout);
       unsubscribeDeleted();
       unsubscribeCreated();
       unsubscribeUpdated();
     };
-  }, [fetchAll, computeRecentApps]);
+  }, [buildOptimisticApp, computeRecentApps, fetchAllApps]);
 
   const contextValue = useMemo<AppsDataContextValue>(() => ({
     ...state,

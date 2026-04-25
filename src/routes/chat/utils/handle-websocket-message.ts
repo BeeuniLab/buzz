@@ -25,6 +25,7 @@ import type { PhaseTimelineItem } from '../hooks/use-chat';
 import type { FileType } from '@/api-types';
 import { toast } from 'sonner';
 import { createRepairingJSONParser } from '@/utils/ndjson-parser/ndjson-parser';
+import { appEvents } from '@/lib/app-events';
 
 const isPhasicState = (state: AgentState): state is PhasicState => {
 	const record = state as unknown as Record<string, unknown>;
@@ -213,6 +214,16 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
                 const { state, templateDetails, previewUrl } = message;
                 if (!isInitialStateRestored) {
                     logger.debug('📥 Performing initial state restoration');
+
+                    if (urlChatId && urlChatId !== 'new') {
+                        appEvents.emitAppUpdated(urlChatId, {
+                            status: state.shouldBeGenerating
+                                ? 'generating'
+                                : state.mvpGenerated
+                                    ? 'completed'
+                                    : 'generating',
+                        });
+                    }
 
                     const restoredBehaviorType = state.behaviorType ?? 'phasic';
                     if (restoredBehaviorType !== behaviorType) {
@@ -609,6 +620,9 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
                 updateStage('code', { status: 'active' });
                 setTotalFiles(message.totalFiles);
                 setIsGenerating(true);
+                if (deps.urlChatId) {
+                    appEvents.emitAppUpdated(deps.urlChatId, { status: 'generating' });
+                }
                 break;
             }
 
@@ -623,6 +637,9 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
                 setIsPhaseProgressActive(false);
                 setIsThinking(false);
                 setIsGenerating(false);
+                if (deps.urlChatId) {
+                    appEvents.emitAppUpdated(deps.urlChatId, { status: 'completed' });
+                }
                 break;
             }
 

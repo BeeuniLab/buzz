@@ -58,6 +58,40 @@ function PhoneFrame({ children }: { children: ReactNode }) {
 	);
 }
 
+function PreviewLoadingPlaceholder({
+	isActive,
+}: {
+	isActive: boolean;
+}) {
+	const statusText = isActive
+		? 'Generating and deploying your preview.'
+		: 'Preview will load here as soon as deployment is available.';
+
+	return (
+		<div className="flex-1 flex items-center justify-center bg-bg-3" role="status" aria-live="polite">
+			<div className="text-center p-8 max-w-md">
+				<div className="relative mx-auto mb-5 flex size-16 items-center justify-center">
+					<div className="absolute inset-0 rounded-full bg-accent/10 animate-ping" />
+					<div className="relative flex size-14 items-center justify-center rounded-full bg-bg-4 border border-border-primary shadow-neo-sm">
+						<RefreshCw className="size-9 text-accent animate-spin" />
+					</div>
+				</div>
+				<h3 className="text-2xl font-semibold text-text-primary mb-2">
+					Loading Preview
+				</h3>
+				<p className="text-text-primary/70 text-sm mb-4">
+					{statusText}
+				</p>
+				<div className="flex items-center justify-center gap-1.5" aria-hidden="true">
+					<span className="size-2 rounded-full bg-accent animate-bounce [animation-delay:-0.2s]" />
+					<span className="size-2 rounded-full bg-accent animate-bounce [animation-delay:-0.1s]" />
+					<span className="size-2 rounded-full bg-accent animate-bounce" />
+				</div>
+			</div>
+		</div>
+	);
+}
+
 interface MainContentPanelProps {
 	// View state
 	view: 'editor' | 'preview' | 'docs' | 'blueprint' | 'presentation' | 'assets';
@@ -83,6 +117,7 @@ interface MainContentPanelProps {
 	// Generation state
 	isGenerating: boolean;
 	isGeneratingBlueprint: boolean;
+	isPreviewDeploying: boolean;
 
 	// Template metadata
 	templateDetails?: TemplateDetails | null;
@@ -113,6 +148,7 @@ export function MainContentPanel(props: MainContentPanelProps) {
 		allFiles,
 		isGenerating,
 		isGeneratingBlueprint,
+		isPreviewDeploying,
 		behaviorType,
 		websocket,
 		agentId,
@@ -156,6 +192,7 @@ export function MainContentPanel(props: MainContentPanelProps) {
 	const renderPreviewView = () => {
 		const featureDefinition = featureRegistry.getDefinition(projectType);
 		const previewTitle = blueprint?.title ?? featureDefinition?.name ?? 'Preview';
+		const isPreviewLoading = isGenerating || isGeneratingBlueprint || isPreviewDeploying;
 
 		if (!previewUrl) {
 			return renderViewWithHeader(
@@ -167,21 +204,7 @@ export function MainContentPanel(props: MainContentPanelProps) {
 						{previewTitle}
 					</span>
 				</div>,
-				<div className="flex-1 flex items-center justify-center bg-bg-3">
-					<div className="text-center p-8 max-w-md">
-						{(isGenerating || isGeneratingBlueprint) && (
-							<RefreshCw className="size-8 text-accent animate-spin mx-auto mb-4" />
-						)}
-						<h3 className="text-lg font-medium text-text-primary mb-2">
-							{(isGenerating || isGeneratingBlueprint) ? 'Preparing Preview' : 'Preview Not Ready'}
-						</h3>
-						<p className="text-text-primary/70 text-sm">
-							{(isGenerating || isGeneratingBlueprint)
-								? 'We are still generating and deploying the preview.'
-								: 'Preview will appear here once deployment is available.'}
-						</p>
-					</div>
-				</div>
+				<PreviewLoadingPlaceholder isActive={isPreviewLoading} />
 			);
 		}
 

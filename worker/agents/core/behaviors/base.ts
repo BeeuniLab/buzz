@@ -1606,7 +1606,10 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
     /**
      * Sync R2 manifest into src/asset_map, then Flash-Lite captions for new uploads (scheme A).
      */
-    protected async syncAndCaptionUploadedAssets(uploaded: ProcessedImageAttachment[]): Promise<void> {
+    public async syncAndCaptionUploadedAssets(
+        uploaded: ProcessedImageAttachment[],
+        inferenceContextOverride?: InferenceContext,
+    ): Promise<void> {
         if (uploaded.length === 0) return;
 
         await this.infrastructure.syncProjectAssetMapFromR2();
@@ -1620,7 +1623,11 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
             if (!att.r2Key.startsWith(prefix)) continue;
             const rel = att.r2Key.slice(prefix.length);
             try {
-                const text = await generateAssetMediaCaption(opts.env, opts.inferenceContext, att);
+                const text = await generateAssetMediaCaption(
+                    opts.env,
+                    inferenceContextOverride ?? opts.inferenceContext,
+                    att,
+                );
                 if (text) descriptions[rel] = text;
             } catch (err) {
                 opts.logger.warn('Asset media caption failed', {

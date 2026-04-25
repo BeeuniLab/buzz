@@ -20,7 +20,7 @@ import { validateWebSocketOrigin } from '../../../middleware/security/websocket'
 import { createLogger } from '../../../logger';
 import { getPreviewDomain } from 'worker/utils/urls';
 import { uploadImageAsAgentAsset } from 'worker/utils/images';
-import { uniqueAgentAssetRelativePath, syncAgentAssetMap } from 'worker/utils/agentAssets';
+import { uniqueAgentAssetRelativePath } from 'worker/utils/agentAssets';
 import { ProcessedImageAttachment } from 'worker/types/image-attachment';
 import { getTemplateImportantFiles } from 'worker/services/templates/utils';
 import { hasTicketParam } from '../../../middleware/auth/ticketAuth';
@@ -189,8 +189,8 @@ export class CodingAgentController extends BaseController {
             agentPromise.then(async (_state: AgentState) => {
                 if (uploadedImages.length > 0) {
                     ctx.waitUntil(
-                        syncAgentAssetMap(env, agentId).catch(err =>
-                            this.logger.error('Failed to sync asset map after create with images', { error: err }),
+                        agentInstance.syncAndCaptionUploadedAssets(uploadedImages, inferenceContext).catch(err =>
+                            this.logger.error('Failed to sync/caption asset map after create with images', { error: err }),
                         ),
                     );
                 }
@@ -316,6 +316,21 @@ export class CodingAgentController extends BaseController {
                 if (!agentInstance || !(await agentInstance.isInitialized())) {
                     return CodingAgentController.createErrorResponse<AgentConnectionData>('Agent instance not found or not initialized', 404);
                 }
+
+                const appService = new AppService(env);
+                const [appDetails, desiredStatus] = await Promise.all([
+                    appService.getAppDetails(agentId, context.user?.id),
+                    agentInstance.getDesiredAppStatus(),
+                ]);
+
+                if (appDetails && appDetails.status !== desiredStatus) {
+                    await appService.updateApp(agentId, { status: desiredStatus });
+                    this.logger.info(`Reconciled persisted app status for existing agent ${agentId}`, {
+                        from: appDetails.status,
+                        to: desiredStatus,
+                    });
+                }
+
                 this.logger.info(`Successfully connected to existing agent: ${agentId}`);
 
                 // Construct WebSocket URL

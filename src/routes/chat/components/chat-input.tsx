@@ -1,7 +1,6 @@
 import { type FormEvent, type RefObject } from 'react';
-import { ArrowRight } from 'react-feather';
 import { WebSocket } from 'partysocket';
-import { X } from 'lucide-react';
+import { SendHorizontal, X } from 'lucide-react';
 import { ImageAttachmentPreview } from '@/components/image-attachment-preview';
 import { AttachmentPickerDropdown } from '@/components/attachment-picker-dropdown';
 import { sendWebSocketMessage } from '../utils/websocket-helpers';
@@ -173,9 +172,11 @@ export function ChatInput({
 					<button
 						type="submit"
 						disabled={(!newMessage.trim() && images.length === 0) || isChatDisabled}
-						className="p-1.5 rounded-md bg-accent/90 hover:bg-accent/80 disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-transparent text-white disabled:text-text-primary transition-colors"
+						className="group/send grid size-7 place-items-center rounded-md border border-text-primary bg-accent text-text-primary shadow-neo-sm transition-all duration-200 hover:-translate-y-0.5 hover:bg-neo-yellow hover:shadow-neo disabled:translate-y-0 disabled:cursor-not-allowed disabled:border-text-primary/10 disabled:bg-bg-3/70 disabled:text-text-primary/30 disabled:shadow-none"
+						aria-label="Send message"
+						title="Send message"
 					>
-						<ArrowRight className="size-4" />
+						<SendHorizontal className="size-3.5 transition-transform duration-200 group-hover/send:translate-x-0.5" strokeWidth={2.4} />
 					</button>
 				</div>
 			</div>

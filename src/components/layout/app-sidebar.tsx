@@ -18,6 +18,7 @@ import {
 	Moon,
 	Monitor,
 	PlaySquare,
+	Loader2,
 } from 'lucide-react';
 import './sidebar-overrides.css';
 import { useRecentApps, useFavoriteApps, useApps } from '@/hooks/use-apps';
@@ -71,6 +72,7 @@ interface App {
 	updatedAt: Date | null;
 	updatedAtFormatted?: string;
 	visibility: 'private' | 'team' | 'board' | 'public';
+	status: 'generating' | 'completed';
 	isFavorite?: boolean;
 }
 
@@ -86,8 +88,9 @@ interface Board {
 // Reusable AppMenuItem component for consistent app display
 interface AppMenuItemProps {
 	app: App;
-	onClick: (id: string) => void;
-	variant?: 'recent' | 'bookmarked';
+	href: string;
+	onNavigate: (href: string) => void;
+	variant?: 'recent' | 'bookmarked' | 'running';
 	showActions?: boolean;
 	isCollapsed: boolean;
 	getVisibilityIcon: (visibility: App['visibility']) => React.ReactNode;
@@ -95,13 +98,15 @@ interface AppMenuItemProps {
 
 function AppMenuItem({
 	app,
-	onClick,
+	href,
+	onNavigate,
 	variant = 'recent',
 	showActions = true,
 	isCollapsed,
 	getVisibilityIcon,
 }: AppMenuItemProps) {
 	const formatTimestamp = () => {
+		if (variant === 'running') return 'Building now';
 		if (app.updatedAtFormatted) return app.updatedAtFormatted;
 		if (app.updatedAt && isValid(app.updatedAt)) {
 			return formatDistanceToNow(app.updatedAt, { addSuffix: true });
@@ -114,13 +119,16 @@ function AppMenuItem({
 			<SidebarMenuButton
 				asChild
 				tooltip={app.title}
-				className="cursor-pointer transition-opacity hover:opacity-75 pr-0"
+				className={cn(
+					"cursor-pointer transition-opacity hover:opacity-75",
+					!isCollapsed && showActions ? "pr-10" : "pr-0",
+				)}
 			>
 				<a
-					href={`/app/${app.id}`}
+					href={href}
 					onClick={(e) => {
 						e.preventDefault();
-						onClick(app.id);
+						onNavigate(href);
 					}}
 					className="w-full no-underline"
 				>
@@ -128,6 +136,9 @@ function AppMenuItem({
 						<div className="flex items-center gap-2 min-w-0">
 							{variant === 'bookmarked' && (
 								<Bookmark className="h-3 w-3 fill-yellow-500 text-yellow-500 flex-shrink-0" />
+							)}
+							{variant === 'running' && (
+								<Loader2 className="h-3 w-3 animate-spin text-accent flex-shrink-0" />
 							)}
 
 							<div className="relative flex-1 min-w-0 overflow-hidden">
@@ -153,7 +164,7 @@ function AppMenuItem({
 			{!isCollapsed && showActions && (
 				<SidebarMenuAction
 					asChild
-					className="opacity-0 -mr-2 group-hover/app-item:opacity-100 transition-opacity"
+					className="opacity-0 group-hover/app-item:opacity-100 transition-opacity"
 				>
 					<AppActionsDropdown
 						appId={app.id}
@@ -168,7 +179,13 @@ function AppMenuItem({
 	);
 }
 
-function DiscoverSidebar({ isCollapsed, navigate }: { isCollapsed: boolean; navigate: ReturnType<typeof useNavigate> }) {
+function DiscoverSidebar({
+	isCollapsed,
+	navigate,
+}: {
+	isCollapsed: boolean;
+	navigate: ReturnType<typeof useNavigate>;
+}) {
 	const pathname = location.pathname;
 	const { requireAuth } = useAuthGuard();
 
@@ -270,6 +287,7 @@ function BuildSidebar({
 	expandedGroups,
 	toggleGroup,
 	getVisibilityIcon,
+	getAppHref,
 }: {
 	isCollapsed: boolean;
 	navigate: ReturnType<typeof useNavigate>;
@@ -284,6 +302,7 @@ function BuildSidebar({
 	expandedGroups: string[];
 	toggleGroup: (group: string) => void;
 	getVisibilityIcon: (visibility: App['visibility']) => React.ReactNode;
+	getAppHref: (app: App) => string;
 }) {
 	const searchResults = React.useMemo(() => {
 		if (!searchQuery.trim()) return [];
@@ -354,7 +373,7 @@ function BuildSidebar({
 						{expandedGroups.includes('apps') && (
 							<SidebarGroupContent>
 								{/* Search */}
-								<div className="relative mb-4 mt-2">
+								<div className="relative mb-4 mt-2 pr-2 pb-1">
 									<Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-tertiary z-10" />
 									<Input
 										placeholder="Search apps..."
@@ -383,8 +402,9 @@ function BuildSidebar({
 														<AppMenuItem
 															key={app.id}
 															app={app}
-															onClick={(id) => navigate(`/app/${id}`)}
-															variant="recent"
+															href={getAppHref(app)}
+															onNavigate={(href) => navigate(href)}
+															variant={app.status === 'generating' ? 'running' : 'recent'}
 															showActions={true}
 															isCollapsed={isCollapsed}
 															getVisibilityIcon={getVisibilityIcon}
@@ -407,8 +427,9 @@ function BuildSidebar({
 												<AppMenuItem
 													key={app.id}
 													app={app}
-													onClick={(id) => navigate(`/app/${id}`)}
-													variant="recent"
+													href={getAppHref(app)}
+													onNavigate={(href) => navigate(href)}
+													variant={app.status === 'generating' ? 'running' : 'recent'}
 													showActions={true}
 													isCollapsed={isCollapsed}
 													getVisibilityIcon={getVisibilityIcon}
@@ -457,7 +478,8 @@ function BuildSidebar({
 											<AppMenuItem
 												key={app.id}
 												app={app}
-												onClick={(id) => navigate(`/app/${id}`)}
+												href={getAppHref(app)}
+												onNavigate={(href) => navigate(href)}
 												showActions={true}
 												isCollapsed={isCollapsed}
 												getVisibilityIcon={getVisibilityIcon}
@@ -579,6 +601,10 @@ export function AppSidebar() {
 	const { apps: favoriteApps } = useFavoriteApps();
 	const { apps: allApps, loading: allAppsLoading } = useApps();
 
+	const getAppHref = React.useCallback((app: App) => {
+		return app.status === 'generating' ? `/chat/${app.id}` : `/app/${app.id}`;
+	}, []);
+
 	const boards: Board[] = [];
 
 	const getVisibilityIcon = (visibility: App['visibility']) => {
@@ -657,6 +683,7 @@ export function AppSidebar() {
 							expandedGroups={expandedGroups}
 							toggleGroup={toggleGroup}
 							getVisibilityIcon={getVisibilityIcon}
+							getAppHref={getAppHref}
 						/>
 					)}
 				</SidebarContent>

@@ -11,7 +11,6 @@ const CATEGORY_TABS: { label: string; value: AssetCategory | 'all'; icon: React.
 	{ label: 'Video', value: 'video', icon: Video },
 	{ label: '3D', value: '3d', icon: Box },
 	{ label: 'Audio', value: 'audio', icon: Music },
-	{ label: 'Fonts', value: 'fonts', icon: Type },
 ];
 
 const ACCEPT_MAP: Record<AssetCategory, string> = {
