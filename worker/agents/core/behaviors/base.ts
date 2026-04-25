@@ -1618,6 +1618,11 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
         const agentId = opts.agentId;
         const prefix = `assets/${agentId}/`;
         const descriptions: Record<string, string> = {};
+        const fallbackDescription = (att: ProcessedImageAttachment, rel: string): string => {
+            const filename = att.filename || rel.split('/').pop() || rel;
+            const kind = att.mimeType.split('/')[0] || 'media';
+            return `User-uploaded ${kind} asset "${filename}" (${att.mimeType}).`;
+        };
 
         for (const att of uploaded) {
             if (!att.r2Key.startsWith(prefix)) continue;
@@ -1628,12 +1633,13 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
                     inferenceContextOverride ?? opts.inferenceContext,
                     att,
                 );
-                if (text) descriptions[rel] = text;
+                descriptions[rel] = text ?? fallbackDescription(att, rel);
             } catch (err) {
                 opts.logger.warn('Asset media caption failed', {
                     rel,
                     error: err instanceof Error ? err.message : String(err),
                 });
+                descriptions[rel] = fallbackDescription(att, rel);
             }
         }
 

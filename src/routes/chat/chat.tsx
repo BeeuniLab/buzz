@@ -51,8 +51,8 @@ const isPhasicBlueprint = (blueprint?: BlueprintType | null): blueprint is Phasi
 
 type CanvasView = 'editor' | 'preview' | 'docs' | 'blueprint' | 'presentation' | 'assets';
 
-function normalizeCanvasView(view: CanvasView): Exclude<CanvasView, 'docs' | 'editor'> {
-	return view === 'docs' || view === 'editor' ? 'preview' : view;
+function normalizeCanvasView(view: CanvasView): Exclude<CanvasView, 'docs' | 'editor' | 'blueprint'> {
+	return view === 'docs' || view === 'editor' || view === 'blueprint' ? 'preview' : view;
 }
 
 export default function Chat() {
@@ -470,16 +470,10 @@ export default function Chat() {
 	}, [generatingFile, activeFile]);
 
 	useEffect(() => {
-		if (view !== 'blueprint' && isGeneratingBlueprint) {
-			setView('blueprint');
-		} else if (
-			!hasSwitchedFile.current &&
-			view === 'blueprint' &&
-			!isGeneratingBlueprint
-		) {
+		if (view === 'blueprint') {
 			setView('preview');
 		}
-	}, [isGeneratingBlueprint, view]);
+	}, [view]);
     
 	const isRunning = useMemo(() => {
 		return (

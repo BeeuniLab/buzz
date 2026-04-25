@@ -52,7 +52,7 @@ export class CodingAgentController extends BaseController {
     /**
      * Start the incremental code generation process
      */
-    static async startCodeGeneration(request: Request, env: Env, ctx: ExecutionContext, context: RouteContext): Promise<Response> {
+    static async startCodeGeneration(request: Request, env: Env, _: ExecutionContext, context: RouteContext): Promise<Response> {
         try {
             this.logger.info('Starting code generation process');
 
@@ -188,15 +188,17 @@ export class CodingAgentController extends BaseController {
             const agentPromise = agentInstance.initialize(initArgs) as Promise<AgentState>;
             agentPromise.then(async (_state: AgentState) => {
                 if (uploadedImages.length > 0) {
-                    ctx.waitUntil(
-                        agentInstance.syncAndCaptionUploadedAssets(uploadedImages, inferenceContext).catch(err =>
-                            this.logger.error('Failed to sync/caption asset map after create with images', { error: err }),
-                        ),
-                    );
+                    await agentInstance.syncAndCaptionUploadedAssets(uploadedImages, inferenceContext);
                 }
                 writer.write("terminate");
                 writer.close();
                 this.logger.info(`Agent ${agentId} terminated successfully`);
+            }).catch((error: unknown) => {
+                this.logger.error(`Agent ${agentId} initialization failed`, error);
+                writer.write({
+                    error: error instanceof Error ? error.message : String(error),
+                });
+                writer.close();
             });
 
             this.logger.info(`Agent ${agentId} init launched successfully`);

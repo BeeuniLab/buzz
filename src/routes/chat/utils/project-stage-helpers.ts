@@ -8,15 +8,15 @@ export interface ProjectStage {
 export const initialStages: ProjectStage[] = [
     {
         id: 'bootstrap',
-        title: 'Bootstrapping project',
+        title: 'Getting your idea ready',
         status: 'active',
     },
     {
         id: 'blueprint',
-        title: 'Generating Blueprint',
+        title: 'Shaping the experience',
         status: 'pending',
     },
-    { id: 'code', title: 'Generating code', status: 'pending' },
+    { id: 'code', title: 'Making it playable', status: 'pending' },
 ];
 
 /**

@@ -177,7 +177,8 @@ export function appendToolEvent(
                     name: tool.name,
                     status: tool.status,
                     timestamp,
-                    contentLength: 0
+                    contentLength: 0,
+                    result: tool.result,
                 }]
             },
         };

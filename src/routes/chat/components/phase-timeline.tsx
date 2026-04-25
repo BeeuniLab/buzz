@@ -230,13 +230,11 @@ export function PhaseTimeline({
 	projectStages,
 	phaseTimeline,
 	files,
-	view,
 	isThinkingNext,
 	isPreviewDeploying,
 	progress,
 	total,
 	parentScrollRef,
-	onViewChange,
 	runtimeErrorCount = 0,
 	staticIssueCount = 0,
 	isDebugging = false,
@@ -295,8 +293,8 @@ export function PhaseTimeline({
 		const validatingPhase = getPhaseByStatus(phaseTimeline, 'validating');
 		if (validatingPhase) {
 			return {
-				text: `Reviewing: ${truncatePhaseName(validatingPhase.name)}`,
-				subtitle: 'Identifying issues...',
+				text: `Polishing: ${truncatePhaseName(validatingPhase.name)}`,
+				subtitle: 'Checking the experience...',
 				icon: <StatusLoader color="blue" />,
 				badge: phaseBadge
 			};
@@ -305,8 +303,8 @@ export function PhaseTimeline({
 		const generatingPhase = getPhaseByStatus(phaseTimeline, 'generating');
 		if (generatingPhase) {
 			return {
-				text: `Implementing: ${truncatePhaseName(generatingPhase.name)}`,
-				subtitle: `${progress}/${total} phases`,
+				text: `Creating: ${truncatePhaseName(generatingPhase.name)}`,
+				subtitle: `${progress}/${total} steps`,
 				icon: <StatusLoader color="accent" />,
 				badge: phaseBadge
 			};
@@ -314,8 +312,8 @@ export function PhaseTimeline({
 
 		if (isPreviewDeploying) {
 			return {
-				text: 'Deploying preview',
-				subtitle: 'Updating preview environment...',
+				text: 'Preparing preview',
+				subtitle: 'Getting it ready to play...',
 				icon: <StatusLoader color="orange" />,
 				badge: phaseBadge
 			};
@@ -323,8 +321,8 @@ export function PhaseTimeline({
 
 		if (isThinkingNext) {
 			return {
-				text: 'Planning next phase',
-				subtitle: 'Analyzing requirements...',
+				text: 'Shaping the next moment',
+				subtitle: 'Finding the next playful step...',
 				icon: <StatusLoader color="tertiary" />,
 				badge: phaseBadge
 			};
@@ -333,8 +331,8 @@ export function PhaseTimeline({
 		const lastCompletedPhase = getLastCompletedPhase(phaseTimeline);
 		if (lastCompletedPhase) {
 			return {
-				text: `Completed: ${truncatePhaseName(lastCompletedPhase.name)}`,
-				subtitle: 'Ready for next phase',
+				text: `Created: ${truncatePhaseName(lastCompletedPhase.name)}`,
+				subtitle: 'Ready for the next step',
 				icon: <StatusCheck color="green" />,
 				badge: phaseBadge
 			};
@@ -342,8 +340,8 @@ export function PhaseTimeline({
 
 		const completedStages = projectStages.filter(s => s.status === 'completed').length;
 		return {
-			text: 'Ready to implement',
-			subtitle: completedStages > 0 ? `${completedStages}/${projectStages.length} stages complete` : 'Waiting to begin...',
+			text: 'Ready to create',
+			subtitle: completedStages > 0 ? `${completedStages}/${projectStages.length} steps complete` : 'Waiting to begin...',
 			icon: <div className="w-4 h-4 bg-gradient-to-br from-zinc-300/30 to-zinc-400/20 dark:from-zinc-600/30 dark:to-zinc-700/20 rounded-full" />,
 			badge: undefined
 		};
@@ -599,7 +597,7 @@ export function PhaseTimeline({
 									>
 										<span className="text-zinc-300 mx-1">&bull;</span>
 										<span className="text-text-tertiary">
-											{progress}/{total} phases
+											{progress}/{total} steps
 										</span>
 									</motion.div>
 								)}
@@ -630,107 +628,83 @@ export function PhaseTimeline({
 										)}
 									</motion.span>
 								)}
-							</div>
-
-							{/* Blueprint button */}
-							{stage.id === 'blueprint' && stage.status !== 'pending' && (
-								<button
-									onClick={() => onViewChange?.('blueprint')}
-									className={clsx(
-										'flex items-start ml-0.5 transition-colors font-mono',
-										view === 'blueprint'
-											? 'text-brand underline decoration-dotted'
-											: 'text-text-secondary/80 hover:bg-bg-2/50 hover:text-text-secondary'
-									)}
-								>
-									<span className="text-xs text-left truncate">
-										Blueprint.md
-									</span>
-								</button>
-							)}
-
-							{/* Detailed Phase Timeline for code stage */}
-							{stage.id === 'code' && (
-								<div className="space-y-2 max-h-[400px] overflow-y-auto pr-2 phase-timeline-scroll relative">
-									{phaseTimeline.map((phase, phaseIndex) => (
-										<div
-											key={phase.id}
-											className="space-y-1 relative"
-											ref={phaseIndex === phaseTimeline.length - 1 ? lastPhaseRef : undefined}
-										>
-											{/* Subtle vertical line connecting phases */}
-											{phaseIndex < phaseTimeline.length - 1 && (
-												<div className="absolute left-[5px] w-[0.5px] h-full top-3 bg-border-primary/40" />
-											)}
-											{/* Phase Implementation Header */}
-											<div
-												className="flex items-start gap-2 relative z-0 w-full text-left px-1 py-1"
-											>
-												<div className="flex-shrink-0 mt-0.5">
-													<StatusIcon status={phase.status} size="sm" />
-												</div>
-												<span className="text-sm font-medium text-text-50 flex-1 break-words">
-													{phase.status === 'completed' ? `Implemented ${phase.name}` :
-													 phase.status === 'cancelled' ? `Cancelled ${phase.name}` :
-													 phase.status === 'validating' ? `Reviewing ${phase.name}` :
-													 `Implementing ${phase.name}`}
-												</span>
-
-												{/* File count badge */}
-												{(phase.status === 'completed' || phase.status === 'cancelled') && (
-													<span className="text-xs text-text-primary/50 bg-zinc-100 dark:bg-zinc-800 px-1.5 py-0.5 rounded flex-shrink-0">
-														{phase.files.length} files
-													</span>
-												)}
-											</div>
-										</div>
-									))}
-
-									{/* Validation/Preview deployment indicator */}
-									{(() => {
-										const validatingPhase = getPhaseByStatus(phaseTimeline, 'validating');
-										if (validatingPhase) {
-											return (
-												<div className="space-y-1 relative bg-blue-50/5 border border-blue-200/20 rounded-lg p-3">
-													<div className="flex items-center gap-2">
-														<StatusLoader size="sm" color="blue" />
-														<span className="text-sm font-medium text-blue-400">Reviewing phase...</span>
-													</div>
-													<span className="text-xs text-blue-300/80 ml-5">Identifying issues...</span>
-												</div>
-											);
-										} else if (isPreviewDeploying) {
-											return (
-												<div className="space-y-1 relative bg-orange-50/5 border border-orange-200/20 rounded-lg p-3">
-													<div className="flex items-center gap-2">
-														<StatusLoader size="sm" color="orange" />
-														<span className="text-sm font-medium text-orange-400">Deploying preview...</span>
-													</div>
-													<span className="text-xs text-orange-300/80 ml-5">Updating your preview environment</span>
-												</div>
-											);
-										}
-										return null;
-									})()}
-
-									{/* Thinking indicator for next phase */}
-									{isThinkingNext && (
-										<div className="relative z-10" ref={lastPhaseRef}>
-											<ThinkingIndicator visible={isThinkingNext} />
-										</div>
-									)}
-
-									{/* File count summary for agentic mode (no phase timeline) */}
-									{phaseTimeline.length === 0 && files.length > 0 && (
-										<div className="text-xs text-text-tertiary px-2 py-1">
-											{files.filter(f => f.isGenerating).length > 0
-												? `Generating ${files.length} files...`
-												: `${files.length} files generated`
-											}
-										</div>
-									)}
 								</div>
-							)}
+
+								{/* Detailed Phase Timeline for code stage */}
+								{stage.id === 'code' && (
+									<div className="space-y-2 max-h-[400px] overflow-y-auto pr-2 phase-timeline-scroll relative">
+										{phaseTimeline.map((phase, phaseIndex) => (
+											<div
+												key={phase.id}
+												className="space-y-1 relative"
+												ref={phaseIndex === phaseTimeline.length - 1 ? lastPhaseRef : undefined}
+											>
+												{/* Subtle vertical line connecting phases */}
+												{phaseIndex < phaseTimeline.length - 1 && (
+													<div className="absolute left-[5px] w-[0.5px] h-full top-3 bg-border-primary/40" />
+												)}
+												{/* Phase Implementation Header */}
+												<div
+													className="flex items-start gap-2 relative z-0 w-full text-left px-1 py-1"
+												>
+													<div className="flex-shrink-0 mt-0.5">
+														<StatusIcon status={phase.status} size="sm" />
+													</div>
+													<span className="text-sm font-medium text-text-50 flex-1 break-words">
+														{phase.status === 'completed' ? 'Created a playable version' :
+														 phase.status === 'cancelled' ? 'Paused this step' :
+														 phase.status === 'validating' ? 'Polishing the experience' :
+														 'Creating the playable experience'}
+													</span>
+												</div>
+											</div>
+										))}
+
+										{/* Validation/Preview deployment indicator */}
+										{(() => {
+											const validatingPhase = getPhaseByStatus(phaseTimeline, 'validating');
+											if (validatingPhase) {
+												return (
+													<div className="space-y-1 relative bg-blue-50/5 border border-blue-200/20 rounded-lg p-3">
+														<div className="flex items-center gap-2">
+															<StatusLoader size="sm" color="blue" />
+															<span className="text-sm font-medium text-blue-400">Polishing the experience...</span>
+														</div>
+														<span className="text-xs text-blue-300/80 ml-5">Checking that it feels right</span>
+													</div>
+												);
+											} else if (isPreviewDeploying) {
+												return (
+													<div className="space-y-1 relative bg-orange-50/5 border border-orange-200/20 rounded-lg p-3">
+														<div className="flex items-center gap-2">
+															<StatusLoader size="sm" color="orange" />
+															<span className="text-sm font-medium text-orange-400">Preparing preview...</span>
+														</div>
+														<span className="text-xs text-orange-300/80 ml-5">Getting it ready to play</span>
+													</div>
+												);
+											}
+											return null;
+										})()}
+
+										{/* Thinking indicator for next phase */}
+										{isThinkingNext && (
+											<div className="relative z-10" ref={lastPhaseRef}>
+												<ThinkingIndicator visible={isThinkingNext} />
+											</div>
+										)}
+
+										{/* File count summary for agentic mode (no phase timeline) */}
+										{phaseTimeline.length === 0 && files.length > 0 && (
+											<div className="text-xs text-text-tertiary px-2 py-1">
+												{files.filter(f => f.isGenerating).length > 0
+													? 'Creating your playable...'
+													: 'Playable content created'
+												}
+											</div>
+										)}
+									</div>
+								)}
 
 							{stage.metadata && (
 								<span className="font-mono text-xs text-zinc-500 tracking-tighter">
@@ -770,11 +744,11 @@ export function PhaseTimeline({
 								>
 									{/* Connecting line from previous stage */}
 									<div className="absolute left-[9.25px] w-px h-[0.875rem] -top-[0.875rem] bg-accent" />
-									
+
 									<AnimatedStatusIndicator status="completed" />
-									
+
 									<div className="flex flex-col gap-2 flex-1">
-										<span className="font-medium text-text-secondary">Done</span>
+										<span className="font-medium text-text-secondary">Ready to play</span>
 									</div>
 								</motion.div>
 							);

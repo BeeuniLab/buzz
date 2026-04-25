@@ -2,7 +2,6 @@ import { type RefObject, type ReactNode, Suspense, useState, useCallback, useRef
 import { WebSocket } from 'partysocket';
 import { motion } from 'framer-motion';
 import { RefreshCw } from 'lucide-react';
-import { Blueprint } from './blueprint';
 import { PreviewIframe } from './preview-iframe';
 import { ViewContainer } from './view-container';
 import { ViewHeader } from './view-header';
@@ -60,12 +59,17 @@ function PhoneFrame({ children }: { children: ReactNode }) {
 
 function PreviewLoadingPlaceholder({
 	isActive,
+	isGeneratingBlueprint,
 }: {
 	isActive: boolean;
+	isGeneratingBlueprint: boolean;
 }) {
-	const statusText = isActive
-		? 'Generating and deploying your preview.'
-		: 'Preview will load here as soon as deployment is available.';
+	const title = isGeneratingBlueprint ? 'Shaping Your Idea' : 'Loading Preview';
+	const statusText = isGeneratingBlueprint
+		? 'Turning the idea into a playable direction.'
+		: isActive
+			? 'Making your preview playable.'
+			: 'Preview will load here as soon as it is ready.';
 
 	return (
 		<div className="flex-1 flex items-center justify-center bg-bg-3" role="status" aria-live="polite">
@@ -77,7 +81,7 @@ function PreviewLoadingPlaceholder({
 					</div>
 				</div>
 				<h3 className="text-2xl font-semibold text-text-primary mb-2">
-					Loading Preview
+					{title}
 				</h3>
 				<p className="text-text-primary/70 text-sm mb-4">
 					{statusText}
@@ -204,7 +208,10 @@ export function MainContentPanel(props: MainContentPanelProps) {
 						{previewTitle}
 					</span>
 				</div>,
-				<PreviewLoadingPlaceholder isActive={isPreviewLoading} />
+				<PreviewLoadingPlaceholder
+					isActive={isPreviewLoading}
+					isGeneratingBlueprint={isGeneratingBlueprint}
+				/>
 			);
 		}
 
@@ -323,21 +330,6 @@ export function MainContentPanel(props: MainContentPanelProps) {
 		);
 	};
 
-	const renderBlueprintView = () =>
-		renderViewWithHeader(
-			<div className="flex items-center gap-2">
-				<span className="text-sm text-text-50/70 font-mono">Blueprint.md</span>
-			</div>,
-			<div className="flex-1 overflow-y-auto bg-bg-3">
-				<div className="py-12 mx-auto">
-					<Blueprint
-						blueprint={blueprint ?? ({} as BlueprintType)}
-						className="w-full max-w-2xl mx-auto"
-					/>
-				</div>
-			</div>
-		);
-
 	const renderAssetsView = () =>
 		renderViewWithHeader(
 			<span className="text-sm font-mono text-text-50/70">Assets</span>,
@@ -351,9 +343,8 @@ export function MainContentPanel(props: MainContentPanelProps) {
 		switch (view) {
 			case 'preview':
 			case 'presentation': // Presentations now use preview view
-				return renderPreviewView();
 			case 'blueprint':
-				return renderBlueprintView();
+				return renderPreviewView();
 			case 'editor':
 			case 'docs':
 				return renderPreviewView();

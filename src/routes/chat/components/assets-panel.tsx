@@ -1,8 +1,9 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { Upload, Trash2, RefreshCw, Image, Music, Box, Type, File, Video } from 'lucide-react';
 import clsx from 'clsx';
+import { toast } from 'sonner';
 import { apiClient } from '@/lib/api-client';
-import type { AssetItem, AssetCategory } from '@/api-types';
+import { MAX_IMAGE_SIZE_BYTES, type AssetItem, type AssetCategory } from '@/api-types';
 import type { ChatAssetSelectionTarget } from '../utils/chat-attachments';
 
 const CATEGORY_TABS: { label: string; value: AssetCategory | 'all'; icon: React.ComponentType<{ className?: string }> }[] = [
@@ -14,18 +15,84 @@ const CATEGORY_TABS: { label: string; value: AssetCategory | 'all'; icon: React.
 ];
 
 const ACCEPT_MAP: Record<AssetCategory, string> = {
-	images: 'image/*',
+	images: 'image/png,image/jpeg,image/webp,image/gif,image/svg+xml,image/x-icon,.png,.jpg,.jpeg,.webp,.gif,.svg,.ico',
 	video: 'video/mp4,video/webm,video/quicktime,.mp4,.webm,.mov',
 	'3d': '.glb,.gltf,.obj,.fbx',
-	audio: 'audio/*',
+	audio: 'audio/mpeg,audio/webm,audio/wav,audio/ogg,.mp3,.wav,.ogg,.weba',
 	fonts: '.woff,.woff2,.ttf',
 	other: '*/*',
 };
+
+const ASSET_UPLOAD_RULES: Record<AssetCategory, {
+	label: string;
+	mimeTypes: readonly string[];
+	extensions: readonly string[];
+}> = {
+	images: {
+		label: 'image',
+		mimeTypes: ['image/png', 'image/jpeg', 'image/webp', 'image/gif', 'image/svg+xml', 'image/x-icon'],
+		extensions: ['.png', '.jpg', '.jpeg', '.webp', '.gif', '.svg', '.ico'],
+	},
+	video: {
+		label: 'video',
+		mimeTypes: ['video/mp4', 'video/webm', 'video/quicktime'],
+		extensions: ['.mp4', '.webm', '.mov'],
+	},
+	'3d': {
+		label: '3D asset',
+		mimeTypes: ['model/gltf-binary', 'model/gltf+json', 'model/obj'],
+		extensions: ['.glb', '.gltf', '.obj', '.fbx'],
+	},
+	audio: {
+		label: 'audio',
+		mimeTypes: ['audio/mpeg', 'audio/webm', 'audio/wav', 'audio/ogg'],
+		extensions: ['.mp3', '.wav', '.ogg', '.weba'],
+	},
+	fonts: {
+		label: 'font',
+		mimeTypes: ['font/woff', 'font/woff2', 'font/ttf'],
+		extensions: ['.woff', '.woff2', '.ttf'],
+	},
+	other: {
+		label: 'file',
+		mimeTypes: [],
+		extensions: [],
+	},
+};
+
+const MAX_ASSET_SIZE_BYTES = MAX_IMAGE_SIZE_BYTES;
 
 function formatFileSize(bytes: number): string {
 	if (bytes < 1024) return `${bytes} B`;
 	if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
 	return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function getFileExtension(filename: string): string {
+	const dotIndex = filename.lastIndexOf('.');
+	return dotIndex === -1 ? '' : filename.slice(dotIndex).toLowerCase();
+}
+
+function getAssetUploadError(file: File, category: AssetCategory): string | null {
+	if (file.size > MAX_ASSET_SIZE_BYTES) {
+		return `${file.name} is ${formatFileSize(file.size)}. Maximum upload size is ${formatFileSize(MAX_ASSET_SIZE_BYTES)}.`;
+	}
+
+	if (category === 'other') return null;
+
+	const rule = ASSET_UPLOAD_RULES[category];
+	const mimeType = file.type.toLowerCase();
+	const extension = getFileExtension(file.name);
+	const isGenericMime = !mimeType || mimeType === 'application/octet-stream';
+	const isAllowed = isGenericMime
+		? rule.extensions.includes(extension)
+		: rule.mimeTypes.includes(mimeType);
+
+	if (!isAllowed) {
+		return `${file.name} is not a supported ${rule.label} file.`;
+	}
+
+	return null;
 }
 
 interface AssetsPanelProps {
@@ -65,17 +132,33 @@ export function AssetsPanel({ agentId, selectedAssetTarget }: AssetsPanelProps) 
 
 	const handleUpload = useCallback(async (files: FileList) => {
 		if (!agentId || files.length === 0 || selectedCategory === 'all') return;
+		const category = selectedCategory;
+		const selectedFiles = Array.from(files);
+		const validFiles = selectedFiles.filter((file) => {
+			const error = getAssetUploadError(file, category);
+			if (error) {
+				toast.error(error);
+				return false;
+			}
+			return true;
+		});
+		if (validFiles.length === 0) {
+			if (fileInputRef.current) fileInputRef.current.value = '';
+			return;
+		}
+
 		setUploading(true);
 		try {
-			const category = selectedCategory;
-			for (const file of Array.from(files)) {
+			for (const file of validFiles) {
 				const response = await apiClient.uploadProjectAsset(agentId, file, category);
 				if (response.success && response.data) {
 					setAssets(prev => [response.data!, ...prev]);
+				} else {
+					toast.error(response.error?.message || response.message || `Failed to upload ${file.name}`);
 				}
 			}
-		} catch {
-			// error handled by api client
+		} catch (error) {
+			toast.error(error instanceof Error ? error.message : 'Failed to upload asset');
 		} finally {
 			setUploading(false);
 			if (fileInputRef.current) fileInputRef.current.value = '';

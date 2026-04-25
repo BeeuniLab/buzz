@@ -1,5 +1,5 @@
 import { useRef, useState, useEffect, useMemo } from 'react';
-import { ArrowRight, Info } from 'react-feather';
+import { ArrowRight } from 'react-feather';
 import { useNavigate } from 'react-router';
 import { ProjectModeSelector, type ProjectModeOption } from '../components/project-mode-selector';
 import { MAX_AGENT_QUERY_LENGTH, SUPPORTED_CHAT_MEDIA_MIME_TYPES, type ProjectType } from '@/api-types';
@@ -346,16 +346,6 @@ export default function Home() {
 				</div>
 			</div>
 
-			{images.length > 0 && (
-				<div className="w-full max-w-2xl px-6">
-					<div className="flex items-start gap-2 px-4 py-3 rounded-xl bg-neo-yellow/20 border-2 border-[var(--neo-border-color)] shadow-[3px_3px_0px_0px_var(--neo-border-color)]">
-						<Info className="size-4 text-[#1a1a1a] flex-shrink-0 mt-0.5" />
-						<p className="text-xs text-text-secondary leading-relaxed font-medium">
-							<span className="font-bold text-text-primary">Attachments:</span> Images, audio, and video can guide layout and intent; visuals may not be replicated exactly.
-						</p>
-					</div>
-				</div>
-			)}
-		</div>
-	);
-}
+			</div>
+		);
+	}

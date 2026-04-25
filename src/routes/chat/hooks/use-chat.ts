@@ -505,15 +505,15 @@ export function useChat({
 					const initialBehaviorType = getBehaviorTypeForProject(projectType);
 					if (initialBehaviorType === 'phasic') {
 						sendMessage(
-							createAIMessage('main', "Sure, let's get started. Bootstrapping the project first...", true),
+							createAIMessage('main', "Great, I'll turn this idea into something playable.", true),
 						);
 					}
 
 					for await (const obj of ndjsonStream(response.stream)) {
-                        logger.debug('Received chunk from server:', obj);
+						logger.debug('Received chunk from server:', obj);
 						if (obj.chunk) {
 							if (!startedBlueprintStream) {
-								sendMessage(createAIMessage('main', 'Blueprint is being generated...', true));
+								sendMessage(createAIMessage('main', 'Shaping the experience...', true));
 								logger.info('Blueprint stream has started');
 								setIsBootstrapping(false);
 								setIsGeneratingBlueprint(true);
@@ -546,7 +546,7 @@ export function useChat({
 							logger.debug('Received projectType from server:', obj.projectType);
 						}
 						if (obj.template) {
-                            logger.debug('Received template from server:', obj.template);
+							logger.debug('Received template from server:', obj.template);
 							result.template = obj.template;
 							if (obj.template.files) {
 								loadBootstrapFiles(obj.template.files);
@@ -559,7 +559,7 @@ export function useChat({
 					const finalBehaviorType = getBehaviorTypeForProject(projectType);
 					if (finalBehaviorType === 'phasic') {
 						sendMessage(
-							createAIMessage('main', 'Blueprint generation complete. Now starting the code generation...', true),
+							createAIMessage('main', 'The concept is set. Now making it playable...', true),
 						);
 					}
 

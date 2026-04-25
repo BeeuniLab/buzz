@@ -5,6 +5,8 @@ import { createLogger } from '../../../logger';
 import { sanitizeAgentAssetFilename, syncAgentAssetMap } from '../../../utils/agentAssets';
 
 type AssetCategory = 'images' | 'video' | '3d' | 'audio' | 'fonts' | 'other';
+const ASSET_CATEGORIES: readonly AssetCategory[] = ['images', 'video', '3d', 'audio', 'fonts', 'other'];
+const MAX_ASSET_SIZE_BYTES = 10 * 1024 * 1024;
 
 interface AssetItem {
 	key: string;
@@ -23,7 +25,7 @@ interface AssetListResponse {
 const MIME_MAP: Record<string, string> = {
 	'.webp': 'image/webp', '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg',
 	'.gif': 'image/gif', '.svg': 'image/svg+xml', '.ico': 'image/x-icon',
-	'.mp3': 'audio/mpeg', '.wav': 'audio/wav', '.ogg': 'audio/ogg',
+	'.mp3': 'audio/mpeg', '.wav': 'audio/wav', '.ogg': 'audio/ogg', '.weba': 'audio/webm',
 	'.mp4': 'video/mp4', '.webm': 'video/webm', '.mov': 'video/quicktime',
 	'.woff': 'font/woff', '.woff2': 'font/woff2', '.ttf': 'font/ttf',
 	'.glb': 'model/gltf-binary', '.gltf': 'model/gltf+json', '.obj': 'model/obj',
@@ -34,12 +36,29 @@ const CATEGORY_EXTENSIONS: Record<string, string[]> = {
 	images: ['.webp', '.png', '.jpg', '.jpeg', '.gif', '.svg', '.ico'],
 	video: ['.mp4', '.webm', '.mov'],
 	'3d': ['.glb', '.gltf', '.obj', '.fbx'],
-	audio: ['.mp3', '.wav', '.ogg'],
+	audio: ['.mp3', '.wav', '.ogg', '.weba'],
 	fonts: ['.woff', '.woff2', '.ttf'],
 };
 
+const CATEGORY_MIME_TYPES: Record<string, string[]> = {
+	images: ['image/webp', 'image/png', 'image/jpeg', 'image/gif', 'image/svg+xml', 'image/x-icon'],
+	video: ['video/mp4', 'video/webm', 'video/quicktime'],
+	'3d': ['model/gltf-binary', 'model/gltf+json', 'model/obj'],
+	audio: ['audio/mpeg', 'audio/webm', 'audio/wav', 'audio/ogg'],
+	fonts: ['font/woff', 'font/woff2', 'font/ttf'],
+};
+
+function getExtension(filename: string): string {
+	const dotIndex = filename.lastIndexOf('.');
+	return dotIndex === -1 ? '' : filename.substring(dotIndex).toLowerCase();
+}
+
+function isAssetCategory(value: string): value is AssetCategory {
+	return ASSET_CATEGORIES.includes(value as AssetCategory);
+}
+
 function categorizeByExtension(filename: string): AssetCategory {
-	const ext = filename.substring(filename.lastIndexOf('.')).toLowerCase();
+	const ext = getExtension(filename);
 	for (const [category, extensions] of Object.entries(CATEGORY_EXTENSIONS)) {
 		if (extensions.includes(ext)) return category as AssetCategory;
 	}
@@ -47,8 +66,30 @@ function categorizeByExtension(filename: string): AssetCategory {
 }
 
 function getMimeType(filename: string): string {
-	const ext = filename.substring(filename.lastIndexOf('.')).toLowerCase();
+	const ext = getExtension(filename);
 	return MIME_MAP[ext] || 'application/octet-stream';
+}
+
+function isFileAllowedForCategory(filename: string, contentType: string, category: AssetCategory): boolean {
+	if (category === 'other') return true;
+
+	const normalizedContentType = contentType.toLowerCase();
+	const categoryMimeTypes = CATEGORY_MIME_TYPES[category] ?? [];
+	if (normalizedContentType && normalizedContentType !== 'application/octet-stream') {
+		return categoryMimeTypes.includes(normalizedContentType);
+	}
+
+	const extensions = CATEGORY_EXTENSIONS[category] ?? [];
+	return extensions.includes(getExtension(filename));
+}
+
+function categorizeByStoredPath(relativePath: string, contentType: string): AssetCategory {
+	const [folder, ...rest] = relativePath.split('/');
+	const filename = rest.length > 0 ? rest.join('/') : relativePath;
+	if (folder && isAssetCategory(folder) && isFileAllowedForCategory(filename, contentType, folder)) {
+		return folder;
+	}
+	return categorizeByExtension(filename);
 }
 
 export class AssetController extends BaseController {
@@ -72,12 +113,13 @@ export class AssetController extends BaseController {
 			const assets: AssetItem[] = listed.objects.map(obj => {
 				const relativePath = obj.key.replace(prefix, '');
 				const name = relativePath.includes('/') ? relativePath.split('/').pop()! : relativePath;
+				const contentType = obj.httpMetadata?.contentType || getMimeType(name);
 				return {
 					key: relativePath,
 					name,
 					size: obj.size,
-					type: obj.httpMetadata?.contentType || getMimeType(name),
-					category: categorizeByExtension(name),
+					type: contentType,
+					category: categorizeByStoredPath(relativePath, contentType),
 					uploadedAt: obj.uploaded.toISOString(),
 				};
 			});
@@ -106,20 +148,29 @@ export class AssetController extends BaseController {
 
 			const formData = await request.formData();
 			const file = formData.get('file') as File | null;
-			const category = (formData.get('category') as string) || 'images';
+			const requestedCategory = (formData.get('category') as string) || 'images';
 
 			if (!file) {
 				return AssetController.createErrorResponse('No file provided', 400);
 			}
 
-			if (file.size > 10 * 1024 * 1024) {
+			if (!isAssetCategory(requestedCategory)) {
+				return AssetController.createErrorResponse('Invalid asset category', 400);
+			}
+
+			if (file.size > MAX_ASSET_SIZE_BYTES) {
 				return AssetController.createErrorResponse('File too large (max 10MB)', 400);
 			}
 
 			const filename = sanitizeAgentAssetFilename(file.name);
-			const relativePath = `${category}/${filename}`;
-			const r2Key = `assets/${agentId}/${relativePath}`;
 			const contentType = file.type || getMimeType(filename);
+
+			if (!isFileAllowedForCategory(filename, contentType, requestedCategory)) {
+				return AssetController.createErrorResponse(`File type does not match ${requestedCategory} upload`, 400);
+			}
+
+			const relativePath = `${requestedCategory}/${filename}`;
+			const r2Key = `assets/${agentId}/${relativePath}`;
 
 			await env.TEMPLATES_BUCKET.put(r2Key, await file.arrayBuffer(), {
 				httpMetadata: { contentType },
@@ -130,7 +181,7 @@ export class AssetController extends BaseController {
 				name: filename,
 				size: file.size,
 				type: contentType,
-				category: categorizeByExtension(filename),
+				category: requestedCategory,
 				uploadedAt: new Date().toISOString(),
 			};
 

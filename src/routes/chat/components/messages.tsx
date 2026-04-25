@@ -23,6 +23,14 @@ import { useState, useEffect, useRef } from 'react';
 import { DebugSessionBubble } from './debug-session-bubble';
 import type { ChatAttachmentPreview } from '../utils/chat-attachments';
 
+type ToolPresentation = {
+	start: string;
+	success: string;
+	error: string;
+	showResult?: boolean;
+	accent?: boolean;
+};
+
 /**
  * Strip internal system tags that should not be displayed to users
  */
@@ -255,6 +263,47 @@ function extractTextContent(content: unknown): string {
 	return '';
 }
 
+function humanizeToolName(name: string): string {
+	return name
+		.replace(/_/g, ' ')
+		.replace(/\b\w/g, char => char.toUpperCase());
+}
+
+function getToolPresentation(toolName: string): ToolPresentation {
+	switch (toolName) {
+		case 'queue_request':
+			return {
+				start: 'Adding your note',
+				success: 'Added to current build',
+				error: "Couldn't add your note",
+				showResult: false,
+			};
+		case 'deep_debug':
+			return {
+				start: 'Checking the preview',
+				success: 'Preview checked',
+				error: 'Preview check failed',
+				showResult: true,
+				accent: true,
+			};
+		default: {
+			const displayName = humanizeToolName(toolName);
+			return {
+				start: `Running ${displayName}`,
+				success: `Completed ${displayName}`,
+				error: `Error in ${displayName}`,
+				showResult: true,
+			};
+		}
+	}
+}
+
+function isDisplayableToolResult(result?: string): result is string {
+	if (!result) return false;
+	const normalized = result.trim().toLowerCase();
+	return normalized !== 'null' && normalized !== 'undefined' && normalized !== '""';
+}
+
 function convertToToolEvent(msg: ConversationMessage, idx: number): ToolEvent | null {
 	if (msg.role !== 'tool' || !('name' in msg) || !msg.name) return null;
 	
@@ -365,12 +414,12 @@ function ToolResultRenderer({ result, toolName }: { result: string; toolName: st
 
 export function ToolStatusIndicator({ event }: { event: ToolEvent }) {
 	const [isExpanded, setIsExpanded] = useState(false);
-	const hasResult = event.status === 'success' && event.result;
-	const isDeepDebug = event.name === 'deep_debug';
+	const presentation = getToolPresentation(event.name);
+	const hasResult = event.status === 'success' && presentation.showResult !== false && isDisplayableToolResult(event.result);
 	
-	const statusText = event.status === 'start' ? 'Running' : 
-	                   event.status === 'success' ? 'Completed' : 
-	                   'Error';
+	const statusText = event.status === 'start' ? presentation.start :
+	                   event.status === 'success' ? presentation.success :
+	                   presentation.error;
 	
 	const StatusIcon = event.status === 'start' ? LoaderCircle : 
 	                   event.status === 'success' ? Check : 
@@ -384,15 +433,13 @@ export function ToolStatusIndicator({ event }: { event: ToolEvent }) {
 				onClick={() => hasResult && setIsExpanded(!isExpanded)}
 				className={clsx(
 					'flex items-center gap-1.5 text-xs',
-					isDeepDebug ? 'text-accent font-medium' : 'text-text-tertiary',
+					presentation.accent ? 'text-accent font-medium' : 'text-text-tertiary',
 					hasResult && 'cursor-pointer hover:text-text-secondary transition-colors'
 				)}
 				disabled={!hasResult}
 			>
 				<StatusIcon className={iconClass} />
-				<span className="font-mono tracking-tight">
-					{statusText} {event.name}
-				</span>
+				<span className="tracking-tight">{statusText}</span>
 				{hasResult && (
 					isExpanded ? <ChevronDown className="size-3" /> : <ChevronRight className="size-3" />
 				)}
@@ -401,8 +448,8 @@ export function ToolStatusIndicator({ event }: { event: ToolEvent }) {
 			{isExpanded && hasResult && event.result && (
 				<div className={clsx(
 					'p-3 rounded-md text-xs font-mono border overflow-auto',
-					isDeepDebug 
-						? 'bg-surface-tertiary/30 border-accent/20 max-h-[600px]' 
+					event.name === 'deep_debug'
+						? 'bg-surface-tertiary/30 border-accent/20 max-h-[600px]'
 						: 'bg-surface-secondary border-border max-h-96'
 				)}>
 					<ToolResultRenderer result={event.result} toolName={event.name} />
