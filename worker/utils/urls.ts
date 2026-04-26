@@ -5,6 +5,22 @@ export const getProtocolForHost = (host: string): string => {
         return 'https';
     }
 }
+
+const DEFAULT_PUBLISHED_WORKER_DOMAIN = 'buzzplay.app';
+
+function getOptionalEnvVar(env: Env, key: string): string | undefined {
+    const value = (env as unknown as Record<string, string | undefined>)[key];
+    return value?.trim() || undefined;
+}
+
+function isLocalDomain(domain: string | undefined): boolean {
+    if (!domain) return false;
+    return domain.startsWith('localhost')
+        || domain.startsWith('127.0.0.1')
+        || domain.startsWith('0.0.0.0')
+        || domain.startsWith('::1');
+}
+
 export function getPreviewDomain(env: Env): string {
     if (env.CUSTOM_PREVIEW_DOMAIN && env.CUSTOM_PREVIEW_DOMAIN.trim() !== '') {
         return env.CUSTOM_PREVIEW_DOMAIN;
@@ -12,10 +28,34 @@ export function getPreviewDomain(env: Env): string {
     return env.CUSTOM_DOMAIN;
 }
 
+export function getPublishedWorkerDomain(env: Env): string {
+    const explicitDomain = getOptionalEnvVar(env, 'CUSTOM_DEPLOYMENT_DOMAIN')
+        ?? getOptionalEnvVar(env, 'CUSTOM_PUBLISHED_DOMAIN');
+    if (explicitDomain) {
+        return explicitDomain;
+    }
+
+    if (isLocalDomain(env.CUSTOM_DOMAIN)) {
+        return DEFAULT_PUBLISHED_WORKER_DOMAIN;
+    }
+
+    return env.CUSTOM_DOMAIN;
+}
+
+export function normalizeDeploymentId(deploymentId: string): string {
+    const normalized = deploymentId
+        .toLowerCase()
+        .replace(/[^a-z0-9-]/g, '-')
+        .replace(/-+/g, '-')
+        .replace(/^-+|-+$/g, '');
+
+    return normalized || 'playable';
+}
+
 export function buildUserWorkerUrl(env: Env, deploymentId: string): string {
-    const domain = getPreviewDomain(env);
+    const domain = getPublishedWorkerDomain(env);
     const protocol = getProtocolForHost(domain);
-    return `${protocol}://${deploymentId}.${domain}`;
+    return `${protocol}://${normalizeDeploymentId(deploymentId)}.${domain}`;
 }
 
 /**

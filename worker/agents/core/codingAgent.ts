@@ -338,8 +338,17 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
         return this.state.mvpGenerated ? 'completed' : 'generating';
     }
 
-    getPreviewUrlCache(): string {
-        return ''; // Unimplemented
+    async getPreviewUrlCache(): Promise<string> {
+        try {
+            await this.behavior.ensureTemplateDetails();
+            if (this.behavior.getTemplateDetails().renderMode === 'browser') {
+                return this.behavior.getBrowserPreviewURL();
+            }
+        } catch (error) {
+            this.logger().warn('Unable to resolve preview URL cache', error);
+        }
+
+        return '';
     }
 
     deployPreview(
@@ -349,7 +358,92 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
         return this.behavior.deployPreview(clearLogs, forceRedeploy);
     }
 
-    deployProject(options?: DeployOptions): Promise<DeployResult> {
+    async deployProject(options?: DeployOptions): Promise<DeployResult> {
+        const target = options?.target ?? 'platform';
+        if (target !== 'platform') {
+            return this.objective.deploy(options);
+        }
+
+        const generatedFileCount = Object.keys(this.state.generatedFilesMap ?? {}).length;
+        if (generatedFileCount === 0) {
+            const message = 'Create the playable before updating it.';
+            this.broadcast(WebSocketMessageResponses.CLOUDFLARE_DEPLOYMENT_ERROR, {
+                message,
+                instanceId: this.state.sandboxInstanceId ?? this.state.sessionId ?? '',
+                error: message,
+            });
+            return { success: false, target, error: message };
+        }
+
+        try {
+            const templateDetails = this.behavior.getTemplateDetails();
+            if (templateDetails.renderMode !== 'browser' && !this.state.sandboxInstanceId) {
+                this.logger().info('Preparing preview sandbox before playable update quality gate');
+                await this.behavior.deployPreview(true);
+            }
+
+            const issues = await this.behavior.fetchAllIssues(true);
+            const runtimeErrorCount = issues.runtimeErrors.length;
+            const typecheckErrorCount = issues.staticAnalysis.typecheck.issues.length;
+            const lintErrorCount = issues.staticAnalysis.lint.issues.filter(
+                (issue) => issue.severity === 'error',
+            ).length;
+
+            if (
+                !issues.staticAnalysis.success ||
+                runtimeErrorCount > 0 ||
+                typecheckErrorCount > 0 ||
+                lintErrorCount > 0
+            ) {
+                const issueSummary = [
+                    runtimeErrorCount > 0 ? `${runtimeErrorCount} runtime` : '',
+                    typecheckErrorCount > 0 ? `${typecheckErrorCount} type` : '',
+                    lintErrorCount > 0 ? `${lintErrorCount} lint` : '',
+                ].filter(Boolean).join(', ');
+                const message = issueSummary
+                    ? `Fix issues before updating the playable (${issueSummary}).`
+                    : 'Fix issues before updating the playable.';
+
+                this.logger().warn('Playable update blocked by quality gate', {
+                    runtimeErrorCount,
+                    typecheckErrorCount,
+                    lintErrorCount,
+                    staticAnalysisSuccess: issues.staticAnalysis.success,
+                    staticAnalysisError: issues.staticAnalysis.error,
+                });
+
+                this.broadcast(WebSocketMessageResponses.CLOUDFLARE_DEPLOYMENT_ERROR, {
+                    message,
+                    instanceId: this.state.sandboxInstanceId ?? this.state.sessionId ?? '',
+                    error: message,
+                });
+
+                return {
+                    success: false,
+                    target,
+                    error: message,
+                    metadata: {
+                        qualityGate: {
+                            runtimeErrorCount,
+                            typecheckErrorCount,
+                            lintErrorCount,
+                            staticAnalysisSuccess: issues.staticAnalysis.success,
+                            staticAnalysisError: issues.staticAnalysis.error,
+                        },
+                    },
+                };
+            }
+        } catch (error) {
+            const message = error instanceof Error ? error.message : 'Unknown validation error';
+            this.logger().error('Playable update validation failed', error);
+            this.broadcast(WebSocketMessageResponses.CLOUDFLARE_DEPLOYMENT_ERROR, {
+                message: 'Playable update could not be checked.',
+                instanceId: this.state.sandboxInstanceId ?? this.state.sessionId ?? '',
+                error: message,
+            });
+            return { success: false, target, error: message };
+        }
+
         return this.objective.deploy(options);
     }
 

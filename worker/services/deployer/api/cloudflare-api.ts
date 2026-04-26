@@ -295,6 +295,37 @@ export class CloudflareAPI {
 	}
 
 	/**
+	 * Delete a deployed Worker script. For platform deployments this removes the
+	 * script from the configured dispatch namespace.
+	 */
+	async deleteWorker(
+		scriptName: string,
+		dispatchNamespace?: string,
+	): Promise<{ deleted: boolean; notFound: boolean }> {
+		const url = dispatchNamespace
+			? `${this.baseUrl}/accounts/${this.accountId}/workers/dispatch/namespaces/${dispatchNamespace}/scripts/${scriptName}`
+			: `${this.baseUrl}/accounts/${this.accountId}/workers/scripts/${scriptName}`;
+
+		const response = await fetch(url, {
+			method: 'DELETE',
+			headers: this.getHeaders(),
+		});
+
+		if (response.status === 404) {
+			return { deleted: false, notFound: true };
+		}
+
+		if (!response.ok) {
+			const error = await response.text();
+			throw new Error(
+				`Failed to delete worker: ${response.status} - ${error}`,
+			);
+		}
+
+		return { deleted: true, notFound: false };
+	}
+
+	/**
 	 * Test a deployed Worker by making a request to its endpoint
 	 */
 	async testWorkerEndpoint(workerUrl: string): Promise<void> {

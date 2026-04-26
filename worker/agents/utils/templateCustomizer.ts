@@ -197,8 +197,16 @@ export function generateProjectName(
 ): string {
     let prefix = projectName
         .toLowerCase()
-        .replace(/[^a-z0-9]/g, '-');
+        .replace(/[^a-z0-9]/g, '-')
+        .replace(/-+/g, '-')
+        .replace(/^-+|-+$/g, '');
 
-    prefix = prefix.slice(0, maxPrefixLength);
-    return `${prefix}-${uniqueSuffix}`.toLowerCase();
+    prefix = prefix.slice(0, maxPrefixLength).replace(/^-+|-+$/g, '') || 'playable';
+    const suffix = uniqueSuffix
+        .toLowerCase()
+        .replace(/[^a-z0-9-]/g, '-')
+        .replace(/-+/g, '-')
+        .replace(/^-+|-+$/g, '');
+
+    return suffix ? `${prefix}-${suffix}` : prefix;
 }

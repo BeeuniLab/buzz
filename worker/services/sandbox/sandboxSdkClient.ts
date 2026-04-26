@@ -43,7 +43,7 @@ import { generateId } from '../../utils/idGenerator';
 import { ResourceProvisioner } from './resourceProvisioner';
 import { TemplateParser } from './templateParser';
 import { ResourceProvisioningResult } from './types';
-import { getPreviewDomain, isUsableTunnelUrl, resolvePreviewUrl, shouldUseTunnelForPreview } from '../../utils/urls';
+import { buildUserWorkerUrl, getPreviewDomain, isUsableTunnelUrl, normalizeDeploymentId, resolvePreviewUrl, shouldUseTunnelForPreview } from '../../utils/urls';
 import { isDev } from 'worker/utils/envs'
 import { FileTreeBuilder } from './fileTreeBuilder';
 import { DeploymentTarget } from 'worker/agents/core/types';
@@ -1741,6 +1741,7 @@ export class SandboxSdkClient extends BaseSandboxService {
             // Get project metadata
             const metadata = await this.getInstanceMetadata(instanceId);
             const projectName = metadata?.projectName || instanceId;
+            const deploymentId = normalizeDeploymentId(projectName);
             
             // Get credentials from environment (secure - no exposure to external processes)
             const accountId = env.CLOUDFLARE_ACCOUNT_ID;
@@ -1859,7 +1860,7 @@ export class SandboxSdkClient extends BaseSandboxService {
             // Step 5: Override config for dispatch deployment
             const dispatchConfig = {
                 ...config,
-                name: config.name
+                name: deploymentId
             };
         
             
@@ -1904,8 +1905,7 @@ export class SandboxSdkClient extends BaseSandboxService {
             }
             
             // Step 8: Determine deployment URL
-            const deployedUrl = `${this.getProtocolForHost()}://${projectName}.${getPreviewDomain(env)}`;
-            const deploymentId = projectName;
+            const deployedUrl = buildUserWorkerUrl(env, deploymentId);
             
             this.logger.info('Deployment successful', { 
                 instanceId,
@@ -1991,15 +1991,4 @@ export class SandboxSdkClient extends BaseSandboxService {
         return Buffer.from(base64Result.stdout, 'base64');
     }
 
-    /**
-     * Get protocol for host (utility method)
-     */
-    private getProtocolForHost(): string {
-        // Simple heuristic - use https for production-like domains
-        const previewDomain = getPreviewDomain(env);
-        if (previewDomain.includes('localhost') || previewDomain.includes('127.0.0.1')) {
-            return 'http';
-        }
-        return 'https';
-    }
 }

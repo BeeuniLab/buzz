@@ -330,11 +330,11 @@ export default function AppView() {
 			return;
 		}
 
+		const newVisibility =
+			app.visibility === 'private' ? 'public' : 'private';
+
 		try {
 			setIsUpdatingVisibility(true);
-			const newVisibility =
-				app.visibility === 'private' ? 'public' : 'private';
-
 			const response = await apiClient.updateAppVisibility(
 				app.id,
 				newVisibility,
@@ -357,11 +357,19 @@ export default function AppView() {
 			}
 		} catch (error) {
 			console.error('Error updating app visibility:', error);
-			toast.error(
-				error instanceof ApiError
-					? error.message
-					: 'Failed to update visibility',
-			);
+			const message = error instanceof Error
+				? error.message
+				: 'Failed to update visibility';
+			const needsPlayableUpdate = newVisibility === 'public'
+				&& message.toLowerCase().includes('prepare playable');
+
+			toast.error(needsPlayableUpdate ? 'Prepare playable first' : message, needsPlayableUpdate ? {
+				description: 'Open chat to update it.',
+				action: {
+					label: 'Open chat',
+					onClick: () => navigate(`/chat/${app.id}`),
+				},
+			} : undefined);
 		} finally {
 			setIsUpdatingVisibility(false);
 		}
@@ -415,9 +423,9 @@ export default function AppView() {
 								{error ||
 									"The app you're looking for doesn't exist."}
 							</p>
-							<Button onClick={() => navigate('/apps')}>
+							<Button onClick={() => navigate('/build')}>
 								<ChevronLeft className="mr-2 h-4 w-4" />
-								Back to Apps
+								Back to Build
 							</Button>
 						</div>
 					</CardContent>

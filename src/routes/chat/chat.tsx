@@ -36,6 +36,7 @@ import { mergeFiles } from '@/utils/file-helpers';
 import { ChatModals } from './components/chat-modals';
 import { MainContentPanel } from './components/main-content-panel';
 import { ChatInput } from './components/chat-input';
+import { UpdatePlayableAction } from './components/update-playable-action';
 import { useVault } from '@/hooks/use-vault';
 import { VaultUnlockModal } from '@/components/vault';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -75,7 +76,7 @@ export default function Chat() {
 	}, [searchParams]);
 
 	// Load existing app data if chatId is provided
-	const { app, loading: appLoading } = useApp(urlChatId);
+	const { app, loading: appLoading, refetch: refetchApp } = useApp(urlChatId);
 
 	// If we have an existing app, use its data
 	const displayQuery = app ? app.originalPrompt || app.title : userQuery || '';
@@ -145,6 +146,11 @@ export default function Chat() {
 		isThinking,
 		// Deployment and generation control
 		isGenerating,
+		isDeploying,
+		cloudflareDeploymentUrl,
+		deploymentError,
+		isRedeployReady,
+		handleDeployToCloudflare,
 		// Preview refresh control
 		shouldRefreshPreview,
 		// Preview deployment state
@@ -168,6 +174,20 @@ export default function Chat() {
 	});
 
 	const navigate = useNavigate();
+	const hasStablePlayable = Boolean(cloudflareDeploymentUrl || app?.cloudflareUrl || app?.previewUrl);
+	const hasInvalidPlayableDeployment = Boolean(
+		app?.deploymentId && /[^a-z0-9-]/.test(app.deploymentId)
+	) || Boolean(app?.cloudflareUrl && /\.localhost(?::|\/|$)/.test(app.cloudflareUrl));
+	const playableUpdateAvailable = isRedeployReady || hasInvalidPlayableDeployment;
+	const handleUpdatePlayable = useCallback(() => {
+		if (!chatId) return;
+		void handleDeployToCloudflare(chatId);
+	}, [chatId, handleDeployToCloudflare]);
+
+	useEffect(() => {
+		if (!cloudflareDeploymentUrl || !urlChatId || urlChatId === 'new') return;
+		void refetchApp();
+	}, [cloudflareDeploymentUrl, refetchApp, urlChatId]);
 
 	const [activeFilePath, setActiveFilePath] = useState<string>();
 	const [view, setView] = useState<CanvasView>('preview');
@@ -367,6 +387,13 @@ export default function Chat() {
 	const previewAvailable = useMemo(() => {
 		return !!previewUrl || files.length > 0;
 	}, [files.length, previewUrl]);
+	const canUpdatePlayable = Boolean(
+		chatId &&
+		previewAvailable &&
+		!isGenerating &&
+		!isGeneratingBlueprint &&
+		!isPreviewDeploying,
+	);
 
 	const showMainView = useMemo(() => {
 		// For agentic mode: show preview panel when files exist or preview URL exists
@@ -594,8 +621,19 @@ export default function Chat() {
 							) : (
 								<>
 									{(appTitle || chatId) && (
-								<div className="flex items-center justify-between mb-2">
-									<div className="text-lg font-semibold">{appTitle}</div>
+								<div className="flex items-center justify-between gap-2 mb-2">
+									<div className="min-w-0 truncate text-lg font-semibold">{appTitle}</div>
+									{chatId && (previewAvailable || hasStablePlayable || playableUpdateAvailable || isDeploying) && (
+										<UpdatePlayableAction
+											isDeploying={isDeploying}
+											hasStablePlayable={hasStablePlayable}
+											isUpdateAvailable={playableUpdateAvailable || !hasStablePlayable}
+											canUpdate={canUpdatePlayable}
+											deploymentError={deploymentError}
+											showLabelOnMobile
+											onUpdate={handleUpdatePlayable}
+										/>
+									)}
 								</div>
 							)}
 									<UserMessage
@@ -765,6 +803,11 @@ export default function Chat() {
 								isGenerating={isGenerating}
 								isGeneratingBlueprint={isGeneratingBlueprint}
 								isPreviewDeploying={isPreviewDeploying}
+								isDeployingPlayable={isDeploying}
+								hasStablePlayable={hasStablePlayable}
+								isRedeployReady={playableUpdateAvailable}
+								deploymentError={deploymentError}
+								onUpdatePlayable={handleUpdatePlayable}
 								behaviorType={behaviorType}
 								websocket={websocket}
 								previewRef={previewRef}

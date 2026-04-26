@@ -65,7 +65,7 @@ export class AppViewController extends BaseController {
             const responseData: AppDetailsData = {
                 ...appResult, // Spread all EnhancedAppData fields including stats
                 cloudflareUrl: cloudflareUrl,
-                previewUrl: previewUrl || cloudflareUrl,
+                previewUrl: cloudflareUrl || previewUrl,
                 user: {
                     id: appResult.userId!,
                     displayName: appResult.userName || 'Unknown',

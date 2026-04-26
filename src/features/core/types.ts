@@ -63,7 +63,7 @@ export interface PreviewComponentProps extends FeatureContext {
 /**
  * Props for feature header action components
  */
-export interface HeaderActionsProps extends FeatureContext {}
+export type HeaderActionsProps = FeatureContext;
 
 /**
  * Feature module interface - what each feature plugin must implement.

@@ -1,9 +1,12 @@
 import { AppService } from '../../../database/services/AppService';
-import type { AppSortOption, SortOrder, TimePeriod, Visibility } from '../../../database/types';
+import type { AppSortOption, EnhancedAppData, SortOrder, TimePeriod, Visibility } from '../../../database/types';
 import { formatRelativeTime } from '../../../utils/timeFormatter';
+import { buildUserWorkerUrl } from '../../../utils/urls';
 import { BaseController } from '../baseController';
 import { ApiResponse, ControllerResponse } from '../types';
 import type { RouteContext } from '../../types/route-context';
+import { getAgentStubLightweight } from '../../../agents';
+import { CloudflareAPI } from '../../../services/deployer/api/cloudflare-api';
 import { 
     AppsListData,
     PublicAppsData,
@@ -17,6 +20,48 @@ import { createLogger } from '../../../logger';
 
 export class AppController extends BaseController {
     static logger = createLogger('AppController');
+
+    private static async resolvePublicPlayableUrl(env: Env, app: EnhancedAppData): Promise<string | null> {
+        if (app.deploymentId) {
+            return buildUserWorkerUrl(env, app.deploymentId);
+        }
+
+        try {
+            const agentStub = await getAgentStubLightweight(env, app.id);
+            const previewUrl = await agentStub.getPreviewUrlCache();
+            return previewUrl || null;
+        } catch (error) {
+            AppController.logger.warn('Could not resolve browser preview URL for public app', {
+                appId: app.id,
+                error,
+            });
+            return null;
+        }
+    }
+
+    private static async deletePublicDeployment(env: Env, deploymentId: string): Promise<void> {
+        const accountId = env.CLOUDFLARE_ACCOUNT_ID;
+        const apiToken = env.CLOUDFLARE_API_TOKEN;
+        const dispatchNamespace = env.DISPATCH_NAMESPACE;
+
+        if (!accountId || !apiToken || !dispatchNamespace) {
+            throw new Error('Published playable cleanup is not configured');
+        }
+
+        const cloudflare = new CloudflareAPI(accountId, apiToken);
+        const result = await cloudflare.deleteWorker(deploymentId, dispatchNamespace);
+
+        if (result.notFound) {
+            AppController.logger.warn('Published playable deployment was already missing', {
+                deploymentId,
+            });
+            return;
+        }
+
+        AppController.logger.info('Deleted published playable deployment', {
+            deploymentId,
+        });
+    }
 
     // Get all apps for the current user
     static async getUserApps(_request: Request, env: Env, _ctx: ExecutionContext, context: RouteContext): Promise<ControllerResponse<ApiResponse<AppsListData>>> {
@@ -134,8 +179,9 @@ export class AppController extends BaseController {
 
             // Get apps
             const appService = new AppService(env);
+            const queryLimit = Math.min(limit * 4, 100);
             const result = await appService.getPublicApps({
-                limit,
+                limit: queryLimit,
                 offset,
                 sort,
                 order,
@@ -148,16 +194,29 @@ export class AppController extends BaseController {
                 excludeIds
             });
 
-            // Format response with relative timestamps
-            const responseData: PublicAppsData = {
-                apps: result.data.map(app => ({
+            const playableApps = (await Promise.all(result.data.map(async app => {
+                const playableUrl = await AppController.resolvePublicPlayableUrl(env, app);
+                if (!playableUrl) return null;
+
+                return {
                     ...app,
+                    cloudflareUrl: app.deploymentId ? playableUrl : null,
+                    previewUrl: playableUrl,
                     userName: app.userName || 'Anonymous User',
                     userAvatar: app.userAvatar || null,
                     updatedAtFormatted: formatRelativeTime(app.updatedAt),
                     createdAtFormatted: app.createdAt ? formatRelativeTime(app.createdAt) : ''
-                })),
-                pagination: result.pagination
+                };
+            }))).filter((app): app is NonNullable<typeof app> => Boolean(app)).slice(0, limit);
+
+            // Format response with relative timestamps
+            const responseData: PublicAppsData = {
+                apps: playableApps,
+                pagination: {
+                    ...result.pagination,
+                    limit,
+                    hasMore: playableApps.length >= limit || result.pagination.hasMore,
+                }
             };
             
             return AppController.createSuccessResponse(responseData);
@@ -217,6 +276,25 @@ export class AppController extends BaseController {
             const validVisibility = visibility as Visibility;
             
             const appService = new AppService(env);
+            const appDetails = await appService.getAppDetails(appId, user.id);
+            if (!appDetails) {
+                return AppController.createErrorResponse<UpdateAppVisibilityData>('App not found', 404);
+            }
+
+            if (appDetails.userId !== user.id) {
+                return AppController.createErrorResponse<UpdateAppVisibilityData>('You can only change visibility of your own apps', 403);
+            }
+
+            if (validVisibility === 'public' && appDetails.visibility !== 'public') {
+                const playableUrl = await AppController.resolvePublicPlayableUrl(env, appDetails);
+                if (!playableUrl) {
+                    return AppController.createErrorResponse<UpdateAppVisibilityData>(
+                        'Prepare playable first.',
+                        409,
+                    );
+                }
+            }
+
             const result = await appService.updateAppVisibility(appId, user.id, validVisibility);
 
             if (!result.success) {
@@ -250,6 +328,31 @@ export class AppController extends BaseController {
             }
         
             const appService = new AppService(env);
+            const appInfo = await appService.getAppDeletionInfo(appId);
+            if (!appInfo) {
+                return AppController.createErrorResponse<AppDeleteData>('App not found', 404);
+            }
+
+            if (appInfo.userId !== user.id) {
+                return AppController.createErrorResponse<AppDeleteData>('You can only delete your own apps', 403);
+            }
+
+            if (appInfo.deploymentId) {
+                try {
+                    await AppController.deletePublicDeployment(env, appInfo.deploymentId);
+                } catch (deploymentError) {
+                    AppController.logger.error('Failed to delete published playable deployment:', {
+                        appId,
+                        deploymentId: appInfo.deploymentId,
+                        error: deploymentError,
+                    });
+                    return AppController.createErrorResponse<AppDeleteData>(
+                        'Failed to remove published playable. Please try again.',
+                        502,
+                    );
+                }
+            }
+
             const result = await appService.deleteApp(appId, user.id);
 
             if (!result.success) {

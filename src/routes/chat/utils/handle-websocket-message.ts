@@ -877,7 +877,11 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
 
             case 'cloudflare_deployment_started': {
                 setIsDeploying(true);
-                sendMessage(createAIMessage('cloudflare_deployment_started', message.message));
+                onDebugMessage?.('info',
+                    'Playable Update Started',
+                    message.message,
+                    'Playable Update'
+                );
                 break;
             }
 
@@ -887,13 +891,12 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
                 setCloudflareDeploymentUrl(message.deploymentUrl);
                 setDeploymentError('');
                 setIsRedeployReady(false);
-
-                sendMessage(createAIMessage('cloudflare_deployment_completed', `Your project has been permanently deployed to Cloudflare Workers: ${message.deploymentUrl}`));
+                toast.success('Playable updated');
 
                 onDebugMessage?.('info',
-                    'Deployment Completed - Redeploy Reset',
-                    `Deployment URL: ${message.deploymentUrl}\nPhase count at deployment: ${phaseTimeline.length}\nRedeploy button disabled until next phase`,
-                    'Redeployment Management'
+                    'Playable Update Completed',
+                    `Prepared URL: ${message.deploymentUrl}\nPhase count at preparation: ${phaseTimeline.length}`,
+                    'Playable Update'
                 );
                 break;
             }
@@ -904,15 +907,14 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
                 setDeploymentError(message.error || 'Unknown deployment error');
                 setCloudflareDeploymentUrl('');
                 setIsRedeployReady(true);
+                toast.error(message.message || 'Playable update failed', {
+                    description: message.error,
+                });
 
-                sendMessage(createAIMessage('cloudflare_deployment_error', `Deployment failed: ${message.error}\n\nYou can try deploying again.`));
-
-                toast.error(`Error: ${message.error}`);
-                
                 onDebugMessage?.('error', 
-                    'Deployment Failed - State Reset',
-                    `Error: ${message.error}\nDeployment button reset for retry`,
-                    'Deployment Error Recovery'
+                    'Playable Update Failed',
+                    `Error: ${message.error}`,
+                    'Playable Update'
                 );
                 break;
             }

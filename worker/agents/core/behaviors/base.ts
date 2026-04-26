@@ -1245,7 +1245,8 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
                 const appService = new AppService(this.env);
                 await appService.updateDeploymentId(
                     this.getAgentId(),
-                    result.deploymentId
+                    result.deploymentId,
+                    { publishIfFirstDeployment: true }
                 );
             }
 

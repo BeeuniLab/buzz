@@ -4,7 +4,7 @@
 
 import { BaseService } from './BaseService';
 import * as schema from '../schema';
-import { eq, and, or, desc, asc, sql, isNull, inArray, notInArray } from 'drizzle-orm';
+import { eq, and, or, desc, asc, sql, isNull, isNotNull, inArray, notInArray } from 'drizzle-orm';
 import { generateId } from '../../utils/idGenerator';
 import { formatRelativeTime } from '../../utils/timeFormatter';
 import { normalizeStoredInternalApiUrl } from '../../utils/urls';
@@ -23,7 +23,13 @@ import type {
 
 
 // Type definitions
-type WhereCondition = ReturnType<typeof eq> | ReturnType<typeof and> | ReturnType<typeof or> | undefined;
+type WhereCondition =
+    | ReturnType<typeof eq>
+    | ReturnType<typeof and>
+    | ReturnType<typeof or>
+    | ReturnType<typeof isNull>
+    | ReturnType<typeof isNotNull>
+    | undefined;
 type RankedAppQueryResult = {
     app: typeof schema.apps.$inferSelect;
     userName: string | null;
@@ -283,9 +289,17 @@ export class AppService extends BaseService {
     async updateDeploymentId(
         appId: string,
         deploymentId: string,
+        options: { publishIfFirstDeployment?: boolean } = {},
     ): Promise<boolean> {
+        const existingApp = options.publishIfFirstDeployment
+            ? await this.getAppDeploymentInfo(appId)
+            : null;
+
         return this.updateApp(appId, {
             deploymentId,
+            ...(options.publishIfFirstDeployment && !existingApp?.deploymentId
+                ? { visibility: 'public' as const }
+                : {}),
         });
     }
 
@@ -473,6 +487,40 @@ export class AppService extends BaseService {
             isOwner: app.userId === userId,
             visibility: app.visibility as 'private' | 'public' | null
         };
+    }
+
+    /**
+     * Get app fields needed before deletion from the primary database.
+     */
+    async getAppDeletionInfo(appId: string): Promise<Pick<schema.App, 'id' | 'userId' | 'deploymentId'> | null> {
+        const app = await this.database
+            .select({
+                id: schema.apps.id,
+                userId: schema.apps.userId,
+                deploymentId: schema.apps.deploymentId,
+            })
+            .from(schema.apps)
+            .where(eq(schema.apps.id, appId))
+            .get();
+
+        return app ?? null;
+    }
+
+    /**
+     * Get app deployment fields from the primary database.
+     */
+    async getAppDeploymentInfo(appId: string): Promise<Pick<schema.App, 'id' | 'deploymentId' | 'visibility'> | null> {
+        const app = await this.database
+            .select({
+                id: schema.apps.id,
+                deploymentId: schema.apps.deploymentId,
+                visibility: schema.apps.visibility,
+            })
+            .from(schema.apps)
+            .where(eq(schema.apps.id, appId))
+            .get();
+
+        return app ?? null;
     }
 
     /**

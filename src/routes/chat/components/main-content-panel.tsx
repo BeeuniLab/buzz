@@ -6,6 +6,7 @@ import { PreviewIframe } from './preview-iframe';
 import { ViewContainer } from './view-container';
 import { ViewHeader } from './view-header';
 import { PreviewHeaderActions } from './preview-header-actions';
+import { UpdatePlayableAction } from './update-playable-action';
 import { AssetsPanel } from './assets-panel';
 import { featureRegistry } from '@/features';
 import type { FileType, BlueprintType, BehaviorType, TemplateDetails, ProjectType } from '@/api-types';
@@ -122,6 +123,11 @@ interface MainContentPanelProps {
 	isGenerating: boolean;
 	isGeneratingBlueprint: boolean;
 	isPreviewDeploying: boolean;
+	isDeployingPlayable: boolean;
+	hasStablePlayable: boolean;
+	isRedeployReady: boolean;
+	deploymentError?: string;
+	onUpdatePlayable?: () => void;
 
 	// Template metadata
 	templateDetails?: TemplateDetails | null;
@@ -153,6 +159,11 @@ export function MainContentPanel(props: MainContentPanelProps) {
 		isGenerating,
 		isGeneratingBlueprint,
 		isPreviewDeploying,
+		isDeployingPlayable,
+		hasStablePlayable,
+		isRedeployReady,
+		deploymentError,
+		onUpdatePlayable,
 		behaviorType,
 		websocket,
 		agentId,
@@ -277,7 +288,7 @@ export function MainContentPanel(props: MainContentPanelProps) {
 		const FeatureHeaderActionsComponent = featureRegistry.getLazyHeaderActionsComponent(projectType);
 
 		// Fallback to PreviewHeaderActions if no feature-specific component
-		const headerActions = FeatureHeaderActionsComponent ? (
+		const previewActions = FeatureHeaderActionsComponent ? (
 			<Suspense fallback={null}>
 				<FeatureHeaderActionsComponent
 					projectType={projectType}
@@ -303,6 +314,29 @@ export function MainContentPanel(props: MainContentPanelProps) {
 			<PreviewHeaderActions
 				previewRef={previewRef}
 			/>
+		);
+		const canUpdatePlayable = Boolean(
+			onUpdatePlayable &&
+			previewAvailable &&
+			previewUrl &&
+			!isGenerating &&
+			!isGeneratingBlueprint &&
+			!isPreviewDeploying,
+		);
+		const headerActions = (
+			<div className="flex min-w-0 items-center gap-1.5">
+				{onUpdatePlayable && (
+					<UpdatePlayableAction
+						isDeploying={isDeployingPlayable}
+						hasStablePlayable={hasStablePlayable}
+						isUpdateAvailable={isRedeployReady || !hasStablePlayable}
+						canUpdate={canUpdatePlayable}
+						deploymentError={deploymentError}
+						onUpdate={onUpdatePlayable}
+					/>
+				)}
+				{previewActions}
+			</div>
 		);
 
 		return renderViewWithHeader(

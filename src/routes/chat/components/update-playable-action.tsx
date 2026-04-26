@@ -1,0 +1,69 @@
+import clsx from 'clsx';
+import { AlertCircle, CheckCircle2, LoaderCircle, Play, Upload } from 'lucide-react';
+
+interface UpdatePlayableActionProps {
+	isDeploying: boolean;
+	hasStablePlayable: boolean;
+	isUpdateAvailable: boolean;
+	canUpdate: boolean;
+	deploymentError?: string;
+	showLabelOnMobile?: boolean;
+	onUpdate: () => void;
+}
+
+export function UpdatePlayableAction({
+	isDeploying,
+	hasStablePlayable,
+	isUpdateAvailable,
+	canUpdate,
+	deploymentError,
+	showLabelOnMobile = false,
+	onUpdate,
+}: UpdatePlayableActionProps) {
+	const isReady = hasStablePlayable && !isUpdateAvailable && !deploymentError;
+	const disabled = isDeploying || !canUpdate || isReady;
+	const Icon = isDeploying
+		? LoaderCircle
+		: deploymentError && isUpdateAvailable
+			? AlertCircle
+			: isReady
+				? CheckCircle2
+				: hasStablePlayable
+					? Upload
+					: Play;
+	const label = isDeploying
+		? 'Updating'
+		: isReady
+			? 'Ready'
+			: hasStablePlayable
+				? 'Update'
+				: 'Prepare';
+	const title = isDeploying
+		? 'Updating playable'
+		: !canUpdate
+			? 'Preview needs to be ready first'
+			: isReady
+				? 'Playable is up to date'
+				: hasStablePlayable
+					? 'Update playable'
+					: 'Prepare playable';
+
+	return (
+		<button
+			type="button"
+			onClick={onUpdate}
+			disabled={disabled}
+			title={deploymentError || title}
+			aria-label={title}
+			className={clsx(
+				'inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full border px-2.5 text-xs font-medium transition-colors',
+				disabled
+					? 'cursor-not-allowed border-border-primary bg-bg-3 text-text-primary/45'
+					: 'border-border-primary bg-bg-4 text-text-primary shadow-neo-sm hover:bg-bg-1 hover:text-brand-primary',
+			)}
+		>
+			<Icon className={clsx('size-3.5', isDeploying && 'animate-spin')} />
+			<span className={clsx(!showLabelOnMobile && 'hidden sm:inline')}>{label}</span>
+		</button>
+	);
+}

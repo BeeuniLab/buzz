@@ -13,13 +13,13 @@ import { useAuthGuard } from '@/hooks/useAuthGuard';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 
 type AppPreviewFields = AppWithUserAndStats & {
-	previewUrl?: string | null;
 	cloudflareUrl?: string | null;
+	previewUrl?: string | null;
 };
 
 function getKnownPreviewUrl(app: AppWithUserAndStats | null | undefined) {
 	const previewApp = app as AppPreviewFields | null | undefined;
-	return previewApp?.previewUrl || previewApp?.cloudflareUrl || null;
+	return previewApp?.cloudflareUrl || previewApp?.previewUrl || null;
 }
 
 export default function FeedPage() {
@@ -46,15 +46,6 @@ export default function FeedPage() {
 	const prevAppIdRef = React.useRef(appId);
 	const [refreshKey, setRefreshKey] = React.useState(0);
 	const previewUrlCacheRef = React.useRef<Record<string, string>>({});
-	const warmingPreviewIdsRef = React.useRef<Set<string>>(new Set());
-
-	const setPreviewWarming = React.useCallback((appId: string, warming: boolean) => {
-		if (warming) {
-			warmingPreviewIdsRef.current.add(appId);
-		} else {
-			warmingPreviewIdsRef.current.delete(appId);
-		}
-	}, []);
 
 	const storePreviewUrl = React.useCallback((appId: string, url: string | null | undefined) => {
 		if (!url || previewUrlCacheRef.current[appId] === url) return;
@@ -67,28 +58,13 @@ export default function FeedPage() {
 		setPreviewUrlCache(next);
 	}, []);
 
-	const warmPreview = React.useCallback(async (app: AppWithUserAndStats) => {
-		if (previewUrlCacheRef.current[app.id] || warmingPreviewIdsRef.current.has(app.id)) return;
-
+	const warmPreview = React.useCallback((app: AppWithUserAndStats) => {
+		if (previewUrlCacheRef.current[app.id]) return;
 		const knownPreviewUrl = getKnownPreviewUrl(app);
 		if (knownPreviewUrl) {
 			storePreviewUrl(app.id, knownPreviewUrl);
-			return;
 		}
-
-		setPreviewWarming(app.id, true);
-		try {
-			const res = await apiClient.deployPreview(app.id, true);
-			const url = res.success && res.data
-				? res.data.previewURL || res.data.tunnelURL
-				: null;
-			storePreviewUrl(app.id, url);
-		} catch (error) {
-			console.warn('[feed] Failed to prewarm preview', error);
-		} finally {
-			setPreviewWarming(app.id, false);
-		}
-	}, [setPreviewWarming, storePreviewUrl]);
+	}, [storePreviewUrl]);
 
 	// Reset feed when navigating to root (no appId) from a specific app
 	React.useEffect(() => {
@@ -106,7 +82,6 @@ export default function FeedPage() {
 			setLoading(true);
 			setInitialAppLoaded(true);
 			previewUrlCacheRef.current = {};
-			warmingPreviewIdsRef.current.clear();
 			setPreviewUrlCache({});
 			setRefreshKey((k) => k + 1);
 		}
@@ -129,7 +104,8 @@ export default function FeedPage() {
 		(async () => {
 			try {
 				const res = await apiClient.getAppDetails(appId);
-				if (res.success && res.data) {
+				const detailPreviewUrl = res.data?.cloudflareUrl || res.data?.previewUrl || null;
+				if (res.success && res.data && detailPreviewUrl) {
 					const detail = res.data;
 					const initialApp: AppWithUserAndStats = {
 						id: detail.id,
@@ -148,7 +124,7 @@ export default function FeedPage() {
 						updatedAt: detail.updatedAt ?? '',
 						isPublic: true,
 						cloudflareUrl: detail.cloudflareUrl ?? null,
-						previewUrl: detail.previewUrl ?? null,
+						previewUrl: detailPreviewUrl,
 					} as unknown as AppWithUserAndStats;
 					setApps([initialApp]);
 				}
@@ -177,7 +153,7 @@ export default function FeedPage() {
 				excludeIds,
 			});
 			if (res.success && res.data) {
-				const newApps = res.data.apps;
+				const newApps = res.data.apps.filter((app) => Boolean(getKnownPreviewUrl(app)));
 				setApps((prev) => {
 					if (pageNum === 1 && !appId) return newApps;
 					const existingIds = new Set(prev.map((a) => a.id));
@@ -238,7 +214,7 @@ export default function FeedPage() {
 		return () => container.removeEventListener('scroll', handleScroll);
 	}, [loading]);
 
-	// Start preparing the playable surface before the user taps play.
+	// Prime the stable playable URL before the user taps play.
 	React.useEffect(() => {
 		if (apps.length === 0) return;
 
@@ -309,13 +285,14 @@ export default function FeedPage() {
 	};
 
 	const currentApp = apps[currentIndex];
+	const currentAppId = currentApp?.id;
 
 	// Update URL, record view, and fetch comment count when current app changes
 	React.useEffect(() => {
-		if (currentApp) {
-			window.history.replaceState(null, '', `/feed/${currentApp.id}`);
-			apiClient.recordAppView(currentApp.id);
-			apiClient.getComments(currentApp.id, { limit: 50 }).then((res) => {
+		if (currentAppId) {
+			window.history.replaceState(null, '', `/feed/${currentAppId}`);
+			apiClient.recordAppView(currentAppId);
+			apiClient.getComments(currentAppId, { limit: 50 }).then((res) => {
 				if (res.success && res.data) {
 					const replyTotal = res.data.comments.reduce((sum, c) => sum + (c.replyCount || 0), 0);
 					setCommentCount(res.data.totalCount + replyTotal);
@@ -323,7 +300,7 @@ export default function FeedPage() {
 			}).catch(() => {});
 		}
 		setCommentsOpen(false);
-	}, [currentApp?.id]);
+	}, [currentAppId]);
 
 	const handleReplay = () => {
 		const handle = feedItemRefs.current.get(currentIndex);

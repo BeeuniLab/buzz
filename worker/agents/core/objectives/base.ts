@@ -81,7 +81,9 @@ export class ProjectObjective<
 
 			if (result.deploymentUrl && result.deploymentId) {
 				const appService = new AppService(this.env);
-				await appService.updateDeploymentId(this.getAgentId(), result.deploymentId);
+				await appService.updateDeploymentId(this.getAgentId(), result.deploymentId, {
+					publishIfFirstDeployment: true,
+				});
 				this.logger.info('Updated deployment ID in database', {
 					deploymentId: result.deploymentId,
 				});

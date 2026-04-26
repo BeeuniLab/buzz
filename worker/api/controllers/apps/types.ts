@@ -10,6 +10,8 @@ import { AppWithFavoriteStatus, PaginationInfo, FavoriteToggleResult, EnhancedAp
  */
 export type AppWithUserAndStats = EnhancedAppData & {
     updatedAtFormatted: string;
+    cloudflareUrl?: string | null;
+    previewUrl?: string | null;
 };
 
 /**

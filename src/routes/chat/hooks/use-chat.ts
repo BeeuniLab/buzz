@@ -697,6 +697,8 @@ export function useChat({
 			// Send deployment command via WebSocket instead of HTTP request
 			if (sendWebSocketMessage(websocket, 'deploy', { instanceId })) {
 				logger.debug('Deployment WebSocket message sent:', instanceId);
+				setIsDeploying(true);
+				setDeploymentError('');
 
 				// Clear any existing deployment timeout
 				if (deploymentTimeoutRef.current) {
@@ -706,24 +708,23 @@ export function useChat({
 
 				// Set 1-minute timeout for deployment
 				deploymentTimeoutRef.current = setTimeout(() => {
-					if (isDeploying) {
-						logger.warn('Deployment timeout after 1 minute');
+					logger.warn('Deployment timeout after 1 minute');
 
-						// Reset deployment state
-						setIsDeploying(false);
-						setCloudflareDeploymentUrl('');
-						setIsRedeployReady(false);
+					// Reset deployment state
+					setIsDeploying(false);
+					setCloudflareDeploymentUrl('');
+					setIsRedeployReady(true);
 
-						// Show timeout message
-						sendMessage(createAIMessage('deployment_timeout', `Deployment timed out after 1 minute.\n\nPlease try deploying again. The server may be busy.`));
+					toast.error('Playable update took too long', {
+						description: 'Please try again in a moment.',
+					});
 
-						// Debug logging for timeout
-						onDebugMessage?.('warning',
-							'Deployment Timeout',
-							`Deployment for ${instanceId} timed out after 60 seconds`,
-							'Deployment Timeout Management'
-						);
-					}
+					// Debug logging for timeout
+					onDebugMessage?.('warning',
+						'Deployment Timeout',
+						`Deployment for ${instanceId} timed out after 60 seconds`,
+						'Deployment Timeout Management'
+					);
 					deploymentTimeoutRef.current = null;
 				}, 60000); // 1 minute = 60,000ms
 
@@ -733,16 +734,18 @@ export function useChat({
 		} catch (error) {
 			logger.error('Error sending deployment WebSocket message:', error);
 
-			// Set deployment state immediately for UI feedback
-			setIsDeploying(true);
+			// Reset deployment state immediately for UI feedback
+			setIsDeploying(false);
 			// Clear any previous deployment error
 			setDeploymentError('');
 			setCloudflareDeploymentUrl('');
-			setIsRedeployReady(false);
+			setIsRedeployReady(true);
 
-			sendMessage(createAIMessage('deployment_error', `Failed to initiate deployment: ${error instanceof Error ? error.message : 'Unknown error'}\n\nYou can try again.`));
+			toast.error('Playable update could not start', {
+				description: error instanceof Error ? error.message : 'Please try again.',
+			});
 		}
-	}, [websocket, sendMessage, isDeploying, onDebugMessage]);
+	}, [websocket, onDebugMessage]);
 
 	const allFiles = useMemo(() => mergeFiles(bootstrapFiles, files), [bootstrapFiles, files]);
 

@@ -38,7 +38,6 @@ export const FeedItem = React.forwardRef<FeedItemHandle, FeedItemProps>(
 		const [imgError, setImgError] = React.useState(false);
 		const [playing, setPlaying] = React.useState(false);
 		const [previewUrl, setPreviewUrl] = React.useState<string | null>(null);
-		const [deploying, setDeploying] = React.useState(false);
 		const [iframeKey, setIframeKey] = React.useState(0);
 		const containerRef = React.useRef<HTMLDivElement>(null);
 		const iframeRef = React.useRef<HTMLIFrameElement>(null);
@@ -101,7 +100,6 @@ export const FeedItem = React.forwardRef<FeedItemHandle, FeedItemProps>(
 		}, [containMode, playing, shouldWarmFrame]);
 
 		const startPlay = async () => {
-			if (deploying) return;
 			const readyPreviewUrl = previewUrl || preloadedPreviewUrl;
 
 			if (playing && readyPreviewUrl) {
@@ -116,26 +114,7 @@ export const FeedItem = React.forwardRef<FeedItemHandle, FeedItemProps>(
 				return;
 			}
 
-			setDeploying(true);
-			try {
-				const res = await apiClient.deployPreview(app.id);
-				if (res.success && res.data) {
-					const url = res.data.previewURL || res.data.tunnelURL;
-					if (url) {
-						setPreviewUrl(url);
-						setPlaying(true);
-						onPlayStateChange?.(true);
-					} else {
-						toast.error('No preview available for this app');
-					}
-				} else {
-					toast.error('No preview available for this app');
-				}
-			} catch {
-				toast.error('Failed to load game');
-			} finally {
-				setDeploying(false);
-			}
+			toast.info('This playable is still getting ready');
 		};
 
 		const openCreatorProfile = (event: React.MouseEvent) => {
@@ -251,13 +230,9 @@ export const FeedItem = React.forwardRef<FeedItemHandle, FeedItemProps>(
 
 							{/* Play button overlay */}
 							<div className="absolute inset-0 z-20 flex items-center justify-center bg-black/0 transition-colors group-hover:bg-black/20">
-								{deploying ? (
-									<Loader2 className="h-14 w-14 text-white animate-spin drop-shadow-lg" />
-								) : (
-									<div className="bg-black/40 backdrop-blur-sm rounded-full p-4 opacity-80 group-hover:opacity-100 group-hover:scale-110 transition-all">
-										<Play className="h-10 w-10 text-white fill-white" />
-									</div>
-								)}
+								<div className="bg-black/40 backdrop-blur-sm rounded-full p-4 opacity-80 group-hover:opacity-100 group-hover:scale-110 transition-all">
+									<Play className="h-10 w-10 text-white fill-white" />
+								</div>
 							</div>
 
 							{/* View count badge */}
