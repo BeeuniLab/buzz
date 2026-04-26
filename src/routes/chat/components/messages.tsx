@@ -31,6 +31,8 @@ type ToolPresentation = {
 	accent?: boolean;
 };
 
+type ToolLabelVariant = 'default' | 'playtest';
+
 /**
  * Strip internal system tags that should not be displayed to users
  */
@@ -269,7 +271,103 @@ function humanizeToolName(name: string): string {
 		.replace(/\b\w/g, char => char.toUpperCase());
 }
 
-function getToolPresentation(toolName: string): ToolPresentation {
+function getPlaytestToolPresentation(toolName: string): ToolPresentation {
+	switch (toolName) {
+		case 'deep_debug':
+			return {
+				start: 'Playtesting the preview',
+				success: 'Preview playtested',
+				error: "Couldn't finish the playtest",
+				showResult: false,
+				accent: true,
+			};
+		case 'read_files':
+			return {
+				start: 'Reviewing the project',
+				success: 'Project reviewed',
+				error: "Couldn't review the project",
+				showResult: false,
+			};
+		case 'regenerate_file':
+			return {
+				start: 'Applying a fix',
+				success: 'Fix applied',
+				error: "Couldn't apply the fix",
+				showResult: false,
+			};
+		case 'deploy_preview':
+			return {
+				start: 'Refreshing the preview',
+				success: 'Preview refreshed',
+				error: "Couldn't refresh the preview",
+				showResult: false,
+			};
+		case 'run_analysis':
+			return {
+				start: 'Checking stability',
+				success: 'Stability checked',
+				error: 'Stability check failed',
+				showResult: false,
+			};
+		case 'wait':
+		case 'wait_for_debug':
+		case 'wait_for_generation':
+			return {
+				start: 'Waiting for the preview',
+				success: 'Preview ready',
+				error: 'Preview wait failed',
+				showResult: false,
+			};
+		case 'get_runtime_errors':
+			return {
+				start: 'Looking for app issues',
+				success: 'App issues checked',
+				error: 'Issue check failed',
+				showResult: false,
+			};
+		case 'get_logs':
+			return {
+				start: 'Reading app signals',
+				success: 'App signals checked',
+				error: 'Signal check failed',
+				showResult: false,
+			};
+		case 'exec_commands':
+			return {
+				start: 'Preparing the preview',
+				success: 'Preview prepared',
+				error: "Couldn't prepare the preview",
+				showResult: false,
+			};
+		case 'generate_files':
+			return {
+				start: 'Updating the project',
+				success: 'Project updated',
+				error: "Couldn't update the project",
+				showResult: false,
+			};
+		case 'git':
+			return {
+				start: 'Saving progress',
+				success: 'Progress saved',
+				error: "Couldn't save progress",
+				showResult: false,
+			};
+		default:
+			return {
+				start: 'Improving the playable',
+				success: 'Playable improved',
+				error: "Couldn't complete this step",
+				showResult: false,
+			};
+	}
+}
+
+function getToolPresentation(toolName: string, variant: ToolLabelVariant = 'default'): ToolPresentation {
+	if (variant === 'playtest') {
+		return getPlaytestToolPresentation(toolName);
+	}
+
 	switch (toolName) {
 		case 'queue_request':
 			return {
@@ -280,10 +378,10 @@ function getToolPresentation(toolName: string): ToolPresentation {
 			};
 		case 'deep_debug':
 			return {
-				start: 'Checking the preview',
-				success: 'Preview checked',
-				error: 'Preview check failed',
-				showResult: true,
+				start: 'Playtesting the preview',
+				success: 'Preview playtested',
+				error: "Couldn't finish the playtest",
+				showResult: false,
 				accent: true,
 			};
 		default: {
@@ -317,10 +415,14 @@ function convertToToolEvent(msg: ConversationMessage, idx: number): ToolEvent | 
 
 export function MessageContentRenderer({ 
 	content, 
-	toolEvents = [] 
+	toolEvents = [],
+	allowToolDetails = true,
+	toolLabelVariant = 'default',
 }: { 
 	content: string;
 	toolEvents?: ToolEvent[];
+	allowToolDetails?: boolean;
+	toolLabelVariant?: ToolLabelVariant;
 }) {
 	const inlineToolEvents = toolEvents.filter(ev => ev.contentLength !== undefined)
 		.sort((a, b) => (a.contentLength ?? 0) - (b.contentLength ?? 0));
@@ -338,7 +440,11 @@ export function MessageContentRenderer({
 					</Markdown>
 				) : (
 					<div key={item.key} className="my-1">
-						<ToolStatusIndicator event={item.event} />
+						<ToolStatusIndicator
+							event={item.event}
+							allowDetails={allowToolDetails}
+							labelVariant={toolLabelVariant}
+						/>
 					</div>
 				)
 			))}
@@ -412,10 +518,18 @@ function ToolResultRenderer({ result, toolName }: { result: string; toolName: st
 	}
 }
 
-export function ToolStatusIndicator({ event }: { event: ToolEvent }) {
+export function ToolStatusIndicator({
+	event,
+	allowDetails = true,
+	labelVariant = 'default',
+}: {
+	event: ToolEvent;
+	allowDetails?: boolean;
+	labelVariant?: ToolLabelVariant;
+}) {
 	const [isExpanded, setIsExpanded] = useState(false);
-	const presentation = getToolPresentation(event.name);
-	const hasResult = event.status === 'success' && presentation.showResult !== false && isDisplayableToolResult(event.result);
+	const presentation = getToolPresentation(event.name, labelVariant);
+	const hasResult = allowDetails && event.status === 'success' && presentation.showResult !== false && isDisplayableToolResult(event.result);
 	
 	const statusText = event.status === 'start' ? presentation.start :
 	                   event.status === 'success' ? presentation.success :

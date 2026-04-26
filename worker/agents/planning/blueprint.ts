@@ -44,6 +44,8 @@ const SIMPLE_SYSTEM_PROMPT = `<ROLE>
     • **Template-Aware:** Leverage existing components and patterns from the template
     • **Essential Only:** Include only the frameworks/libraries that are truly needed
     • **Clear Plan:** Provide a logical step-by-step implementation sequence
+
+    ${PROMPT_UTILS.BUZZPLAY_PLAYABLE_CONTENT_GUIDELINES}
     
     ## Color Palette
     • Choose 2-3 base RGB colors that work well together
@@ -87,10 +89,10 @@ const PHASIC_SYSTEM_PROMPT = `<ROLE>
 </ROLE>
 
 <TASK>
-    Create a detailed yet concise blueprint for an interactive experience based on the creator's vision: designing the UI/UX, core interactions, and creative direction with exceptional focus on engagement, visual appeal, and the "wow factor".
+    Create a detailed yet concise blueprint for an interactive experience based on the creator's vision: designing the UI/UX, core interactions, and creative direction with exceptional focus on the playable hook, first action, feedback loop, and shareable payoff.
     The project starts from a provided template and will be built iteratively in multiple phases.
-    Focus on a clear and comprehensive design that prioritizes STUNNING VISUAL DESIGN, delightful interactions, and creative depth. Be to the point, explicit and detailed.
-    Enhance the creator's request — think creatively, be ambitious, and design something that audiences will want to share. We strive for every creation to be a masterpiece of both function and form — visually breathtaking, intuitively designed, and delightfully interactive.
+    Focus on a clear and comprehensive design that prioritizes playable clarity, delightful touch-first interactions, quick payoff, and creative depth. Be to the point, explicit and detailed.
+    Enhance the creator's request — think creatively, be ambitious, and design a short playable post that audiences will want to try, replay, share, or remix. Visual polish should support the interaction, not replace it.
 
     **REMEMBER: This is a creative content platform. Think about what makes content go viral — the creative hook, the satisfying interaction, the visual polish that makes people stop scrolling.**
     **Keep the size and complexity of blueprint proportional to the project.** eg, No need to overengineer a 'todo' app. And limit the overall blueprint size to no more than 2 pages.
@@ -100,8 +102,8 @@ const PHASIC_SYSTEM_PROMPT = `<ROLE>
     Design the interactive experience described by the creator and come up with a memorable, evocative name for it.
     Write a concise blueprint that captures the creative vision, interaction design, and visual direction.
     This blueprint will serve as the main guiding document for implementation, so be explicit and detailed enough, especially for the initial phase.
-    Think carefully about: What is the creative hook? What moment will make the audience say "wow"? How does the interaction feel — not just look?
-    **VISUAL DESIGN EXCELLENCE**: Design with exceptional attention to visual details - specify exact components, navigation patterns, color schemes, typography scales, spacing systems, micro-interactions, animations, hover states, loading states, and responsive behaviors.
+    Think carefully about: What is the creative hook? What first action makes the audience keep playing? What result makes them replay, screenshot, share, or remix? How does the interaction feel — not just look?
+    **PLAYABLE EXPERIENCE DESIGN**: Design with exceptional attention to interaction details - specify the stage layout, primary gesture/action, feedback loop, result state, restart/remix path, color scheme, typography scale, spacing, animations, loading states, and responsive behavior.
     **AUDIENCE ENGAGEMENT**: Plan intuitive interactions, clear visual hierarchy, satisfying feedback loops, and delightful moments that make the experience memorable and shareable.
     Build upon the provided template. Use components, tools, utilities and backend apis already available in the template.
 </GOAL>
@@ -110,8 +112,8 @@ const PHASIC_SYSTEM_PROMPT = `<ROLE>
     ## Design System & Aesthetics
     • **Color Palette & Visual Identity:** Choose a sophisticated, modern color palette that creates visual hierarchy and emotional connection. Specify primary, secondary, accent, neutral, and semantic colors (success, warning, error) with exact usage guidelines. Consider color psychology and brand personality.
     • **Typography System:** Design a comprehensive typography scale with clear hierarchy - headings (h1-h6), body text, captions, labels. Specify font weights, line heights, letter spacing. Use system fonts or web-safe fonts for performance. Plan for readability and visual appeal.
-    • **Spacing & Layout System:** All layout spacing (margins, padding, gaps) MUST use Tailwind's spacing scale (4px increments). Plan consistent spacing patterns - component internal spacing, section gaps, page margins. Create visual rhythm and breathing room.
-    • **Component Design System:** Design beautiful, consistent UI components with:
+    • **Spacing & Layout System:** All layout spacing (margins, padding, gaps) MUST use Tailwind's spacing scale (4px increments). Plan consistent spacing patterns for component internals, safe-area padding, scene overlays, and result panels. Keep playable stages compact enough for mobile.
+    • **Component Design System:** Design clear, consistent UI components with:
         - **Interactive States:** hover, focus, active, disabled states for all interactive elements
         - **Loading States:** skeleton loaders, spinners, progress indicators
         - **Feedback Systems:** success/error messages, tooltips, notifications
@@ -120,32 +122,34 @@ const PHASIC_SYSTEM_PROMPT = `<ROLE>
         - **Preserve all existing classes in tailwind.config.js** - extend by adding new ones alongside existing definitions
         - Ensure generous margins and padding around the entire application
         - Plan for proper content containers and max-widths
-        - Design beautiful spacing that works across all screen sizes
-    • **Layout Excellence:** Design layouts that are both beautiful and functional:
+        - Design stage-safe spacing that works across all screen sizes
+    • **Layout Excellence:** Design layouts that are both clear and functional:
         - Clear visual hierarchy and information architecture
         - Generous white space and breathing room
         - Balanced proportions and golden ratio principles
-        - Mobile-first responsive design that scales beautifully
+        - Mobile-first responsive design that scales intentionally
     ** Lay these visual design instructions out explicitly throughout the blueprint **
 
     ${PROMPT_UTILS.UI_NON_NEGOTIABLES_V3}
 
     ${PROMPT_UTILS.UI_GUIDELINES}
 
+    ${PROMPT_UTILS.BUZZPLAY_PLAYABLE_CONTENT_GUIDELINES}
+
     ## Frameworks & Dependencies
-    • Choose an exhaustive set of well-known libraries, components and dependencies that can be used to build the application with as little effort as possible.
+    • Choose a minimal, reliable set of well-known libraries, components and dependencies that materially reduce implementation risk.
         - **Select libraries that work out-of-the-box** without requiring API keys or environment variable configuration
-        - Provide an exhaustive list of libraries, components and dependencies that can help in development so that the devs have all the tools they would ever need.
-        - Focus on including libraries with batteries included so that the devs have to do as little as possible.
+        - Prefer React, Tailwind, CSS, SVG, canvas, shadcn/ui, and already-installed packages before adding anything new.
+        - Avoid speculative packages. Every suggested dependency must be necessary for the requested interaction.
 
     • **Keep simple applications simple:** For single-view or static applications, implement in 1-2 files maximum with minimal abstraction.
-    • **VISUAL EXCELLENCE MANDATE:** The experience MUST appear absolutely stunning - visually striking, professionally crafted, meticulously polished. Audiences should be impressed by the visual quality and attention to detail.
-    • **ITERATIVE BEAUTY:** The experience would be iteratively built in multiple phases, with each phase elevating the visual appeal. Plan the initial phase to establish strong visual foundations and impressive first impressions.
-    • **RESPONSIVE DESIGN MASTERY:** The UI should be flawlessly responsive across all devices with beautiful layouts on mobile, tablet and desktop. Each breakpoint should feel intentionally designed, not just scaled. Keyboard/mouse interactions are primary focus.
-    • **PERFORMANCE WITH BEAUTY:** The experience should be lightning-fast AND visually stunning. Plan for smooth animations, optimized images, fast loading states, and polished micro-interactions that enhance rather than hinder performance.
-    • **TEMPLATE ENHANCEMENT:** Build upon the <STARTING TEMPLATE> while significantly elevating its visual appeal. Suggest additional UI/animation libraries, icon sets, and design-focused dependencies in the \`frameworks\` section.
-        - Enhance existing project patterns with beautiful visual treatments
-        - Add sophisticated styling and interaction libraries as needed
+    • **PLAYABLE QUALITY MANDATE:** The experience MUST be immediately understandable, responsive to the first touch, visually polished enough to stop scrolling, and complete enough to replay.
+    • **ITERATIVE PLAYABILITY:** The experience would be iteratively built in multiple phases, with each phase improving interaction quality, reliability, or payoff. Plan the initial phase to establish a working playable loop.
+    • **RESPONSIVE DESIGN MASTERY:** The UI should be flawlessly responsive across all devices with clear layouts on mobile, tablet and desktop. Each breakpoint should feel intentionally designed, not just scaled. For BuzzPlay playable content, touch/pointer interactions are the primary focus, with keyboard/mouse support as a secondary path.
+    • **PERFORMANCE WITH PLAYABILITY:** The experience should be lightning-fast, responsive, and visually polished. Plan for smooth animations, optimized images, fast loading states, and micro-interactions that enhance rather than hinder play.
+    • **TEMPLATE ENHANCEMENT:** Build upon the <STARTING TEMPLATE> while turning it into a mobile-first playable surface. Suggest additional UI/animation libraries only when they are clearly needed.
+        - Enhance existing project patterns with focused visual treatments
+        - Keep styling and interaction libraries lean and reliable
         - Be aware of template design/layout short-comings and take it into account during your planning and in pitfalls.
         
     ## Important use case specific instructions:
@@ -176,17 +180,17 @@ const PHASIC_SYSTEM_PROMPT = `<ROLE>
     • **Completeness is Crucial:** The AI coder relies *solely* on this blueprint. Leave no ambiguity.
     • **Precision in UI/Layout:** Define visual structure explicitly. Use terms like "flex row," "space-between," "grid 3-cols," "padding-4," "margin-top-2," "width-full," "max-width-lg," "text-center." Specify responsive behavior.
     • **Explicit Logic:** Detail application logic, state transitions, and data transformations clearly.
-    • **CREATIVE EXCELLENCE:** Design an experience that audiences will want to share — visually stunning, creatively surprising, with satisfying interactions and obsessive attention to detail. Think about what makes content go viral.
-    • **ENGAGEMENT HOOKS:** Plan for moments of delight — surprising animations, satisfying feedback, rewarding interactions. What makes the audience want to keep exploring?
-    • **TEMPLATE FOUNDATION:** Build upon the \`<STARTING TEMPLATE>\` while transforming it into something visually extraordinary:
-        - Suggest premium UI libraries, animation packages, and visual enhancement tools
-        - Recommend sophisticated icon libraries, illustration sets, and visual assets
-        - Plan for visual upgrades to existing template components
-    • **COMPREHENSIVE ASSET STRATEGY:** In the \`frameworks\` section, suggest:
+    • **CREATIVE EXCELLENCE:** Design an experience that audiences will want to share because it is clear, surprising, responsive, and has a satisfying payoff. Think about what makes someone tap, replay, screenshot, or remix.
+    • **ENGAGEMENT HOOKS:** Plan for moments of delight — surprising animations, tactile feedback, rewarding interactions, and a result state worth sharing.
+    • **TEMPLATE FOUNDATION:** Build upon the \`<STARTING TEMPLATE>\` while transforming it into a focused playable stage:
+        - Use existing UI, animation, icon, and media tools first
+        - Recommend new packages only when the template cannot safely support the interaction
+        - Plan for visual upgrades that serve the playable loop
+    • **LEAN ASSET STRATEGY:** In the \`frameworks\` section, suggest only assets or packages that are necessary:
         - **Icon Libraries:** Lucide React, Heroicons, React Icons for comprehensive icon coverage
         - **Animation Libraries:** Framer Motion, React Spring for smooth interactions
         - **Visual Enhancement:** Packages for gradients, patterns, visual effects
-        - **Image/Media:** Optimization and display libraries for beautiful media presentation
+        - **Image/Media:** Optimization and display libraries for clear media presentation
     • **SHADCN DESIGN SYSTEM:** Build exclusively with shadcn/ui components, but enhance them with:
         - Beautiful color variants and visual treatments
         - Sophisticated hover and interactive states
@@ -208,7 +212,7 @@ const PHASIC_SYSTEM_PROMPT = `<ROLE>
     - **Visual Effects:** react-intersection-observer, react-parallax
     - **Charts/Data Viz:** recharts, @tremor/react (if data visualization needed)
     - **Media/Images:** react-image-gallery or vanilla <img>; prefer aspect-video / aspect-[16/9] and object-cover; avoid Next.js-only APIs
-    Suggest whatever additional frameworks are needed to achieve visual excellence.
+    Do not add frameworks just for visual ambition. Keep the stack small enough to reduce generation failures.
 </KEY GUIDELINES>
 
 ${STRATEGIES.FRONTEND_FIRST_PLANNING}
@@ -254,6 +258,8 @@ const LITE_PHASIC_SYSTEM_PROMPT = `<ROLE>
 
 <INSTRUCTIONS>
     ${PROMPT_UTILS.UI_NON_NEGOTIABLES_V3}
+
+    ${PROMPT_UTILS.BUZZPLAY_PLAYABLE_CONTENT_GUIDELINES}
 
     ## Frameworks & Dependencies
     - Choose libraries that work out-of-the-box without API keys

@@ -13,6 +13,8 @@ export const PHASE_IMPLEMENTATION_SYSTEM_PROMPT = `You are implementing a phase 
 - Accessibility: labels/aria where needed, keyboard focus visible.
 </UX_RUBRIC>
 
+${PROMPT_UTILS.BUZZPLAY_PLAYABLE_CONTENT_GUIDELINES}
+
 <RELIABILITY>
 - No TS errors.
 - No hooks violations.

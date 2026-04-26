@@ -555,20 +555,22 @@ bun add @geist-ui/react@1
     When a changes to a file are big or the file itself is small, it is better to use \`full_content\` format, otherwise use \`unified_diff\` format. In the end, you should choose a format that minimizes the total length of response.
 </CODE CONTENT GENERATION RULES>
 `,
-    UI_GUIDELINES: `## UI MASTERY & VISUAL EXCELLENCE STANDARDS
+    UI_GUIDELINES: `## UI MASTERY & INTERACTION QUALITY STANDARDS
     
     ### 🎨 VISUAL HIERARCHY MASTERY
-    • **Typography Excellence:** Create stunning text hierarchies:
-        - Headlines: text-4xl/5xl/6xl with font-bold for maximum impact
-        - Subheadings: text-2xl/3xl with font-semibold for clear structure  
+    • **Typography Excellence:** Create clear text hierarchies sized to the surface:
+        - Hero-scale headlines only for true hero/landing contexts, not compact playable scenes
+        - Playable scenes: use compact, readable titles and status text that never covers controls or action
+        - Subheadings: text-xl/2xl with font-semibold for clear structure  
         - Body: text-lg/base with font-medium for perfect readability
         - Captions: text-sm with font-normal for supporting details
         - **Color Psychology:** Use text-gray-900 for primary, text-gray-600 for secondary, text-gray-400 for tertiary
     • **Spacing Rhythm:** Create visual breathing room with harmonious spacing:
-        - Section gaps: space-y-16 md:space-y-24 for major sections
+        - Content pages: space-y-8 md:space-y-12 for major sections
+        - Playable scenes: compact spacing that keeps the stage, controls, and result visible on a phone viewport
         - Content blocks: space-y-6 md:space-y-8 for related content
         - Element spacing: space-y-3 md:space-y-4 for tight groupings
-        - **Golden Ratio:** Use 8px base unit (space-2) multiplied by fibonacci numbers (1,1,2,3,5,8,13...)
+        - **Consistent Rhythm:** Use 8px base unit (space-2) and avoid arbitrary spacing that causes mobile overflow
     
     ### ✨ INTERACTIVE DESIGN EXCELLENCE
     • **Micro-Interactions:** Every interactive element must delight users:
@@ -585,20 +587,23 @@ bun add @geist-ui/react@1
     
     ### 🏗️ LAYOUT ARCHITECTURE EXCELLENCE
     • **Container Strategies:** Build layouts that feel intentional:
-        - **Content Width:** Use max-w-7xl mx-auto for main containers
+        - **Content Width:** Use max-w-7xl mx-auto for content/application pages
+        - **Playable Stage:** Use a full-height responsive stage for games, toys, feed previews, and short interactive posts
         - **Responsive Padding:** px-4 sm:px-6 lg:px-8 for perfect edge spacing
-        - **Section Spacing:** py-16 md:py-24 lg:py-32 for generous vertical rhythm
-    • **Grid Systems:** Create balanced, beautiful layouts:
-        - **Product Grids:** grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 with gap-6 md:gap-8
-        - **Feature Grids:** grid-cols-1 md:grid-cols-2 lg:grid-cols-3 with consistent aspect ratios
-        - **Dashboard Grids:** Responsive grid-cols-12 with proper breakpoints for complex layouts
+        - **Section Spacing:** Use generous spacing for content pages and tighter stage-safe spacing for playable scenes
+    • **Grid Systems:** Create balanced, scannable layouts:
+        - **Content Grids:** grid-cols-1 md:grid-cols-2 lg:grid-cols-3 with consistent aspect ratios when browsing items
+        - **Playable Layouts:** Stage-first composition with overlays anchored to safe areas
+        - **Dashboard Grids:** Use only when the user explicitly asks for analytics/admin/business views
     • **Flexbox Mastery:** Perfect alignment and distribution:
         - **Navigation:** flex items-center justify-between for header layouts
         - **Cards:** flex flex-col justify-between for equal height card layouts
         - **Forms:** flex flex-col space-y-4 for clean form arrangements
     
     ### 🎯 COMPONENT DESIGN EXCELLENCE
-    • **Card Components:** Design cards that stand out beautifully:
+    • **Card Components:** Design cards that are clear and purposeful:
+        - Use cards for repeated items, result panels, inventory/choice trays, and modals
+        - Avoid card-heavy compositions for the main playable surface
         - **Elevation:** Use shadow-sm, shadow-md, shadow-lg strategically for visual depth
         - **Borders:** Subtle border border-gray-200 or borderless with shadow for modern feel
         - **Padding:** p-6 md:p-8 for comfortable content spacing
@@ -608,7 +613,7 @@ bun add @geist-ui/react@1
         - **Label Design:** font-medium text-gray-700 with proper spacing (mb-2)
         - **Error Handling:** text-red-600 text-sm with helpful, friendly messages
         - **Success Feedback:** text-green-600 with checkmark icons for validation
-    • **Navigation Design:** Create intuitive, beautiful navigation:
+    • **Navigation Design:** Create intuitive navigation:
         - **Active States:** Clear indicators with color, background, or underline
         - **Breadcrumbs:** Subtle text-gray-500 with proper separators
         - **Mobile Menu:** Smooth slide-in animations with backdrop blur
@@ -629,7 +634,7 @@ bun add @geist-ui/react@1
     **Before completing any component, ensure:**
     - ✅ **Visual Rhythm:** Consistent spacing that creates natural reading flow
     - ✅ **Color Harmony:** Thoughtful color choices that support the brand and enhance usability
-    - ✅ **Interactive Feedback:** Every clickable element responds beautifully to user interaction
+    - ✅ **Interactive Feedback:** Every clickable element responds clearly to user interaction
     - ✅ **Loading Elegance:** Graceful loading states that maintain user engagement
     - ✅ **Error Grace:** Helpful, non-intimidating error messages with clear next steps
     - ✅ **Empty State Beauty:** Inspiring empty states that guide users toward their first success
@@ -637,7 +642,8 @@ bun add @geist-ui/react@1
     - ✅ **Performance Smooth:** 60fps animations and instant perceived load times`,
     UI_NON_NEGOTIABLES_V3: `## UI NON-NEGOTIABLES (Tailwind v3-safe, shadcn/ui first)
 
-1) Root Wrapper & Gutters (copy exactly)
+1) Root Wrapper & Playable Stage
+Default content/application pages should use:
 export default function Page() {
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -648,9 +654,19 @@ export default function Page() {
   );
 }
 
+For playable posts, games, toys, feed previews, canvas/SVG scenes, or touch-first experiences, use a stage-first root instead:
+export default function Page() {
+  return (
+    <main className="min-h-[100dvh] w-full overflow-hidden px-3 py-3 sm:px-4">
+      {/* responsive playable stage */}
+    </main>
+  );
+}
+
 2) Prefer shadcn/ui components heavily
-- Use shadcn/ui primitives for structure and widgets (e.g., Button, Card, Input, Sheet, Sidebar)
+- Use shadcn/ui primitives for structure and widgets (e.g., Button, Card, Input, Sheet, Sidebar) when they fit the interaction
 - Import from "@/components/ui/..." and compose with Tailwind utilities. Use Radix primitives as needed for composition.
+- For custom game controls, canvas/SVG scenes, and animated props, plain React + Tailwind/CSS is acceptable when it is simpler and safer.
 
 3) Tailwind v3-safe Instructions
 - Avoid CSS @theme or CSS @plugin directives in component styles
@@ -659,7 +675,8 @@ export default function Page() {
 
 4) Good vs Bad
 - BAD: top-level <div> with no gutters (content flush to the left edge)
-- GOOD: wrap with max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 and section spacing py-8 md:py-10 lg:py-12
+- GOOD for content pages: wrap with max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 and section spacing py-8 md:py-10 lg:py-12
+- GOOD for playable scenes: min-h-[100dvh] w-full overflow-hidden with safe-area padding and a responsive stage
 
 5) Color & Contrast (light theme defaults)
 - Primary labels: text-foreground
@@ -669,6 +686,42 @@ export default function Page() {
 - Inputs: bg-secondary text-secondary-foreground border border-input; placeholder:text-muted-foreground
 - Never place muted text over dark backgrounds; if background is dark, use paired *-foreground or text-white
 - Aim for >= 4.5:1 contrast for normal text (>= 3:1 for large)
+`,
+    BUZZPLAY_PLAYABLE_CONTENT_GUIDELINES: `## BUZZPLAY PLAYABLE CONTENT GUIDELINES
+
+These rules take precedence over generic landing-page, dashboard, or long-form app guidance for interactive app/game requests.
+
+### Product Intent
+- Build a "playable post": a short, mobile-first interactive content unit that users can play, replay, share, and remix.
+- Do not default to a static landing page, feature explainer, or technical demo unless the user explicitly asks for one.
+- The experience should be understandable in 1 second, interactive within 5 seconds, and deliver a payoff/result within 15-30 seconds.
+- Preserve the user's concrete request first. Add creative interpretation only to clarify, heighten, or complete a simple idea without replacing it.
+
+### Creative Expansion For Simple Ideas
+- If the prompt is short or vague, choose one clear playable format:
+  - Playable meme: tap, drag, choose, reveal, trigger a surprising outcome.
+  - Social challenge: timed action, score, streak, rank, or result card.
+  - Character toy: a character reacts to user choices, props, timing, or combinations.
+- Always include a clear hook, one primary action, immediate feedback, an ending/payoff state, and a replay/remix-friendly result.
+- Prefer small scenes with expressive UI, props, character reactions, sound/visual feedback cues, and surprising micro-interactions over complex game systems.
+- 3D is acceptable when it feels like a toy, tabletop scene, paper theater, low-poly prop, or physics-like object interaction. Avoid big worlds, realistic humans, precise action games, or cinematic video-like scenes.
+
+### Mobile-First Interaction
+- Design for a vertical phone feed first: 360-430px wide, 100dvh tall, with safe-area padding and no clipped controls.
+- For playable scenes, use a stage-first root such as min-h-[100dvh] w-full overflow-hidden with a responsive stage; do not force a generic max-w dashboard wrapper if it hurts gameplay.
+- Keep all essential controls reachable by thumb. Touch targets must be at least 44px, with enough spacing to avoid accidental taps.
+- Support pointer events so mouse and touch both work. Do not rely on hover-only interactions.
+- Handle drag/tap gestures carefully: prevent unwanted page scroll while dragging, clamp positions to the stage, and release pointer capture cleanly.
+- Canvas/SVG/absolute-positioned elements must resize with the container. Recompute bounds on resize/orientation changes and account for devicePixelRatio when drawing canvas.
+- Preview and live play should match: avoid hard-coded pixel sizes, viewport assumptions, or iframe-dependent offsets.
+
+### Reliability And Finish
+- Ship a complete playable first screen in the initial phase. No blank screens, placeholder-only pages, or "coming soon" states.
+- Guard every interaction path with safe defaults. Never read from possibly undefined objects without checks.
+- Timers, requestAnimationFrame loops, event listeners, and pointer listeners must be cleaned up.
+- Keep state transitions simple and testable: start -> playing -> result/replay, or equivalent.
+- Use only available dependencies and valid imports. If a dependency is optional or uncertain, implement with React, Tailwind, CSS, SVG, or canvas instead.
+- Prefer robust fallback visuals for missing user assets. Uploaded assets should enhance the scene but must not be required for the app to render.
 `,
 PROJECT_CONTEXT: `Here is everything you will need about the project:
 
@@ -710,89 +763,58 @@ These are the changes that have been made to the codebase since the last phase:
 */
 
 export const STRATEGIES_UTILS = {
-    INITIAL_PHASE_GUIDELINES: `**First Phase: Stunning Frontend Foundation & Visual Excellence**
-        * **🎨 VISUAL DESIGN FOUNDATION:** Establish breathtaking visual foundation:
-            - **Design System Excellence:** Define beautiful color palettes, typography scales, and spacing rhythms
-            - **Component Library Mastery:** Leverage shadcn components to create stunning, cohesive interfaces
-            - **Layout Architecture:** Build gorgeous navigation, headers, footers with perfect spacing and alignment
-            - **Visual Identity:** Establish consistent branding elements that create emotional connection
-        * **✨ UI COMPONENT EXCELLENCE:** Create components that users love to interact with:
-            - **Interactive Polish:** Every button, form, and clickable element has beautiful hover states
-            - **Micro-Interactions:** Subtle animations that provide delightful feedback
-            - **State Management:** Loading, error, and empty states that maintain user engagement
-            - **Responsive Mastery:** Components that look intentionally designed at every screen size
-        * **🏗️ FRONTEND COMPLETION WITH VISUAL WOW FACTOR:** Build interfaces that impress:
-            - **Primary Page Excellence:** Main page should be visually stunning and fully functional
-            - **Secondary Page Polish:** All supporting pages with beautiful mockups and smooth navigation
-            - **Zero Broken Links:** Every navigation element works perfectly - no 404s or dead ends
-            - **Visual Hierarchy:** Clear information architecture that guides users naturally
-            - **Content Strategy:** Thoughtful use of whitespace, typography, and visual elements
-        * **🚀 CORE FUNCTIONALITY WITH STYLE:** Implement features that work beautifully:
-            - **Feature Implementation:** Core application logic with elegant error handling
-            - **Data Presentation:** Beautiful ways to display information that enhance comprehension
-            - **User Workflows:** Smooth, intuitive user journeys with clear next steps
-            - **Performance Excellence:** Fast, responsive interfaces that feel instant
-        * **📱 RESPONSIVE & ACCESSIBLE EXCELLENCE:**
-            - **Mobile-First Beauty:** Interfaces that shine on mobile and scale up gracefully
-            - **Touch-Friendly Design:** Proper touch targets and gesture-friendly interactions
-            - **Accessibility Excellence:** Beautiful interfaces that work for everyone
-        * **🎯 COMPLETION STANDARDS:** Every element demonstrates professional-grade polish
-            - **Visual Consistency:** Cohesive design language throughout all pages
-            - **Interactive Feedback:** Every user action provides clear, beautiful feedback
-            - **Error Handling Grace:** Helpful, friendly error messages that guide users forward
-            - **Loading Elegance:** Beautiful loading states that maintain user engagement
-        * **Phase Granularity:** For *simple* applications, deliver a complete, stunning product in one phase. For *complex* applications, establish a visually excellent foundation that impresses immediately.
-        * **Deployable Milestone:** First phase should be immediately demoable with stunning visual appeal that makes stakeholders excited about the final product.
+    INITIAL_PHASE_GUIDELINES: `**First Phase: Complete Playable First Screen & Stable Interaction**
+        * **PLAYABLE CONTENT FOUNDATION:** Build the core playable post immediately:
+            - One clear hook visible on the first screen
+            - One primary tap, drag, choice, timing, or manipulation interaction
+            - Immediate visual feedback on the first user action
+            - A simple state flow such as start -> playing -> result -> replay/remix
+            - A payoff/result that can be replayed, screenshotted, shared, or remixed
+        * **MOBILE-FIRST STAGE:** Design the first screen around a phone feed viewport:
+            - Responsive full-height stage for playable scenes
+            - Safe-area-aware controls with 44px minimum touch targets
+            - No clipped buttons, hidden instructions, or iframe-specific offsets
+            - Pointer events that work for both touch and mouse
+        * **LEAN VISUAL POLISH:** Make the experience stop-scrolling without overbuilding:
+            - Strong visual identity, readable typography, and clear hierarchy
+            - Small expressive props, reactions, effects, or character moments
+            - Smooth transitions that support feedback and do not block play
+            - Fallback visuals when uploaded assets are missing or still loading
+        * **RELIABLE CORE FUNCTIONALITY:** Implement the smallest complete loop safely:
+            - No blank screen, placeholder-only page, or "coming soon" state
+            - Safe defaults for all data and assets
+            - Timers, RAF loops, and event listeners cleaned up
+            - Type-safe imports and simple state transitions
+        * **Phase Granularity:** For simple playable posts, deliver a complete working experience in one phase. For larger apps, still make the initial phase immediately playable and demoable.
+        * **Deployable Milestone:** First phase should be something a user can play right away on mobile preview.
         * **Override template home page**: Be sure to rewrite the home page of the app. Do not remove the existing homepage, rewrite on top of it.`,
-    SUBSEQUENT_PHASE_GUIDELINES: `**Subsequent Phases: Feature Excellence & Visual Refinement**
-        * **🌟 ITERATIVE VISUAL EXCELLENCE:** Each phase elevates the user experience:
-            - **Visual Polish Iteration:** Continuously refine spacing, colors, and interactions
-            - **Animation Enhancement:** Add smooth transitions and delightful micro-interactions
-            - **Component Refinement:** Improve existing components to professional-grade standards
-            - **User Experience Optimization:** Streamline workflows and eliminate friction points
-        * **🚀 FEATURE IMPLEMENTATION WITH STYLE:** Build functionality that users love:
-            - **Complete Feature Development:** Every requested feature implemented with beautiful UI
-            - **Workflow Optimization:** Smooth user journeys with intuitive navigation patterns
-            - **Data Visualization Excellence:** Beautiful charts, tables, and information displays
-            - **Interactive Feature Polish:** Forms, modals, and complex interactions that feel effortless
-        * **🔗 BACKEND INTEGRATION EXCELLENCE:** Connect functionality with visual grace:
-            - **Elegant Loading States:** Beautiful progress indicators and skeleton screens
-            - **Error Handling Beauty:** Friendly error messages with helpful recovery actions
-            - **Data State Management:** Graceful handling of empty, loading, and error states
-            - **Performance Optimization:** Fast, responsive interfaces with smooth data transitions
-        * **📈 SCALABLE ENHANCEMENT STRATEGY:** Build quality that scales:
-            - **Component System Growth:** Expand design system with new, reusable components
-            - **Pattern Library Development:** Establish consistent interaction patterns
-            - **Visual Language Evolution:** Refine brand expression and visual identity
-            - **User Experience Research:** Iterate based on usage patterns and feedback
-        * **✨ CONTINUOUS UI/UX IMPROVEMENT:** Never settle for 'good enough':
-            - **Visual Hierarchy Refinement:** Perfect information architecture and visual flow
-            - **Interaction Design Polish:** Smooth, predictable, and delightful user interactions
-            - **Responsive Design Excellence:** Flawless experience across all device sizes
-            - **Accessibility Enhancement:** Beautiful interfaces that work for everyone
-        * **🎯 CLIENT FEEDBACK INTEGRATION:** Rapid response to user needs:
-            - **Priority Feature Development:** Address urgent client requests with visual excellence
-            - **User Experience Optimization:** Refine workflows based on real user feedback
-            - **Visual Preference Integration:** Adapt design elements to client brand preferences
-            - **Performance Enhancement:** Optimize for speed while maintaining visual quality
-        * **🏆 FINAL EXCELLENCE PHASE:** Deliver a product that exceeds expectations:
-            - **Comprehensive Polish Review:** Every pixel perfect, every interaction smooth
-            - **Performance Optimization:** Lightning-fast load times with beautiful interfaces
-            - **Cross-Browser Excellence:** Perfect rendering across all modern browsers
-            - **Launch Readiness:** Production-ready code
-            - **Have a WOW factor that leaves the client amazed and wanting more**
-        **Always deliver project within the agreed timeline and scope**`,
-    CODING_GUIDELINES: `**Make sure the product is **FUNCTIONAL** along with **POLISHED**
+    SUBSEQUENT_PHASE_GUIDELINES: `**Subsequent Phases: Requested Changes, Reliability, and Playable Polish**
+        * **USER FEEDBACK FIRST:** Address explicit user requests, reported issues, and asset-specific changes before speculative enhancements.
+        * **INTERACTION REFINEMENT:** Improve what makes the content playable:
+            - Tighter touch/drag behavior
+            - More satisfying feedback and result states
+            - Better replay, retry, and remix affordances
+            - Clearer scoring, timing, choices, or character reactions
+        * **MOBILE AND PREVIEW CONSISTENCY:** Keep the preview iframe and live play aligned:
+            - Responsive stage sizing across mobile, tablet, and desktop
+            - Bounds recalculated on resize/orientation changes
+            - Controls anchored to safe areas
+            - No hard-coded viewport assumptions that shift clickable targets
+        * **RELIABILITY OVER SCOPE:** Fix runtime errors, broken imports, undefined access, render loops, and unusable interactions before adding more features.
+        * **VISUAL POLISH WITH PURPOSE:** Refine spacing, colors, animations, and copy when they improve playability, clarity, or shareability.
+        * **FINAL PHASE:** Deliver a stable playable experience with complete requested behavior, clean runtime, clear result/replay state, and no critical layout issues.`,
+    CODING_GUIDELINES: `**Make sure the product is FUNCTIONAL and POLISHED**
     **MAKE SURE TO NOT BREAK THE APPLICATION in SUBSEQUENT PHASES. Always keep fallbacks and failsafes in place for any backend interactions. Look out for simple syntax errors and dependencies you use!**
-    **The client needs to be provided with a good demoable application after each phase. The initial first phase is the most impressionable phase! Make sure it deploys and renders well.**
+    **The user needs a good playable preview after each phase. The initial first phase is the most important because it proves the idea can be played, not just viewed. Make sure it deploys and renders well.**
     **Make sure the primary (home) page is rendered correctly and as expected after each phase**
     **Make sure to overwrite the home page file**`,
     CONSTRAINTS: `<PHASE GENERATION CONSTRAINTS>
-        **Focus on building the frontend and all the views/pages in the initial 1-2 phases with core functionality and mostly mock data, then fleshing out the application**    
+        **For BuzzPlay interactive content, focus on building a complete playable first screen in the initial phase, then refine interactions, visuals, and requested features.**    
         **Before writing any components of your own, make sure to check the existing components and files in the template, try to use them if possible (for example preinstalled shadcn components)**
         **If auth functionality is required, provide mock auth functionality primarily. Provide real auth functionality ONLY IF template has persistence layer. Remember to seed the persistence layer with mock data AND Always PREFILL the UI with mock credentials. No oauth needed**
 
-        **Applications with single view/page or mostly static content are considered **Simple Projects** and those with multiple views/pages are considered **Complex Projects** and should be designed accordingly.**
+        **Single-screen playable posts, memeplays, character toys, short challenges, and small canvas/SVG games are considered **Simple Projects** unless the user explicitly asks for a platform or multiple views.**
+        **Applications with multiple views/pages, persistence, accounts, dashboards, or complex workflows are considered **Complex Projects** and should be designed accordingly.**
         * **Phase Count:** Aim for a maximum of 1 phase for simple applications and 3-7 phases for complex applications. Each phase should be self-contained. Do not exceed more than ${Math.floor(MAX_PHASES * 0.8)} phases unless addressing complex client requirements or feedbacks.
         * **File Count:** Aim for a maximum of 1-3 files per phase when each file is big and self-container, or 8-12 files per phase when most files are small (< 100 lines).
         * The number of files in the project should be proportional to the number of views/pages that the project has.
@@ -802,6 +824,7 @@ export const STRATEGIES_UTILS = {
         **DO NOT WRITE pdf files, images, or any other non-text files as they are not supported by the deployment.**
 
         **Examples**:
+            * Building a boss meeting survival challenge, character reaction toy, playable meme, or result-card challenge: Single playable post -> **Simple Project** - 1 phase and 1-3 files. Initial phase should yield a complete loop with result/replay.
             * Building any tic-tac-toe game: Has a single page, simple logic -> **Simple Project** - 1 phase and 1-2 files that contain most of the code. Initial phase should yield a perfectly working game.        
             * Building any themed 2048 game: Has a single page, simple logic -> **Simple Project** - 1 phase and 2 files max that contain most of the code. Initial phase should yield a perfectly working game.
             * Building a full chess platform: Has multiple pages -> **Complex Project** - 3-5 phases and 5-15 files, with initial phase having around 5-11 files and should have the primary homepage working with mockups for all other views.
@@ -818,10 +841,10 @@ export const STRATEGIES_UTILS = {
 
 export const STRATEGIES = {
     FRONTEND_FIRST_PLANNING: `<PHASES GENERATION STRATEGY>
-    **STRATEGY: Scalable, Demoable Frontend and core application First / Iterative Feature Addition later**
-    The project would be developed live: The user (client) would be provided a preview link after each phase. This is our rapid development and delivery paradigm.
-    The core principle is to establish a visually complete and polished frontend presentation early on with core functionalities implemented, before layering in more advanced functionality and fleshing out the backend.
-    The goal is to build and demo a functional and beautiful product as fast and as early as possible.
+    **STRATEGY: Playable Content First / Stable Interaction First**
+    The project is developed live: the user receives a preview after each phase.
+    The core principle is to establish a complete, mobile-first playable surface early, before layering in more advanced functionality.
+    The goal is to build and demo something users can actually play, understand, and replay as fast as possible.
     **Each phase should be self-contained, deployable and demoable.**
     The number of phases and files per phase should scale based on the number of views/pages and complexity of the application, layed out as follows:
 
@@ -831,7 +854,7 @@ export const STRATEGIES = {
 
     ${STRATEGIES_UTILS.CONSTRAINTS}
 
-    **No need to add accessibility features. Focus on delivering an actually working, feature-wise polished and complete application in as few phases as possible.**
+    **Keep accessibility basics that support interaction (labels, focus, semantic controls), but do not overcomplicate the playable loop. Focus on delivering an actually working, polished and complete experience in as few phases as possible.**
     **Always stick to existing project/template patterns. Respect and work with existing worker bindings rather than making custom ones**
     **Rely on open source tools and free tier services only apart from whats configured in the environment. Refer to template usage instructions to know if specific cloudflare services are also available for use.**
     **Make sure to implement all the features and functionality requested by the user. Stick to the blueprint's implementation roadmap and end at the conclusion of the final phase. There should be no compromises**
@@ -840,10 +863,10 @@ export const STRATEGIES = {
     **Refrain from editing any of the 'dont touch' files in the project, e.g - package.json, vite.config.ts, wrangler.jsonc, etc.**
 </PHASES GENERATION STRATEGY>`, 
 FRONTEND_FIRST_CODING: `<PHASES GENERATION STRATEGY>
-    **STRATEGY: Scalable, Demoable Frontend and core application First / Iterative Feature Addition later**
-    The project would be developed live: The user (client) would be provided a preview link after each phase. This is our rapid development and delivery paradigm.
-    The core principle is to establish a visually complete and polished frontend presentation early on with core functionalities implemented, before layering in more advanced functionality and fleshing out the backend.
-    The goal is to build and demo a functional and beautiful product as fast and as early as possible.
+    **STRATEGY: Playable Content First / Stable Interaction First**
+    The project is developed live: the user receives a preview after each phase.
+    The core principle is to establish a complete, mobile-first playable surface early, before layering in more advanced functionality.
+    The goal is to build and demo something users can actually play, understand, and replay as fast as possible.
     **Each phase should be self-contained, deployable and demoable**
 
     ${STRATEGIES_UTILS.INITIAL_PHASE_GUIDELINES}
@@ -852,7 +875,7 @@ FRONTEND_FIRST_CODING: `<PHASES GENERATION STRATEGY>
 
     ${STRATEGIES_UTILS.CODING_GUIDELINES}
 
-    **Make sure to implement all the features and functionality requested by the user and more. The application should be fully complete by the end of the last phase. There should be no compromises**
+    **Make sure to implement all the features and functionality requested by the user. Add creative touches only when they support the user's idea and keep the experience stable.**
 </PHASES GENERATION STRATEGY>`, 
 }
 

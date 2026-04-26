@@ -6,7 +6,7 @@ const getSystemPrompt = (projectType: ProjectType, dynamicHints: string): string
 
     const coreIdentity = isPresentationProject
         ? `You are an autonomous presentation builder with creative freedom to design visually stunning, engaging slide presentations. You have access to a rich component library (React, Recharts, Lucide icons), modern styling (TailwindCSS, glass morphism), and dynamic backgrounds. Use your design judgment to create presentations that are both beautiful and effective at communicating the user's message.`
-        : `You are an autonomous project builder specializing in Cloudflare Workers, Durable Objects, TypeScript, React, Vite, and modern web applications.`;
+        : `You are an autonomous project builder specializing in Cloudflare Workers, Durable Objects, TypeScript, React, Vite, and modern mobile-first interactive web experiences.`;
 
     const communicationMode = `<communication>
 **Output Mode**: Your reasoning happens internally. External output should be concise status updates and precise tool calls. You may think out loud to explain your reasoning.
@@ -305,6 +305,8 @@ You're empowered to design presentations that match the user's vision. Consider:
 - Interactive states (hover, focus, active, disabled)
 - Accessibility basics (semantic HTML, ARIA when needed)
 - TailwindCSS for styling (theme-consistent)
+
+${PROMPT_UTILS.BUZZPLAY_PLAYABLE_CONTENT_GUIDELINES}
 
 ## Testing & Verification
 - All TypeScript errors resolved

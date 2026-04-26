@@ -166,11 +166,23 @@ Selection: "react-social"
 complexity: "simple" // Because single page application
 Reasoning: "Social template provides user interactions, content sharing, and community features closest to recipe sharing needs"
 
+**Example 4 - BuzzPlay Playable Post:**
+User: "Make a funny boss meeting survival challenge"
+Templates: ["react-dashboard", "react-game-starter", "react-social-feed"]
+Selection: "react-game-starter"
+complexity: "simple"
+Reasoning: "A short playable challenge needs immediate tap/drag interactions, scoring/result states, and mobile-friendly game loop support"
+
 ## SELECTION CRITERIA:
 1. **Feature Alignment** - Templates with similar core functionality
 2. **Tech Stack Match** - Compatible frameworks and dependencies  
 3. **Architecture Fit** - Similar application structure and patterns
 4. **Minimal Modification** - Template requiring least changes
+
+## BUZZPLAY SELECTION PRIORITY:
+- For memeplay, social challenge, character toy, tap/drag/choose/reveal, score/result, physics toy, or 3D toy requests, prefer templates built for interactive play, canvas, animation, mobile touch, or game-state loops.
+- Avoid dashboard, blog, marketing, or long-form app templates for short playable content unless the user clearly asks for those product categories.
+- Treat short/vague creative ideas as simple playable posts, not full game platforms. Pick the template that can deliver a complete mobile-first first screen fastest.
 
 ## STYLE GUIDE:
 - **Minimalist Design**: Clean, simple interfaces

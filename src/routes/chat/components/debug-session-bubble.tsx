@@ -56,6 +56,14 @@ setShowScrollButton(false);
 
 const debugEvent = message.ui?.toolEvents?.find(e => e.name === 'deep_debug');
 const hasError = debugEvent?.status === 'error';
+const title = isActive
+? 'Checking Your Playable'
+: hasError
+	? 'Playable Needs Another Pass'
+	: 'Playable Check Complete';
+const content = message.content?.trim()
+? message.content.replace(/Initializing debug session\.\.\./gi, 'Preparing a quick playtest...')
+: 'Preparing a quick playtest...';
 
 return (
 <motion.div
@@ -97,9 +105,7 @@ isActive && "text-accent",
 hasError && !isActive && "text-red-500",
 !isActive && !hasError && "text-green-500"
 )}>
-{isActive ? 'Deep Debugging' : 
- hasError ? 'Debugging Failed' : 
- 'Debugging Complete'}
+{title}
 </span>
 
 {/* Timer and tool count */}
@@ -111,7 +117,7 @@ hasError && !isActive && "text-red-500",
 )}
 {toolCallCount > 0 && (
 <span className="px-1.5 py-0.5 rounded bg-bg-3/50 font-medium">
-{toolCallCount}
+{toolCallCount} checks
 </span>
 )}
 </div>
@@ -147,8 +153,10 @@ className="max-h-[600px] overflow-y-auto px-4 py-3"
 <div className="space-y-3">
 {/* Render message content */}
 <MessageContentRenderer 
-content={message.content || 'Initializing debug session...'}
+content={content}
 toolEvents={message.ui?.toolEvents?.filter(ev => ev.contentLength !== undefined) || []}
+allowToolDetails={false}
+toolLabelVariant="playtest"
 />
 
 {/* Tool events */}
@@ -160,6 +168,8 @@ toolEvents={message.ui?.toolEvents?.filter(ev => ev.contentLength !== undefined)
 <ToolStatusIndicator 
 key={`${event.name}-${event.timestamp}-${idx}`}
 event={event}
+allowDetails={false}
+labelVariant="playtest"
 />
 ))}
 </div>

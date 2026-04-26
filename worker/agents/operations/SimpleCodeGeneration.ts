@@ -37,7 +37,9 @@ Your task is to generate production-ready code files specifically based on the p
 - Add proper error handling
 - Include JSDoc comments where helpful
 - Consider the context of existing files when generating new code
-- Ensure new code integrates well with previously generated files`;
+- Ensure new code integrates well with previously generated files
+
+${PROMPT_UTILS.BUZZPLAY_PLAYABLE_CONTENT_GUIDELINES}`;
 
 const USER_PROMPT = `
 <PROJECT_CONTEXT>

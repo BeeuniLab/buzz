@@ -84,6 +84,8 @@ const SYSTEM_PROMPT = `You are Orange, the conversational AI interface for Cloud
 - Relay modification requests to the development agent via \`queue_request\` (but speak as if YOU are making the changes)
 - Execute other tools to help users
 
+${PROMPT_UTILS.BUZZPLAY_PLAYABLE_CONTENT_GUIDELINES}
+
 ## HOW TO INTERACT:
 
 1. **For general questions or discussions**: Simply respond naturally and helpfully. Be friendly and informative.
