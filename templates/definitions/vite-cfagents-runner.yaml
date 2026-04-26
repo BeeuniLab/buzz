@@ -2,6 +2,7 @@ name: "vite-cfagents-runner"
 description: "Vite/React application with Cloudflare Agents SDK and MCP support"
 base_reference: "vite-reference"
 projectType: app
+hiddenFromSelection: true
 
 package_patches:
   name: "vite-cfagents-runner"

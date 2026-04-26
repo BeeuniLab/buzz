@@ -147,10 +147,10 @@ function getSystemPromptForProjectType(projectType: ProjectType): string {
 
 **Example 1 - Game Request:**
 User: "Build a 2D puzzle game with scoring"
-Templates: ["react-dashboard", "react-game-starter", "vue-blog"]
-Selection: "react-game-starter"
+Templates: ["react-dashboard", "buzzplay-react-playable", "vue-blog"]
+Selection: "buzzplay-react-playable"
 complexity: "simple"
-Reasoning: "Game starter template provides canvas setup, state management, and scoring systems"
+Reasoning: "BuzzPlay React playable provides mobile-first interaction structure, state management, scoring/result loops, and touch-friendly UI"
 
 **Example 2 - Business Dashboard:**
 User: "Create an analytics dashboard with charts"
@@ -168,10 +168,10 @@ Reasoning: "Social template provides user interactions, content sharing, and com
 
 **Example 4 - BuzzPlay Playable Post:**
 User: "Make a funny boss meeting survival challenge"
-Templates: ["react-dashboard", "react-game-starter", "react-social-feed"]
-Selection: "react-game-starter"
+Templates: ["react-dashboard", "buzzplay-react-playable", "react-social-feed"]
+Selection: "buzzplay-react-playable"
 complexity: "simple"
-Reasoning: "A short playable challenge needs immediate tap/drag interactions, scoring/result states, and mobile-friendly game loop support"
+Reasoning: "A short playable challenge needs immediate tap/drag interactions, scoring/result states, uploaded asset awareness, and mobile-friendly game loop support"
 
 ## SELECTION CRITERIA:
 1. **Feature Alignment** - Templates with similar core functionality
@@ -180,7 +180,8 @@ Reasoning: "A short playable challenge needs immediate tap/drag interactions, sc
 4. **Minimal Modification** - Template requiring least changes
 
 ## BUZZPLAY SELECTION PRIORITY:
-- For memeplay, social challenge, character toy, tap/drag/choose/reveal, score/result, physics toy, or 3D toy requests, prefer templates built for interactive play, canvas, animation, mobile touch, or game-state loops.
+- If buzzplay-react-playable is available, choose it for memeplay, social challenge, character toy, tap/drag/choose/reveal, score/result, physics toy, interactive story, quiz, or mobile playable post requests.
+- Prefer templates built for interactive play, animation, mobile touch, uploaded asset use, and game-state loops.
 - Avoid dashboard, blog, marketing, or long-form app templates for short playable content unless the user clearly asks for those product categories.
 - Treat short/vague creative ideas as simple playable posts, not full game platforms. Pick the template that can deliver a complete mobile-first first screen fastest.
 

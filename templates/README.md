@@ -178,6 +178,8 @@ Supported fields in `definitions/*.yaml`:
   - Shallow/deep-merge patches applied to `package.json` in the build output.
 - `excludes` (string[])
   - Glob patterns to remove files introduced by the base reference or overlays.
+- `file_patches` (object[])
+  - Optional string/regex replacements applied to generated files after overlays and excludes.
 - `template_specific_files` (string[]; optional)
   - When provided, only these overlay files are applied. Otherwise, the entire overlay directory is applied.
 

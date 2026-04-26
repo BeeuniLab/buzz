@@ -11,6 +11,7 @@ import { ConfirmDeleteDialog } from './ConfirmDeleteDialog';
 import { apiClient } from '@/lib/api-client';
 import { toast } from 'sonner';
 import { appEvents } from '@/lib/app-events';
+import { useLocation, useNavigate } from 'react-router';
 
 interface AppActionsDropdownProps {
   appId: string;
@@ -31,8 +32,23 @@ export function AppActionsDropdown({
   size = 'icon',
   showOnHover = false
 }: AppActionsDropdownProps) {
+  const location = useLocation();
+  const navigate = useNavigate();
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+
+  const isViewingDeletedApp = () => {
+    const pathname = location.pathname.replace(/\/+$/, '');
+    const appPath = `/app/${appId}`;
+    const chatPath = `/chat/${appId}`;
+
+    return (
+      pathname === appPath ||
+      pathname.startsWith(`${appPath}/`) ||
+      pathname === chatPath ||
+      pathname.startsWith(`${chatPath}/`)
+    );
+  };
 
   const handleDeleteApp = async () => {
     try {
@@ -42,9 +58,13 @@ export function AppActionsDropdown({
       if (response.success) {
         toast.success('App deleted successfully');
         setIsDeleteDialogOpen(false);
-        
+
         appEvents.emitAppDeleted(appId);
         onAppDeleted?.();
+
+        if (isViewingDeletedApp()) {
+          navigate('/build', { replace: true });
+        }
       }
     } catch (error) {
       console.error('Error deleting app:', error);

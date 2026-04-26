@@ -381,16 +381,8 @@ export default function AppView() {
 				// Emit global app deleted event
 				appEvents.emitAppDeleted(app.id);
 
-				// Smart navigation after deletion
-				// Use window.history to go back if possible, otherwise navigate to apps page
-				if (window.history.length > 1) {
-					// Try to go back to previous page
-					window.history.back();
-				} else {
-					// No history available, go to apps page
-					navigate('/apps');
-				}
-            }
+				navigate('/build', { replace: true });
+			}
 		} catch (error) {
 			console.error('Error deleting app:', error);
 			toast.error('An unexpected error occurred while deleting the app');

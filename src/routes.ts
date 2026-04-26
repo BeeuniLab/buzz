@@ -1,4 +1,4 @@
-import type { RouteObject } from 'react-router';
+import { Navigate, type RouteObject } from 'react-router';
 import React from 'react';
 
 import App from './App';
@@ -61,6 +61,10 @@ const routes = [
 			{
 				path: 'app/:id',
 				element: React.createElement(ProtectedRoute, { children: React.createElement(AppView) }),
+			},
+			{
+				path: '*',
+				element: React.createElement(Navigate, { to: '/feed', replace: true }),
 			},
 		],
 	},

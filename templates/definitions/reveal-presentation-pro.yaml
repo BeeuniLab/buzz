@@ -4,6 +4,7 @@ base_reference: "minimal-js-reference"
 projectType: presentation
 renderMode: browser
 slideDirectory: "public/slides"
+hiddenFromSelection: true
 
 package_patches:
   name: "reveal-presentation-pro"

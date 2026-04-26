@@ -3,6 +3,7 @@ description: "Beautiful vanilla HTML, CSS, and JavaScript template with modern U
 base_reference: "minimal-js-reference"
 projectType: app
 renderMode: browser
+hiddenFromSelection: true
 
 package_patches:
   name: "minimal-js"
