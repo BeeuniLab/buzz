@@ -1,0 +1,13 @@
+[
+	"wrangler.jsonc",
+	"wrangler.toml",
+	"package.json",
+	"tsconfig.json",
+	".redacted_files.json",
+	".donttouch_files.json",
+	".important_files.json",
+	"worker/index.ts",
+	"worker/core-utils.ts",
+	"vite.config.js",
+	"index.html"
+]

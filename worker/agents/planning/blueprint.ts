@@ -47,7 +47,7 @@ const SIMPLE_SYSTEM_PROMPT = `<ROLE>
 
     ${PROMPT_UTILS.BUZZPLAY_PLAYABLE_CONTENT_GUIDELINES}
 
-    ${PROMPT_UTILS.KAPLAY_PLAYABLE_DEVELOPMENT_GUIDELINES}
+    ${PROMPT_UTILS.PHASER_PLAYABLE_DEVELOPMENT_GUIDELINES}
     
     ## Color Palette
     • Choose 2-3 base RGB colors that work well together
@@ -114,7 +114,7 @@ const PHASIC_SYSTEM_PROMPT = `<ROLE>
     ## Design System & Aesthetics
     • **Color Palette & Visual Identity:** Choose a sophisticated, modern color palette that creates visual hierarchy and emotional connection. Specify primary, secondary, accent, neutral, and semantic colors (success, warning, error) with exact usage guidelines. Consider color psychology and brand personality.
     • **Typography System:** Design a comprehensive typography scale with clear hierarchy - headings (h1-h6), body text, captions, labels. Specify font weights, line heights, letter spacing. Use system fonts or web-safe fonts for performance. Plan for readability and visual appeal.
-    • **Spacing & Layout System:** All layout spacing (margins, padding, gaps) MUST use Tailwind's spacing scale (4px increments). Plan consistent spacing patterns for component internals, safe-area padding, scene overlays, and result panels. Keep playable stages compact enough for mobile.
+    • **Spacing & Layout System:** Plan consistent spacing patterns for component internals, edge padding, scene overlays, and result panels. Use Tailwind's spacing scale only when Tailwind exists in the selected template; for buzzplay-phaser, specify Phaser scene layout constants and responsive scale behavior in \`src/game/scenes/*\`. Keep playable stages filling the preview iframe/container without adding an inner phone frame.
     • **Component Design System:** Design clear, consistent UI components with:
         - **Interactive States:** hover, focus, active, disabled states for all interactive elements
         - **Loading States:** skeleton loaders, spinners, progress indicators
@@ -129,7 +129,7 @@ const PHASIC_SYSTEM_PROMPT = `<ROLE>
         - Clear visual hierarchy and information architecture
         - Generous white space and breathing room
         - Balanced proportions and golden ratio principles
-        - Mobile-first responsive design that scales intentionally
+        - Responsive design that scales intentionally across the current container size
     ** Lay these visual design instructions out explicitly throughout the blueprint **
 
     ${PROMPT_UTILS.UI_NON_NEGOTIABLES_V3}
@@ -138,12 +138,12 @@ const PHASIC_SYSTEM_PROMPT = `<ROLE>
 
     ${PROMPT_UTILS.BUZZPLAY_PLAYABLE_CONTENT_GUIDELINES}
 
-    ${PROMPT_UTILS.KAPLAY_PLAYABLE_DEVELOPMENT_GUIDELINES}
+    ${PROMPT_UTILS.PHASER_PLAYABLE_DEVELOPMENT_GUIDELINES}
 
     ## Frameworks & Dependencies
     • Choose a minimal, reliable set of well-known libraries, components and dependencies that materially reduce implementation risk.
         - **Select libraries that work out-of-the-box** without requiring API keys or environment variable configuration
-        - Prefer React, Tailwind, CSS, SVG, canvas, shadcn/ui, and already-installed packages before adding anything new.
+        - Prefer the selected template's stack and already-installed packages before adding anything new. For buzzplay-phaser, use Phaser scenes in \`src/game/scenes/*\` as the primary implementation path.
         - Avoid speculative packages. Every suggested dependency must be necessary for the requested interaction.
 
     • **Keep simple applications simple:** For single-view or static applications, implement in 1-2 files maximum with minimal abstraction.
@@ -151,7 +151,7 @@ const PHASIC_SYSTEM_PROMPT = `<ROLE>
     • **ITERATIVE PLAYABILITY:** The experience would be iteratively built in multiple phases, with each phase improving interaction quality, reliability, or payoff. Plan the initial phase to establish a working playable loop.
     • **RESPONSIVE DESIGN MASTERY:** The UI should be flawlessly responsive across all devices with clear layouts on mobile, tablet and desktop. Each breakpoint should feel intentionally designed, not just scaled. For BuzzPlay playable content, touch/pointer interactions are the primary focus, with keyboard/mouse support as a secondary path.
     • **PERFORMANCE WITH PLAYABILITY:** The experience should be lightning-fast, responsive, and visually polished. Plan for smooth animations, optimized images, fast loading states, and micro-interactions that enhance rather than hinder play.
-    • **TEMPLATE ENHANCEMENT:** Build upon the <STARTING TEMPLATE> while turning it into a mobile-first playable surface. Suggest additional UI/animation libraries only when they are clearly needed.
+    • **TEMPLATE ENHANCEMENT:** Build upon the <STARTING TEMPLATE> while turning it into an iframe-fit, touch-friendly playable surface. Suggest additional UI/animation libraries only when they are clearly needed.
         - Enhance existing project patterns with focused visual treatments
         - Keep styling and interaction libraries lean and reliable
         - Be aware of template design/layout short-comings and take it into account during your planning and in pitfalls.
@@ -195,12 +195,12 @@ const PHASIC_SYSTEM_PROMPT = `<ROLE>
         - **Animation Libraries:** Framer Motion, React Spring for smooth interactions
         - **Visual Enhancement:** Packages for gradients, patterns, visual effects
         - **Image/Media:** Optimization and display libraries for clear media presentation
-    • **SHADCN DESIGN SYSTEM:** Build exclusively with shadcn/ui components, but enhance them with:
+    • **SHADCN DESIGN SYSTEM:** Use shadcn/ui only when the selected template includes it; buzzplay-phaser does not. When available, enhance shadcn/ui components with:
         - Beautiful color variants and visual treatments
         - Sophisticated hover and interactive states
         - Consistent spacing and visual rhythm
         - Custom styling that maintains component integrity
-    • **ADVANCED STYLING:** Use Tailwind CSS utilities to create:
+    • **ADVANCED STYLING:** Use the selected template's styling system. For Tailwind templates, use Tailwind CSS utilities to create:
         - Sophisticated color schemes and gradients
         - Beautiful shadows, borders, and visual depth
         - Smooth transitions and micro-interactions

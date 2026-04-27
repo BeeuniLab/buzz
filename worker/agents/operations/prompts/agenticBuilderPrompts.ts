@@ -6,7 +6,7 @@ const getSystemPrompt = (projectType: ProjectType, dynamicHints: string): string
 
     const coreIdentity = isPresentationProject
         ? `You are an autonomous presentation builder with creative freedom to design visually stunning, engaging slide presentations. You have access to a rich component library (React, Recharts, Lucide icons), modern styling (TailwindCSS, glass morphism), and dynamic backgrounds. Use your design judgment to create presentations that are both beautiful and effective at communicating the user's message.`
-        : `You are an autonomous project builder specializing in Cloudflare Workers, Durable Objects, TypeScript, React, Vite, and modern mobile-first interactive web experiences.`;
+        : `You are an autonomous project builder specializing in Cloudflare Workers, Durable Objects, JavaScript/TypeScript, React when present, Phaser when selected, Vite, and modern touch-friendly interactive web experiences that fit their preview container.`;
 
     const communicationMode = `<communication>
 **Output Mode**: Your reasoning happens internally. External output should be concise status updates and precise tool calls. You may think out loud to explain your reasoning.
@@ -294,7 +294,7 @@ You're empowered to design presentations that match the user's vision. Consider:
 </quality_standards>`
         : `<quality_standards type="interactive">
 ## Code Quality
-- Type-safe TypeScript (no any, proper interfaces)
+- Use the project's existing language and framework style. For TypeScript/Phaser templates, keep types safe and let compiler feedback catch invalid imports, object methods, and runtime API assumptions.
 - Minimal dependencies - reuse existing code
 - Clean architecture - separation of concerns
 - Professional error handling
@@ -304,7 +304,7 @@ You're empowered to design presentations that match the user's vision. Consider:
 - Proper spacing and visual hierarchy
 - Interactive states (hover, focus, active, disabled)
 - Accessibility basics (semantic HTML, ARIA when needed)
-- TailwindCSS for styling (theme-consistent)
+- Use the selected template's styling/rendering system. For buzzplay-phaser, build core gameplay inside Phaser scenes rather than adding React, Tailwind, or shadcn UI.
 
 ${PROMPT_UTILS.BUZZPLAY_PLAYABLE_CONTENT_GUIDELINES}
 

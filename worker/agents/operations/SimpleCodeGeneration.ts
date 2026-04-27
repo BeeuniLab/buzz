@@ -31,17 +31,18 @@ Your task is to generate production-ready code files specifically based on the p
 {{userQuery}}
 
 ## Critical Guidelines
-- Write clean, type-safe TypeScript code
+- Write clean code in the project's existing language and file style
 - Follow best practices for the specific project type
 - Ensure all imports are correct
 - Add proper error handling
 - Include JSDoc comments where helpful
 - Consider the context of existing files when generating new code
 - Ensure new code integrates well with previously generated files
+- For buzzplay-phaser, implement playable behavior in \`src/game/scenes/*\` with Phaser APIs instead of creating React components or DOM-driven games
 
 ${PROMPT_UTILS.BUZZPLAY_PLAYABLE_CONTENT_GUIDELINES}
 
-${PROMPT_UTILS.KAPLAY_PLAYABLE_DEVELOPMENT_GUIDELINES}`;
+${PROMPT_UTILS.PHASER_PLAYABLE_DEVELOPMENT_GUIDELINES}`;
 
 const USER_PROMPT = `
 <PROJECT_CONTEXT>

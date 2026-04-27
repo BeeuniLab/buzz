@@ -68,6 +68,10 @@ def is_valid_template(template_dir: Path, definitions_dir: Path) -> bool:
     Returns:
         True if the directory is a valid template, False otherwise
     """
+    # Avoid stale generated templates lingering in build/ after their definition was removed.
+    if not (definitions_dir / f"{template_dir.name}.yaml").exists():
+        return False
+
     # Check for wrangler configuration file
     if not (template_dir / "wrangler.jsonc").exists() and not (template_dir / "wrangler.toml").exists():
         return False
@@ -111,7 +115,7 @@ def extract_frameworks(package_json_path: Path) -> List[str]:
         "express", "fastify", "koa", "hono",
         
         # Build Tools & Bundlers
-        "vite", "webpack", "rollup", "parcel", "swc", "critters",
+        "vite", "webpack", "rollup", "parcel", "swc", "critters", "phaser",
         
         # Cloudflare Services
         "cloudflare", "workers", "wrangler", "durable-objects", "d1", "r2", 
@@ -257,6 +261,7 @@ def read_template_metadata_from_yaml(template_name: str, definitions_dir: Path) 
 
     default_metadata = {
         'projectType': 'app',
+        'language': 'typescript',
         'disabled': False,
         'hiddenFromSelection': False,
         'renderMode': None,
@@ -289,6 +294,7 @@ def read_template_metadata_from_yaml(template_name: str, definitions_dir: Path) 
 
         return {
             'projectType': project_type,
+            'language': yaml_data.get('language', default_metadata['language']),
             'disabled': yaml_data.get('disabled', False),
             'hiddenFromSelection': yaml_data.get('hiddenFromSelection', False),
             'renderMode': render_mode,
@@ -330,7 +336,7 @@ def process_template(template_dir: Path, definitions_dir: Path) -> Dict[str, Any
 
     template_data = {
         "name": template_name,
-        "language": "typescript",
+        "language": metadata.get('language', 'typescript'),
         "frameworks": frameworks,
         "projectType": metadata['projectType'],
         "disabled": metadata.get('disabled', False),
@@ -395,6 +401,10 @@ def main() -> None:
     for item in scan_dir.iterdir():
         # Skip non-directories and hidden/special directories
         if not item.is_dir() or item.name.startswith('.') or item.name in ('node_modules',):
+            continue
+
+        if not (definitions_dir / f"{item.name}.yaml").exists():
+            log_info(f"✗ Skipping stale build template without YAML definition: {item.name}")
             continue
 
         if is_valid_template(item, definitions_dir):

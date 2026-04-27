@@ -1,0 +1,14 @@
+name: "buzzplay-phaser"
+description: "BuzzPlay Phaser/React/Vite game template for arcade loops, tap challenges, dodgers, collectors, runners, physics toys, score/result games, and quick playable posts that fill the preview iframe."
+base_reference: "buzzplay-phaser"
+projectType: app
+language: typescript
+renderMode: sandbox
+disabled: false
+hiddenFromSelection: false
+inherit_dependencies: true
+
+package_patches:
+  name: "buzzplay-phaser"
+  dependencies:
+    phaser: "3.90.0"

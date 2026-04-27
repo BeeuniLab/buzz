@@ -567,7 +567,7 @@ bun add @geist-ui/react@1
         - **Color Psychology:** Use text-gray-900 for primary, text-gray-600 for secondary, text-gray-400 for tertiary
     • **Spacing Rhythm:** Create visual breathing room with harmonious spacing:
         - Content pages: space-y-8 md:space-y-12 for major sections
-        - Playable scenes: compact spacing that keeps the stage, controls, and result visible on a phone viewport
+        - Playable scenes: compact spacing that keeps the stage, controls, and result visible inside the preview iframe/container
         - Content blocks: space-y-6 md:space-y-8 for related content
         - Element spacing: space-y-3 md:space-y-4 for tight groupings
         - **Consistent Rhythm:** Use 8px base unit (space-2) and avoid arbitrary spacing that causes mobile overflow
@@ -588,7 +588,7 @@ bun add @geist-ui/react@1
     ### 🏗️ LAYOUT ARCHITECTURE EXCELLENCE
     • **Container Strategies:** Build layouts that feel intentional:
         - **Content Width:** Use max-w-7xl mx-auto for content/application pages
-        - **Playable Stage:** Use a full-height responsive stage for games, toys, feed previews, and short interactive posts
+        - **Playable Stage:** Use a full-height responsive stage for games, toys, preview iframes, and short interactive posts
         - **Responsive Padding:** px-4 sm:px-6 lg:px-8 for perfect edge spacing
         - **Section Spacing:** Use generous spacing for content pages and tighter stage-safe spacing for playable scenes
     • **Grid Systems:** Create balanced, scannable layouts:
@@ -619,8 +619,8 @@ bun add @geist-ui/react@1
         - **Mobile Menu:** Smooth slide-in animations with backdrop blur
     
     ### 📱 RESPONSIVE DESIGN MASTERY
-    • **Mobile-First Excellence:** Design for mobile, enhance for desktop:
-        - **Touch Targets:** Minimum 44px touch targets for mobile usability
+    • **Touch & Responsive Excellence:** Design for touch and pointer input, adapting fluidly to the current viewport/container:
+        - **Touch Targets:** Minimum 44px touch targets for comfortable touch usability
         - **Typography Scaling:** text-2xl md:text-4xl lg:text-5xl for responsive headers
         - **Image Handling:** Prefer Tailwind v3-safe utilities like aspect-video or aspect-[16/9] for consistent image ratios
     • **Breakpoint Strategy:** Use Tailwind breakpoints meaningfully:
@@ -657,16 +657,16 @@ export default function Page() {
 For playable posts, games, toys, feed previews, canvas/SVG scenes, or touch-first experiences, use a stage-first root instead:
 export default function Page() {
   return (
-    <main className="min-h-[100dvh] w-full overflow-hidden px-3 py-3 sm:px-4">
-      {/* responsive playable stage */}
+    <main className="relative min-h-[100dvh] w-full overflow-hidden">
+      {/* full-iframe responsive playable stage */}
     </main>
   );
 }
 
-2) Prefer shadcn/ui components heavily
-- Use shadcn/ui primitives for structure and widgets (e.g., Button, Card, Input, Sheet, Sidebar) when they fit the interaction
-- Import from "@/components/ui/..." and compose with Tailwind utilities. Use Radix primitives as needed for composition.
-- For custom game controls, canvas/SVG scenes, and animated props, plain React + Tailwind/CSS is acceptable when it is simpler and safer.
+2) Prefer shadcn/ui components heavily when the selected template includes them
+- Use shadcn/ui primitives for structure and widgets (e.g., Button, Card, Input, Sheet, Sidebar) when they fit the interaction and exist in the template
+- Import from "@/components/ui/..." and compose with Tailwind utilities only when those paths/tools exist. Use Radix primitives as needed for composition.
+- For custom game controls, canvas/SVG scenes, and animated props, use the selected template's existing stack. In buzzplay-phaser, implement core gameplay in Phaser scenes rather than React/Tailwind.
 
 3) Tailwind v3-safe Instructions
 - Avoid CSS @theme or CSS @plugin directives in component styles
@@ -676,7 +676,8 @@ export default function Page() {
 4) Good vs Bad
 - BAD: top-level <div> with no gutters (content flush to the left edge)
 - GOOD for content pages: wrap with max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 and section spacing py-8 md:py-10 lg:py-12
-- GOOD for playable scenes: min-h-[100dvh] w-full overflow-hidden with safe-area padding and a responsive stage
+- GOOD for playable scenes: min-h-[100dvh] w-full overflow-hidden with a responsive stage that fills the iframe/container
+- BAD for playable scenes: fake phone frames, device mockups, centered max-width mobile shells, or nested preview cards unless the user explicitly asks for one
 
 5) Color & Contrast (light theme defaults)
 - Primary labels: text-foreground
@@ -692,7 +693,7 @@ export default function Page() {
 These rules take precedence over generic landing-page, dashboard, or long-form app guidance for interactive app/game requests.
 
 ### Product Intent
-- Build a "playable post": a short, mobile-first interactive content unit that users can play, replay, share, and remix.
+- Build a "playable post": a short, touch-friendly interactive content unit that users can play, replay, share, and remix inside the preview iframe.
 - Do not default to a static landing page, feature explainer, or technical demo unless the user explicitly asks for one.
 - The experience should be understandable in 1 second, interactive within 5 seconds, and deliver a payoff/result within 15-30 seconds.
 - Preserve the user's concrete request first. Add creative interpretation only to clarify, heighten, or complete a simple idea without replacing it.
@@ -706,36 +707,42 @@ These rules take precedence over generic landing-page, dashboard, or long-form a
 - Prefer small scenes with expressive UI, props, character reactions, sound/visual feedback cues, and surprising micro-interactions over complex game systems.
 - 3D is acceptable when it feels like a toy, tabletop scene, paper theater, low-poly prop, or physics-like object interaction. Avoid big worlds, realistic humans, precise action games, or cinematic video-like scenes.
 
-### Mobile-First Interaction
-- Design for a vertical phone feed first: 360-430px wide, 100dvh tall, with safe-area padding and no clipped controls.
-- For playable scenes, use a stage-first root such as min-h-[100dvh] w-full overflow-hidden with a responsive stage; do not force a generic max-w dashboard wrapper if it hurts gameplay.
+### Touch And Iframe Interaction
+- Design for the actual preview iframe/container first. The playable root should fill the available width and height without page scrolling.
+- Do not create a fake phone frame, device mockup, centered max-width mobile shell, or inner viewport/card wrapper unless the user explicitly asks for that visual.
+- For playable scenes, use a stage-first root such as min-h-[100dvh] w-full overflow-hidden with a responsive stage; do not force a generic max-w dashboard wrapper or max-w-[430px] phone wrapper if it hurts gameplay.
 - Keep all essential controls reachable by thumb. Touch targets must be at least 44px, with enough spacing to avoid accidental taps.
 - Support pointer events so mouse and touch both work. Do not rely on hover-only interactions.
 - Handle drag/tap gestures carefully: prevent unwanted page scroll while dragging, clamp positions to the stage, and release pointer capture cleanly.
 - Canvas/SVG/absolute-positioned elements must resize with the container. Recompute bounds on resize/orientation changes and account for devicePixelRatio when drawing canvas.
-- Preview and live play should match: avoid hard-coded pixel sizes, viewport assumptions, or iframe-dependent offsets.
+- Preview and live play should match: avoid hard-coded pixel sizes, fixed phone-width assumptions, nested preview frames, or iframe-dependent offsets.
 
 ### Reliability And Finish
 - Ship a complete playable first screen in the initial phase. No blank screens, placeholder-only pages, or "coming soon" states.
 - Guard every interaction path with safe defaults. Never read from possibly undefined objects without checks.
 - Timers, requestAnimationFrame loops, event listeners, and pointer listeners must be cleaned up.
 - Keep state transitions simple and testable: start -> playing -> result/replay, or equivalent.
-- Use only available dependencies and valid imports. If a dependency is optional or uncertain, implement with React, Tailwind, CSS, SVG, or canvas instead.
+- Use only available dependencies and valid imports. If a dependency is optional or uncertain, implement with the selected template's existing stack instead.
 - Prefer robust fallback visuals for missing user assets. Uploaded assets should enhance the scene but must not be required for the app to render.
 `,
-    KAPLAY_PLAYABLE_DEVELOPMENT_GUIDELINES: `## KAPLAY PLAYABLE DEVELOPMENT GUIDELINES
+    PHASER_PLAYABLE_DEVELOPMENT_GUIDELINES: `## PHASER PLAYABLE DEVELOPMENT GUIDELINES
 
-Official KAPLAY guides: https://kaplayjs.com/docs/guides/
+Official Phaser API Reference: https://docs.phaser.io/api-documentation/api-documentation
+Official Phaser Examples: https://phaser.io/examples
 
-Use these rules when the selected template is "buzzplay-kaplay-playable" or the project imports KAPLAY:
-- Build the playable inside \`src/game/playable-game.ts\`; keep React responsible for mounting the canvas and light platform UI only.
-- Structure the game with KAPLAY scenes such as \`start\`, \`game\`, and \`result\` so state transitions stay simple and replayable.
-- Prefer KAPLAY primitives and components: \`pos\`, \`area\`, \`body\`, \`move\`, \`anchor\`, \`sprite\`, \`rect\`, \`circle\`, \`text\`, \`onUpdate\`, \`loop\`, and \`onCollide\`.
-- Use KAPLAY collision and scene APIs for outcomes instead of DOM hit-testing or React state-driven animation loops.
-- Keep controls mobile-first: tap, hold, drag, swipe, one-thumb lanes, or large choice zones. Keyboard support is optional fallback, not the main path.
-- Use the template's \`src/lib/playable-assets.ts\` helpers for uploaded media from \`src/asset_map\`; always include shape/color fallbacks.
-- Do not add Phaser, PixiJS, Three.js, Matter.js, or new game engines unless the user explicitly asks and the dependency is available.
-- Avoid changing \`package.json\`, \`vite.config.ts\`, or \`wrangler.jsonc\`; KAPLAY is already provided by the template.
+Use these rules when the selected template is "buzzplay-phaser" or the project imports Phaser:
+- Build the playable inside Phaser scenes under \`src/game/scenes/\`. React is only a thin fullscreen host in \`src/App.tsx\` and \`src/PhaserGame.tsx\`.
+- Keep TypeScript strict-safe: avoid \`any\`, type gameplay state/helpers, and use compiler feedback instead of guessing Phaser object methods.
+- Structure the game with Phaser scenes such as \`MainMenu\`, \`Game\`, and \`GameOver\` so state transitions stay simple and replayable.
+- Prefer Phaser systems for gameplay: \`this.add\`, \`this.physics.add\`, \`this.input\`, \`this.tweens\`, \`this.time\`, \`this.cameras\`, \`this.scale\`, and \`this.sound\`.
+- Use Arcade Physics for simple movement/collision games unless another physics mode is already configured and clearly necessary.
+- Before using unfamiliar Phaser classes, methods, config fields, physics APIs, or plugin APIs, verify them against the API Reference.
+- Do not invent Phaser APIs. Prefer API names already used in the template or documented APIs such as \`this.load.image\`, \`this.add.sprite\`, \`this.physics.add.sprite\`, \`this.input.on\`, \`this.tweens.add\`, \`this.time.addEvent\`, \`this.scene.start\`, and \`this.scale.on\`.
+- Keep controls touch-first and pointer-friendly: tap, hold, drag, swipe, one-thumb lanes, or large choice zones. Keyboard support is optional fallback, not the main path.
+- Use the template's \`src/playable-assets.ts\` helpers for bundled starter assets and uploaded media from \`src/asset_map\`; always include shape/color fallbacks.
+- Do not turn the game into React-only buttons/cards, DOM hit-testing, or CSS-only animation when Phaser is selected.
+- Do not add another game engine or rendering library unless the user explicitly asks and the dependency is available.
+- Avoid changing \`package.json\`, \`vite.config.js\`, \`index.html\`, or \`wrangler.jsonc\`; Phaser and deployment infrastructure are already provided by the template.
 `,
 PROJECT_CONTEXT: `Here is everything you will need about the project:
 
@@ -784,9 +791,10 @@ export const STRATEGIES_UTILS = {
             - Immediate visual feedback on the first user action
             - A simple state flow such as start -> playing -> result -> replay/remix
             - A payoff/result that can be replayed, screenshotted, shared, or remixed
-        * **MOBILE-FIRST STAGE:** Design the first screen around a phone feed viewport:
-            - Responsive full-height stage for playable scenes
-            - Safe-area-aware controls with 44px minimum touch targets
+        * **IFRAME-FIT TOUCH STAGE:** Design the first screen around the actual preview iframe/container:
+            - Responsive full-height stage for playable scenes that fills the iframe/container
+            - No fake phone frame, device mockup, centered max-width mobile shell, or nested preview card unless explicitly requested
+            - Edge-aware controls with 44px minimum touch targets
             - No clipped buttons, hidden instructions, or iframe-specific offsets
             - Pointer events that work for both touch and mouse
         * **LEAN VISUAL POLISH:** Make the experience stop-scrolling without overbuilding:
@@ -800,7 +808,7 @@ export const STRATEGIES_UTILS = {
             - Timers, RAF loops, and event listeners cleaned up
             - Type-safe imports and simple state transitions
         * **Phase Granularity:** For simple playable posts, deliver a complete working experience in one phase. For larger apps, still make the initial phase immediately playable and demoable.
-        * **Deployable Milestone:** First phase should be something a user can play right away on mobile preview.
+        * **Deployable Milestone:** First phase should be something a user can play right away in the preview iframe.
         * **Override template home page**: Be sure to rewrite the home page of the app. Do not remove the existing homepage, rewrite on top of it.`,
     SUBSEQUENT_PHASE_GUIDELINES: `**Subsequent Phases: Requested Changes, Reliability, and Playable Polish**
         * **USER FEEDBACK FIRST:** Address explicit user requests, reported issues, and asset-specific changes before speculative enhancements.
@@ -809,10 +817,10 @@ export const STRATEGIES_UTILS = {
             - More satisfying feedback and result states
             - Better replay, retry, and remix affordances
             - Clearer scoring, timing, choices, or character reactions
-        * **MOBILE AND PREVIEW CONSISTENCY:** Keep the preview iframe and live play aligned:
+        * **IFRAME AND LIVE PLAY CONSISTENCY:** Keep the preview iframe and live play aligned:
             - Responsive stage sizing across mobile, tablet, and desktop
             - Bounds recalculated on resize/orientation changes
-            - Controls anchored to safe areas
+            - Controls anchored with enough edge padding to remain visible and tappable
             - No hard-coded viewport assumptions that shift clickable targets
         * **RELIABILITY OVER SCOPE:** Fix runtime errors, broken imports, undefined access, render loops, and unusable interactions before adding more features.
         * **VISUAL POLISH WITH PURPOSE:** Refine spacing, colors, animations, and copy when they improve playability, clarity, or shareability.
@@ -857,7 +865,7 @@ export const STRATEGIES = {
     FRONTEND_FIRST_PLANNING: `<PHASES GENERATION STRATEGY>
     **STRATEGY: Playable Content First / Stable Interaction First**
     The project is developed live: the user receives a preview after each phase.
-    The core principle is to establish a complete, mobile-first playable surface early, before layering in more advanced functionality.
+    The core principle is to establish a complete, iframe-fit touch-friendly playable surface early, before layering in more advanced functionality.
     The goal is to build and demo something users can actually play, understand, and replay as fast as possible.
     **Each phase should be self-contained, deployable and demoable.**
     The number of phases and files per phase should scale based on the number of views/pages and complexity of the application, layed out as follows:
@@ -879,7 +887,7 @@ export const STRATEGIES = {
 FRONTEND_FIRST_CODING: `<PHASES GENERATION STRATEGY>
     **STRATEGY: Playable Content First / Stable Interaction First**
     The project is developed live: the user receives a preview after each phase.
-    The core principle is to establish a complete, mobile-first playable surface early, before layering in more advanced functionality.
+    The core principle is to establish a complete, iframe-fit touch-friendly playable surface early, before layering in more advanced functionality.
     The goal is to build and demo something users can actually play, understand, and replay as fast as possible.
     **Each phase should be self-contained, deployable and demoable**
 
@@ -1130,20 +1138,20 @@ const DASHBOARD_INSTRUCTIONS = (): string => `
 ** Dashboard should be information dense.
 `;
 
-const BUZZPLAY_KAPLAY_INSTRUCTIONS = (): string => `
+const BUZZPLAY_PHASER_INSTRUCTIONS = (): string => `
 Use this project as a BuzzPlay playable post, not a conventional website.
 - Lead with the playable scene, not a marketing hero, feature explainer, dashboard, or card-only UI.
-- Expand simple creator prompts into one clear mobile interaction, immediate feedback, a result/payoff scene, and replay.
-- Use KAPLAY for the core loop, scene transitions, collisions, spawning, scoring, and touch controls.
-- Keep React outside the game loop except for mounting the canvas and optional lightweight overlays.
-- Use uploaded assets through \`src/asset_map\` helpers when relevant, with visual fallbacks.
+- Expand simple creator prompts into one clear touch/pointer interaction, immediate feedback, a result/payoff scene, and replay.
+- Use Phaser for the core loop, scene transitions, collisions, spawning, scoring, and touch controls.
+- Implement the playable in \`src/game/scenes/*\` with Phaser APIs. Keep React as the fullscreen host; do not move core gameplay into DOM/CSS.
+- Use bundled starter assets and uploaded assets through \`src/playable-assets.ts\` and \`src/asset_map\` when relevant, with visual fallbacks.
 - Treat the selected style as the playable's visual mood: palette, props, typography, particles, result copy, and feedback effects.
 
-${PROMPT_UTILS.KAPLAY_PLAYABLE_DEVELOPMENT_GUIDELINES}`;
+${PROMPT_UTILS.PHASER_PLAYABLE_DEVELOPMENT_GUIDELINES}`;
 
 export const getUsecaseSpecificInstructions = (selectedTemplate: TemplateSelection): string => {
-    if (selectedTemplate.selectedTemplateName === 'buzzplay-kaplay-playable') {
-        return BUZZPLAY_KAPLAY_INSTRUCTIONS();
+    if (selectedTemplate.selectedTemplateName === 'buzzplay-phaser') {
+        return BUZZPLAY_PHASER_INSTRUCTIONS();
     }
 
     switch (selectedTemplate.useCase) {

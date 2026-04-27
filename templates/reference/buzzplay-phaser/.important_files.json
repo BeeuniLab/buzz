@@ -1,0 +1,13 @@
+[
+	"index.html",
+	"package.json",
+	"tsconfig.json",
+	"vite.config.js",
+	"src/App.tsx",
+	"src/PhaserGame.tsx",
+	"src/main.tsx",
+	"src/playable-assets.ts",
+	"src/asset_map",
+	"src/game/",
+	"worker/"
+]

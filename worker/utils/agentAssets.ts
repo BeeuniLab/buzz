@@ -57,8 +57,13 @@ export function getPublicUrlForBucketKey(env: Env, r2Key: string): string {
 	return `${base}/api/${r2Key}`;
 }
 
+function isTemplateStarterAssetUrl(url: string): boolean {
+	return url.startsWith('assets/') || url.startsWith('/assets/');
+}
+
 /**
- * Build asset_map JSON from R2 listing. Preserves `description` for paths that still exist in R2.
+ * Build asset_map JSON from R2 listing. Preserves local template starter assets and
+ * `description` for uploaded paths that still exist in R2.
  * Values are always `{ url }` or `{ url, description? }` (scheme A).
  */
 export async function computeAgentAssetMapJson(
@@ -74,6 +79,12 @@ export async function computeAgentAssetMapJson(
 	const baseUrl = `${protocol}://${env.CUSTOM_DOMAIN}/api/projects/${agentId}/assets/file`;
 
 	const assetMap: Record<string, AssetMapEntry> = {};
+	for (const [relativePath, entry] of Object.entries(existing)) {
+		if (isTemplateStarterAssetUrl(entry.url)) {
+			assetMap[relativePath] = entry;
+		}
+	}
+
 	for (const obj of listed.objects) {
 		const relativePath = obj.key.replace(prefix, '');
 		const url = `${baseUrl}/${relativePath}`;

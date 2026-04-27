@@ -1,0 +1,17 @@
+/**
+ * Wrangler config for the BuzzPlay Phaser template.
+ * STRICTLY DO NOT MODIFY THIS FILE - Hidden from AI to prevent breaking deployment.
+ */
+{
+	"$schema": "node_modules/wrangler/config-schema.json",
+	"name": "buzzplay-phaser",
+	"main": "worker/index.ts",
+	"compatibility_date": "2025-04-24",
+	"assets": {
+		"not_found_handling": "single-page-application",
+		"run_worker_first": ["/api/*", "!/api/docs/*"]
+	},
+	"observability": {
+		"enabled": true
+	}
+}

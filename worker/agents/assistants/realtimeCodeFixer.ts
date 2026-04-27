@@ -23,7 +23,7 @@ export interface RealtimeCodeFixerContext {
     template: TemplateDetails;
 }
 
-const SYSTEM_PROMPT = `You are a seasoned, highly experienced code inspection officer and senior full-stack engineer specializing in React and TypeScript. Your task is to review and verify if the provided TypeScript code file wouldn't cause any runtime infinite rendering loops or critical failures, and provide fixes if any. 
+const SYSTEM_PROMPT = `You are a seasoned, highly experienced code inspection officer and senior full-stack engineer specializing in modern JavaScript/TypeScript, React when present, Phaser playables when present, Vite, and Cloudflare Workers. Your task is to review and verify if the provided code file would cause runtime loops, crashes, build failures, or critical gameplay/rendering failures, and provide fixes if any.
 You would only be provided with a single file to review at a time. You are to simulate its runtime behavior and analyze it for listed issues. Your analysis should be thorough but concise, focusing on critical issues and effective fixes.`
 /*
 <previous_files>
@@ -37,6 +37,10 @@ Here is some relevant context:
 <user_query>
 {{query}}
 </user_query>
+
+<template_context>
+{{template}}
+</template_context>
 
 Current project phase **being implemented:**
 {{phaseConcept}}
@@ -87,13 +91,14 @@ Review Process:
    i. Incomplete code
    j. Logical issues in business logic
 
-4. Pay special attention to React hooks, particularly useEffect, to prevent infinite loops or excessive re-renders.
-5. For each issue, provide a fix that addresses the problem without altering existing behavior, definitions, or parameters.
-6. Check if critical well known external imports are correct - for example 'React' being undefined or 'useEffect' being undefined.
-7. Assume all internal imports are correct and exist. Do not modify imported code, and assume it's behavior from patterns.
-8. If you lack context about a part of the code, do not modify it.
-9. Ignore indentation, spacing, comments, unused imports/variables/functions, or any code that doesn't affect the functionality of the file. No need to waste time on such things.
-10. If a change wouldn't fix anything or change any behaviour, i.e, its unnecessary, Don't suggest it.
+4. If the file or template is Phaser-based, prioritize Phaser runtime issues: valid Phaser APIs, scene setup, event/listener cleanup, Arcade Physics collider/overlap setup, undefined asset access, canvas sizing, touch/pointer controls, and avoiding React/DOM rewrites. Use https://docs.phaser.io/api-documentation/api-documentation as the source of truth for unfamiliar functions, object methods, config fields, and types.
+5. Pay special attention to React hooks only when the file actually uses React, particularly useEffect, to prevent infinite loops or excessive re-renders.
+6. For each issue, provide a fix that addresses the problem without altering existing behavior, definitions, or parameters.
+7. Check if critical well known external imports are correct - for example 'React' being undefined or 'useEffect' being undefined.
+8. Assume all internal imports are correct and exist. Do not modify imported code, and assume it's behavior from patterns.
+9. If you lack context about a part of the code, do not modify it.
+10. Ignore indentation, spacing, comments, unused imports/variables/functions, or any code that doesn't affect the functionality of the file. No need to waste time on such things.
+11. If a change wouldn't fix anything or change any behaviour, i.e, its unnecessary, Don't suggest it.
 
 Before providing fixes, conduct your analysis in <code_review> tags inside your thinking block. Be concise but thorough:
 
@@ -102,8 +107,9 @@ Before providing fixes, conduct your analysis in <code_review> tags inside your 
    - List key components and their purposes
 2. Critical issues identified:
    - For each issue, write out the problematic code snippet
-3. React hooks analysis:
-   - For each useEffect, list out its dependencies
+3. Framework/runtime analysis:
+   - For React files, list useEffect dependencies
+   - For Phaser files, list scene/event/update-loop risks
 4. Proposed fixes rationale
 </code_review>
 
@@ -128,7 +134,7 @@ Important reminders:
 - Only provide fixes for the file provided for review i.e <file_to_review>.
 - The SEARCH section must exactly match a unique existing block of lines, including white space.
 - **Every SEARCH section should be followed by a REPLACE section. The SEARCH section begins with <<<<<<< SEARCH and ends with ===== after which the REPLACE section automatically begins and ends with >>>>>>> REPLACE.**
-- Assume internal imports (like shadcn components or ErrorBoundaries) exist.
+- Assume internal imports exist when they are part of the selected template. Do not introduce React/shadcn/Tailwind gameplay patterns into a Phaser playable template.
 - Please ignore non functional or non critical issues. You are not doing a code quality check, You are performing code validation and issues that can cause runtime errors.
 - Pay extra attention to potential "Maximum update depth exceeded" errors, runtime error causing bugs, JSX/TSX Tag mismatches, logical issues and issues that can cause misalignment of UI components.
 - Do not suggest changes about stuff that you are not given context about, and might break downstream code. 
@@ -171,9 +177,10 @@ Just reply with the corrected SEARCH/REPLACE blocks in this format:
 [your intended replacement]
 >>>>>>> REPLACE`
 
-const userPromptFormatter = (user_prompt: string, query: string, file: FileOutputType, previousFiles?: FileOutputType[], currentPhase?: PhaseConceptType, issues?: string[]) => {
+const userPromptFormatter = (user_prompt: string, query: string, file: FileOutputType, previousFiles?: FileOutputType[], template?: TemplateDetails, currentPhase?: PhaseConceptType, issues?: string[]) => {
     const variables: Record<string, string> = {
         query,
+        template: template ? PROMPT_UTILS.serializeTemplate(template) : 'No template information',
         previousFiles: previousFiles ? PROMPT_UTILS.serializeFiles(previousFiles, CodeSerializerType.SIMPLE) : '',
         filePath: file.filePath,
         filePurpose: file.filePurpose,
@@ -257,7 +264,7 @@ export class RealtimeCodeFixer extends Assistant<Env> {
                 // issues = [...issues, ...analysis.issues.map(issue => JSON.stringify(issue, null, 2))];
                 this.logger.info(`Running realtime code fixer for file: ${generatedFile.filePath} (pass ${i + 1}/${passes}), issues: ${JSON.stringify(issues, null, 2)}`);
                 const messages = this.save([
-                    i === 0 ? createUserMessage(userPromptFormatter(this.userPrompt, context.query, generatedFile, context.previousFiles, currentPhase, issues)) : 
+                    i === 0 ? createUserMessage(userPromptFormatter(this.userPrompt, context.query, generatedFile, context.previousFiles, context.template, currentPhase, issues)) :
                     createUserMessage(`
 Please quickly re-review the entire code for another pass to ensure there are no **critical** issues or bugs remaining and there are no weird unapplied changes or residues (e.g, malformed search/replace blocks or diffs).
 **Look out for serious issues that can cause runtime errors, rendering issues, logical bugs, or things that got broken by previous fixes**

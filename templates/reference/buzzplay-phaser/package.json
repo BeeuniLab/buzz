@@ -1,0 +1,44 @@
+{
+  "name": "buzzplay-phaser",
+  "description": "BuzzPlay Phaser TypeScript playable template for sandbox previews and Cloudflare Workers deployment.",
+  "version": "1.1.0",
+  "type": "module",
+  "keywords": [
+    "phaser",
+    "phaser3",
+    "react",
+    "vite",
+    "typescript"
+  ],
+  "scripts": {
+    "dev": "vite --host 0.0.0.0 --port ${PORT:-3000}",
+    "build": "tsc --noEmit && vite build",
+    "typecheck": "tsc --noEmit",
+    "preview": "bun run build && vite preview --host 0.0.0.0 --port ${PORT:-4173}",
+    "deploy": "bun run build && wrangler deploy",
+    "cf-typegen": "wrangler types"
+  },
+  "dependencies": {
+    "hono": "^4.9.8",
+    "phaser": "3.90.0",
+    "pino": "^9.11.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "devDependencies": {
+    "@cloudflare/vite-plugin": "^1.17.1",
+    "@cloudflare/workers-types": "^4.20250424.0",
+    "@eslint/js": "^9.22.0",
+    "@types/react": "^19.0.10",
+    "@types/react-dom": "^19.0.4",
+    "@vitejs/plugin-react": "^4.3.4",
+    "eslint": "^9.22.0",
+    "eslint-plugin-react-hooks": "^5.2.0",
+    "eslint-plugin-react-refresh": "^0.4.19",
+    "globals": "^16.0.0",
+    "typescript": "5.8",
+    "typescript-eslint": "^8.26.1",
+    "vite": "^6.3.1",
+    "terser": "^5.28.1"
+  }
+}

@@ -1325,7 +1325,20 @@ export class SandboxSdkClient extends BaseSandboxService {
             // We use .reload-trigger instead of vite.config.ts because:
             // - vite.config.ts triggers a FULL SERVER RESTART (disposes miniflare, causes race condition errors)
             // - .reload-trigger triggers a PAGE RELOAD via WebSocket (server stays running)
-            if (successCount > 0 && filteredFiles.some(file => file.filePath.endsWith('.ts') || file.filePath.endsWith('.tsx'))) {
+            const shouldTriggerReload = filteredFiles.some((file) => {
+                const path = file.filePath;
+                return (
+                    path.endsWith('.ts') ||
+                    path.endsWith('.tsx') ||
+                    path.endsWith('.js') ||
+                    path.endsWith('.jsx') ||
+                    path.endsWith('.css') ||
+                    path.endsWith('.html') ||
+                    path === 'src/asset_map'
+                );
+            });
+
+            if (successCount > 0 && shouldTriggerReload) {
                 this.logger.info('Touching .reload-trigger to trigger page reload');
                 await session.exec(`touch .reload-trigger`);
             }

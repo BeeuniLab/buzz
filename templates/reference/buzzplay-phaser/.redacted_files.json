@@ -1,0 +1,4 @@
+[
+	"worker/index.ts",
+	"worker/core-utils.ts"
+]

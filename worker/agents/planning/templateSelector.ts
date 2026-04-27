@@ -139,58 +139,59 @@ Analyze the request carefully and classify accordingly.`;
  */
 function getSystemPromptForProjectType(projectType: ProjectType): string {
     if (projectType === 'app') {
-        return `You are the BuzzPlay template selector for mobile-first playable content. Your task is to select the most suitable starting template from the provided list.
+        return `You are the BuzzPlay template selector for touch-friendly playable content. Your task is to select the most suitable starting template from the provided list.
 
 ## SELECTION EXAMPLES:
 
 **Example 1 - Arcade Loop:**
 User: "做一个办公室摸鱼躲老板小游戏"
-Templates: ["buzzplay-kaplay-playable"]
-Selection: "buzzplay-kaplay-playable"
+Templates: ["buzzplay-phaser"]
+Selection: "buzzplay-phaser"
 complexity: "simple"
 useCase: "Other"
-Reasoning: "A short BuzzPlay idea should become a mobile playable post with movement, hazards, score feedback, and replay"
+Reasoning: "A short BuzzPlay idea should become a touch-friendly playable post with movement, hazards, score feedback, and replay"
 
 **Example 2 - Soft Interaction / Quiz:**
 User: "做一个测我是哪种 MBTI 小猫的互动内容"
-Templates: ["buzzplay-kaplay-playable"]
-Selection: "buzzplay-kaplay-playable"
+Templates: ["buzzplay-phaser"]
+Selection: "buzzplay-phaser"
 complexity: "simple"
 useCase: "Other"
 Reasoning: "Translate the quiz into a tap/choose/timing playable with expressive feedback and a result scene instead of a static card"
 
 **Example 3 - Uploaded Reference Asset:**
 User: "用这张图做一个收集金币的小游戏"
-Templates: ["buzzplay-kaplay-playable"]
-Selection: "buzzplay-kaplay-playable"
+Templates: ["buzzplay-phaser"]
+Selection: "buzzplay-phaser"
 complexity: "simple"
 useCase: "Other"
-Reasoning: "The KAPLAY template can turn uploaded media into sprites/backgrounds with touch controls, collisions, scoring, and fallbacks"
+Reasoning: "The Phaser template can turn uploaded media into sprites/backgrounds with touch controls, collisions, scoring, and fallbacks"
 
 **Example 4 - Meme / Reaction Toy:**
 User: "做一个发疯工位能量充电器"
-Templates: ["buzzplay-kaplay-playable"]
-Selection: "buzzplay-kaplay-playable"
+Templates: ["buzzplay-phaser"]
+Selection: "buzzplay-phaser"
 complexity: "simple"
 useCase: "Other"
 Reasoning: "A vague creative idea should be expanded into a quick tactile toy with one clear action, punchy feedback, and a replayable payoff"
 
 ## SELECTION CRITERIA:
-1. **BuzzPlay Product Fit** - Short, playable, mobile-first content beats generic web-app structure.
+1. **BuzzPlay Product Fit** - Short, playable, iframe-fit touch content beats generic web-app structure.
 2. **Interaction Fit** - Prefer templates with game loops, canvas rendering, touch input, collision, state, scoring, and replay.
 3. **Asset Fit** - Prefer templates that can use uploaded images/audio/video as creative material with safe fallbacks.
 4. **Minimal Modification** - Choose the template that can ship a complete playable first screen fastest.
 
 ## BUZZPLAY SELECTION PRIORITY:
-- If "buzzplay-kaplay-playable" is available, choose it for arcade loops, dodge/collect/runner, snake/flappy/breakout-style games, physics toys, tap timing, rhythm taps, survival challenges, collisions, movement, hazards, score chasing, result scenes, and replayable mobile content.
-- For softer ideas such as quizzes, meme reveals, interactive stories, reaction toys, personality tests, and social challenges, still prefer "buzzplay-kaplay-playable" and translate the idea into a tap/choose/drag/timing playable with a result scene.
-- Uploaded image/audio/video references strengthen the case for "buzzplay-kaplay-playable" because the template has asset_map awareness and KAPLAY sprite/audio primitives.
+- If "buzzplay-phaser" is available, choose it for arcade loops, dodge/collect/runner, snake/flappy/breakout-style games, physics toys, tap timing, rhythm taps, survival challenges, collisions, movement, hazards, score chasing, result scenes, and replayable touch content.
+- For softer ideas such as quizzes, meme reveals, interactive stories, reaction toys, personality tests, and social challenges, still prefer "buzzplay-phaser" and translate the idea into a tap/choose/drag/timing playable with a result scene.
+- Uploaded image/audio/video references strengthen the case for "buzzplay-phaser" because the template has asset_map awareness, bundled starter assets, and Phaser sprite/audio primitives.
 - Avoid dashboard, blog, marketing, presentation, long-form app, or technical demo templates for short playable content unless the user explicitly asks for those categories.
-- Treat short/vague creative ideas as simple playable posts, not full game platforms. Pick the template that can deliver a complete mobile-first first screen fastest.
+- Treat short/vague creative ideas as simple playable posts, not full game platforms. Pick the template that can deliver a complete iframe-fit first screen fastest.
 
-## KAPLAY CONTEXT:
-- KAPLAY guidance for later implementation: https://kaplayjs.com/docs/guides/
-- This selector does not write code, but it should favor templates whose implementation instructions can guide agents toward KAPLAY scenes, components, collisions, and mobile touch controls.
+## PHASER CONTEXT:
+- Phaser API Reference for later implementation: https://docs.phaser.io/api-documentation/api-documentation
+- Phaser Examples for later implementation: https://phaser.io/examples
+- This selector does not write code, but it should favor templates whose implementation instructions can guide agents toward Phaser scenes, Arcade Physics, collisions, tweens, timers, and touch/pointer controls.
 
 ## USE CASE AND STYLE:
 - For BuzzPlay playable posts, use useCase "Other" unless the user explicitly asks for a conventional SaaS, dashboard, blog, portfolio, or e-commerce app.
@@ -296,7 +297,7 @@ Template detail: ${templateDescriptions}
 **Task:** Select the most suitable template and provide:
 1. selectedTemplateName (exact match from list)
 2. Clear reasoning for why it fits the user's needs
-${actualProjectType === 'app' ? '3. For BuzzPlay playable content, use useCase "Other" or "General" unless the user explicitly asks for SaaS, dashboard, blog, portfolio, or e-commerce. Pick a style that fits the creative mood and mobile playable format.' : ''}
+${actualProjectType === 'app' ? '3. For BuzzPlay playable content, use useCase "Other" or "General" unless the user explicitly asks for SaaS, dashboard, blog, portfolio, or e-commerce. Pick a style that fits the creative mood and touch-friendly playable format.' : ''}
 
 Return only a JSON object with exactly these keys:
 {

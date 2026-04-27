@@ -4,7 +4,7 @@ import type { IssueReport } from '../../domain/values/IssueReport';
 import type { UserContext } from '../../core/types';
 import { issuesPromptFormatter, PROMPT_UTILS } from '../../prompts';
 
-export const PHASE_IMPLEMENTATION_SYSTEM_PROMPT = `You are implementing a phase in a React + TypeScript codebase.
+export const PHASE_IMPLEMENTATION_SYSTEM_PROMPT = `You are implementing a phase in the project's selected template and existing language/framework stack.
 
 <UX_RUBRIC>
 - Layout: responsive, consistent spacing, clear hierarchy.
@@ -16,9 +16,9 @@ export const PHASE_IMPLEMENTATION_SYSTEM_PROMPT = `You are implementing a phase 
 ${PROMPT_UTILS.BUZZPLAY_PLAYABLE_CONTENT_GUIDELINES}
 
 <RELIABILITY>
-- No TS errors.
-- No hooks violations.
-- No render loops.
+- No JavaScript/TypeScript syntax, import, or build errors.
+- No hooks violations when the project uses React.
+- No render loops or runaway animation/update loops.
 - No whole-store selectors.
 </RELIABILITY>
 
@@ -49,6 +49,7 @@ const PHASE_IMPLEMENTATION_USER_PROMPT_TEMPLATE = `Phase Implementation
 </OUTPUT_REQUIREMENTS>
 
 <ZUSTAND_STORE_LAW>
+Apply only if this project uses Zustand.
 - One field per store call: useStore(s => s.field)
 - NEVER: useStore(s => s) / useStore((state)=>state)
 - NEVER destructure store results
