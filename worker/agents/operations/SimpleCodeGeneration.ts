@@ -39,7 +39,9 @@ Your task is to generate production-ready code files specifically based on the p
 - Consider the context of existing files when generating new code
 - Ensure new code integrates well with previously generated files
 
-${PROMPT_UTILS.BUZZPLAY_PLAYABLE_CONTENT_GUIDELINES}`;
+${PROMPT_UTILS.BUZZPLAY_PLAYABLE_CONTENT_GUIDELINES}
+
+${PROMPT_UTILS.KAPLAY_PLAYABLE_DEVELOPMENT_GUIDELINES}`;
 
 const USER_PROMPT = `
 <PROJECT_CONTEXT>

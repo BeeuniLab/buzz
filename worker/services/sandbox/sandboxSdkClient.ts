@@ -67,6 +67,12 @@ type SandboxType = Sandbox;
 
 type ExecutionSession = Awaited<ReturnType<Sandbox['createSession']>>;
 
+const PREVIEW_PORT = 8001;
+
+function shellQuote(value: string): string {
+    return `'${value.replace(/'/g, `'\\''`)}'`;
+}
+
 /**
  * Streaming event for enhanced command execution
  */
@@ -440,35 +446,84 @@ export class SandboxSdkClient extends BaseSandboxService {
         this.metadataCache.delete(instanceId);
     }
 
-    private async allocateAvailablePort(excludedPorts: number[] = [3000]): Promise<number> {
-        const startTime = Date.now();
-        const excludeList = excludedPorts.join(' ');
-        
-        // Single command to find first available port in dev range (8001-8999)
-        const findPortCmd = `
-            for port in $(seq 8001 8999); do
-                if ! echo "${excludeList}" | grep -q "\\\\b$port\\\\b" && 
-                   ! netstat -tuln 2>/dev/null | grep -q ":$port " && 
-                   ! ss -tuln 2>/dev/null | grep -q ":$port "; then
-                    echo $port
-                    break
-                fi
-            done
+    private async cleanupPreviewPort(port: number, instanceId?: string): Promise<void> {
+        try {
+            await this.getSandbox().unexposePort(port);
+            this.logger.info(`Unexposed preview port ${port} before startup`, { instanceId });
+        } catch (error) {
+            this.logger.warn(`Preview port ${port} was not exposed or could not be unexposed`, {
+                instanceId,
+                error: error instanceof Error ? error.message : 'Unknown error'
+            });
+        }
+
+        const cleanupCommand = `
+            PORT=${port}
+            INSTANCE_ID=${shellQuote(instanceId ?? '')}
+            PIDS=""
+
+            if command -v netstat >/dev/null 2>&1; then
+                PIDS="$PIDS $(netstat -tulnp 2>/dev/null | awk -v port=":$PORT" '$4 ~ port { split($7, a, "/"); if (a[1] ~ /^[0-9]+$/) print a[1] }')"
+            fi
+
+            if command -v ss >/dev/null 2>&1; then
+                PIDS="$PIDS $(ss -tulnp 2>/dev/null | awk -v port=":$PORT" '$0 ~ port { print }' | sed -n 's/.*pid=\\([0-9][0-9]*\\).*/\\1/p')"
+            fi
+
+            if [ -n "$INSTANCE_ID" ]; then
+                PIDS="$PIDS $(ps -eo pid=,args= 2>/dev/null | awk -v inst="$INSTANCE_ID" '$0 ~ inst && $0 ~ /monitor-cli process start/ { print $1 }')"
+            fi
+
+            PIDS="$(echo "$PIDS" | tr ' ' '\\n' | sed '/^$/d' | sort -u)"
+            if [ -n "$PIDS" ]; then
+                echo "Cleaning preview port $PORT pids: $PIDS"
+                for pid in $PIDS; do
+                    if [ "$pid" != "$$" ]; then
+                        kill -TERM "$pid" 2>/dev/null || true
+                    fi
+                done
+                sleep 1
+                for pid in $PIDS; do
+                    if [ "$pid" != "$$" ] && kill -0 "$pid" 2>/dev/null; then
+                        kill -KILL "$pid" 2>/dev/null || true
+                    fi
+                done
+            fi
+
+            if command -v netstat >/dev/null 2>&1 && netstat -tuln 2>/dev/null | grep -q ":$PORT "; then
+                echo "Preview port $PORT is still busy after cleanup"
+                exit 1
+            fi
+
+            if command -v ss >/dev/null 2>&1 && ss -tuln 2>/dev/null | grep -q ":$PORT "; then
+                echo "Preview port $PORT is still busy after cleanup"
+                exit 1
+            fi
+
+            echo "Preview port $PORT is free"
         `;
-        
-        const result = await this.safeSandboxExec(findPortCmd.trim());
+
+        const result = await this.safeSandboxExec(cleanupCommand.trim(), { timeout: 10000 });
+        if (result.exitCode !== 0) {
+            throw new Error(`Preview port ${port} cleanup failed: ${result.stderr || result.stdout}`);
+        }
+        this.logger.info('Preview port cleanup completed', {
+            port,
+            instanceId,
+            stdout: result.stdout.trim()
+        });
+    }
+
+    private async allocateAvailablePort(instanceId?: string): Promise<number> {
+        const startTime = Date.now();
+        await this.cleanupPreviewPort(PREVIEW_PORT, instanceId);
         const endTime = Date.now();
         const duration = (endTime - startTime) / 1000;
-        this.logger.info(`Port allocation took ${duration} seconds`);
-        
-        const portStr = result.stdout.trim();
-        if (portStr) {
-            const port = parseInt(portStr);
-            this.logger.info(`Allocated available port: ${port}`);
-            return port;
-        }
-        
-        throw new Error('No available ports found in range 8001-8999');
+        this.logger.info(`Preview port preparation took ${duration} seconds`, {
+            port: PREVIEW_PORT,
+            instanceId
+        });
+        return PREVIEW_PORT;
     }
     
     private async buildFileTree(instanceId: string): Promise<FileTreeNode | undefined> {
@@ -928,7 +983,7 @@ export class SandboxSdkClient extends BaseSandboxService {
             // If on local development, start cloudflared tunnel
             let tunnelUrlPromise = Promise.resolve('');
             // Allocate single port for both dev server and tunnel
-            const allocatedPort = await this.allocateAvailablePort();
+            const allocatedPort = await this.allocateAvailablePort(instanceId);
 
             if (shouldUseTunnelForPreview(env)) {
                 this.logger.info('Starting cloudflared tunnel for local development', { instanceId });
@@ -937,7 +992,7 @@ export class SandboxSdkClient extends BaseSandboxService {
 
             this.logger.info('Installing dependencies', { instanceId });
             const [installResult, tunnelURL] = await Promise.all([
-                this.executeCommand(instanceId, `bun install`, { timeout: 40000 }),
+                this.executeCommand(instanceId, `bun install`, { timeout: 120000 }),
                 tunnelUrlPromise
             ]);
             this.logger.info('Dependencies installed', { instanceId, tunnelURL });
@@ -948,6 +1003,7 @@ export class SandboxSdkClient extends BaseSandboxService {
                     if (localEnvVars) {
                         await this.setLocalEnvVars(instanceId, localEnvVars);
                     }
+                    await this.cleanupPreviewPort(allocatedPort, instanceId);
                     // Start dev server on allocated port
                     const processId = await this.startDevServer(instanceId, initCommand, allocatedPort);
                     this.logger.info('Instance created successfully', { instanceId, processId, port: allocatedPort });

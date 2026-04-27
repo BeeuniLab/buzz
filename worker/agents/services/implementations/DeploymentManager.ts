@@ -18,7 +18,7 @@ import { DeploymentTarget } from '../../core/types';
 import { BaseProjectState } from '../../core/state';
 import { resolvePreviewUrl } from '../../../utils/urls';
 
-const PER_ATTEMPT_TIMEOUT_MS = 60000;  // 60 seconds per individual attempt
+const PER_ATTEMPT_TIMEOUT_MS = 180000;  // 3 minutes per individual attempt; first installs can be slow for game templates
 const MASTER_DEPLOYMENT_TIMEOUT_MS = 300000;  // 5 minutes total
 const HEALTH_CHECK_INTERVAL_MS = 30000;
 
@@ -117,6 +117,27 @@ export class DeploymentManager extends BaseAgentService<BaseProjectState> implem
         }
         
         logger.info("Waiting for preview completed");
+    }
+
+    private async shutdownInstanceIfPresent(client: BaseSandboxService, instanceId: string, reason: string): Promise<void> {
+        const logger = this.getLog();
+        try {
+            logger.info('Shutting down sandbox instance before recreation', { instanceId, reason });
+            const response = await client.shutdownInstance(instanceId);
+            if (!response.success) {
+                logger.warn('Sandbox instance shutdown did not fully succeed', {
+                    instanceId,
+                    reason,
+                    error: response.error
+                });
+            }
+        } catch (error) {
+            logger.warn('Failed to shutdown sandbox instance before recreation', {
+                instanceId,
+                reason,
+                error: error instanceof Error ? error.message : 'Unknown error'
+            });
+        }
     }
 
     /**
@@ -507,13 +528,21 @@ export class DeploymentManager extends BaseAgentService<BaseProjectState> implem
      * Ensure sandbox instance exists and is healthy
      */
     async ensureInstance(redeploy: boolean): Promise<DeploymentResult> {
+        const currentState = this.getState();
+        const existingInstanceId = currentState.sandboxInstanceId;
+        let client = this.getClient();
+
         if (redeploy) {
+            if (existingInstanceId) {
+                await this.shutdownInstanceIfPresent(client, existingInstanceId, 'force redeploy');
+            }
             this.resetSessionId();
         }
+
         const state = this.getState();
         const { sandboxInstanceId } = state;
         const logger = this.getLog();
-        const client = this.getClient();
+        client = this.getClient();
 
         // Check existing instance
         if (sandboxInstanceId) {
@@ -528,6 +557,11 @@ export class DeploymentManager extends BaseAgentService<BaseProjectState> implem
                 };
             }
             logger.error(`DEPLOYMENT CHECK FAILED: Failed to get status for instance ${sandboxInstanceId}, redeploying...`);
+            await this.shutdownInstanceIfPresent(client, sandboxInstanceId, 'unhealthy instance');
+            this.setState({
+                ...this.getState(),
+                sandboxInstanceId: undefined
+            });
         }
 
         const results = await this.createNewInstance();

@@ -19,9 +19,11 @@ function parseAssetMap(raw: string): PlayableAsset[] {
       if (typeof value === 'string') {
         return [{ path, url: value }]
       }
+
       if (!value || typeof value !== 'object' || typeof value.url !== 'string') {
         return []
       }
+
       return [
         {
           path,

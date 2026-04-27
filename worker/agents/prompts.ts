@@ -723,6 +723,20 @@ These rules take precedence over generic landing-page, dashboard, or long-form a
 - Use only available dependencies and valid imports. If a dependency is optional or uncertain, implement with React, Tailwind, CSS, SVG, or canvas instead.
 - Prefer robust fallback visuals for missing user assets. Uploaded assets should enhance the scene but must not be required for the app to render.
 `,
+    KAPLAY_PLAYABLE_DEVELOPMENT_GUIDELINES: `## KAPLAY PLAYABLE DEVELOPMENT GUIDELINES
+
+Official KAPLAY guides: https://kaplayjs.com/docs/guides/
+
+Use these rules when the selected template is "buzzplay-kaplay-playable" or the project imports KAPLAY:
+- Build the playable inside \`src/game/playable-game.ts\`; keep React responsible for mounting the canvas and light platform UI only.
+- Structure the game with KAPLAY scenes such as \`start\`, \`game\`, and \`result\` so state transitions stay simple and replayable.
+- Prefer KAPLAY primitives and components: \`pos\`, \`area\`, \`body\`, \`move\`, \`anchor\`, \`sprite\`, \`rect\`, \`circle\`, \`text\`, \`onUpdate\`, \`loop\`, and \`onCollide\`.
+- Use KAPLAY collision and scene APIs for outcomes instead of DOM hit-testing or React state-driven animation loops.
+- Keep controls mobile-first: tap, hold, drag, swipe, one-thumb lanes, or large choice zones. Keyboard support is optional fallback, not the main path.
+- Use the template's \`src/lib/playable-assets.ts\` helpers for uploaded media from \`src/asset_map\`; always include shape/color fallbacks.
+- Do not add Phaser, PixiJS, Three.js, Matter.js, or new game engines unless the user explicitly asks and the dependency is available.
+- Avoid changing \`package.json\`, \`vite.config.ts\`, or \`wrangler.jsonc\`; KAPLAY is already provided by the template.
+`,
 PROJECT_CONTEXT: `Here is everything you will need about the project:
 
 <PROJECT_CONTEXT>
@@ -1116,7 +1130,22 @@ const DASHBOARD_INSTRUCTIONS = (): string => `
 ** Dashboard should be information dense.
 `;
 
+const BUZZPLAY_KAPLAY_INSTRUCTIONS = (): string => `
+Use this project as a BuzzPlay playable post, not a conventional website.
+- Lead with the playable scene, not a marketing hero, feature explainer, dashboard, or card-only UI.
+- Expand simple creator prompts into one clear mobile interaction, immediate feedback, a result/payoff scene, and replay.
+- Use KAPLAY for the core loop, scene transitions, collisions, spawning, scoring, and touch controls.
+- Keep React outside the game loop except for mounting the canvas and optional lightweight overlays.
+- Use uploaded assets through \`src/asset_map\` helpers when relevant, with visual fallbacks.
+- Treat the selected style as the playable's visual mood: palette, props, typography, particles, result copy, and feedback effects.
+
+${PROMPT_UTILS.KAPLAY_PLAYABLE_DEVELOPMENT_GUIDELINES}`;
+
 export const getUsecaseSpecificInstructions = (selectedTemplate: TemplateSelection): string => {
+    if (selectedTemplate.selectedTemplateName === 'buzzplay-kaplay-playable') {
+        return BUZZPLAY_KAPLAY_INSTRUCTIONS();
+    }
+
     switch (selectedTemplate.useCase) {
         case 'SaaS Product Website':
             return SAAS_LANDING_INSTRUCTIONS(selectedTemplate.styleSelection);

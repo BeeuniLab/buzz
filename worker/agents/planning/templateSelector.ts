@@ -62,15 +62,14 @@ async function predictProjectType(
     try {
         logger.info('Predicting project type from query', { queryLength: query.length });
 
-        const systemPrompt = `You are an Expert Project Type Classifier at Cloudflare. Your task is to analyze user requests and determine what type of project they want to build.
+        const systemPrompt = `You are the BuzzPlay project type classifier. Your task is to analyze creator requests and determine what kind of project they want to build.
 
 ## PROJECT TYPES:
 
-**app** - Full-stack web applications
-- Interactive websites with frontend and backend
-- Dashboards, games, social platforms, e-commerce sites
-- Any application requiring user interface and interactivity
-- Examples: "Build a todo app", "Create a gaming dashboard", "Make a blog platform"
+**app** - Interactive playable content or web applications
+- BuzzPlay playable posts, mini-games, reaction toys, meme interactions, quizzes, visual stories, creative tools, and touch-first experiences
+- Conventional web apps only when explicitly requested
+- Examples: "做一个躲老板小游戏", "Make a funny personality tap game", "Use this image as a collectible challenge", "Build a recipe sharing app"
 
 **workflow** - Backend workflows and APIs
 - Server-side logic without UI
@@ -88,14 +87,14 @@ async function predictProjectType(
 - Docs/notes/specs in Markdown/MDX, or a slide deck initialized later
 - Start with docs when users ask for write-ups; initialize slides if explicitly requested or clearly appropriate
 - No runtime unless slides/app are initialized by the builder
-- Examples: "Write a spec", "Draft an outline and slides if helpful", "Create teaching materials"
+- Examples: "Write a spec", "Draft product strategy", "Create teaching notes"
 
 ## RULES:
-- Default to 'app' when uncertain
+- Default to 'app' when uncertain because BuzzPlay creators usually expect an interactive playable output
 - Choose 'workflow' only when explicitly about APIs, automation, or backend-only tasks
 - Choose 'presentation' only when explicitly about slides, decks, or presentations
 - Choose 'general' for docs/notes/specs or when the user asks to start from scratch without a specific runtime template
-- Consider the presence of UI/visual requirements as indicator for 'app'
+- Treat short creative ideas, games, toys, memes, quizzes, visual references, or mobile/feed interaction prompts as 'app'
 - High confidence when keywords are explicit, medium/low when inferring`;
 
         const userPrompt = `**User Request:** "${query}"
@@ -140,64 +139,70 @@ Analyze the request carefully and classify accordingly.`;
  */
 function getSystemPromptForProjectType(projectType: ProjectType): string {
     if (projectType === 'app') {
-        // Keep the detailed, original prompt for apps
-        return `You are an Expert Software Architect at Cloudflare specializing in template selection for rapid development. Your task is to select the most suitable starting template based on user requirements.
+        return `You are the BuzzPlay template selector for mobile-first playable content. Your task is to select the most suitable starting template from the provided list.
 
 ## SELECTION EXAMPLES:
 
-**Example 1 - Game Request:**
-User: "Build a 2D puzzle game with scoring"
-Templates: ["react-dashboard", "buzzplay-react-playable", "vue-blog"]
-Selection: "buzzplay-react-playable"
+**Example 1 - Arcade Loop:**
+User: "做一个办公室摸鱼躲老板小游戏"
+Templates: ["buzzplay-kaplay-playable"]
+Selection: "buzzplay-kaplay-playable"
 complexity: "simple"
-Reasoning: "BuzzPlay React playable provides mobile-first interaction structure, state management, scoring/result loops, and touch-friendly UI"
+useCase: "Other"
+Reasoning: "A short BuzzPlay idea should become a mobile playable post with movement, hazards, score feedback, and replay"
 
-**Example 2 - Business Dashboard:**
-User: "Create an analytics dashboard with charts"
-Templates: ["react-dashboard", "nextjs-blog", "vanilla-js"]
-Selection: "react-dashboard"
-complexity: "simple" // Because single page application
-Reasoning: "Dashboard template includes chart components, grid layouts, and data visualization setup"
-
-**Example 3 - No Perfect Match:**
-User: "Build a recipe sharing app"
-Templates: ["react-social", "vue-blog", "angular-todo"]
-Selection: "react-social"
-complexity: "simple" // Because single page application
-Reasoning: "Social template provides user interactions, content sharing, and community features closest to recipe sharing needs"
-
-**Example 4 - BuzzPlay Playable Post:**
-User: "Make a funny boss meeting survival challenge"
-Templates: ["react-dashboard", "buzzplay-react-playable", "react-social-feed"]
-Selection: "buzzplay-react-playable"
+**Example 2 - Soft Interaction / Quiz:**
+User: "做一个测我是哪种 MBTI 小猫的互动内容"
+Templates: ["buzzplay-kaplay-playable"]
+Selection: "buzzplay-kaplay-playable"
 complexity: "simple"
-Reasoning: "A short playable challenge needs immediate tap/drag interactions, scoring/result states, uploaded asset awareness, and mobile-friendly game loop support"
+useCase: "Other"
+Reasoning: "Translate the quiz into a tap/choose/timing playable with expressive feedback and a result scene instead of a static card"
+
+**Example 3 - Uploaded Reference Asset:**
+User: "用这张图做一个收集金币的小游戏"
+Templates: ["buzzplay-kaplay-playable"]
+Selection: "buzzplay-kaplay-playable"
+complexity: "simple"
+useCase: "Other"
+Reasoning: "The KAPLAY template can turn uploaded media into sprites/backgrounds with touch controls, collisions, scoring, and fallbacks"
+
+**Example 4 - Meme / Reaction Toy:**
+User: "做一个发疯工位能量充电器"
+Templates: ["buzzplay-kaplay-playable"]
+Selection: "buzzplay-kaplay-playable"
+complexity: "simple"
+useCase: "Other"
+Reasoning: "A vague creative idea should be expanded into a quick tactile toy with one clear action, punchy feedback, and a replayable payoff"
 
 ## SELECTION CRITERIA:
-1. **Feature Alignment** - Templates with similar core functionality
-2. **Tech Stack Match** - Compatible frameworks and dependencies  
-3. **Architecture Fit** - Similar application structure and patterns
-4. **Minimal Modification** - Template requiring least changes
+1. **BuzzPlay Product Fit** - Short, playable, mobile-first content beats generic web-app structure.
+2. **Interaction Fit** - Prefer templates with game loops, canvas rendering, touch input, collision, state, scoring, and replay.
+3. **Asset Fit** - Prefer templates that can use uploaded images/audio/video as creative material with safe fallbacks.
+4. **Minimal Modification** - Choose the template that can ship a complete playable first screen fastest.
 
 ## BUZZPLAY SELECTION PRIORITY:
-- If buzzplay-react-playable is available, choose it for memeplay, social challenge, character toy, tap/drag/choose/reveal, score/result, physics toy, interactive story, quiz, or mobile playable post requests.
-- Prefer templates built for interactive play, animation, mobile touch, uploaded asset use, and game-state loops.
-- Avoid dashboard, blog, marketing, or long-form app templates for short playable content unless the user clearly asks for those product categories.
+- If "buzzplay-kaplay-playable" is available, choose it for arcade loops, dodge/collect/runner, snake/flappy/breakout-style games, physics toys, tap timing, rhythm taps, survival challenges, collisions, movement, hazards, score chasing, result scenes, and replayable mobile content.
+- For softer ideas such as quizzes, meme reveals, interactive stories, reaction toys, personality tests, and social challenges, still prefer "buzzplay-kaplay-playable" and translate the idea into a tap/choose/drag/timing playable with a result scene.
+- Uploaded image/audio/video references strengthen the case for "buzzplay-kaplay-playable" because the template has asset_map awareness and KAPLAY sprite/audio primitives.
+- Avoid dashboard, blog, marketing, presentation, long-form app, or technical demo templates for short playable content unless the user explicitly asks for those categories.
 - Treat short/vague creative ideas as simple playable posts, not full game platforms. Pick the template that can deliver a complete mobile-first first screen fastest.
 
-## STYLE GUIDE:
-- **Minimalist Design**: Clean, simple interfaces
-- **Brutalism**: Bold, raw, industrial aesthetics
-- **Retro**: Vintage, nostalgic design elements
-- **Illustrative**: Rich graphics and visual storytelling
-- **Kid_Playful**: Colorful, fun, child-friendly interfaces
-- **Custom**: Design that doesn't fit any of the above categories
+## KAPLAY CONTEXT:
+- KAPLAY guidance for later implementation: https://kaplayjs.com/docs/guides/
+- This selector does not write code, but it should favor templates whose implementation instructions can guide agents toward KAPLAY scenes, components, collisions, and mobile touch controls.
+
+## USE CASE AND STYLE:
+- For BuzzPlay playable posts, use useCase "Other" unless the user explicitly asks for a conventional SaaS, dashboard, blog, portfolio, or e-commerce app.
+- Select a style that supports the user's creative mood. "Retro", "Illustrative", "Kid_Playful", or "Custom" usually fit playable content better than generic SaaS styles.
+- Do not classify BuzzPlay playable content as "SaaS Product Website" or "Dashboard" just because the generated experience has UI labels, scores, or result panels.
 
 ## RULES:
 - ALWAYS select a template (never return null)
-- Ignore misleading template names - analyze actual features
 - **ONLY** Choose from the list of available templates
-- Focus on functionality over naming conventions
+- Ignore templates that are disabled, hidden, or absent from the provided available list
+- Do not mention or select example template names that are not in the available list
+- Focus on playable content fit over generic framework preference
 - Provide clear, specific reasoning for selection`;
     }
 
@@ -289,7 +294,7 @@ Template detail: ${templateDescriptions}
 **Task:** Select the most suitable template and provide:
 1. Template name (exact match from list)
 2. Clear reasoning for why it fits the user's needs
-${actualProjectType === 'app' ? '3. Appropriate style for the project type. Try to come up with unique styles that might look nice and unique. Be creative about your choices. But don\'t pick brutalist all the time.' : ''}
+${actualProjectType === 'app' ? '3. For BuzzPlay playable content, use useCase "Other" or "General" unless the user explicitly asks for SaaS, dashboard, blog, portfolio, or e-commerce. Pick a style that fits the creative mood and mobile playable format.' : ''}
 
 Analyze each template's features, frameworks, and architecture to make the best match.
 ${images && images.length > 0 ? `\n**Note:** User provided reference attachment(s); use vision for images where included; for other file types rely on filenames and the request text.` : ''}

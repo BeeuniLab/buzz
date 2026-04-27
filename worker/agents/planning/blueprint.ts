@@ -46,6 +46,8 @@ const SIMPLE_SYSTEM_PROMPT = `<ROLE>
     • **Clear Plan:** Provide a logical step-by-step implementation sequence
 
     ${PROMPT_UTILS.BUZZPLAY_PLAYABLE_CONTENT_GUIDELINES}
+
+    ${PROMPT_UTILS.KAPLAY_PLAYABLE_DEVELOPMENT_GUIDELINES}
     
     ## Color Palette
     • Choose 2-3 base RGB colors that work well together
@@ -135,6 +137,8 @@ const PHASIC_SYSTEM_PROMPT = `<ROLE>
     ${PROMPT_UTILS.UI_GUIDELINES}
 
     ${PROMPT_UTILS.BUZZPLAY_PLAYABLE_CONTENT_GUIDELINES}
+
+    ${PROMPT_UTILS.KAPLAY_PLAYABLE_DEVELOPMENT_GUIDELINES}
 
     ## Frameworks & Dependencies
     • Choose a minimal, reliable set of well-known libraries, components and dependencies that materially reduce implementation risk.

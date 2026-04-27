@@ -1,5 +1,5 @@
-name: "buzzplay-react-playable"
-description: "BuzzPlay mobile-first React/Vite playable content template for short interactive posts, meme games, social challenges, character toys, quizzes, touch-driven stories, and result-card loops."
+name: "buzzplay-kaplay-playable"
+description: "BuzzPlay mobile-first KAPLAY/Vite game template for arcade loops, tap challenges, dodgers, collectors, runners, physics toys, score/result games, and quick playable posts."
 base_reference: "vite-reference"
 projectType: app
 renderMode: sandbox
@@ -8,7 +8,9 @@ hiddenFromSelection: false
 inherit_dependencies: true
 
 package_patches:
-  name: "buzzplay-react-playable"
+  name: "buzzplay-kaplay-playable"
+  dependencies:
+    kaplay: "3001.0.19"
 
 file_patches:
   - file: "tailwind.config.js"

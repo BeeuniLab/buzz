@@ -50,7 +50,7 @@
     "dispatch_namespaces": [
         {
             "binding": "DISPATCHER",
-            "namespace": "buzz-dev-namespace",
+            "namespace": "buzz-prod-namespace",
             "remote": true
         }
     ],
@@ -156,7 +156,7 @@
         }
     ],
     "vars": {
-        "DISPATCH_NAMESPACE": "buzz-dev-namespace",
+        "DISPATCH_NAMESPACE": "buzz-prod-namespace",
         "ENABLE_READ_REPLICAS": "true",
         "CLOUDFLARE_AI_GATEWAY": "buzz-gateway",
         "PLATFORM_CAPABILITIES": {
