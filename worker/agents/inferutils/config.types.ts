@@ -208,6 +208,16 @@ const MODELS_MASTER = {
             contextSize: 400000,
         }
     },
+    OPENAI_5_5: {
+        id: 'openai/gpt-5.5',
+        config: {
+            name: 'GPT-5.5',
+            size: ModelSize.LARGE,
+            provider: 'openai',
+            creditCost: 10,
+            contextSize: 400000,
+        }
+    },
     // Below configs are commented for now, may be supported in the future
     // OPENAI_OSS: {
     //     id: 'openai/gpt-oss-120b',
@@ -354,7 +364,7 @@ export type AIModels = typeof AIModels[keyof typeof AIModels];
 
 /**
  * Configuration map for all AI Models.
- * Usage: AI_MODEL_CONFIG[AIModels.GEMINI_2_5_PRO]
+ * Usage: AI_MODEL_CONFIG[AIModels.OPENAI_5_5]
  */
 export const AI_MODEL_CONFIG: Record<AIModels, AIModelConfig> = Object.fromEntries(
     Object.values(MODELS_MASTER).map((entry) => [entry.id, entry.config])

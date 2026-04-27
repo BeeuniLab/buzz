@@ -7,7 +7,6 @@ import { executeInference } from "../inferutils/infer";
 import { PROMPT_UTILS } from "../prompts";
 import Assistant from "./assistant";
 import { applySearchReplaceDiff } from "../output-formats/diff-formats";
-import { infer } from "../inferutils/core";
 import { MatchingStrategy, FailedBlock } from "../output-formats/diff-formats/search-replace";
 import { AgentActionKey, AIModels, InferenceContext } from "../inferutils/config.types";
 import { AGENT_CONFIG } from "../inferutils/config";
@@ -191,7 +190,7 @@ ${issues.join('\n')}
 </issues>` : '',
         appendix: (file.filePath.endsWith('.tsx') || file.filePath.endsWith('.jsx')) ? EXTRA_JSX_SPECIFIC : ''
     };
-    
+
     const prompt = PROMPT_UTILS.replaceTemplateVariables(user_prompt, variables);
     return PROMPT_UTILS.verifyPrompt(prompt);
 }
@@ -218,7 +217,7 @@ export class RealtimeCodeFixer extends Assistant<Env> {
         env: Env,
         inferenceContext: InferenceContext,
         lightMode: boolean = false,
-        altPassModelOverride?: string,// = AIModels.GEMINI_2_5_FLASH,
+        altPassModelOverride?: string,
         agentActionNameOverride?: AgentActionKey,
         systemPrompt: string = SYSTEM_PROMPT,
         userPrompt: string = USER_PROMPT
@@ -488,14 +487,14 @@ ${block.error}
 
             const messages = this.save([createUserMessage(diffFixerPrompt)]); 
             
-            const llmResponse = await infer({
+            const llmResponse = await executeInference({
                 env: this.env,
-                metadata: this.inferenceContext.metadata,
+                context: this.inferenceContext,
+                agentActionName: 'realtimeCodeFixer',
                 modelName: AGENT_CONFIG['realtimeCodeFixer'].name,
                 reasoning_effort: 'low',
                 temperature: 0.0,
                 maxTokens: 10000,
-                actionKey:'realtimeCodeFixer',
                 messages,
             });
 
@@ -549,4 +548,3 @@ export function IsRealtimeCodeFixerEnabled(inferenceContext: InferenceContext): 
     console.log("Realtime code fixer disabled", inferenceContext.userModelConfigs);
     return false;
 }
-    

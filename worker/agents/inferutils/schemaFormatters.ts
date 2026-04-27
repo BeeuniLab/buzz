@@ -1273,6 +1273,7 @@ Please fill out the following structure.
     - For arrays (like \`files\`), use a heading like \`### File 1\`, \`### File 2\`, etc., for each item in the list, where "File" is the singular form of the array name.
     - Provide all required fields. Optional sections can be omitted entirely or have an empty code block if explicitly empty.
     - Ensure the content within the code blocks is raw text/code as appropriate for the field.
+    - Do not include nested triple-backtick code fences inside field values. Use inline backticks, plain text, or indentation for examples instead.
     - Do not include any XML tags in the formatting. This is a pure Markdown format.
     - Do not include any additional text or explanations outside of the specified format.
     - All fields are required no matter how trivial unless specified as optional in the schema.

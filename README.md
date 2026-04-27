@@ -21,7 +21,7 @@ Every project runs as a self-contained single-page experience in a portrait canv
 
 - **Frontend**: React 19, TypeScript, Vite, TailwindCSS
 - **Backend**: Workers, Durable Objects, D1 (SQLite)
-- **AI**: Multiple LLM providers (Gemini, OpenAI, Anthropic) via AI Gateway
+- **AI**: GPT-5.5 via OpenAI-compatible proxy, with optional BYOK/provider integrations
 - **Storage**: R2 for templates, KV for sessions
 - **Preview**: Browser-mode static file serving via Worker subdomains
 
@@ -109,7 +109,10 @@ Set these in `.dev.vars` (local) or `.prod.vars` (production):
 
 | Variable | Description |
 |----------|-------------|
-| `GOOGLE_AI_STUDIO_API_KEY` | Google Gemini API key ([ai.google.dev](https://ai.google.dev)) |
+| `LLM_PROXY_API_KEY` | API key for the OpenAI-compatible GPT-5.5 proxy |
+| `LLM_PROXY_URL` | OpenAI-compatible proxy base URL, defaults to `https://subapi.cygnus.ink/v1` |
+| `LLM_PROXY_FALLBACK_API_KEY` | Optional API key for the fallback OpenAI-compatible GPT-5.5 proxy |
+| `LLM_PROXY_FALLBACK_URL` | Optional fallback GPT-5.5 proxy base URL, used on retry if the primary proxy fails |
 | `JWT_SECRET` | Random string for session management |
 | `SECRETS_ENCRYPTION_KEY` | Encryption key for user secrets |
 | `CUSTOM_DOMAIN` | Your main domain (e.g. `buzzplay.app`) |

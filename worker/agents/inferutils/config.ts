@@ -3,49 +3,51 @@ import {
     AgentConfig, 
     AgentConstraintConfig, 
     AIModels,
-    AllModels,
-    LiteModels,
-    RegularModels,
 } from "./config.types";
 import { env } from 'cloudflare:workers';
+
+const PRIMARY_AGENT_MODEL = AIModels.OPENAI_5_5;
+const FALLBACK_AGENT_MODEL = AIModels.OPENAI_5_5;
+const gpt55Only = (): Set<AIModels> => new Set([AIModels.OPENAI_5_5]);
+const gpt55OrDisabled = (): Set<AIModels> => new Set([AIModels.DISABLED, AIModels.OPENAI_5_5]);
 
 // Common configs - these are good defaults
 const COMMON_AGENT_CONFIGS = {
     screenshotAnalysis: {
-        name: AIModels.DISABLED,
+        name: PRIMARY_AGENT_MODEL,
         reasoning_effort: 'medium' as const,
         max_tokens: 8000,
         temperature: 1,
-        fallbackModel: AIModels.GEMINI_3_1_FLASH_LITE_PREVIEW,
+        fallbackModel: FALLBACK_AGENT_MODEL,
     },
     realtimeCodeFixer: {
-        name: AIModels.GEMINI_3_1_FLASH_LITE_PREVIEW,
+        name: PRIMARY_AGENT_MODEL,
         reasoning_effort: 'low' as const,
         max_tokens: 32000,
         temperature: 0.2,
-        fallbackModel: AIModels.GEMINI_3_FLASH_PREVIEW,
+        fallbackModel: FALLBACK_AGENT_MODEL,
     },
     fastCodeFixer: {
-        name: AIModels.DISABLED,
+        name: PRIMARY_AGENT_MODEL,
         reasoning_effort: undefined,
         max_tokens: 64000,
         temperature: 0.0,
-        fallbackModel: AIModels.GEMINI_3_1_PRO_PREVIEW,
+        fallbackModel: FALLBACK_AGENT_MODEL,
     },
     templateSelection: {
-        name: AIModels.GEMINI_3_1_FLASH_LITE_PREVIEW,
+        name: PRIMARY_AGENT_MODEL,
         max_tokens: 2000,
-        fallbackModel: AIModels.GEMINI_3_FLASH_PREVIEW,
+        fallbackModel: FALLBACK_AGENT_MODEL,
         temperature: 1,
     },
 } as const;
 
 const SHARED_IMPLEMENTATION_CONFIG = {
-    name: AIModels.GEMINI_3_1_FLASH_LITE_PREVIEW,
+    name: PRIMARY_AGENT_MODEL,
     reasoning_effort: 'low' as const,
     max_tokens: 48000,
     temperature: 1,
-    fallbackModel: AIModels.GEMINI_3_1_PRO_PREVIEW,
+    fallbackModel: FALLBACK_AGENT_MODEL,
 };
 
 //======================================================================================
@@ -59,25 +61,25 @@ Cloudflare AI Gateway unified billing for seamless model access without managing
 const PLATFORM_AGENT_CONFIG: AgentConfig = {
     ...COMMON_AGENT_CONFIGS,
     blueprint: {
-        name: AIModels.GEMINI_3_1_PRO_PREVIEW,
+        name: PRIMARY_AGENT_MODEL,
         reasoning_effort: 'high',
         max_tokens: 20000,
-        fallbackModel: AIModels.GEMINI_3_FLASH_PREVIEW,
+        fallbackModel: FALLBACK_AGENT_MODEL,
         temperature: 1.0,
     },
     projectSetup: {
-        name: AIModels.GEMINI_3_1_FLASH_LITE_PREVIEW,
+        name: PRIMARY_AGENT_MODEL,
         reasoning_effort: 'medium',
         max_tokens: 8000,
         temperature: 1,
-        fallbackModel: AIModels.GEMINI_3_1_PRO_PREVIEW,
+        fallbackModel: FALLBACK_AGENT_MODEL,
     },
     phaseGeneration: {
-        name: AIModels.GEMINI_3_1_FLASH_LITE_PREVIEW,
+        name: PRIMARY_AGENT_MODEL,
         reasoning_effort: 'medium',
         max_tokens: 8000,
         temperature: 1,
-        fallbackModel: AIModels.GEMINI_3_FLASH_PREVIEW,
+        fallbackModel: FALLBACK_AGENT_MODEL,
     },
     firstPhaseImplementation: {
         ...SHARED_IMPLEMENTATION_CONFIG,
@@ -86,73 +88,73 @@ const PLATFORM_AGENT_CONFIG: AgentConfig = {
         ...SHARED_IMPLEMENTATION_CONFIG,
     },
     conversationalResponse: {
-        name: AIModels.GEMINI_3_1_FLASH_LITE_PREVIEW,
+        name: PRIMARY_AGENT_MODEL,
         reasoning_effort: 'low',
         max_tokens: 4000,
         temperature: 1,
-        fallbackModel: AIModels.GEMINI_3_FLASH_PREVIEW,
+        fallbackModel: FALLBACK_AGENT_MODEL,
     },
     deepDebugger: {
-        name: AIModels.GEMINI_3_1_PRO_PREVIEW,
+        name: PRIMARY_AGENT_MODEL,
         reasoning_effort: 'high',
         max_tokens: 8000,
         temperature: 1,
-        fallbackModel: AIModels.GEMINI_3_FLASH_PREVIEW,
+        fallbackModel: FALLBACK_AGENT_MODEL,
     },
     fileRegeneration: {
-        name: AIModels.GEMINI_3_1_FLASH_LITE_PREVIEW,
+        name: PRIMARY_AGENT_MODEL,
         reasoning_effort: 'low',
         max_tokens: 16000,
         temperature: 0.0,
-        fallbackModel: AIModels.GEMINI_3_FLASH_PREVIEW,
+        fallbackModel: FALLBACK_AGENT_MODEL,
     },
     agenticProjectBuilder: {
-        name: AIModels.GEMINI_3_1_PRO_PREVIEW,
+        name: PRIMARY_AGENT_MODEL,
         reasoning_effort: 'medium',
         max_tokens: 8000,
         temperature: 1,
-        fallbackModel: AIModels.GEMINI_3_FLASH_PREVIEW,
+        fallbackModel: FALLBACK_AGENT_MODEL,
     },
     assetMediaCaption: {
-        name: AIModels.GEMINI_3_1_FLASH_LITE_PREVIEW,
+        name: PRIMARY_AGENT_MODEL,
         reasoning_effort: 'low',
         max_tokens: 512,
         temperature: 0,
-        fallbackModel: AIModels.GEMINI_3_FLASH_PREVIEW,
+        fallbackModel: FALLBACK_AGENT_MODEL,
     },
 };
 
 //======================================================================================
-// Default config: Gemini-based for all tasks
+// Default config: GPT-5.5-based for all tasks via the OpenAI-compatible LLM proxy
 //======================================================================================
 const DEFAULT_AGENT_CONFIG: AgentConfig = {
     ...COMMON_AGENT_CONFIGS,
     templateSelection: {
-        name: AIModels.GEMINI_3_1_FLASH_LITE_PREVIEW,
+        name: PRIMARY_AGENT_MODEL,
         max_tokens: 2000,
-        fallbackModel: AIModels.GEMINI_3_FLASH_PREVIEW,
+        fallbackModel: FALLBACK_AGENT_MODEL,
         temperature: 0.6,
     },
     blueprint: {
-        name: AIModels.GEMINI_3_1_PRO_PREVIEW,
+        name: PRIMARY_AGENT_MODEL,
         reasoning_effort: 'high',
         max_tokens: 64000,
-        fallbackModel: AIModels.GEMINI_3_FLASH_PREVIEW,
+        fallbackModel: FALLBACK_AGENT_MODEL,
         temperature: 1,
     },
     projectSetup: {
-        name: AIModels.GEMINI_3_1_FLASH_LITE_PREVIEW,
+        name: PRIMARY_AGENT_MODEL,
         reasoning_effort: 'low',
         max_tokens: 48000,
         temperature: 1,
-        fallbackModel: AIModels.GEMINI_3_1_PRO_PREVIEW,
+        fallbackModel: FALLBACK_AGENT_MODEL,
     },
     phaseGeneration: {
-        name: AIModels.GEMINI_3_1_FLASH_LITE_PREVIEW,
+        name: PRIMARY_AGENT_MODEL,
         reasoning_effort: 'low',
         max_tokens: 48000,
         temperature: 1,
-        fallbackModel: AIModels.GEMINI_3_FLASH_PREVIEW,
+        fallbackModel: FALLBACK_AGENT_MODEL,
     },
     firstPhaseImplementation: {
         ...SHARED_IMPLEMENTATION_CONFIG,
@@ -161,39 +163,39 @@ const DEFAULT_AGENT_CONFIG: AgentConfig = {
         ...SHARED_IMPLEMENTATION_CONFIG,
     },
     conversationalResponse: {
-        name: AIModels.GEMINI_3_1_FLASH_LITE_PREVIEW,
+        name: PRIMARY_AGENT_MODEL,
         reasoning_effort: 'low',
         max_tokens: 4000,
         temperature: 0,
-        fallbackModel: AIModels.GEMINI_3_FLASH_PREVIEW,
+        fallbackModel: FALLBACK_AGENT_MODEL,
     },
     deepDebugger: {
-        name: AIModels.GEMINI_3_1_PRO_PREVIEW,
+        name: PRIMARY_AGENT_MODEL,
         reasoning_effort: 'high',
         max_tokens: 8000,
         temperature: 1,
-        fallbackModel: AIModels.GEMINI_3_FLASH_PREVIEW,
+        fallbackModel: FALLBACK_AGENT_MODEL,
     },
     fileRegeneration: {
-        name: AIModels.GEMINI_3_1_FLASH_LITE_PREVIEW,
+        name: PRIMARY_AGENT_MODEL,
         reasoning_effort: 'low',
         max_tokens: 32000,
         temperature: 1,
-        fallbackModel: AIModels.GEMINI_3_FLASH_PREVIEW,
+        fallbackModel: FALLBACK_AGENT_MODEL,
     },
     agenticProjectBuilder: {
-        name: AIModels.GEMINI_3_1_PRO_PREVIEW,
+        name: PRIMARY_AGENT_MODEL,
         reasoning_effort: 'high',
         max_tokens: 8000,
         temperature: 1,
-        fallbackModel: AIModels.GEMINI_3_FLASH_PREVIEW,
+        fallbackModel: FALLBACK_AGENT_MODEL,
     },
     assetMediaCaption: {
-        name: AIModels.GEMINI_3_1_FLASH_LITE_PREVIEW,
+        name: PRIMARY_AGENT_MODEL,
         reasoning_effort: 'low',
         max_tokens: 512,
         temperature: 0,
-        fallbackModel: AIModels.GEMINI_3_FLASH_PREVIEW,
+        fallbackModel: FALLBACK_AGENT_MODEL,
     },
 };
 
@@ -203,36 +205,60 @@ export const AGENT_CONFIG: AgentConfig = env.PLATFORM_MODEL_PROVIDERS
 
 
 export const AGENT_CONSTRAINTS: Map<AgentActionKey, AgentConstraintConfig> = new Map([
-	['fastCodeFixer', {
-		allowedModels: new Set([AIModels.DISABLED]),
+	['templateSelection', {
+		allowedModels: gpt55Only(),
 		enabled: true,
 	}],
-	['realtimeCodeFixer', {
-		allowedModels: new Set([AIModels.DISABLED]),
-		enabled: true,
-	}],
-	['fileRegeneration', {
-		allowedModels: new Set(AllModels),
-		enabled: true,
-	}],
-	['phaseGeneration', {
-		allowedModels: new Set(AllModels),
+	['blueprint', {
+		allowedModels: gpt55Only(),
 		enabled: true,
 	}],
 	['projectSetup', {
-		allowedModels: new Set([...RegularModels, AIModels.GEMINI_3_1_PRO_PREVIEW]),
+		allowedModels: gpt55Only(),
+		enabled: true,
+	}],
+	['phaseGeneration', {
+		allowedModels: gpt55Only(),
+		enabled: true,
+	}],
+	['phaseImplementation', {
+		allowedModels: gpt55Only(),
+		enabled: true,
+	}],
+	['firstPhaseImplementation', {
+		allowedModels: gpt55Only(),
+		enabled: true,
+	}],
+	['fileRegeneration', {
+		allowedModels: gpt55Only(),
+		enabled: true,
+	}],
+	['screenshotAnalysis', {
+		allowedModels: gpt55Only(),
+		enabled: true,
+	}],
+	['fastCodeFixer', {
+		allowedModels: gpt55OrDisabled(),
+		enabled: true,
+	}],
+	['realtimeCodeFixer', {
+		allowedModels: gpt55OrDisabled(),
 		enabled: true,
 	}],
 	['conversationalResponse', {
-		allowedModels: new Set(RegularModels),
+		allowedModels: gpt55Only(),
 		enabled: true,
 	}],
-	['templateSelection', {
-		allowedModels: new Set(LiteModels),
+	['deepDebugger', {
+		allowedModels: gpt55Only(),
+		enabled: true,
+	}],
+	['agenticProjectBuilder', {
+		allowedModels: gpt55Only(),
 		enabled: true,
 	}],
 	['assetMediaCaption', {
-		allowedModels: new Set(LiteModels.filter((id) => id !== AIModels.DISABLED)),
+		allowedModels: gpt55Only(),
 		enabled: true,
 	}],
 ]);

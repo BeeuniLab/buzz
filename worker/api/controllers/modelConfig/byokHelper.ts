@@ -40,9 +40,25 @@ export function getByokModels(
 }
 
 export function getPlatformEnabledProviders(env: Env): string[] {
+    const isValidProxyKey = (apiKey?: string) => Boolean(
+        apiKey &&
+        apiKey.trim() !== '' &&
+        apiKey.trim().toLowerCase() !== 'default' &&
+        apiKey.trim().toLowerCase() !== 'none' &&
+        apiKey.trim().length >= 10
+    );
+
+    const hasLlmProxy = Boolean(
+        (env.LLM_PROXY_URL && isValidProxyKey(env.LLM_PROXY_API_KEY)) ||
+        (env.LLM_PROXY_FALLBACK_URL && isValidProxyKey(env.LLM_PROXY_FALLBACK_API_KEY))
+    );
+
     const platformModelProviders = env.PLATFORM_MODEL_PROVIDERS;
     if (platformModelProviders) {
         const providers = platformModelProviders.split(',').map(p => p.trim());
+        if (hasLlmProxy && !providers.includes('openai')) {
+            providers.push('openai');
+        }
         return providers;
     }
 	const enabledProviders: string[] = [];
@@ -70,6 +86,10 @@ export function getPlatformEnabledProviders(env: Env): string[] {
 			enabledProviders.push(provider);
 		}
 	}
+
+    if (hasLlmProxy && !enabledProviders.includes('openai')) {
+        enabledProviders.push('openai');
+    }
 
 	return enabledProviders;
 }

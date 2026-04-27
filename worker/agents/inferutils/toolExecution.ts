@@ -33,7 +33,8 @@ export function buildExecutionPlan(
 		if (!def) continue;
 
 		try {
-			const args = JSON.parse(call.function.arguments || '{}');
+			const rawArgs = JSON.parse(call.function.arguments || '{}');
+			const args = def.schema.parse(rawArgs);
 			const resources = def.resources(args);
 			toolCallResources.set(call.id, resources);
 		} catch (error) {
@@ -128,7 +129,8 @@ async function executeSingleTool(
 	toolDefinition: ToolDefinition<any, any>
 ): Promise<ToolCallResult> {
 	try {
-		const args = toolCall.function.arguments ? JSON.parse(toolCall.function.arguments) : {};
+		const rawArgs = toolCall.function.arguments ? JSON.parse(toolCall.function.arguments) : {};
+		const args = toolDefinition.schema.parse(rawArgs);
 
 		// Execute lifecycle hooks and implementation
 		await toolDefinition.onStart?.(toolCall, args);

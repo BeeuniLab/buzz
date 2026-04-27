@@ -444,21 +444,30 @@ export async function generateBlueprint(
             agentActionName: "blueprint",
             schema,
             context: inferenceContext,
-            stream,
+            // LLM proxies may not enforce OpenAI strict JSON schema output.
+            // Blueprints contain long prose/code-like text, so the existing
+            // structured Markdown parser is more reliable than prompt-only JSON.
+            format: 'markdown',
         });
+
+        let finalBlueprint = results as PhasicBlueprint | AgenticBlueprint;
 
         // Filter out PDF files from phasic blueprints
         if (results && !isAgentic) {
             if (isLiteTemplate) {
                 const liteResults = results as LitePhasicBlueprint;
                 liteResults.initialPhase.files = liteResults.initialPhase.files.filter(f => !f.path.endsWith('.pdf'));
-                return liteToPhasicBlueprint(liteResults);
+                finalBlueprint = liteToPhasicBlueprint(liteResults);
+            } else {
+                const phasicResults = results as PhasicBlueprint;
+                phasicResults.initialPhase.files = phasicResults.initialPhase.files.filter(f => !f.path.endsWith('.pdf'));
+                finalBlueprint = phasicResults;
             }
-            const phasicResults = results as PhasicBlueprint;
-            phasicResults.initialPhase.files = phasicResults.initialPhase.files.filter(f => !f.path.endsWith('.pdf'));
         }
 
-        return results as PhasicBlueprint | AgenticBlueprint;
+        stream?.onChunk(JSON.stringify(finalBlueprint));
+
+        return finalBlueprint;
     } catch (error) {
         logger.error("Error generating blueprint:", error);
         throw error;

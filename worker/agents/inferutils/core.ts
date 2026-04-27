@@ -244,6 +244,106 @@ function isValidApiKey(apiKey: string): boolean {
     return true;
 }
 
+function normalizeParsedSchemaContent(
+    actionKey: AgentActionKey | 'testModelConfig',
+    parsedContent: unknown,
+): unknown {
+    if (
+        actionKey === 'templateSelection' &&
+        parsedContent &&
+        typeof parsedContent === 'object' &&
+        !Array.isArray(parsedContent)
+    ) {
+        const data = parsedContent as Record<string, unknown>;
+        return {
+            ...data,
+            selectedTemplateName: data.selectedTemplateName ?? data.template ?? data.templateName ?? data.selectedTemplate,
+            styleSelection: data.styleSelection ?? data.style ?? data.styleName,
+        };
+    }
+
+    return parsedContent;
+}
+
+function extractFirstBalancedJson(content: string): string | null {
+    const start = content.search(/[\[{]/);
+    if (start === -1) return null;
+
+    const stack: string[] = [];
+    let inString = false;
+    let escaped = false;
+
+    for (let i = start; i < content.length; i++) {
+        const char = content[i];
+
+        if (inString) {
+            if (escaped) {
+                escaped = false;
+            } else if (char === '\\') {
+                escaped = true;
+            } else if (char === '"') {
+                inString = false;
+            }
+            continue;
+        }
+
+        if (char === '"') {
+            inString = true;
+            continue;
+        }
+
+        if (char === '{' || char === '[') {
+            stack.push(char);
+            continue;
+        }
+
+        if (char === '}' || char === ']') {
+            const expected = char === '}' ? '{' : '[';
+            if (stack.pop() !== expected) {
+                return null;
+            }
+
+            if (stack.length === 0) {
+                return content.slice(start, i + 1);
+            }
+        }
+    }
+
+    return null;
+}
+
+function parseJsonSchemaContent(content: string): unknown {
+    const trimmed = content.trim();
+
+    try {
+        return JSON.parse(trimmed);
+    } catch (directError) {
+        const fencedBlocks = [...trimmed.matchAll(/```(?:json)?\s*([\s\S]*?)```/gi)];
+        for (const block of fencedBlocks) {
+            try {
+                return JSON.parse(block[1].trim());
+            } catch {
+                // Keep trying other fenced blocks or a balanced JSON excerpt.
+            }
+        }
+
+        const jsonExcerpt = extractFirstBalancedJson(trimmed);
+        if (jsonExcerpt) {
+            try {
+                return JSON.parse(jsonExcerpt);
+            } catch {
+                // Re-throw the original error so logs point to the raw model output.
+            }
+        }
+
+        throw directError;
+    }
+}
+
+function hasValidProxyConfig(url: string | undefined, apiKey: string | undefined): boolean {
+    return Boolean(url && isValidApiKey(apiKey || ''));
+}
+
 async function getApiKey(
 	provider: string,
 	env: Env,
@@ -280,26 +380,48 @@ export async function getConfigurationForModel(
     env: Env,
     userId: string,
     runtimeOverrides?: InferenceRuntimeOverrides,
+    useFallbackProxy: boolean = false,
 ): Promise<{
     baseURL: string,
     apiKey: string,
     defaultHeaders?: Record<string, string>,
 }> {
-    // Vercel AI Gateway: unified endpoint that expects provider/model format
-    if (env.VERCEL_AI_GATEWAY_API_KEY) {
+    const hasPrimaryLlmProxy = hasValidProxyConfig(env.LLM_PROXY_URL, env.LLM_PROXY_API_KEY);
+    const hasFallbackLlmProxy = hasValidProxyConfig(env.LLM_PROXY_FALLBACK_URL, env.LLM_PROXY_FALLBACK_API_KEY);
+
+    if (modelConfig.name === AI_MODEL_CONFIG[AIModels.OPENAI_5_5].name && !hasPrimaryLlmProxy && !hasFallbackLlmProxy) {
+        throw new Error('LLM_PROXY_API_KEY or LLM_PROXY_FALLBACK_API_KEY is required for GPT-5.5 agent inference via the configured LLM proxy.');
+    }
+
+    if (useFallbackProxy && hasFallbackLlmProxy) {
         return {
-            baseURL: 'https://ai-gateway.vercel.sh/v1',
-            apiKey: env.VERCEL_AI_GATEWAY_API_KEY,
+            baseURL: env.LLM_PROXY_FALLBACK_URL,
+            apiKey: env.LLM_PROXY_FALLBACK_API_KEY,
         };
     }
 
     // Custom LLM proxy: when LLM_PROXY_URL is set, route all requests through it
     // This supports OpenAI-compatible proxies (e.g. newapi, one-api) that handle
     // multi-provider routing internally via the model name.
-    if (env.LLM_PROXY_URL && env.LLM_PROXY_API_KEY) {
+    if (hasPrimaryLlmProxy) {
         return {
             baseURL: env.LLM_PROXY_URL,
             apiKey: env.LLM_PROXY_API_KEY,
+        };
+    }
+
+    if (hasFallbackLlmProxy) {
+        return {
+            baseURL: env.LLM_PROXY_FALLBACK_URL,
+            apiKey: env.LLM_PROXY_FALLBACK_API_KEY,
+        };
+    }
+
+    // Vercel AI Gateway: unified endpoint that expects provider/model format
+    if (env.VERCEL_AI_GATEWAY_API_KEY) {
+        return {
+            baseURL: 'https://ai-gateway.vercel.sh/v1',
+            apiKey: env.VERCEL_AI_GATEWAY_API_KEY,
         };
     }
 
@@ -365,6 +487,7 @@ type InferArgsBase = {
     };
     tools?: ToolDefinition<any, any>[];
     providerOverride?: 'cloudflare' | 'direct';
+    useFallbackProxy?: boolean;
     runtimeOverrides?: InferenceRuntimeOverrides;
     abortSignal?: AbortSignal;
     onAssistantMessage?: (message: Message) => Promise<void>;
@@ -541,6 +664,7 @@ export async function infer<OutputSchema extends z.AnyZodObject>({
     maxTokens,
     stream,
     tools,
+    useFallbackProxy,
     runtimeOverrides,
     abortSignal,
     onAssistantMessage,
@@ -580,16 +704,21 @@ export async function infer<OutputSchema extends z.AnyZodObject>({
             env,
             metadata.userId,
             runtimeOverrides,
+            useFallbackProxy,
         );
         console.log(`baseUrl: ${baseURL}, modelName: ${modelName}`);
 
         // Remove [*.] from model name
         modelName = modelName.replace(/\[.*?\]/, '');
 
-        // Strip provider prefix (e.g. "google/gemini-2.5-flash" -> "gemini-2.5-flash")
+        // Strip provider prefix (e.g. "openai/gpt-5.5" -> "gpt-5.5")
         // when using LLM proxy, as proxies expect bare model names.
-        // Vercel AI Gateway expects provider/model format, so skip stripping.
-        if (env.LLM_PROXY_URL && !env.VERCEL_AI_GATEWAY_API_KEY && modelName.includes('/')) {
+        const usingConfiguredLlmProxy = (
+            hasValidProxyConfig(env.LLM_PROXY_URL, env.LLM_PROXY_API_KEY) && baseURL === env.LLM_PROXY_URL
+        ) || (
+            hasValidProxyConfig(env.LLM_PROXY_FALLBACK_URL, env.LLM_PROXY_FALLBACK_API_KEY) && baseURL === env.LLM_PROXY_FALLBACK_URL
+        );
+        if (usingConfiguredLlmProxy && modelName.includes('/')) {
             modelName = modelName.split('/').slice(1).join('/');
         }
 
@@ -695,7 +824,7 @@ export async function infer<OutputSchema extends z.AnyZodObject>({
             }
         }
 
-        console.log(`Running inference with ${modelName} using structured output with ${format} format, reasoning effort: ${reasoning_effort}, max tokens: ${maxTokens}, temperature: ${temperature}, frequency_penalty: ${frequency_penalty}, baseURL: ${baseURL}`);
+        console.log(`Running inference with ${modelName} using structured output with ${format} format, reasoning effort: ${reasoning_effort}, configured max tokens: ${maxTokens} (not sent), temperature: ${temperature}, frequency_penalty: ${frequency_penalty}, baseURL: ${baseURL}`);
 
         const toolsOpts = tools ? {
             tools: tools.map(t => {
@@ -712,7 +841,6 @@ export async function infer<OutputSchema extends z.AnyZodObject>({
                 ...toolsOpts,
                 model: modelName,
                 messages: messagesToPass as OpenAI.ChatCompletionMessageParam[],
-                max_completion_tokens: maxTokens || 150000,
                 stream: stream ? true : false,
                 reasoning_effort: modelConfig.nonReasoning ? undefined : reasoning_effort,
                 temperature,
@@ -924,6 +1052,7 @@ export async function infer<OutputSchema extends z.AnyZodObject>({
                         maxTokens,
                         stream,
                         tools,
+                        useFallbackProxy,
                         reasoning_effort,
                         temperature,
                         frequency_penalty,
@@ -942,6 +1071,7 @@ export async function infer<OutputSchema extends z.AnyZodObject>({
                         actionKey,
                         stream,
                         tools,
+                        useFallbackProxy,
                         reasoning_effort,
                         temperature,
                         frequency_penalty,
@@ -965,14 +1095,15 @@ export async function infer<OutputSchema extends z.AnyZodObject>({
             // Parse the response
             const parsedContent = format
                 ? parseContentForSchema(content, format, schema, formatOptions)
-                : JSON.parse(content);
+                : parseJsonSchemaContent(content);
+            const normalizedContent = normalizeParsedSchemaContent(actionKey, parsedContent);
 
             // Use Zod's safeParse for proper error handling
-            const result = schema.safeParse(parsedContent);
+            const result = schema.safeParse(normalizedContent);
 
             if (!result.success) {
                 console.log('Raw content:', content);
-                console.log('Parsed data:', parsedContent);
+                console.log('Parsed data:', normalizedContent);
                 console.error('Schema validation errors:', result.error.format());
                 throw new Error(`Failed to validate AI response against schema: ${result.error.message}`);
             }

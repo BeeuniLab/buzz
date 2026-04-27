@@ -10,6 +10,8 @@ declare namespace Cloudflare {
         GROQ_API_KEY: string;
         GOOGLE_VERTEX_AI_API_KEY: string;
         PLATFORM_MODEL_PROVIDERS: string;
+        LLM_PROXY_URL: string;
+        LLM_PROXY_FALLBACK_URL: string;
         CLOUDFLARE_AI_GATEWAY_URL: string;
         CLOUDFLARE_AI_GATEWAY_TOKEN: string;
         SERPAPI_KEY: string;
@@ -23,6 +25,7 @@ declare namespace Cloudflare {
         USE_TUNNEL_FOR_PREVIEW: string;
         USE_CLOUDFLARE_IMAGES: string;
         LLM_PROXY_API_KEY: string;
+        LLM_PROXY_FALLBACK_API_KEY: string;
         SANDBOX_SERVICE_TYPE: string;
         SANDBOX_SERVICE_URL: string;
         SANDBOX_SERVICE_API_KEY: string;

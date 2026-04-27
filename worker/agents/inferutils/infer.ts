@@ -143,6 +143,11 @@ export async function executeInference<T extends z.AnyZodObject>(   {
     );
 
     modelName = modelName || resolvedConfig.name;
+    const selectedModelCheck = validateAgentConstraints(agentActionName, modelName);
+    if (selectedModelCheck.constraintEnabled && !selectedModelCheck.valid) {
+        logger.warn(`Requested model ${modelName} violates constraints for ${agentActionName}, using ${resolvedConfig.name}`);
+        modelName = resolvedConfig.name;
+    }
     temperature = temperature ?? resolvedConfig.temperature ?? 0.2;
     maxTokens = maxTokens || resolvedConfig.max_tokens || 16000;
     reasoning_effort = reasoning_effort || resolvedConfig.reasoning_effort;
@@ -151,6 +156,7 @@ export async function executeInference<T extends z.AnyZodObject>(   {
     const backoffMs = (attempt: number) => Math.min(500 * Math.pow(2, attempt), 10000);
 
     let useCheaperModel = false;
+    let useFallbackProxy = false;
 
     for (let attempt = 0; attempt < retryLimit; attempt++) {
         try {
@@ -165,7 +171,8 @@ export async function executeInference<T extends z.AnyZodObject>(   {
                 actionKey: agentActionName,
                 format,
                 maxTokens,
-                modelName: useCheaperModel ? AIModels.GEMINI_3_1_FLASH_LITE_PREVIEW : modelName,
+                modelName: useCheaperModel ? AIModels.OPENAI_5_5 : modelName,
+                useFallbackProxy,
                 formatOptions: {
                     debug: false,
                 },
@@ -182,7 +189,8 @@ export async function executeInference<T extends z.AnyZodObject>(   {
                 metadata: context.metadata,
                 messages,
                 maxTokens,
-                modelName: useCheaperModel ? AIModels.GEMINI_2_5_FLASH: modelName,
+                modelName: useCheaperModel ? AIModels.OPENAI_5_5: modelName,
+                useFallbackProxy,
                 tools,
                 stream,
                 actionKey: agentActionName,
@@ -215,12 +223,14 @@ export async function executeInference<T extends z.AnyZodObject>(   {
 
             if (error instanceof InferError && !(error instanceof AbortError)) {
                 // If its an infer error and not an abort error, we can append the partial response to the list of messages and ask a cheaper model to retry the generation
+                useFallbackProxy = true;
                 if (error.response && error.response.length > 1000) {
                     messages.push(createAssistantMessage(error.response));
                     messages.push(createUserMessage(responseRegenerationPrompts));
                     useCheaperModel = true;
                 }
             } else {
+                useFallbackProxy = true;
                 // Switch to fallback model if available
                 if (resolvedConfig.fallbackModel && resolvedConfig.fallbackModel !== modelName) {
                     logger.info(`Switching to fallback model: ${resolvedConfig.fallbackModel}`);

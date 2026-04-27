@@ -367,10 +367,23 @@ class SetupManager {
 
 		// AI Provider configuration
 		console.log('\n🔧 AI Provider Configuration');
-		console.log('Available providers:');
+		console.log('Default agent inference uses GPT-5.5 through LLM_PROXY_URL.');
+		const existingProxyKey = this.existingConfig.LLM_PROXY_API_KEY;
+		const proxyApiKey = await this.promptWithDefault('LLM Proxy API Key (LLM_PROXY_API_KEY): ', existingProxyKey);
+		if (proxyApiKey) {
+			devVars.LLM_PROXY_API_KEY = proxyApiKey;
+			providedProviders.push('openai');
+		}
+		const existingFallbackProxyKey = this.existingConfig.LLM_PROXY_FALLBACK_API_KEY;
+		const fallbackProxyApiKey = await this.promptWithDefault('Fallback LLM Proxy API Key (LLM_PROXY_FALLBACK_API_KEY, optional): ', existingFallbackProxyKey);
+		if (fallbackProxyApiKey) {
+			devVars.LLM_PROXY_FALLBACK_API_KEY = fallbackProxyApiKey;
+		}
+
+		console.log('\nOptional direct provider keys:');
 		console.log('   1. OpenAI (for GPT models)');
 		console.log('   2. Anthropic (for Claude models)');
-		console.log('   3. Google AI Studio (for Gemini models) [DEFAULT]');
+		console.log('   3. Google AI Studio (for Gemini models)');
 		console.log('   4. Cerebras (for open source models)');
 		console.log('   5. OpenRouter (for various models)');
 		console.log('   6. Custom provider\n');
@@ -379,9 +392,7 @@ class SetupManager {
 		const selectedProviders = providerChoice.split(',').map(n => parseInt(n.trim())).filter(n => n >= 1 && n <= 6);
 
 		if (selectedProviders.length === 0) {
-			console.log('⚠️  No providers selected - you MUST configure at least one provider!');
-			console.log('   Adding Google AI Studio as default...');
-			selectedProviders.push(3);
+			console.log('ℹ️  No optional direct providers selected.');
 		}
 
 		// Process selected providers
@@ -420,12 +431,9 @@ class SetupManager {
 			}
 		}
 
-		// Warning about config.ts if not using Gemini as default
-		const hasGemini = selectedProviders.includes(3);
-		if (!hasGemini) {
-			console.log('\n⚠️  IMPORTANT: You selected providers other than Google AI Studio (Gemini).');
-			console.log('   You MUST edit worker/agents/inferutils/config.ts to change the default model configurations');
-			console.log('   from Gemini models to your selected providers!\n');
+		if (!devVars.LLM_PROXY_API_KEY && !this.existingConfig.LLM_PROXY_API_KEY && !devVars.LLM_PROXY_FALLBACK_API_KEY && !this.existingConfig.LLM_PROXY_FALLBACK_API_KEY) {
+			console.log('\n⚠️  IMPORTANT: LLM_PROXY_API_KEY or LLM_PROXY_FALLBACK_API_KEY is required for the default GPT-5.5 agent configuration.');
+			console.log('   Add it to .dev.vars locally and to Cloudflare secrets for production.\n');
 		}
 
 		// OAuth and other configuration with smart prompts
@@ -457,10 +465,9 @@ class SetupManager {
 			console.log(`\n✅ API keys configured for: ${providedProviders.join(', ')}`);
 		}
 
-		if (!providedProviders.includes('google-ai-studio')) {
-			console.log('\n⚠️  No Google AI Studio key provided.');
-			console.log('   You may need to update model configs in worker/agents/inferutils/config.ts');
-			console.log('   to use alternative models (OpenAI, Anthropic, etc.) for Gemini fallbacks.');
+		if (!devVars.LLM_PROXY_API_KEY && !this.existingConfig.LLM_PROXY_API_KEY && !devVars.LLM_PROXY_FALLBACK_API_KEY && !this.existingConfig.LLM_PROXY_FALLBACK_API_KEY) {
+			console.log('\n⚠️  No LLM proxy key provided.');
+			console.log('   The default GPT-5.5 model configuration requires LLM_PROXY_API_KEY or LLM_PROXY_FALLBACK_API_KEY.');
 		}
 
 		// Generate or preserve required secrets
@@ -1138,6 +1145,7 @@ class SetupManager {
 		'TEMPLATES_REPOSITORY', 'ALLOWED_EMAIL', 'DISPATCH_NAMESPACE', 'CLOUDFLARE_AI_GATEWAY', 'ENABLE_READ_REPLICAS',
 		'ANTHROPIC_API_KEY', 'OPENAI_API_KEY', 'GOOGLE_AI_STUDIO_API_KEY', 'OPENROUTER_API_KEY', 'CEREBRAS_API_KEY', 'GROQ_API_KEY',
 		'CLOUDFLARE_API_TOKEN', 'CLOUDFLARE_ACCOUNT_ID', 'CLOUDFLARE_AI_GATEWAY_URL', 'CLOUDFLARE_AI_GATEWAY_TOKEN',
+		'LLM_PROXY_URL', 'LLM_PROXY_FALLBACK_URL', 'LLM_PROXY_API_KEY', 'LLM_PROXY_FALLBACK_API_KEY',
 		'SERPAPI_KEY', 'GOOGLE_CLIENT_SECRET', 'GOOGLE_CLIENT_ID', 'GITHUB_CLIENT_ID', 'GITHUB_CLIENT_SECRET',
 		'JWT_SECRET', 'ENTROPY_KEY', 'ENVIRONMENT', 'SECRETS_ENCRYPTION_KEY',
 		'CUSTOM_DOMAIN', 'CUSTOM_PREVIEW_DOMAIN',
@@ -1204,6 +1212,7 @@ class SetupManager {
 		const setupManagedVars = new Set([
 			'CUSTOM_DOMAIN', 'ENVIRONMENT', 'CLOUDFLARE_API_TOKEN', 'CLOUDFLARE_ACCOUNT_ID',
 			'CLOUDFLARE_AI_GATEWAY_TOKEN', 'CLOUDFLARE_AI_GATEWAY_URL',
+			'LLM_PROXY_API_KEY', 'LLM_PROXY_FALLBACK_API_KEY',
 			'ANTHROPIC_API_KEY', 'OPENAI_API_KEY', 'GOOGLE_AI_STUDIO_API_KEY', 'OPENROUTER_API_KEY', 'GROQ_API_KEY',
 			'GOOGLE_CLIENT_ID', 'GOOGLE_CLIENT_SECRET', 'GITHUB_CLIENT_ID', 'GITHUB_CLIENT_SECRET',
 			'GITHUB_EXPORTER_CLIENT_ID', 'GITHUB_EXPORTER_CLIENT_SECRET',
@@ -1248,7 +1257,7 @@ class SetupManager {
 
 		// Provider specific secrets
 		content += '# Provider specific secrets\n';
-		const providerVars = ['ANTHROPIC_API_KEY', 'OPENAI_API_KEY', 'GOOGLE_AI_STUDIO_API_KEY', 'OPENROUTER_API_KEY', 'GROQ_API_KEY'];
+		const providerVars = ['LLM_PROXY_API_KEY', 'LLM_PROXY_FALLBACK_API_KEY', 'ANTHROPIC_API_KEY', 'OPENAI_API_KEY', 'GOOGLE_AI_STUDIO_API_KEY', 'OPENROUTER_API_KEY', 'GROQ_API_KEY'];
 		for (const varName of providerVars) {
 			if (this.config.devVars[varName]) {
 				content += `${varName}="${this.config.devVars[varName]}"\n`;
@@ -1343,6 +1352,7 @@ class SetupManager {
 		const setupManagedVars = new Set([
 			'CUSTOM_DOMAIN', 'ENVIRONMENT', 'CLOUDFLARE_API_TOKEN', 'CLOUDFLARE_ACCOUNT_ID',
 			'CLOUDFLARE_AI_GATEWAY_TOKEN', 'CLOUDFLARE_AI_GATEWAY_URL',
+			'LLM_PROXY_API_KEY', 'LLM_PROXY_FALLBACK_API_KEY',
 			'ANTHROPIC_API_KEY', 'OPENAI_API_KEY', 'GOOGLE_AI_STUDIO_API_KEY', 'OPENROUTER_API_KEY', 'GROQ_API_KEY',
 			'GOOGLE_CLIENT_ID', 'GOOGLE_CLIENT_SECRET', 'GITHUB_CLIENT_ID', 'GITHUB_CLIENT_SECRET',
 			'GITHUB_EXPORTER_CLIENT_ID', 'GITHUB_EXPORTER_CLIENT_SECRET',
@@ -1372,7 +1382,7 @@ class SetupManager {
 
 		// Provider specific secrets
 		content += '# Provider specific secrets\n';
-		const providerVars = ['ANTHROPIC_API_KEY', 'OPENAI_API_KEY', 'GOOGLE_AI_STUDIO_API_KEY', 'OPENROUTER_API_KEY', 'GROQ_API_KEY'];
+		const providerVars = ['LLM_PROXY_API_KEY', 'LLM_PROXY_FALLBACK_API_KEY', 'ANTHROPIC_API_KEY', 'OPENAI_API_KEY', 'GOOGLE_AI_STUDIO_API_KEY', 'OPENROUTER_API_KEY', 'GROQ_API_KEY'];
 		for (const varName of providerVars) {
 			if (this.config.prodVars[varName]) {
 				content += `${varName}="${this.config.prodVars[varName]}"\n`;
@@ -1753,19 +1763,18 @@ class SetupManager {
 		}
 
 		// Additional setup information
-		const hasGoogleAI = Object.keys(this.config.devVars).includes('GOOGLE_AI_STUDIO_API_KEY');
+		const hasLlmProxy = Object.keys(this.config.devVars).some(key => key === 'LLM_PROXY_API_KEY' || key === 'LLM_PROXY_FALLBACK_API_KEY');
 		const hasOAuth = ['GOOGLE_CLIENT_ID', 'GITHUB_CLIENT_ID', 'GITHUB_EXPORTER_CLIENT_ID'].some(key =>
 			Object.keys(this.config.devVars).includes(key)
 		);
 		const hasRemoteR2 = resources.r2Buckets.some(bucket => bucket.accessible);
 		const isARM64 = process.arch === 'arm64';
 
-		if (!hasGoogleAI || hasOAuth || !hasRemoteR2 || isARM64) {
+		if (!hasLlmProxy || hasOAuth || !hasRemoteR2 || isARM64) {
 			console.log('\n💡 Setup Information:');
 
-			if (!hasGoogleAI) {
-				console.log('   • Edit worker/agents/inferutils/config.ts to configure AI models');
-				console.log('   • Update fallback models from Gemini to your available providers');
+			if (!hasLlmProxy) {
+				console.log('   • Add LLM_PROXY_API_KEY or LLM_PROXY_FALLBACK_API_KEY for the default GPT-5.5 agent models');
 			}
 
 			if (hasOAuth) {

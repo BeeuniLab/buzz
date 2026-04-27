@@ -25,7 +25,7 @@ export type ImageContent = {
 	};
 };
 
-/** OpenAI Chat Completions audio part (gateway may route to Gemini). */
+/** OpenAI Chat Completions audio part for compatible provider/proxy routes. */
 export type InputAudioContentPart = {
 	type: 'input_audio';
 	input_audio: {

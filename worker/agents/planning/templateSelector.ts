@@ -200,6 +200,8 @@ Reasoning: "A vague creative idea should be expanded into a quick tactile toy wi
 ## RULES:
 - ALWAYS select a template (never return null)
 - **ONLY** Choose from the list of available templates
+- Return JSON using the exact field names: selectedTemplateName, reasoning, useCase, complexity, styleSelection, projectType
+- Never use alias fields such as template, templateName, selection, style, or styleName
 - Ignore templates that are disabled, hidden, or absent from the provided available list
 - Do not mention or select example template names that are not in the available list
 - Focus on playable content fit over generic framework preference
@@ -292,9 +294,19 @@ export async function selectTemplate({ env, query, projectType, availableTemplat
 Template detail: ${templateDescriptions}
 
 **Task:** Select the most suitable template and provide:
-1. Template name (exact match from list)
+1. selectedTemplateName (exact match from list)
 2. Clear reasoning for why it fits the user's needs
 ${actualProjectType === 'app' ? '3. For BuzzPlay playable content, use useCase "Other" or "General" unless the user explicitly asks for SaaS, dashboard, blog, portfolio, or e-commerce. Pick a style that fits the creative mood and mobile playable format.' : ''}
+
+Return only a JSON object with exactly these keys:
+{
+  "selectedTemplateName": "one of the available template names",
+  "reasoning": "brief explanation",
+  "useCase": "SaaS Product Website | Dashboard | Blog | Portfolio | E-Commerce | General | Other",
+  "complexity": "simple | moderate | complex",
+  "styleSelection": "Minimalist Design | Brutalism | Retro | Illustrative | Kid_Playful | Custom",
+  "projectType": "${actualProjectType}"
+}
 
 Analyze each template's features, frameworks, and architecture to make the best match.
 ${images && images.length > 0 ? `\n**Note:** User provided reference attachment(s); use vision for images where included; for other file types rely on filenames and the request text.` : ''}
