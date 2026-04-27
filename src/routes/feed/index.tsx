@@ -235,14 +235,25 @@ export default function FeedPage() {
 			const container = containerRef.current;
 			if (!container) return;
 
-			if (e.key === 'ArrowDown' || e.key === 'j') {
+			const target = e.target as HTMLElement | null;
+			const isTypingTarget = Boolean(
+				target?.closest('input, textarea, select, [contenteditable="true"]'),
+			);
+			if (isTypingTarget) return;
+
+			if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+				e.preventDefault();
+				return;
+			}
+
+			if (e.key === 'j') {
 				e.preventDefault();
 				const next = Math.min(currentIndex + 1, apps.length - 1);
 				const items = container.children;
 				if (items[next]) {
 					(items[next] as HTMLElement).scrollIntoView({ behavior: 'smooth' });
 				}
-			} else if (e.key === 'ArrowUp' || e.key === 'k') {
+			} else if (e.key === 'k') {
 				e.preventDefault();
 				const prev = Math.max(currentIndex - 1, 0);
 				const items = container.children;

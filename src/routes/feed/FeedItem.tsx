@@ -63,6 +63,18 @@ export const FeedItem = React.forwardRef<FeedItemHandle, FeedItemProps>(
 			setIframeLoaded(false);
 		}, [previewUrl]);
 
+		React.useEffect(() => {
+			if (!playing || !isActive) return;
+
+			const focusPreview = () => {
+				iframeRef.current?.focus({ preventScroll: true });
+			};
+
+			focusPreview();
+			const focusTimer = window.setTimeout(focusPreview, 120);
+			return () => window.clearTimeout(focusTimer);
+		}, [playing, isActive, iframeKey, previewUrl, iframeLoaded]);
+
 		// Stop audio when game becomes inactive — blank the iframe src before React unmounts it
 		React.useEffect(() => {
 			if (!isActive && playing && iframeRef.current) {
@@ -190,6 +202,7 @@ export const FeedItem = React.forwardRef<FeedItemHandle, FeedItemProps>(
 							key={iframeKey}
 							src={previewUrl!}
 							title={`Play ${app.title}`}
+							tabIndex={0}
 							onLoad={() => setIframeLoaded(true)}
 							allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope"
 							style={{
