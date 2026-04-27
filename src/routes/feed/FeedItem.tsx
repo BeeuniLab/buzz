@@ -179,9 +179,9 @@ export const FeedItem = React.forwardRef<FeedItemHandle, FeedItemProps>(
 		const hasImage = app.screenshotUrl && !imgError;
 		const warmFrameActive = Boolean(previewUrl && isActive && shouldWarmFrame && !playing);
 		const shouldRenderPreviewFrame = Boolean(previewUrl && isActive && (playing || shouldWarmFrame));
-		const showCreatorCta = Boolean(!playing && app.userId);
 		const creatorName = app.userName || 'Creator';
 		const isOwnAuthor = Boolean(app.userId && app.userId === user?.id);
+		const showCreatorCta = Boolean(!playing && app.userId && !isOwnAuthor && !isFollowingAuthor);
 		const posterClassName = warmFrameActive
 			? 'absolute left-1/2 top-1/2 z-10 aspect-[9/16] w-[44%] max-w-[220px] -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-white/25 object-cover shadow-[0_20px_70px_rgba(0,0,0,0.55)]'
 			: 'absolute inset-0 h-full w-full object-cover';
@@ -281,18 +281,10 @@ export const FeedItem = React.forwardRef<FeedItemHandle, FeedItemProps>(
 										type="button"
 										onClick={handleFollowClick}
 										disabled={followLoading}
-										className={`flex h-11 min-w-[104px] items-center justify-center rounded-full px-5 text-sm font-black transition-colors disabled:opacity-70 ${
-											isFollowingAuthor && !isOwnAuthor
-												? 'border border-white/20 bg-white/10 text-white'
-												: 'bg-white text-black hover:bg-white/90'
-										}`}
+										className="flex h-11 min-w-[104px] items-center justify-center rounded-full bg-white px-5 text-sm font-black text-black transition-colors hover:bg-white/90 disabled:opacity-70"
 									>
 										{followLoading ? (
 											<Loader2 className="h-4 w-4 animate-spin" />
-										) : isOwnAuthor ? (
-											'View'
-										) : isFollowingAuthor ? (
-											'Following'
 										) : (
 											'Follow'
 										)}
