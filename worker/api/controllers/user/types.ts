@@ -31,6 +31,7 @@ export interface PublicUserProfileData {
     bio: string | null;
     followersCount: number;
     followingCount: number;
+    isFollowing: boolean;
 }
 
 /**

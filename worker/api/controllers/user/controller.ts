@@ -4,7 +4,7 @@ import { RouteContext } from '../../types/route-context';
 import { UserService } from '../../../database/services/UserService';
 import { AppService } from '../../../database/services/AppService';
 import { Visibility, AppSortOption, SortOrder, TimePeriod } from '../../../database/types';
-import { UserAppsData, ProfileUpdateData, UserFollowData, FollowerInboxData } from './types';
+import { UserAppsData, ProfileUpdateData, UserFollowData, FollowerInboxData, PublicUserProfileData } from './types';
 import { createLogger } from '../../../logger';
 
 const logger = createLogger('UserController');
@@ -88,6 +88,42 @@ export class UserController extends BaseController {
         } catch (error) {
             this.logger.error('Error getting follower inbox:', error);
             return UserController.createErrorResponse<FollowerInboxData>('Failed to get inbox', 500);
+        }
+    }
+
+    static async getPublicProfile(_request: Request, env: Env, _ctx: ExecutionContext, context: RouteContext): Promise<ControllerResponse<ApiResponse<PublicUserProfileData>>> {
+        try {
+            const targetUserId = context.pathParams.userId;
+            if (!targetUserId) {
+                return UserController.createErrorResponse<PublicUserProfileData>('User ID is required', 400);
+            }
+
+            const userService = new UserService(env);
+            const [targetUser, followCounts, isFollowing] = await Promise.all([
+                userService.findUser({ id: targetUserId }),
+                userService.getFollowCounts(targetUserId),
+                context.user && context.user.id !== targetUserId
+                    ? userService.isFollowing(context.user.id, targetUserId)
+                    : Promise.resolve(false),
+            ]);
+
+            if (!targetUser) {
+                return UserController.createErrorResponse<PublicUserProfileData>('User not found', 404);
+            }
+
+            return UserController.createSuccessResponse({
+                id: targetUser.id,
+                displayName: targetUser.displayName,
+                username: targetUser.username,
+                avatarUrl: targetUser.avatarUrl,
+                bio: targetUser.bio,
+                followersCount: followCounts.followersCount,
+                followingCount: followCounts.followingCount,
+                isFollowing,
+            });
+        } catch (error) {
+            this.logger.error('Error getting public profile:', error);
+            return UserController.createErrorResponse<PublicUserProfileData>('Failed to get user profile', 500);
         }
     }
 

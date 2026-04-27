@@ -3,7 +3,6 @@ import { Hono } from 'hono';
 import { AppEnv } from '../../types/appenv';
 import { adaptController } from '../honoAdapter';
 import { AuthConfig, setAuthLevel } from '../../middleware/auth/routeAuth';
-import { UserService } from '../../database/services/UserService';
 
 /**
  * Setup user management routes
@@ -22,28 +21,6 @@ export function setupUserRoutes(app: Hono<AppEnv>): void {
     app.post('/api/users/:userId/follow', setAuthLevel(AuthConfig.authenticated), adaptController(UserController, UserController.followUser));
     app.delete('/api/users/:userId/follow', setAuthLevel(AuthConfig.authenticated), adaptController(UserController, UserController.unfollowUser));
 
-    // Public user profile by ID
-    app.get('/api/users/:userId/profile', async (c) => {
-        const userId = c.req.param('userId');
-        const userService = new UserService(c.env);
-        const [user, followCounts] = await Promise.all([
-            userService.findUser({ id: userId }),
-            userService.getFollowCounts(userId),
-        ]);
-        if (!user) {
-            return c.json({ success: false, error: { message: 'User not found' } }, 404);
-        }
-        return c.json({
-            success: true,
-            data: {
-                id: user.id,
-                displayName: user.displayName,
-                username: user.username,
-                avatarUrl: user.avatarUrl,
-                bio: user.bio,
-                followersCount: followCounts.followersCount,
-                followingCount: followCounts.followingCount,
-            },
-        });
-    });
+    // Public user profile by ID, with optional auth for follow state
+    app.get('/api/users/:userId/profile', setAuthLevel(AuthConfig.public), adaptController(UserController, UserController.getPublicProfile));
 }

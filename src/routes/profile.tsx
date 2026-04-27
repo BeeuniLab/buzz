@@ -7,7 +7,7 @@ import { useFavoriteApps } from '@/hooks/use-apps';
 import { AppCard } from '@/components/shared/AppCard';
 import { apiClient } from '@/lib/api-client';
 import { cn } from '@/lib/utils';
-import { Bookmark, Code2, Loader2, Share2 } from 'lucide-react';
+import { Bookmark, Code2, Loader2, Share2, UserCheck, UserPlus } from 'lucide-react';
 import { toast } from 'sonner';
 import type { AppWithUserAndStats, PublicUserProfileData } from '@/api-types';
 
@@ -37,6 +37,8 @@ export default function Profile() {
   // Public profile data, also used for social counts on your own profile
   const [publicProfile, setPublicProfile] = React.useState<PublicUserProfileData | null>(null);
   const [publicLoading, setPublicLoading] = React.useState(false);
+  const [followLoading, setFollowLoading] = React.useState(false);
+  const [isFollowing, setIsFollowing] = React.useState(false);
 
   const isOwnProfile = !userId || userId === user?.id;
   const targetUserId = isOwnProfile ? user?.id : userId;
@@ -59,6 +61,10 @@ export default function Profile() {
   React.useEffect(() => {
     setActiveTab(isViewingOther ? 'created' : 'favorites');
   }, [isViewingOther]);
+
+  React.useEffect(() => {
+    setIsFollowing(Boolean(publicProfile?.isFollowing));
+  }, [publicProfile?.id, publicProfile?.isFollowing]);
 
   // Fetch public profile summary for social counts and public profile views
   React.useEffect(() => {
@@ -144,6 +150,40 @@ export default function Profile() {
     });
   };
 
+  const handleFollowToggle = async () => {
+    if (!targetUserId || followLoading || isOwnProfile) return;
+
+    if (!requireAuth({ actionContext: 'to follow this creator', intendedUrl: `/profile/${targetUserId}` })) {
+      return;
+    }
+
+    setFollowLoading(true);
+    try {
+      const response = isFollowing
+        ? await apiClient.unfollowUser(targetUserId)
+        : await apiClient.followUser(targetUserId);
+
+      if (response.success && response.data) {
+        const nextFollowState = response.data.isFollowing;
+        setIsFollowing(nextFollowState);
+        setPublicProfile((prev) =>
+          prev && prev.id === targetUserId
+            ? {
+                ...prev,
+                isFollowing: nextFollowState,
+                followersCount: response.data!.followersCount,
+                followingCount: response.data!.followingCount,
+              }
+            : prev,
+        );
+      }
+    } catch {
+      toast.error(isFollowing ? 'Failed to unfollow creator' : 'Failed to follow creator');
+    } finally {
+      setFollowLoading(false);
+    }
+  };
+
   return (
     <div className="min-h-screen">
       {/* Profile Header Banner */}
@@ -168,6 +208,28 @@ export default function Profile() {
               >
                 <Share2 className="h-4 w-4 text-text-tertiary" />
               </button>
+              {!isOwnProfile && (
+                <button
+                  type="button"
+                  onClick={handleFollowToggle}
+                  disabled={followLoading}
+                  className={cn(
+                    'inline-flex h-9 flex-shrink-0 items-center gap-1.5 rounded-full px-4 text-sm font-bold transition-colors disabled:opacity-70',
+                    isFollowing
+                      ? 'border-2 border-[var(--neo-border-color)] bg-bg-3 text-text-primary hover:bg-bg-4'
+                      : 'bg-text-primary text-bg-1 hover:opacity-90',
+                  )}
+                >
+                  {followLoading ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : isFollowing ? (
+                    <UserCheck className="h-4 w-4" />
+                  ) : (
+                    <UserPlus className="h-4 w-4" />
+                  )}
+                  <span>{isFollowing ? 'Following' : 'Follow'}</span>
+                </button>
+              )}
               </div>
             </div>
 

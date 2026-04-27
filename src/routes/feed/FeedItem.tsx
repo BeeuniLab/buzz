@@ -250,7 +250,7 @@ export const FeedItem = React.forwardRef<FeedItemHandle, FeedItemProps>(
 
 							{/* View count badge */}
 							{app.viewCount != null && app.viewCount > 0 && (
-								<div className={`absolute left-3 z-20 flex items-center gap-1.5 bg-black/50 backdrop-blur-sm rounded-full px-3 py-1.5 text-white text-sm ${showCreatorCta ? 'bottom-28' : 'bottom-3'}`}>
+								<div className="absolute bottom-3 left-3 z-20 flex items-center gap-1.5 bg-black/50 backdrop-blur-sm rounded-full px-3 py-1.5 text-white text-sm">
 									<Play className="h-3.5 w-3.5 fill-white" />
 									<span>{app.viewCount.toLocaleString()}</span>
 								</div>
@@ -258,30 +258,30 @@ export const FeedItem = React.forwardRef<FeedItemHandle, FeedItemProps>(
 
 							{showCreatorCta && (
 								<div
-									className="absolute bottom-5 left-4 right-4 z-30 flex items-center gap-3 rounded-2xl border border-white/10 bg-black/55 px-4 py-3 text-white shadow-[0_18px_60px_rgba(0,0,0,0.45)] backdrop-blur-xl"
+									className="absolute left-3 right-3 top-4 z-30 flex items-center gap-2.5 rounded-xl border border-white/10 bg-black/55 px-3 py-2 text-white shadow-[0_12px_40px_rgba(0,0,0,0.38)] backdrop-blur-xl"
 									onClick={(event) => event.stopPropagation()}
 								>
 									<button
 										type="button"
 										onClick={openCreatorProfile}
-										className="flex min-w-0 flex-1 items-center gap-3 text-left"
+										className="flex min-w-0 flex-1 items-center gap-2.5 text-left"
 									>
-										<Avatar className="h-11 w-11 flex-shrink-0 ring-2 ring-white/15">
+										<Avatar className="h-9 w-9 flex-shrink-0 ring-2 ring-white/15">
 											<AvatarImage src={app.userAvatar ?? undefined} />
-											<AvatarFallback className="bg-white/10 text-sm font-bold text-white">
+											<AvatarFallback className="bg-white/10 text-xs font-bold text-white">
 												{creatorName.charAt(0).toUpperCase()}
 											</AvatarFallback>
 										</Avatar>
 										<div className="min-w-0">
-											<div className="truncate text-lg font-black leading-tight">{creatorName}</div>
-											<div className="truncate text-sm font-semibold text-white/75">Browse their games</div>
+											<div className="truncate text-base font-black leading-tight">{creatorName}</div>
+											<div className="truncate text-xs font-semibold text-white/75">Browse their games</div>
 										</div>
 									</button>
 									<button
 										type="button"
 										onClick={handleFollowClick}
 										disabled={followLoading}
-										className="flex h-11 min-w-[104px] items-center justify-center rounded-full bg-white px-5 text-sm font-black text-black transition-colors hover:bg-white/90 disabled:opacity-70"
+										className="flex h-9 min-w-[84px] items-center justify-center rounded-full bg-white px-4 text-sm font-black text-black transition-colors hover:bg-white/90 disabled:opacity-70"
 									>
 										{followLoading ? (
 											<Loader2 className="h-4 w-4 animate-spin" />
