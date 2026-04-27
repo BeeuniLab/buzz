@@ -58,12 +58,8 @@
 		{
 			"class_name": "UserAppSandboxService",
 			"image": "./SandboxDockerfile",
-			"max_instances": 1400,
-            "instance_type": {
-                "vcpu": 4,
-                "memory_mib": 8192,
-                "disk_mb": 10240
-            },
+			"max_instances": 1000,
+            "instance_type": "standard-2",
             "rollout_step_percentage": 100
 		}
 	],
@@ -175,7 +171,7 @@
         },
         "CUSTOM_DOMAIN": "buzzplay.app",
         "MAX_SANDBOX_INSTANCES": "10",
-        "SANDBOX_INSTANCE_TYPE": "standard-3",
+        "SANDBOX_INSTANCE_TYPE": "standard-2",
         "LLM_PROXY_URL": "https://api.phsharp.com/v1",
         "INVITE_CODE_REQUIRED": "true"
     },

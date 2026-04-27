@@ -74,7 +74,7 @@ export function LoginModal({
 	// Determine if enhanced features are available
 	const hasEmailAuth = requiresEmailAuth && !!onEmailLogin;
 	const hasRegistration = requiresEmailAuth && !!onRegister;
-	const showGitHub = authProviders?.github && hasOAuth;
+	const showGitHub = false;
 	const showGoogle = authProviders?.google && hasOAuth;
 
 	const resetForm = () => {

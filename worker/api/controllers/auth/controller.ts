@@ -35,8 +35,7 @@ export class AuthController extends BaseController {
      * Check if OAuth providers are configured
      */
     static hasOAuthProviders(env: Env): boolean {
-        return (!!env.GOOGLE_CLIENT_ID && !!env.GOOGLE_CLIENT_SECRET) || 
-               (!!env.GITHUB_CLIENT_ID && !!env.GITHUB_CLIENT_SECRET);
+        return !!env.GOOGLE_CLIENT_ID && !!env.GOOGLE_CLIENT_SECRET;
     }
     
     /**
@@ -807,7 +806,7 @@ export class AuthController extends BaseController {
         try {
             const providers = {
                 google: !!env.GOOGLE_CLIENT_ID && !!env.GOOGLE_CLIENT_SECRET,
-                github: !!env.GITHUB_CLIENT_ID && !!env.GITHUB_CLIENT_SECRET,
+                github: false,
                 email: true
             };
             
@@ -816,8 +815,8 @@ export class AuthController extends BaseController {
             
             const response = AuthController.createSuccessResponse({
                 providers,
-                hasOAuth: providers.google || providers.github,
-                requiresEmailAuth: !providers.google && !providers.github,
+                hasOAuth: providers.google,
+                requiresEmailAuth: !providers.google,
                 csrfToken,
                 csrfExpiresIn: Math.floor(CsrfService.defaults.tokenTTL / 1000)
             });
