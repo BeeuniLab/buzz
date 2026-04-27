@@ -58,7 +58,7 @@
 		{
 			"class_name": "UserAppSandboxService",
 			"image": "./SandboxDockerfile",
-			"max_instances": 1000,
+			"max_instances": 500,
             "instance_type": "standard-2",
             "rollout_step_percentage": 100
 		}
