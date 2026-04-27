@@ -30,6 +30,46 @@ import { BaseService } from './BaseService';
 
 const logger = createLogger('AuthService');
 
+const DICEBEAR_AVATAR_STYLES = [
+    'avataaars',
+    'adventurer',
+    'big-ears',
+    'lorelei',
+    'micah',
+    'notionists',
+    'open-peeps',
+    'personas',
+    'thumbs',
+] as const;
+
+const LEGACY_PROVIDER_AVATAR_PREFIXES = [
+    'https://avatars.githubusercontent.com/',
+    'https://lh3.googleusercontent.com/',
+];
+
+function getRandomDiceBearStyle(): typeof DICEBEAR_AVATAR_STYLES[number] {
+    const values = new Uint32Array(1);
+    crypto.getRandomValues(values);
+    return DICEBEAR_AVATAR_STYLES[values[0] % DICEBEAR_AVATAR_STYLES.length];
+}
+
+function getDiceBearAvatarUrl(seed: string): string {
+    const style = getRandomDiceBearStyle();
+    return `https://api.dicebear.com/10.x/${style}/svg?seed=${encodeURIComponent(seed)}`;
+}
+
+function shouldAssignDiceBearAvatar(avatarUrl?: string | null): boolean {
+    if (!avatarUrl) {
+        return true;
+    }
+
+    if (avatarUrl.includes('api.dicebear.com/9.x/')) {
+        return true;
+    }
+
+    return LEGACY_PROVIDER_AVATAR_PREFIXES.some((prefix) => avatarUrl.startsWith(prefix));
+}
+
 /**
  * Login credentials
  */
@@ -112,13 +152,16 @@ export class AuthService extends BaseService {
             // Create user
             const userId = generateId();
             const now = new Date();
+            const email = data.email.toLowerCase();
+            const avatarUrl = getDiceBearAvatarUrl(`${userId}:${email}`);
             
             // Store user as verified immediately (no OTP verification required)
             await this.database.insert(schema.users).values({
                 id: userId,
-                email: data.email.toLowerCase(),
+                email,
                 passwordHash,
                 displayName: data.name || data.email.split('@')[0],
+                avatarUrl,
                 emailVerified: true, // Set as verified immediately
                 provider: 'email',
                 providerId: userId,
@@ -179,7 +222,7 @@ export class AuthService extends BaseService {
     async login(credentials: LoginCredentials, request: Request): Promise<AuthResult> {
         try {
             // Find user
-            const user = await this.database
+            let user = await this.database
                 .select()
                 .from(schema.users)
                 .where(
@@ -212,6 +255,19 @@ export class AuthService extends BaseService {
                     'Invalid email or password',
                     401
                 );
+            }
+            
+            if (shouldAssignDiceBearAvatar(user.avatarUrl)) {
+                const avatarUrl = getDiceBearAvatarUrl(`${user.id}:${user.email}`);
+                const updatedAt = new Date();
+                await this.database
+                    .update(schema.users)
+                    .set({
+                        avatarUrl,
+                        updatedAt,
+                    })
+                    .where(eq(schema.users.id, user.id));
+                user = { ...user, avatarUrl, updatedAt };
             }
             
             // Create session
@@ -466,12 +522,13 @@ export class AuthService extends BaseService {
             // Create new user
             const userId = generateId();
             const now = new Date();
+            const email = oauthUserInfo.email.toLowerCase();
             
             await this.database.insert(schema.users).values({
                 id: userId,
-                email: oauthUserInfo.email.toLowerCase(),
+                email,
                 displayName: oauthUserInfo.name || oauthUserInfo.email.split('@')[0],
-                avatarUrl: oauthUserInfo.picture,
+                avatarUrl: getDiceBearAvatarUrl(`${userId}:${email}`),
                 emailVerified: oauthUserInfo.emailVerified || false,
                 provider: provider,
                 providerId: oauthUserInfo.id,
@@ -485,12 +542,16 @@ export class AuthService extends BaseService {
                 .where(eq(schema.users.id, userId))
                 .get();
         } else {
+            const avatarUrl = shouldAssignDiceBearAvatar(user.avatarUrl)
+                ? getDiceBearAvatarUrl(`${user.id}:${user.email}`)
+                : user.avatarUrl;
+            
             // Always update OAuth info and user data on login
             await this.database
                 .update(schema.users)
                 .set({
                     displayName: oauthUserInfo.name || user.displayName,
-                    avatarUrl: oauthUserInfo.picture || user.avatarUrl,
+                    avatarUrl,
                     provider: provider,
                     providerId: oauthUserInfo.id,
                     emailVerified: oauthUserInfo.emailVerified || user.emailVerified,

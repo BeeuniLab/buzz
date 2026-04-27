@@ -177,6 +177,7 @@ export function getSecureHeadersConfig(env: Env): SecureHeadersConfig {
                 "'self'",
                 "data:",
                 "blob:",
+                "https://api.dicebear.com", // Generated user avatars
                 "https://avatars.githubusercontent.com", // GitHub avatars
                 "https://lh3.googleusercontent.com", // Google avatars
                 "https://*.cloudflare.com" // Cloudflare assets

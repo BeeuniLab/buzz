@@ -25,7 +25,7 @@ interface UserEntry {
 
 function getAvatarUrl(username: string, style?: string): string {
 	const s = style || AVATAR_STYLES[Math.floor(Math.random() * AVATAR_STYLES.length)];
-	return `https://api.dicebear.com/9.x/${s}/svg?seed=${username}`;
+	return `https://api.dicebear.com/10.x/${s}/svg?seed=${username}`;
 }
 
 const DEFAULTS = {
