@@ -43,6 +43,12 @@ const resolveProjectType = (body: CodeGenArgs): ProjectType | 'auto' => {
     return body.projectType || 'auto';
 };
 
+const buildPendingAppTitle = (query: string): string => {
+    const normalized = query.replace(/\s+/g, ' ').trim();
+    if (!normalized) return 'New App';
+    return normalized.length > 100 ? `${normalized.slice(0, 97)}...` : normalized;
+};
+
 
 /**
  * CodingAgentController to handle all code generation related endpoints
@@ -53,6 +59,8 @@ export class CodingAgentController extends BaseController {
      * Start the incremental code generation process
      */
     static async startCodeGeneration(request: Request, env: Env, _: ExecutionContext, context: RouteContext): Promise<Response> {
+        let pendingAppForCleanup: { agentId: string; userId: string } | null = null;
+
         try {
             this.logger.info('Starting code generation process');
 
@@ -108,6 +116,24 @@ export class CodingAgentController extends BaseController {
             const modelConfigService = new ModelConfigService(env);
             const projectType = resolveProjectType(body);
             const behaviorType = resolveBehaviorType(body);
+            const appService = new AppService(env);
+            const appTitle = buildPendingAppTitle(query);
+
+            await appService.createOrUpdateApp({
+                id: agentId,
+                userId: user.id,
+                sessionToken: null,
+                title: appTitle,
+                description: query,
+                originalPrompt: query,
+                finalPrompt: query,
+                framework: (body.frameworks || defaultCodeGenArgs.frameworks || []).join(','),
+                visibility: 'private',
+                status: 'generating',
+                createdAt: new Date(),
+                updatedAt: new Date(),
+            });
+            pendingAppForCleanup = { agentId, userId: user.id };
 
             this.logger.info(`Resolved behaviorType: ${behaviorType}, projectType: ${projectType} for agent ${agentId}`);
                                 
@@ -202,6 +228,7 @@ export class CodingAgentController extends BaseController {
             });
 
             this.logger.info(`Agent ${agentId} init launched successfully`);
+            pendingAppForCleanup = null;
             
             return new Response(readable, {
                 status: 200,
@@ -216,6 +243,13 @@ export class CodingAgentController extends BaseController {
                 }
             });
         } catch (error) {
+            if (pendingAppForCleanup) {
+                try {
+                    await new AppService(env).deleteApp(pendingAppForCleanup.agentId, pendingAppForCleanup.userId);
+                } catch (cleanupError) {
+                    this.logger.warn('Failed to cleanup pending app after start failure', cleanupError);
+                }
+            }
             this.logger.error('Error starting code generation', error);
             return CodingAgentController.handleError(error, 'start code generation');
         }

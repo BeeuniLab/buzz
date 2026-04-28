@@ -68,6 +68,7 @@ export function useChat({
 	};
 
 	const connectionStatus = useRef<'idle' | 'connecting' | 'connected' | 'failed' | 'retrying'>('idle');
+	const emittedAppCreatedRef = useRef(false);
 	const retryCount = useRef(0);
 	const maxRetries = 5;
 	const retryTimeouts = useRef<NodeJS.Timeout[]>([]);
@@ -475,6 +476,7 @@ export function useChat({
 
 					// Prevent duplicate session creation on rerenders while streaming
 					connectionStatus.current = 'connecting';
+					emittedAppCreatedRef.current = false;
 
 					// Start new code generation using API client
 					const response = await apiClient.createAgentSession({
@@ -501,6 +503,16 @@ export function useChat({
 						template: {
 							files: [],
 						},
+					};
+
+					const publishCreatedApp = (agentId: string) => {
+						if (emittedAppCreatedRef.current) return;
+						emittedAppCreatedRef.current = true;
+						setChatId(agentId);
+						appEvents.emitAppCreated(agentId, {
+							title: userQuery || 'New App',
+							description: userQuery,
+						});
 					};
 
 					let startedBlueprintStream = false;
@@ -533,6 +545,7 @@ export function useChat({
 						}
 						if (obj.agentId) {
 							result.agentId = obj.agentId;
+							publishCreatedApp(obj.agentId);
 						}
 						if (obj.websocketUrl) {
 							result.websocketUrl = obj.websocketUrl;
@@ -572,13 +585,7 @@ export function useChat({
 					// Connect to WebSocket
 					logger.debug('connecting to ws with created id');
 					connectWithRetry(result.websocketUrl);
-					setChatId(result.agentId); // This comes from the server response
-					
-					// Emit app-created event for sidebar updates
-					appEvents.emitAppCreated(result.agentId, {
-						title: userQuery || 'New App',
-						description: userQuery,
-					});
+					publishCreatedApp(result.agentId);
 				} else if (connectionStatus.current === 'idle') {
 					// Prevent duplicate connect calls on rerenders
 					connectionStatus.current = 'connecting';

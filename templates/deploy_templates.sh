@@ -31,6 +31,7 @@ echo "✅ Generated template catalog"
 echo "📦 Creating optimized zip files for templates..."
 
 # Create zips directory
+rm -rf zips
 mkdir -p zips
 
 # Function to create fast-extracting zip files using Python

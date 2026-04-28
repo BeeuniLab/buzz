@@ -459,7 +459,7 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
         this.logger().info(`Saving agent ${this.getAgentId()} to database`);
         // Save the app to database (authenticated users only)
         const appService = new AppService(this.env);
-        await appService.createApp({
+        const app = await appService.createOrUpdateApp({
             id: this.state.metadata.agentId,
             userId: this.state.metadata.userId,
             sessionToken: null,
@@ -470,9 +470,13 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
             framework: this.state.blueprint.frameworks.join(','),
             visibility: 'private',
             status: 'generating',
-                createdAt: new Date(),
+            createdAt: new Date(),
             updatedAt: new Date()
-            });
+            }, { createIfMissing: false });
+        if (!app) {
+            this.logger().warn(`Skipping database save for deleted app ${this.state.metadata.agentId}`);
+            return;
+        }
         this.logger().info(`App saved successfully to database for agent ${this.state.metadata.agentId}`, { 
             agentId: this.state.metadata.agentId, 
             userId: this.state.metadata.userId,

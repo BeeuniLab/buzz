@@ -74,6 +74,40 @@ export class AppService extends BaseService {
             .returning();
         return app;
     }
+
+    async createOrUpdateApp(
+        appData: schema.NewApp,
+        options: { createIfMissing?: boolean } = {},
+    ): Promise<schema.App | null> {
+        const createIfMissing = options.createIfMissing ?? true;
+
+        if (!appData.id) {
+            if (!createIfMissing) return null;
+            return this.createApp(appData);
+        }
+
+        const existingApp = await this.database
+            .select({ id: schema.apps.id })
+            .from(schema.apps)
+            .where(eq(schema.apps.id, appData.id))
+            .get();
+
+        if (!existingApp) {
+            if (!createIfMissing) return null;
+            return this.createApp(appData);
+        }
+
+        const { id: _id, createdAt: _createdAt, ...updates } = appData;
+        await this.updateApp(appData.id, updates);
+
+        const updatedApp = await this.database
+            .select()
+            .from(schema.apps)
+            .where(eq(schema.apps.id, appData.id))
+            .get();
+
+        return updatedApp ?? null;
+    }
     /**
      * Get public apps with pagination and sorting
      */
