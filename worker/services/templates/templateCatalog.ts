@@ -1,4 +1,3 @@
-import { unzipSync } from 'fflate';
 import type {
 	FileTreeNode,
 	TemplateDetails,
@@ -6,6 +5,7 @@ import type {
 	TemplateInfo,
 	TemplateListResponse,
 } from '../../types/project-types';
+import { ZipExtractor } from '../sandbox/zipExtractor';
 
 /**
  * Fetches the template catalog (template_catalog.json) from R2.
@@ -45,19 +45,11 @@ export async function getTemplateDetails(bucket: R2Bucket, templateName: string)
 			return { success: false, error: `Template zip "${zipKey}" not found in R2` };
 		}
 
-		const zipBuffer = await obj.arrayBuffer();
-		const files = unzipSync(new Uint8Array(zipBuffer));
-
 		const allFiles: Record<string, string> = {};
-		const decoder = new TextDecoder('utf-8');
+		const extractedFiles = ZipExtractor.extractFiles(await obj.arrayBuffer());
 
-		for (const [path, content] of Object.entries(files)) {
-			if (path.endsWith('/')) continue;
-			try {
-				allFiles[path] = decoder.decode(content);
-			} catch {
-				// Skip binary files
-			}
+		for (const file of extractedFiles) {
+			allFiles[file.filePath] = file.fileContents;
 		}
 
 		const fileTree = buildFileTree(Object.keys(allFiles));
