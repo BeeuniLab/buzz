@@ -113,10 +113,6 @@ export default function Chat() {
 		[],
 	);
 
-	const clearDebugMessages = useCallback(() => {
-		setDebugMessages([]);
-	}, []);
-
 	const { state: vaultState, requestUnlock, clearUnlockRequest } = useVault();
 	const handleVaultUnlockRequired = useCallback(
 		(reason: string) => {
@@ -194,8 +190,8 @@ export default function Chat() {
 	const [view, setView] = useState<CanvasView>('preview');
 	const [selectedAssetTarget, setSelectedAssetTarget] = useState<ChatAssetSelectionTarget | null>(null);
 
-	// Debug panel state
-	const [debugMessages, setDebugMessages] = useState<DebugMessage[]>([]);
+	// Debug diagnostics are still collected for callbacks, but the production panel is hidden.
+	const [, setDebugMessages] = useState<DebugMessage[]>([]);
 	const [isSendLockActive, setIsSendLockActive] = useState(false);
 
 	const [isResetDialogOpen, setIsResetDialogOpen] = useState(false);
@@ -893,9 +889,6 @@ export default function Chat() {
 			)}
 
 			<ChatModals
-				debugMessages={debugMessages}
-				chatId={chatId}
-				onClearDebugMessages={clearDebugMessages}
 				isResetDialogOpen={isResetDialogOpen}
 				onResetDialogChange={setIsResetDialogOpen}
 				onResetConversation={handleResetConversation}
