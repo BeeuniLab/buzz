@@ -431,7 +431,7 @@ export interface AgentConfig {
     conversationalResponse: ModelConfig;
     deepDebugger: ModelConfig;
     agenticProjectBuilder: ModelConfig;
-    /** Short Flash-Lite captions for user assets (asset_map descriptions). */
+    /** Legacy configurable action for user asset captions; current caption path uses Vercel AI Gateway directly. */
     assetMediaCaption: ModelConfig;
 }
 

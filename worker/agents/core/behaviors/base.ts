@@ -1611,7 +1611,7 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
     }
 
     /**
-     * Sync R2 manifest into src/asset_map, then Flash-Lite captions for new uploads (scheme A).
+     * Sync R2 manifest into src/asset_map, then short Vercel AI Gateway captions for new uploads.
      */
     public async syncAndCaptionUploadedAssets(
         uploaded: ProcessedImageAttachment[],
