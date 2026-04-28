@@ -795,16 +795,44 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
                 imageCount: images?.length || 0
             });
 
+            this.broadcast(WebSocketMessageResponses.USER_SUGGESTIONS_PROCESSING, {
+                message: 'Processing user message',
+                status: 'start',
+            });
+
             await this.behavior.handleUserInput(userMessage, images);
             if (!this.behavior.isCodeGenerating()) {
                 // If idle, start generation process
                 this.logger().info('User input during IDLE state, starting generation');
+                let generationFailed = false;
                 this.behavior.generateAllFiles().catch(error => {
+                    generationFailed = true;
                     this.logger().error('Error starting generation from user input:', error);
+                    this.broadcast(WebSocketMessageResponses.USER_SUGGESTIONS_PROCESSING, {
+                        message: 'User message processing failed',
+                        status: 'error',
+                    });
+                }).finally(() => {
+                    if (!generationFailed) {
+                        this.broadcast(WebSocketMessageResponses.USER_SUGGESTIONS_PROCESSING, {
+                            message: 'User message processed',
+                            status: 'complete',
+                        });
+                    }
+                });
+            } else {
+                this.broadcast(WebSocketMessageResponses.USER_SUGGESTIONS_PROCESSING, {
+                    message: 'User message processed',
+                    status: 'complete',
                 });
             }
 
         } catch (error) {
+            this.broadcast(WebSocketMessageResponses.USER_SUGGESTIONS_PROCESSING, {
+                message: 'User message processing failed',
+                status: 'error',
+            });
+
             if (error instanceof RateLimitExceededError) {
                 this.logger().error('Rate limit exceeded:', error);
                 this.broadcast(WebSocketMessageResponses.RATE_LIMIT_ERROR, {

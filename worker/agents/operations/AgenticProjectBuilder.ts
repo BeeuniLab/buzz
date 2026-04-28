@@ -26,6 +26,9 @@ import { createGenerateFilesTool } from '../tools/toolkit/generate-files';
 import { createRegenerateFileTool } from '../tools/toolkit/regenerate-file';
 import { createRunAnalysisTool } from '../tools/toolkit/run-analysis';
 import { createDeployPreviewTool } from '../tools/toolkit/deploy-preview';
+import { createGetRuntimeErrorsTool } from '../tools/toolkit/get-runtime-errors';
+import { createGetLogsTool } from '../tools/toolkit/get-logs';
+import { createExecCommandsTool } from '../tools/toolkit/exec-commands';
 import { createWaitTool } from '../tools/toolkit/wait';
 import { createGitTool } from '../tools/toolkit/git';
 import { createGenerateImagesTool } from '../tools/toolkit/generate-images';
@@ -251,7 +254,10 @@ export class AgenticProjectBuilderOperation extends AgentOperationWithTools<
             createRunAnalysisTool(session.agent, logger),
             // Runtime + deploy
             createDeployPreviewTool(session.agent, logger),
+            createGetRuntimeErrorsTool(session.agent, logger),
+            createGetLogsTool(session.agent, logger),
             // Utilities
+            createExecCommandsTool(session.agent, logger),
             createWaitTool(logger),
             createGitTool(session.agent, logger),
             // WIP: images

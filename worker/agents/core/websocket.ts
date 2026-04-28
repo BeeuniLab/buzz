@@ -124,6 +124,11 @@ export function handleWebSocketMessage(
                     hasImages: !!parsedMessage.images && parsedMessage.images.length > 0,
                     imageCount: parsedMessage.images?.length || 0
                 });
+
+                if (agent.getBehavior().isCodeGenerating() || agent.getBehavior().isDeepDebugging()) {
+                    sendError(connection, 'A task is still running. Please stop it or wait for it to finish before sending another message.');
+                    return;
+                }
                 
                 const hasText =
                     typeof parsedMessage.message === 'string' && parsedMessage.message.trim().length > 0;

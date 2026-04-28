@@ -58,6 +58,7 @@ export interface HandleMessageDeps {
     setInitialPromptAttachments: React.Dispatch<React.SetStateAction<import('./chat-attachments').ChatAttachmentPreview[]>>;
     setIsGenerationPaused: React.Dispatch<React.SetStateAction<boolean>>;
     setIsGenerating: React.Dispatch<React.SetStateAction<boolean>>;
+    setIsConversationProcessing: React.Dispatch<React.SetStateAction<boolean>>;
     setIsPhaseProgressActive: React.Dispatch<React.SetStateAction<boolean>>;
     setRuntimeErrorCount: React.Dispatch<React.SetStateAction<number>>;
     setStaticIssueCount: React.Dispatch<React.SetStateAction<number>>;
@@ -166,6 +167,7 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
             setInitialPromptAttachments,
             setIsGenerationPaused,
             setIsGenerating,
+            setIsConversationProcessing,
             setIsPhaseProgressActive,
             setIsDebugging,
             setBehaviorType,
@@ -627,6 +629,7 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
             }
 
             case 'generation_complete': {
+                setIsConversationProcessing(false);
                 setIsRedeployReady(true);
                 setFiles((prev) => setAllFilesCompleted(prev));
                 setProjectStages((prev) => completeStages(prev, ['code']));
@@ -834,6 +837,7 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
             }
 
             case 'generation_stopped': {
+                setIsConversationProcessing(false);
                 setIsGenerating(false);
                 setIsGenerationPaused(true);
                 setIsDebugging(false);
@@ -920,6 +924,10 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
             }
 
             case 'conversation_response': {
+                if (message.isStreaming || message.tool) {
+                    setIsConversationProcessing(true);
+                }
+
                 // Use concrete conversationId when available; otherwise use placeholder id
                 let conversationId = message.conversationId ?? 'conversation_response';
 
@@ -970,6 +978,11 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
                 break;
             }
 
+            case 'user_suggestions_processing': {
+                setIsConversationProcessing(message.status !== 'complete' && message.status !== 'error');
+                break;
+            }
+
             case 'blueprint_chunk': {
                 // Initialize parser on first chunk
                 if (!blueprintParser) {
@@ -1010,6 +1023,7 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
             }
 
             case 'error': {
+                setIsConversationProcessing(false);
                 const errorData = message;
                 setMessages(prev => [
                     ...prev,
@@ -1028,6 +1042,7 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
             }
 
             case 'rate_limit_error': {
+                setIsConversationProcessing(false);
                 const errorData = message.error;
                 const rateLimitMessage = handleRateLimitError(
                     errorData.details,

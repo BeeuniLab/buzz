@@ -370,6 +370,20 @@ export const AI_MODEL_CONFIG: Record<AIModels, AIModelConfig> = Object.fromEntri
     Object.values(MODELS_MASTER).map((entry) => [entry.id, entry.config])
 ) as Record<AIModels, AIModelConfig>;
 
+export function normalizeAIModelId(model: AIModels | string): AIModels | string {
+    const cleanedModel = model.replace(/\[.*?\]/g, '');
+    if (AI_MODEL_CONFIG[cleanedModel as AIModels]) {
+        return cleanedModel as AIModels;
+    }
+
+    const matchingProviderModel = Object.keys(AI_MODEL_CONFIG).find((id) => {
+        const bareId = id.includes('/') ? id.split('/').slice(1).join('/') : id;
+        return bareId === cleanedModel;
+    });
+
+    return (matchingProviderModel ?? cleanedModel) as AIModels | string;
+}
+
 /**
  * Dynamically generated list of Lite models based on ModelSize.LITE
  */

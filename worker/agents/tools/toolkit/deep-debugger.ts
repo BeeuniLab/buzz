@@ -17,7 +17,7 @@ export function createDeepDebuggerTool(
 		(paths: string[] | undefined) => ({
 			files: paths ? { mode: 'write', paths } : { mode: 'write', paths: [] },
 			gitCommit: true,
-			preview: { operation: 'deploy' },
+			sandbox: { operation: 'deploy' },
 		})
 	);
 

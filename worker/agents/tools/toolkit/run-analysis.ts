@@ -1,7 +1,7 @@
 import { tool, t } from '../types';
 import { StructuredLogger } from '../../../logger';
 import { ICodingAgent } from 'worker/agents/services/interfaces/ICodingAgent';
-import { StaticAnalysisResponse } from 'worker/types/project-types';
+import { StaticAnalysisResponse } from 'worker/services/sandbox/sandboxTypes';
 
 export type RunAnalysisResult = StaticAnalysisResponse;
 

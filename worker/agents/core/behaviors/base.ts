@@ -1737,6 +1737,8 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
         } catch (error) {
             this.logger.error('Error processing user input', error);
             throw error;
+        } finally {
+            this.clearAbortController();
         }
     }
 }

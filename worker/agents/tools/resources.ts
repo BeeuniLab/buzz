@@ -3,7 +3,7 @@ export interface Resources {
 		mode: 'read' | 'write';
 		paths: string[];
 	};
-	preview?: {
+	sandbox?: {
 		operation: 'exec' | 'analysis' | 'deploy' | 'read';
 	};
 	blueprint?: boolean;
@@ -31,9 +31,9 @@ export function mergeResources(target: Resources, source: Resources): void {
 		}
 	}
 
-	// Merge preview (last one wins, they should be the same for same tool)
-	if (source.preview) {
-		target.preview = { ...source.preview };
+	// Merge sandbox (last one wins, they should be the same for same tool)
+	if (source.sandbox) {
+		target.sandbox = { ...source.sandbox };
 	}
 
 	// Merge blueprint
@@ -73,11 +73,11 @@ export function hasResourceConflict(r1: Resources, r2: Resources): boolean {
 		}
 	}
 
-	// Preview conflicts: exec/analysis/deploy are exclusive
-	if (r1.preview && r2.preview) {
+	// Sandbox conflicts: exec/analysis/deploy are exclusive
+	if (r1.sandbox && r2.sandbox) {
 		const exclusive = ['exec', 'analysis', 'deploy'];
-		const op1Exclusive = exclusive.includes(r1.preview.operation);
-		const op2Exclusive = exclusive.includes(r2.preview.operation);
+		const op1Exclusive = exclusive.includes(r1.sandbox.operation);
+		const op2Exclusive = exclusive.includes(r2.sandbox.operation);
 		if (op1Exclusive || op2Exclusive) {
 			return true;
 		}

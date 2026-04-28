@@ -136,6 +136,7 @@ export function useChat({
 	// const [lastDeploymentPhaseCount, setLastDeploymentPhaseCount] = useState(0);
 	const [isGenerationPaused, setIsGenerationPaused] = useState(false);
 	const [isGenerating, setIsGenerating] = useState(false);
+	const [isConversationProcessing, setIsConversationProcessing] = useState(false);
 
 	// Phase progress visual indicator (used to apply subtle throb on chat)
 	const [isPhaseProgressActive, setIsPhaseProgressActive] = useState(false);
@@ -217,6 +218,7 @@ export function useChat({
 			setInitialPromptAttachments,
 			setIsGenerationPaused,
 			setIsGenerating,
+			setIsConversationProcessing,
 			setIsPhaseProgressActive,
 			setRuntimeErrorCount,
 			setStaticIssueCount,
@@ -777,6 +779,7 @@ export function useChat({
 		isRedeployReady,
 		isGenerationPaused,
 		isGenerating,
+		isConversationProcessing,
 		handleStopGeneration,
 		handleResumeGeneration,
 		handleDeployToCloudflare,

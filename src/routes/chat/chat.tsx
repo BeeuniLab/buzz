@@ -150,6 +150,7 @@ export default function Chat() {
 		cloudflareDeploymentUrl,
 		deploymentError,
 		isRedeployReady,
+		isConversationProcessing,
 		handleDeployToCloudflare,
 		// Preview refresh control
 		shouldRefreshPreview,
@@ -195,6 +196,7 @@ export default function Chat() {
 
 	// Debug panel state
 	const [debugMessages, setDebugMessages] = useState<DebugMessage[]>([]);
+	const [isSendLockActive, setIsSendLockActive] = useState(false);
 
 	const [isResetDialogOpen, setIsResetDialogOpen] = useState(false);
 
@@ -392,6 +394,8 @@ export default function Chat() {
 		previewAvailable &&
 		!isGenerating &&
 		!isGeneratingBlueprint &&
+		!isConversationProcessing &&
+		!isDebugging &&
 		!isPreviewDeploying,
 	);
 
@@ -502,11 +506,45 @@ export default function Chat() {
 		}
 	}, [view]);
     
-	const isRunning = useMemo(() => {
+	const isServerTaskRunning = useMemo(() => {
 		return (
-			isBootstrapping || isGeneratingBlueprint // || codeGenState === 'active'
+			isBootstrapping ||
+			isGeneratingBlueprint ||
+			isGenerating ||
+			isThinking ||
+			isDebugging ||
+			isConversationProcessing ||
+			isPreviewDeploying ||
+			isDeploying
 		);
-	}, [isBootstrapping, isGeneratingBlueprint]);
+	}, [
+		isBootstrapping,
+		isGeneratingBlueprint,
+		isGenerating,
+		isThinking,
+		isDebugging,
+		isConversationProcessing,
+		isPreviewDeploying,
+		isDeploying,
+	]);
+
+	const isRunning = isServerTaskRunning || isSendLockActive;
+
+	useEffect(() => {
+		if (isServerTaskRunning && isSendLockActive) {
+			setIsSendLockActive(false);
+		}
+	}, [isServerTaskRunning, isSendLockActive]);
+
+	useEffect(() => {
+		if (!isSendLockActive || isServerTaskRunning) return;
+		const timeout = setTimeout(() => setIsSendLockActive(false), 5000);
+		return () => clearTimeout(timeout);
+	}, [isSendLockActive, isServerTaskRunning]);
+
+	const canStopCurrentTask = useMemo(() => {
+		return isGenerating || isGeneratingBlueprint || isThinking || isDebugging || isConversationProcessing;
+	}, [isGenerating, isGeneratingBlueprint, isThinking, isDebugging, isConversationProcessing]);
 
 	// Check if chat input should be disabled (before blueprint completion, or during debugging)
 	const isChatDisabled = useMemo(() => {
@@ -515,8 +553,8 @@ export default function Chat() {
 		);
 		const blueprintNotCompleted = !blueprintStage || blueprintStage.status !== 'completed';
 
-		return blueprintNotCompleted || isDebugging;
-	}, [projectStages, isDebugging]);
+		return blueprintNotCompleted || isRunning;
+	}, [projectStages, isRunning]);
 
 	const chatFormRef = useRef<HTMLFormElement>(null);
 	const { isDragging: isChatDragging, dragHandlers: chatDragHandlers } = useDragDrop({
@@ -534,6 +572,7 @@ export default function Chat() {
 			}
 
 			const text = newMessage.trim();
+			setIsSendLockActive(true);
 			websocket?.send(
 				JSON.stringify({
 					type: 'user_suggestion',
@@ -766,8 +805,8 @@ export default function Chat() {
 					chatDragHandlers={chatDragHandlers}
 					isChatDisabled={isChatDisabled}
 					isRunning={isRunning}
-					isGenerating={isGenerating}
-					isGeneratingBlueprint={isGeneratingBlueprint}
+					canStopCurrentTask={canStopCurrentTask}
+					isConversationProcessing={isConversationProcessing}
 					isDebugging={isDebugging}
 					websocket={websocket}
 					chatFormRef={chatFormRef}

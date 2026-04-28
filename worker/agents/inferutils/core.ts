@@ -15,7 +15,7 @@ import {
 } from 'openai/resources.mjs';
 import { CompletionSignal, Message, MessageContent, MessageRole } from './common';
 import { ToolCallResult, ToolDefinition, toOpenAITool } from '../tools/types';
-import { AgentActionKey, AI_MODEL_CONFIG, AIModelConfig, AIModels, InferenceMetadata, type InferenceRuntimeOverrides } from './config.types';
+import { AgentActionKey, AI_MODEL_CONFIG, AIModelConfig, AIModels, InferenceMetadata, normalizeAIModelId, type InferenceRuntimeOverrides } from './config.types';
 import { RateLimitService } from '../../services/rate-limit/rateLimits';
 import { getUserConfigurableSettings } from '../../config';
 import { SecurityError, RateLimitExceededError } from 'shared/types/errors';
@@ -696,8 +696,12 @@ export async function infer<OutputSchema extends z.AnyZodObject>({
     try {
         const userConfig = await getUserConfigurableSettings(env, metadata.userId)
         // Maybe in the future can expand using config object for other stuff like global model configs?
+        modelName = normalizeAIModelId(modelName) as AIModels | string;
         await RateLimitService.enforceLLMCallsRateLimit(env, userConfig.security.rateLimit, metadata.userId, modelName)
         const modelConfig = AI_MODEL_CONFIG[modelName as AIModels];
+        if (!modelConfig) {
+            throw new Error(`Unknown AI model configuration: ${modelName}`);
+        }
 
         const { apiKey, baseURL, defaultHeaders } = await getConfigurationForModel(
             modelConfig,
@@ -709,7 +713,7 @@ export async function infer<OutputSchema extends z.AnyZodObject>({
         console.log(`baseUrl: ${baseURL}, modelName: ${modelName}`);
 
         // Remove [*.] from model name
-        modelName = modelName.replace(/\[.*?\]/, '');
+        const requestModelName = modelName.replace(/\[.*?\]/, '');
 
         // Strip provider prefix (e.g. "openai/gpt-5.5" -> "gpt-5.5")
         // when using LLM proxy, as proxies expect bare model names.
@@ -718,16 +722,16 @@ export async function infer<OutputSchema extends z.AnyZodObject>({
         ) || (
             hasValidProxyConfig(env.LLM_PROXY_FALLBACK_URL, env.LLM_PROXY_FALLBACK_API_KEY) && baseURL === env.LLM_PROXY_FALLBACK_URL
         );
-        if (usingConfiguredLlmProxy && modelName.includes('/')) {
-            modelName = modelName.split('/').slice(1).join('/');
-        }
+        const apiModelName = usingConfiguredLlmProxy && requestModelName.includes('/')
+            ? requestModelName.split('/').slice(1).join('/')
+            : requestModelName;
 
         const client = new OpenAI({ apiKey, baseURL: baseURL, defaultHeaders });
         const schemaObj =
             schema && schemaName && !format
                 ? { response_format: zodResponseFormat(schema, schemaName) }
                 : {};
-        const extraBody = modelName.includes('claude')? {
+        const extraBody = requestModelName.includes('claude')? {
                     extra_body: {
                         thinking: {
                             type: 'enabled',
@@ -824,7 +828,7 @@ export async function infer<OutputSchema extends z.AnyZodObject>({
             }
         }
 
-        console.log(`Running inference with ${modelName} using structured output with ${format} format, reasoning effort: ${reasoning_effort}, configured max tokens: ${maxTokens} (not sent), temperature: ${temperature}, frequency_penalty: ${frequency_penalty}, baseURL: ${baseURL}`);
+        console.log(`Running inference with ${apiModelName} using structured output with ${format} format, reasoning effort: ${reasoning_effort}, configured max tokens: ${maxTokens} (not sent), temperature: ${temperature}, frequency_penalty: ${frequency_penalty}, baseURL: ${baseURL}`);
 
         const toolsOpts = tools ? {
             tools: tools.map(t => {
@@ -839,7 +843,7 @@ export async function infer<OutputSchema extends z.AnyZodObject>({
                 ...schemaObj,
                 ...extraBody,
                 ...toolsOpts,
-                model: modelName,
+                model: apiModelName,
                 messages: messagesToPass as OpenAI.ChatCompletionMessageParam[],
                 stream: stream ? true : false,
                 reasoning_effort: modelConfig.nonReasoning ? undefined : reasoning_effort,
@@ -891,7 +895,7 @@ export async function infer<OutputSchema extends z.AnyZodObject>({
                     const delta = (event as ChatCompletionChunk).choices[0]?.delta;
                     
                     // Provider-specific logging
-                    const provider = modelName.split('/')[0];
+                    const provider = requestModelName.split('/')[0];
                     if (delta?.tool_calls && (provider === 'google-ai-studio' || provider === 'gemini')) {
                         console.log(`[PROVIDER_DEBUG] ${provider} tool_calls delta:`, JSON.stringify(delta.tool_calls, null, 2));
                     }

@@ -7,7 +7,7 @@ import { KVRateLimitStore } from './KVRateLimitStore';
 import { RateLimitResult } from './DORateLimitStore';
 import { RateLimitExceededError, SecurityError } from 'shared/types/errors';
 import { isDev } from 'worker/utils/envs';
-import { AI_MODEL_CONFIG, AIModels } from 'worker/agents/inferutils/config.types';
+import { AI_MODEL_CONFIG, AIModels, normalizeAIModelId } from 'worker/agents/inferutils/config.types';
 
 export class RateLimitService {
     static logger = createObjectLogger(this, 'RateLimitService');
@@ -259,8 +259,17 @@ export class RateLimitService {
 		
 		try {
             // Increment by model's credit cost
-            const modelConfig = AI_MODEL_CONFIG[model as AIModels];
-            const incrementBy = modelConfig.creditCost;
+            const normalizedModel = normalizeAIModelId(model);
+            const modelConfig = AI_MODEL_CONFIG[normalizedModel as AIModels];
+            const incrementBy = modelConfig?.creditCost ?? 1;
+
+            if (!modelConfig) {
+                this.logger.warn('Unknown model for LLM rate limit, using default credit cost', {
+                    model,
+                    normalizedModel,
+                    incrementBy,
+                });
+            }
 
 			const result = await this.enforce(env, key, config, RateLimitType.LLM_CALLS, incrementBy);
 			if (!result.success) {

@@ -35,8 +35,8 @@ interface ChatInputProps {
 	// Disabled states
 	isChatDisabled: boolean;
 	isRunning: boolean;
-	isGenerating: boolean;
-	isGeneratingBlueprint: boolean;
+	canStopCurrentTask: boolean;
+	isConversationProcessing: boolean;
 	isDebugging: boolean;
 
 	// WebSocket
@@ -58,8 +58,8 @@ export function ChatInput({
 	chatDragHandlers,
 	isChatDisabled,
 	isRunning,
-	isGenerating,
-	isGeneratingBlueprint,
+	canStopCurrentTask,
+	isConversationProcessing,
 	isDebugging,
 	websocket,
 	chatFormRef,
@@ -76,6 +76,10 @@ export function ChatInput({
 	};
 
 	const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+		if (isChatDisabled) {
+			return;
+		}
+
 		if (e.key === 'Enter') {
 			if (!e.shiftKey) {
 				// Submit on Enter without Shift
@@ -94,11 +98,15 @@ export function ChatInput({
 
 	const placeholder = isDebugging
 		? 'Deep debugging in progress... Please abort to continue'
-		: isChatDisabled
-			? 'Please wait for blueprint completion...'
-			: isRunning
-				? 'Chat with AI while generating...'
-				: 'Chat with AI...';
+		: isConversationProcessing
+			? 'Working on your message... Stop or wait to continue'
+			: isChatDisabled
+				? isRunning
+					? 'Task running... Stop or wait to continue'
+					: 'Please wait for blueprint completion...'
+				: isRunning
+					? 'Chat with AI while generating...'
+					: 'Chat with AI...';
 
 	return (
 		<form
@@ -148,7 +156,7 @@ export function ChatInput({
 					}}
 				/>
 				<div className="absolute right-1.5 bottom-2.5 flex items-center gap-1">
-					{(isGenerating || isGeneratingBlueprint || isDebugging) && (
+					{canStopCurrentTask && (
 						<button
 							type="button"
 							onClick={handleStopGeneration}

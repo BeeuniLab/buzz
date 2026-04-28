@@ -254,7 +254,8 @@ export type CloudflareDeploymentErrorMessage = {
 type UserSuggestionsProcessingMessage = {
 	type: 'user_suggestions_processing';
 	message: string;
-	suggestions: string[];
+	status?: 'start' | 'complete' | 'error';
+	suggestions?: string[];
 };
 
 type ConversationResponseMessage = {

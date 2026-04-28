@@ -27,7 +27,7 @@ Use this when:
 The system will:
 1. Automatically determine which files to create based on requirements
 2. Generate properly typed, coordinated code
-3. Deploy changes to preview
+3. Deploy changes to sandbox
 4. Return diffs for all generated files
 
 Provide detailed, specific requirements. The more detail, the better the results.`,

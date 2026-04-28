@@ -14,7 +14,7 @@ export function createVirtualFilesystemTool(
 	return tool({
 		name: 'virtual_filesystem',
 		description: `Interact with the virtual persistent workspace.
-IMPORTANT: This reads from the VIRTUAL filesystem, NOT the deployed preview. Files appear here immediately after generation and may not be deployed yet.`,
+IMPORTANT: This reads from the VIRTUAL filesystem, NOT the sandbox. Files appear here immediately after generation and may not be deployed to sandbox yet.`,
 		args: {
 			command: t.enum(['list', 'read', 'delete']).describe('Action to perform: "list" shows all files, "read" returns file contents, "delete" deletes files'),
 			paths: t.files.read().optional().describe('File paths to read/delete (required when command="read" or "delete"). Use relative paths from project root.'),
