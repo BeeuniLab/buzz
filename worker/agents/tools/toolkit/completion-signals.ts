@@ -45,6 +45,7 @@ export function createMarkDebuggingCompleteTool(
 - Verification confirms fixes work (run_analysis passes, get_runtime_errors shows no errors)
 - No new errors were introduced by your changes
 - All task requirements have been met
+- For code-fix requests, you either applied and verified a regenerate_file/generate_files change, or you are explicitly reporting that no code changes were made because the issue could not be reproduced or was already fixed.
 
 DO NOT call this tool if you are still investigating issues or in the process of fixing them.
 

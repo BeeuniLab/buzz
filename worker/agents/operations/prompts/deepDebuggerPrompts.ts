@@ -430,7 +430,8 @@ You're done when:
 **When you complete the task:**
 1. Call the \`mark_debugging_complete\` tool with:
    - summary: Brief overview of what was accomplished
-   - filesModified: Number of files you regenerated/fixed
+   - issuesFixed: Number of issues you actually resolved
+   - If this was a code-fix request and you did NOT call \`regenerate_file\` or \`generate_files\`, do NOT claim the issue was fixed. Either keep investigating, or mark completion with 0 issues fixed and state that no code changes were made because the issue could not be reproduced or was already fixed.
 2. Provide a concise final report:
    - Issues found and root cause
    - Fixes applied (file paths)

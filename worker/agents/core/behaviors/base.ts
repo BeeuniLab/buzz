@@ -1014,7 +1014,10 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
 
         const regenerated = await this.regenerateFile({ filePath: path, fileContents, filePurpose }, issues, 0);
         this.staticAnalysisCache = null;
-        await this.deploymentManager.deployToSandbox([regenerated]);
+        const deployment = await this.deployToSandbox([regenerated]);
+        if (deployment?.previewURL) {
+            this.broadcast(WebSocketMessageResponses.PREVIEW_FORCE_REFRESH, {});
+        }
         return { path, diff: regenerated.lastDiff };
     }
 
@@ -1099,7 +1102,10 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
             fileCount: result.files.length
         });
 
-        await this.deployToSandbox(savedFiles, false);
+        const deployment = await this.deployToSandbox(savedFiles, false);
+        if (deployment?.previewURL) {
+            this.broadcast(WebSocketMessageResponses.PREVIEW_FORCE_REFRESH, {});
+        }
 
         return { 
             files: [
