@@ -733,7 +733,7 @@ Official Phaser Examples: https://phaser.io/examples
 Use these rules when the selected template is "buzzplay-phaser" or the project imports Phaser:
 - Build the playable inside Phaser scenes under \`src/game/scenes/\`. React is only a thin fullscreen host in \`src/App.tsx\` and \`src/PhaserGame.tsx\`.
 - Keep TypeScript strict-safe: avoid \`any\`, type gameplay state/helpers, and use compiler feedback instead of guessing Phaser object methods.
-- Structure the game with Phaser scenes such as \`MainMenu\`, \`Game\`, and \`GameOver\` so state transitions stay simple and replayable.
+- Structure the game with Phaser scenes such as \`Game\` and \`GameOver\` so state transitions stay simple and replayable. Add a named start scene only when the requested playable truly needs one.
 - Prefer Phaser systems for gameplay: \`this.add\`, \`this.physics.add\`, \`this.input\`, \`this.tweens\`, \`this.time\`, \`this.cameras\`, \`this.scale\`, and \`this.sound\`.
 - Use Arcade Physics for simple movement/collision games unless another physics mode is already configured and clearly necessary.
 - Before using unfamiliar Phaser classes, methods, config fields, physics APIs, or plugin APIs, verify them against the API Reference.

@@ -5,7 +5,7 @@ export class Game extends Scene
 {
     camera: Phaser.Cameras.Scene2D.Camera;
     background: Phaser.GameObjects.Image;
-    gameText: Phaser.GameObjects.Text;
+    logo: Phaser.GameObjects.Image;
 
     constructor ()
     {
@@ -15,16 +15,16 @@ export class Game extends Scene
     create ()
     {
         this.camera = this.cameras.main;
-        this.camera.setBackgroundColor(0x00ff00);
+        this.camera.setBackgroundColor(0x050914);
 
         this.background = this.add.image(512, 384, 'background');
-        this.background.setAlpha(0.5);
+        this.logo = this.add.image(512, 384, 'logo').setDepth(100);
 
-        this.gameText = this.add.text(512, 384, 'Make something fun!\nand share it with us:\nsupport@phaser.io', {
-            fontFamily: 'Arial Black', fontSize: 38, color: '#ffffff',
-            stroke: '#000000', strokeThickness: 8,
-            align: 'center'
-        }).setOrigin(0.5).setDepth(100);
+        this.layoutScene();
+        this.scale.on('resize', this.layoutScene, this);
+        this.events.once('shutdown', () => {
+            this.scale.off('resize', this.layoutScene, this);
+        });
 
         EventBus.emit('current-scene-ready', this);
     }
@@ -32,5 +32,19 @@ export class Game extends Scene
     changeScene ()
     {
         this.scene.start('GameOver');
+    }
+
+    private layoutScene ()
+    {
+        const { width, height } = this.scale;
+        const centerX = width / 2;
+        const centerY = height / 2;
+
+        this.background.setPosition(centerX, centerY);
+        this.background.setDisplaySize(width, height);
+
+        const logoScale = Math.min(width / 1024, height / 768, 1);
+        this.logo.setPosition(centerX, centerY);
+        this.logo.setScale(Math.max(0.35, logoScale));
     }
 }

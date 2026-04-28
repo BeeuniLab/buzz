@@ -27,7 +27,6 @@
 
 ## Files To Edit First
 - `src/game/scenes/Game.ts` is the main gameplay scene. Replace the starter content here for most simple playable requests.
-- `src/game/scenes/MainMenu.ts` is the start screen scene.
 - `src/game/scenes/GameOver.ts` is the result/replay scene.
 - `src/game/scenes/Preloader.ts` loads sprites/audio before gameplay.
 - `src/playable-assets.ts` parses available media from `src/asset_map`.

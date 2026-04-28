@@ -30,6 +30,7 @@ const AppsDataContext = createContext<AppsDataContextValue | null>(null);
 
 const RECENT_APPS_LIMIT = 10;
 const APP_CREATED_REFETCH_DELAYS_MS = [400, 1200, 3000] as const;
+const GENERATING_APPS_POLL_INTERVAL_MS = 5000;
 
 interface AppsDataProviderProps {
   children: React.ReactNode;
@@ -104,7 +105,9 @@ export function AppsDataProvider({ children }: AppsDataProviderProps) {
   }, []);
 
   // Fetch all apps
-  const fetchAllApps = useCallback(async () => {
+  const fetchAllApps = useCallback(async (options?: { silent?: boolean }) => {
+    const silent = options?.silent ?? false;
+
     if (!user) {
       setState(prev => ({
         ...prev,
@@ -117,11 +120,13 @@ export function AppsDataProvider({ children }: AppsDataProviderProps) {
     }
 
     try {
-      setState(prev => ({
-        ...prev,
-        loading: { ...prev.loading, allApps: true },
-        error: { ...prev.error, allApps: null },
-      }));
+      if (!silent) {
+        setState(prev => ({
+          ...prev,
+          loading: { ...prev.loading, allApps: true },
+          error: { ...prev.error, allApps: null },
+        }));
+      }
 
       const response = await apiClient.getUserApps();
       
@@ -134,17 +139,21 @@ export function AppsDataProvider({ children }: AppsDataProviderProps) {
           allApps: apps,
           recentApps,
           moreRecentAvailable,
-          loading: { ...prev.loading, allApps: false },
+          loading: silent ? prev.loading : { ...prev.loading, allApps: false },
         }));
       } else {
-        setState(prev => ({
-          ...prev,
-          loading: { ...prev.loading, allApps: false },
-          error: { ...prev.error, allApps: response.error?.message || 'Failed to fetch apps' },
-        }));
+        if (!silent) {
+          setState(prev => ({
+            ...prev,
+            loading: { ...prev.loading, allApps: false },
+            error: { ...prev.error, allApps: response.error?.message || 'Failed to fetch apps' },
+          }));
+        }
       }
     } catch (err) {
       console.error('Error fetching all apps:', err);
+      if (silent) return;
+
       const errorMessage = err instanceof ApiError 
         ? `${err.message} (${err.status})`
         : err instanceof Error ? err.message : 'Failed to fetch apps';
@@ -220,6 +229,17 @@ export function AppsDataProvider({ children }: AppsDataProviderProps) {
   useEffect(() => {
     fetchAll();
   }, [fetchAll]);
+
+  useEffect(() => {
+    if (!user) return;
+    if (!state.allApps.some(app => app.status === 'generating')) return;
+
+    const timer = window.setInterval(() => {
+      void fetchAllApps({ silent: true });
+    }, GENERATING_APPS_POLL_INTERVAL_MS);
+
+    return () => window.clearInterval(timer);
+  }, [fetchAllApps, state.allApps, user]);
 
   // Event handlers for real-time updates
   useEffect(() => {
