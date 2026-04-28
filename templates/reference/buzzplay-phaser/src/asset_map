@@ -1,486 +1,486 @@
 {
 	"images/api_book.png": {
 		"url": "assets/api_book.png",
-		"description": "Bundled starter image asset. Filename indicates the suggested prop or theme."
+		"description": "KAPLAY crew sprite asset: API Book. Official description: Some people say it talks about mythical creatures, others say it's a book of math. Pack: Icons; tags: icons. Suggested uses: HUD icon, menu button, inventory item, control affordance, status indicator."
 	},
 	"images/apple.png": {
 		"url": "assets/apple.png",
-		"description": "Bundled starter image asset. Filename indicates the suggested prop or theme."
+		"description": "KAPLAY crew sprite asset: Apple. Official description: A tasty apple. Pack: KAWorld; tags: food. Suggested uses: snake food, fruit pickup, food pickup, collectible, health item, snack reward, cooking ingredient."
 	},
 	"images/arrow.png": {
 		"url": "assets/arrow.png",
-		"description": "Bundled starter image asset. Filename indicates the suggested prop or theme."
+		"description": "KAPLAY crew sprite asset: Arrow. Official description: An arrow pointing to the left. Pack: Icons; tags: ui, icons. Suggested uses: UI control, cursor, button, tap target, selection marker, HUD icon, menu button, inventory item, control affordance, status indicator."
 	},
 	"images/art.png": {
 		"url": "assets/art.png",
-		"description": "Bundled starter image asset. Filename indicates the suggested prop or theme."
+		"description": "KAPLAY crew sprite asset: Art. Official description: A piece of art. Pack: Icons; tags: icons; search terms: picture, asset, sprite. Suggested uses: HUD icon, menu button, inventory item, control affordance, status indicator, picture, asset, sprite."
 	},
 	"images/assetbrew.png": {
 		"url": "assets/assetbrew.png",
-		"description": "Bundled starter image asset. Filename indicates the suggested prop or theme."
+		"description": "KAPLAY crew sprite asset: AssetBrew. Official description: A lot of assets merged. Pack: Icons; tags: ui, icons; search terms: sprites. Suggested uses: UI control, cursor, button, tap target, selection marker, HUD icon, menu button, inventory item, control affordance, status indicator."
 	},
 	"images/bag.png": {
 		"url": "assets/bag.png",
-		"description": "Bundled starter image asset. Filename indicates the suggested prop or theme."
+		"description": "KAPLAY crew sprite asset: Bag. Official description: Bag is the one who carries the crew. Pack: KAWorld; tags: crew, animals; search terms: elephant. Suggested uses: player character, NPC, enemy, avatar, story character, creature, animal character, companion, wildlife, elephant."
 	},
 	"images/bean.png": {
 		"url": "assets/bean.png",
-		"description": "Bundled starter image asset. Filename indicates the suggested prop or theme."
+		"description": "KAPLAY crew sprite asset: Bean. Official description: A bean, one of many beans. Pack: KAWorld; tags: crew. Suggested uses: player character, NPC, enemy, avatar, story character. Related sound: bean_voice."
 	},
 	"images/bean_voice.png": {
 		"url": "assets/bean_voice.png",
-		"description": "Bundled starter image asset. Filename indicates the suggested prop or theme."
+		"description": "KAPLAY crew sound asset: Bean Voice. Official description: Bean's voice. Pack: KAWorld; tags: sounds, crew. Suggested uses: sound cue icon, voice indicator, audio collectible, jukebox prop, feedback marker, player character, NPC, enemy, avatar, story character. Related sprite: bean."
 	},
 	"images/beant.png": {
 		"url": "assets/beant.png",
-		"description": "Bundled starter image asset. Filename indicates the suggested prop or theme."
+		"description": "KAPLAY crew sprite asset: Bean't. Official description: Express your dissatisfaction with this bean't! Pack: Emojis; tags: emojis. Suggested uses: reaction, status effect, mood badge, reward pop-up, comic feedback."
 	},
 	"images/beantle.png": {
 		"url": "assets/beantle.png",
-		"description": "Bundled starter image asset. Filename indicates the suggested prop or theme."
+		"description": "KAPLAY crew sprite asset: Beantle. Official description: A Bean Beetle, Epilachna varivestis. It's actually real. Pack: KAWorld; tags: crew, animals; search terms: beetle, lady, bug. Suggested uses: player character, NPC, enemy, avatar, story character, creature, animal character, companion, wildlife, beetle."
 	},
 	"images/been.png": {
 		"url": "assets/been.png",
-		"description": "Bundled starter image asset. Filename indicates the suggested prop or theme."
+		"description": "KAPLAY crew sprite asset: Been. Official description: Has been been a bean? Or bean't?.. Pack: Emojis; tags: emojis; search terms: bean. Suggested uses: reaction, status effect, mood badge, reward pop-up, comic feedback, bean."
 	},
 	"images/beenking.gif": {
 		"url": "assets/beenking.gif",
-		"description": "Bundled starter image asset. Filename indicates the suggested prop or theme."
+		"description": "KAPLAY crew sprite asset: Beenking. Official description: When been is thinking hard, is beenking. Pack: Emojis; tags: emojis; search terms: bean, thinking. Suggested uses: reaction, status effect, mood badge, reward pop-up, comic feedback, bean, thinking."
 	},
 	"images/bg.png": {
 		"url": "assets/bg.png",
-		"description": "Bundled starter image asset. Filename indicates the suggested prop or theme."
+		"description": "Bundled BuzzPlay Phaser background image. Use as a default backdrop, cover layer, stage background, skybox-style image, or ambience layer when no uploaded background exists."
 	},
 	"images/bobo.png": {
 		"url": "assets/bobo.png",
-		"description": "Bundled starter image asset. Filename indicates the suggested prop or theme."
+		"description": "KAPLAY crew sprite asset: Bobo. Official description: A fish in the sea of KAWORLD, but a friend in the heart of everyone. Pack: KAWorld; tags: crew, animals; search terms: fish. Suggested uses: player character, NPC, enemy, avatar, story character, creature, animal character, companion, wildlife, fish."
 	},
 	"images/btfly.png": {
 		"url": "assets/btfly.png",
-		"description": "Bundled starter image asset. Filename indicates the suggested prop or theme."
+		"description": "KAPLAY crew sprite asset: Butterfly. Official description: Beatiful butterfly. Pack: KAWorld; tags: animals. Suggested uses: creature, animal character, enemy, companion, wildlife."
 	},
 	"images/burp.png": {
 		"url": "assets/burp.png",
-		"description": "Bundled starter image asset. Filename indicates the suggested prop or theme."
+		"description": "KAPLAY crew sound asset: Burp. Official description: The burp sound. Pack: KAWorld; tags: sounds, crew. Suggested uses: sound cue icon, voice indicator, audio collectible, jukebox prop, feedback marker, player character, NPC, enemy, avatar, story character. Related sprite: burpman."
 	},
 	"images/burpman.png": {
 		"url": "assets/burpman.png",
-		"description": "Bundled starter image asset. Filename indicates the suggested prop or theme."
+		"description": "KAPLAY crew sprite asset: Burp Man. Official description: The king of burps, burpman, here for your burping needs. Pack: KAWorld; tags: crew. Suggested uses: player character, NPC, enemy, avatar, story character. Related sound: burp."
 	},
 	"images/burpman_burping.gif": {
 		"url": "assets/burpman_burping.gif",
-		"description": "Bundled starter image asset. Filename indicates the suggested prop or theme."
+		"description": "KAPLAY crew sprite asset: Super Burp!. Official description: A super burp is what everyone needs! Pack: Emojis; tags: emojis. Suggested uses: reaction, status effect, mood badge, reward pop-up, comic feedback."
 	},
 	"images/cake.png": {
 		"url": "assets/cake.png",
-		"description": "Bundled starter image asset. Filename indicates the suggested prop or theme."
+		"description": "KAPLAY crew sprite asset: Cake. Official description: A piece of cake. Pack: Icons; tags: icons; search terms: birthday. Suggested uses: reward, party prop, completion treat, HUD icon, menu button, inventory item, control affordance, status indicator, birthday."
 	},
 	"images/check_mark.png": {
 		"url": "assets/check_mark.png",
-		"description": "Bundled starter image asset. Filename indicates the suggested prop or theme."
+		"description": "KAPLAY crew sprite asset: Check Mark. Official description: Yeah, mark that can be seen after you copy something. And then forget to paste the secret. Pack: Icons; tags: ui, icons; search terms: copied. Suggested uses: success state, confirmed answer, UI control, cursor, button, tap target, selection marker, HUD icon, menu button, inventory item."
 	},
 	"images/cloud.png": {
 		"url": "assets/cloud.png",
-		"description": "Bundled starter image asset. Filename indicates the suggested prop or theme."
+		"description": "KAPLAY crew sprite asset: Cloud. Official description: A cloud in the sky! Pack: KAWorld; tags: objects. Suggested uses: sky prop, soft platform, background layer, prop, collectible, pickup, obstacle, interactive object."
 	},
 	"images/coin.png": {
 		"url": "assets/coin.png",
-		"description": "Bundled starter image asset. Filename indicates the suggested prop or theme."
+		"description": "KAPLAY crew sprite asset: Coin. Official description: An ancient item, nobody knows what they do. Pack: KAWorld; tags: objects; search terms: money. Suggested uses: currency, treasure, score pickup, mystery reward, prop, collectible, pickup, obstacle, interactive object, money."
 	},
 	"images/config.png": {
 		"url": "assets/config.png",
-		"description": "Bundled starter image asset. Filename indicates the suggested prop or theme."
+		"description": "KAPLAY crew sprite asset: Config. Official description: A gear. Pack: Icons; tags: ui, icons; search terms: gear. Suggested uses: UI control, cursor, button, tap target, selection marker, HUD icon, menu button, inventory item, control affordance, status indicator."
 	},
 	"images/controller.png": {
 		"url": "assets/controller.png",
-		"description": "Bundled starter image asset. Filename indicates the suggested prop or theme."
+		"description": "KAPLAY crew sprite asset: Controller. Official description: Super gaming controller. Pack: Icons; tags: icons; search terms: gamepad. Suggested uses: controls hint, gamepad UI, HUD icon, menu button, inventory item, control affordance, status indicator, gamepad."
 	},
 	"images/copy.png": {
 		"url": "assets/copy.png",
-		"description": "Bundled starter image asset. Filename indicates the suggested prop or theme."
+		"description": "KAPLAY crew sprite asset: Copy. Official description: A copy icon. Pack: Icons; tags: ui, icons. Suggested uses: UI control, cursor, button, tap target, selection marker, HUD icon, menu button, inventory item, control affordance, status indicator."
 	},
 	"images/cross_mark.png": {
 		"url": "assets/cross_mark.png",
-		"description": "Bundled starter image asset. Filename indicates the suggested prop or theme."
+		"description": "KAPLAY crew sprite asset: Cross Mark. Official description: Close icon. I mean cross icon. Ok, it's X. Pack: Icons; tags: ui, icons; search terms: x, close, remove, delete. Suggested uses: failure state, close button, UI control, cursor, button, tap target, selection marker, HUD icon, menu button, inventory item."
 	},
 	"images/cursor.png": {
 		"url": "assets/cursor.png",
-		"description": "Bundled starter image asset. Filename indicates the suggested prop or theme."
+		"description": "KAPLAY crew sprite asset: Cursor. Official description: The cursor. Pack: KAWorld; tags: ui; search terms: mouse. Suggested uses: pointer, click prompt, UI control, cursor, button, tap target, selection marker, mouse."
 	},
 	"images/dino.png": {
 		"url": "assets/dino.png",
-		"description": "Bundled starter image asset. Filename indicates the suggested prop or theme."
+		"description": "KAPLAY crew sprite asset: OG Dino. Official description: The dinosaur. Pack: Brand; tags: brand, animals. Suggested uses: logo, splash screen, title badge, branding, loading mark, creature, animal character, enemy, companion, wildlife."
 	},
 	"images/discord.png": {
 		"url": "assets/discord.png",
-		"description": "Bundled starter image asset. Filename indicates the suggested prop or theme."
+		"description": "KAPLAY crew sprite asset: Discord. Official description: Logo of Discord, a social media app. Pack: Icons; tags: icons. Suggested uses: HUD icon, menu button, inventory item, control affordance, status indicator."
 	},
 	"images/door.png": {
 		"url": "assets/door.png",
-		"description": "Bundled starter image asset. Filename indicates the suggested prop or theme."
+		"description": "KAPLAY crew sprite asset: Door. Official description: Is a door to another world. Pack: KAWorld; tags: objects. Suggested uses: level exit, portal, room transition, prop, collectible, pickup, obstacle, interactive object."
 	},
 	"images/dracula.png": {
 		"url": "assets/dracula.png",
-		"description": "Bundled starter image asset. Filename indicates the suggested prop or theme."
+		"description": "KAPLAY crew sprite asset: Dracula Dino. Official description: Dino is showcasing it's new outfit! Pack: Brand; tags: brand. Suggested uses: logo, splash screen, title badge, branding, loading mark."
 	},
 	"images/egg.png": {
 		"url": "assets/egg.png",
-		"description": "Bundled starter image asset. Filename indicates the suggested prop or theme."
+		"description": "KAPLAY crew sprite asset: Egg. Official description: The egg of a chicken or another species. Pack: KAWorld; tags: animals. Suggested uses: creature, animal character, enemy, companion, wildlife."
 	},
 	"images/egg_crack.png": {
 		"url": "assets/egg_crack.png",
-		"description": "Bundled starter image asset. Filename indicates the suggested prop or theme."
+		"description": "KAPLAY crew sprite asset: Egg (cracked). Official description: A cracked egg. A new life is coming. Pack: KAWorld; tags: animals. Suggested uses: creature, animal character, enemy, companion, wildlife."
 	},
 	"images/fire.png": {
 		"url": "assets/fire.png",
-		"description": "Bundled starter image asset. Filename indicates the suggested prop or theme."
+		"description": "KAPLAY crew sprite asset: Fire. Official description: A very fire fire! Pack: KAWorld; tags: objects; search terms: flame. Suggested uses: hazard, projectile, damage effect, prop, collectible, pickup, obstacle, interactive object, flame."
 	},
 	"images/firing.gif": {
 		"url": "assets/firing.gif",
-		"description": "Bundled starter image asset. Filename indicates the suggested prop or theme."
+		"description": "KAPLAY crew sprite asset: Firing. Official description: Fire is dancing when something is very fire. Pack: Emojis; tags: emojis; search terms: fire, flame. Suggested uses: reaction, status effect, mood badge, reward pop-up, comic feedback, fire, flame."
 	},
 	"images/flowy.png": {
 		"url": "assets/flowy.png",
-		"description": "Bundled starter image asset. Filename indicates the suggested prop or theme."
+		"description": "KAPLAY crew sprite asset: Flowy. Official description: A beautiful flower ka-blooming in KAWORLD. Pack: KAWorld; tags: crew; search terms: flower, kabloom. Suggested uses: player character, NPC, enemy, avatar, story character, flower, kabloom."
 	},
 	"images/fonts.png": {
 		"url": "assets/fonts.png",
-		"description": "Bundled starter image asset. Filename indicates the suggested prop or theme."
+		"description": "KAPLAY crew sprite asset: Fonts. Official description: Two font sisters. Pack: Icons; tags: ui, icons. Suggested uses: UI control, cursor, button, tap target, selection marker, HUD icon, menu button, inventory item, control affordance, status indicator."
 	},
 	"images/ghostiny.png": {
 		"url": "assets/ghostiny.png",
-		"description": "Bundled starter image asset. Filename indicates the suggested prop or theme."
+		"description": "KAPLAY crew sprite asset: Ghostiny. Official description: Lil Ghosty's brother, very quiet. Pack: KAWorld; tags: crew. Suggested uses: player character, NPC, enemy, avatar, story character."
 	},
 	"images/ghosty.png": {
 		"url": "assets/ghosty.png",
-		"description": "Bundled starter image asset. Filename indicates the suggested prop or theme."
+		"description": "KAPLAY crew sprite asset: Ghosty. Official description: A shy ghost, loves helping others tho. Pack: KAWorld; tags: crew. Suggested uses: player character, NPC, enemy, avatar, story character."
 	},
 	"images/gigagantrum.png": {
 		"url": "assets/gigagantrum.png",
-		"description": "Bundled starter image asset. Filename indicates the suggested prop or theme."
+		"description": "KAPLAY crew sprite asset: Gigagantrum. Official description: A guy who is very strong. Pack: KAWorld; tags: crew. Suggested uses: player character, NPC, enemy, avatar, story character."
 	},
 	"images/github.png": {
 		"url": "assets/github.png",
-		"description": "Bundled starter image asset. Filename indicates the suggested prop or theme."
+		"description": "KAPLAY crew sprite asset: GitHub. Official description: Logo of GitHub, a code hosting platform. Pack: Icons; tags: icons. Suggested uses: HUD icon, menu button, inventory item, control affordance, status indicator."
 	},
 	"images/glady.png": {
 		"url": "assets/glady.png",
-		"description": "Bundled starter image asset. Filename indicates the suggested prop or theme."
+		"description": "KAPLAY crew sprite asset: Glady. Official description: A gladiator who loves to fight. Pack: KAWorld; tags: crew; search terms: colyseus. Suggested uses: player character, NPC, enemy, avatar, story character, colyseus."
 	},
 	"images/goldfly.png": {
 		"url": "assets/goldfly.png",
-		"description": "Bundled starter image asset. Filename indicates the suggested prop or theme."
+		"description": "KAPLAY crew sprite asset: Goldfly. Official description: A ghost that likes to fly around. Pack: KAWorld; tags: crew; search terms: ghost. Suggested uses: player character, NPC, enemy, avatar, story character, ghost."
 	},
 	"images/grape.png": {
 		"url": "assets/grape.png",
-		"description": "Bundled starter image asset. Filename indicates the suggested prop or theme."
+		"description": "KAPLAY crew sprite asset: Grape. Official description: A tasty grape. Pack: KAWorld; tags: food. Suggested uses: fruit pickup, tiny collectible cluster, food pickup, collectible, health item, snack reward, cooking ingredient."
 	},
 	"images/grass.png": {
 		"url": "assets/grass.png",
-		"description": "Bundled starter image asset. Filename indicates the suggested prop or theme."
+		"description": "KAPLAY crew sprite asset: Grass. Official description: Grass of KAWorld. Pack: KAWorld; tags: tiles. Suggested uses: ground tile, outdoor platform, terrain tile, platform, floor, wall, level decoration."
 	},
 	"images/gun.png": {
 		"url": "assets/gun.png",
-		"description": "Bundled starter image asset. Filename indicates the suggested prop or theme."
+		"description": "KAPLAY crew sprite asset: Gun. Official description: A gun, used to shoot enemies, not friends. Pack: KAWorld; tags: objects; search terms: weapon. Suggested uses: weapon, projectile launcher, shooter prop, prop, collectible, pickup, obstacle, interactive object."
 	},
 	"images/happy.png": {
 		"url": "assets/happy.png",
-		"description": "Bundled starter image asset. Filename indicates the suggested prop or theme."
+		"description": "KAPLAY crew font asset: Happy. Official description: The happy letters. Pack: KAWorld; tags: fonts. Suggested uses: bitmap font, title text, score display, arcade UI lettering, bitmap typography."
 	},
 	"images/heart.png": {
 		"url": "assets/heart.png",
-		"description": "Bundled starter image asset. Filename indicates the suggested prop or theme."
+		"description": "KAPLAY crew sprite asset: Heart. Official description: A heart, love, love, love! Pack: KAWorld; tags: objects; search terms: love. Suggested uses: health, life, love meter, prop, collectible, pickup, obstacle, interactive object, love."
 	},
 	"images/history.png": {
 		"url": "assets/history.png",
-		"description": "Bundled starter image asset. Filename indicates the suggested prop or theme."
+		"description": "KAPLAY crew sprite asset: History. Official description: A history icon. Pack: Icons; tags: ui, icons; search terms: changelog, rewind, time, clock. Suggested uses: UI control, cursor, button, tap target, selection marker, HUD icon, menu button, inventory item, control affordance, status indicator."
 	},
 	"images/home.png": {
 		"url": "assets/home.png",
-		"description": "Bundled starter image asset. Filename indicates the suggested prop or theme."
+		"description": "KAPLAY crew sprite asset: Home. Official description: Home, sweet home. Pack: Icons; tags: icons; search terms: egg. Suggested uses: HUD icon, menu button, inventory item, control affordance, status indicator, egg."
 	},
 	"images/how_to_be_a_bean_wizard.webp": {
 		"url": "assets/how_to_be_a_bean_wizard.webp",
-		"description": "Bundled starter image asset. Filename indicates the suggested prop or theme."
+		"description": "KAPLAY crew sprite asset: How to be a Bean Wizard. Official description: While the cover promises magic and fantasy, the book is actually mostly math. It contains everything from advanced algebra to calculus with an extra chapter about physics and collision detection strategies. Reading it... Pack: KAWorld; tags: books. Suggested uses: book prop, lore item, tutorial object, magic manual."
 	},
 	"images/jam.png": {
 		"url": "assets/jam.png",
-		"description": "Bundled starter image asset. Filename indicates the suggested prop or theme."
+		"description": "KAPLAY crew sprite asset: Jam. Official description: A strawberry jam. Or maybe other red fruit. But yummy! Pack: KAWorld; tags: food; search terms: jar, strawberry. Suggested uses: food pickup, collectible, health item, snack reward, cooking ingredient, jar, strawberry."
 	},
 	"images/k.png": {
 		"url": "assets/k.png",
-		"description": "Bundled starter image asset. Filename indicates the suggested prop or theme."
+		"description": "KAPLAY crew sprite asset: K. Official description: The first letter of Kaboom. Pack: Brand; tags: brand. Suggested uses: logo, splash screen, title badge, branding, loading mark."
 	},
 	"images/ka.png": {
 		"url": "assets/ka.png",
-		"description": "Bundled starter image asset. Filename indicates the suggested prop or theme."
+		"description": "KAPLAY crew sprite asset: KA. Official description: The K of KAPLAY. Pack: Brand; tags: brand. Suggested uses: logo, splash screen, title badge, branding, loading mark."
 	},
 	"images/kaboom.png": {
 		"url": "assets/kaboom.png",
-		"description": "Bundled starter image asset. Filename indicates the suggested prop or theme."
+		"description": "KAPLAY crew sprite asset: Kaboom.js. Official description: What's the game library...? Pack: Brand; tags: brand. Suggested uses: logo, splash screen, title badge, branding, loading mark. Related sound: kaboom2000."
 	},
 	"images/kaboom2000.png": {
 		"url": "assets/kaboom2000.png",
-		"description": "Bundled starter image asset. Filename indicates the suggested prop or theme."
+		"description": "KAPLAY crew sound asset: Kaboom 2000. Official description: Kaboom.js v2000 release song! Pack: Brand; tags: sounds, brand; search terms: song. Suggested uses: sound cue icon, voice indicator, audio collectible, jukebox prop, feedback marker, logo, splash screen, title badge, branding, loading mark. Related sprite: kaboom."
 	},
 	"images/kajam.png": {
 		"url": "assets/kajam.png",
-		"description": "Bundled starter image asset. Filename indicates the suggested prop or theme."
+		"description": "KAPLAY crew sprite asset: KAJAM. Official description: The special jam for all KAPLAYERS! Pack: Brand; tags: brand. Suggested uses: logo, splash screen, title badge, branding, loading mark."
 	},
 	"images/kaplay.png": {
 		"url": "assets/kaplay.png",
-		"description": "Bundled starter image asset. Filename indicates the suggested prop or theme."
+		"description": "KAPLAY crew sprite asset: KAPLAY. Official description: KAPLAY logo. KAPLAY is the JavaScript library for creating games. Pack: Brand; tags: brand. Suggested uses: logo, splash screen, title badge, branding, loading mark."
 	},
 	"images/kaplay_dino.png": {
 		"url": "assets/kaplay_dino.png",
-		"description": "Bundled starter image asset. Filename indicates the suggested prop or theme."
+		"description": "KAPLAY crew sprite asset: KAPLAY with Dino. Official description: The fun game library for HTML5 games. Pack: Brand; tags: brand. Suggested uses: logo, splash screen, title badge, branding, loading mark."
 	},
 	"images/kaplayground.png": {
 		"url": "assets/kaplayground.png",
-		"description": "Bundled starter image asset. Filename indicates the suggested prop or theme."
+		"description": "KAPLAY crew sprite asset: KAPLAYGROUND. Official description: The official KAPLAY Playground. Pack: Brand; tags: brand. Suggested uses: logo, splash screen, title badge, branding, loading mark."
 	},
 	"images/kaplayground_dino.png": {
 		"url": "assets/kaplayground_dino.png",
-		"description": "Bundled starter image asset. Filename indicates the suggested prop or theme."
+		"description": "KAPLAY crew sprite asset: KAPLAYGROUND with Dino. Official description: The official KAPLAY Playground. Pack: Brand; tags: brand. Suggested uses: logo, splash screen, title badge, branding, loading mark."
 	},
 	"images/karat.png": {
 		"url": "assets/karat.png",
-		"description": "Bundled starter image asset. Filename indicates the suggested prop or theme."
+		"description": "KAPLAY crew sprite asset: KaRat. Official description: A little Rat who lives in the rocks of the KAWorld. Pack: KAWorld; tags: animals; search terms: mouse. Suggested uses: creature, animal character, enemy, companion, wildlife, mouse."
 	},
 	"images/kat.png": {
 		"url": "assets/kat.png",
-		"description": "Bundled starter image asset. Filename indicates the suggested prop or theme."
+		"description": "KAPLAY crew sprite asset: Kat. Official description: A cute alien cat. Pack: KAWorld; tags: crew, animals; search terms: cat. Suggested uses: player character, NPC, enemy, avatar, story character, creature, animal character, companion, wildlife, cat."
 	},
 	"images/key.png": {
 		"url": "assets/key.png",
-		"description": "Bundled starter image asset. Filename indicates the suggested prop or theme."
+		"description": "KAPLAY crew sprite asset: Key. Official description: A key for the door. Pack: KAWorld; tags: objects. Suggested uses: unlock item, quest item, prop, collectible, pickup, obstacle, interactive object."
 	},
 	"images/knock.png": {
 		"url": "assets/knock.png",
-		"description": "Bundled starter image asset. Filename indicates the suggested prop or theme."
+		"description": "KAPLAY crew sprite asset: Knock. Official description: A grabbing hand. Pack: KAWorld; tags: ui; search terms: hand, grab, drag, cursor. Suggested uses: UI control, cursor, button, tap target, selection marker, hand, grab, drag."
 	},
 	"images/lamp.png": {
 		"url": "assets/lamp.png",
-		"description": "Bundled starter image asset. Filename indicates the suggested prop or theme."
+		"description": "KAPLAY crew sprite asset: Lamp. Official description: A lamp that lights up the KAWorld. Pack: KAWorld; tags: crew. Suggested uses: player character, NPC, enemy, avatar, story character."
 	},
 	"images/lightning.png": {
 		"url": "assets/lightning.png",
-		"description": "Bundled starter image asset. Filename indicates the suggested prop or theme."
+		"description": "KAPLAY crew sprite asset: Lightning. Official description: Scrash! Pack: KAWorld; tags: objects; search terms: electricity. Suggested uses: speed boost, electric hazard, power effect, prop, collectible, pickup, obstacle, interactive object, electricity."
 	},
 	"images/like.png": {
 		"url": "assets/like.png",
-		"description": "Bundled starter image asset. Filename indicates the suggested prop or theme."
+		"description": "KAPLAY crew sprite asset: Like. Official description: Do you like it? Pack: KAWorld; tags: ui; search terms: thumbs up, hand. Suggested uses: UI control, cursor, button, tap target, selection marker, thumbs up, hand."
 	},
 	"images/logo.png": {
 		"url": "assets/logo.png",
-		"description": "Bundled starter image asset. Filename indicates the suggested prop or theme."
+		"description": "Bundled BuzzPlay Phaser logo image. Use as a title mark, loading badge, splash screen brand element, or small UI identity marker."
 	},
 	"images/mark.png": {
 		"url": "assets/mark.png",
-		"description": "Bundled starter image asset. Filename indicates the suggested prop or theme."
+		"description": "KAPLAY crew sprite asset: Mark. Official description: ohhi. Pack: KAWorld; tags: crew. Suggested uses: player character, NPC, enemy, avatar, story character. Related sound: mark_voice."
 	},
 	"images/mark_voice.png": {
 		"url": "assets/mark_voice.png",
-		"description": "Bundled starter image asset. Filename indicates the suggested prop or theme."
+		"description": "KAPLAY crew sound asset: Mark Voice. Official description: Mark's voice. Pack: KAWorld; tags: sounds, crew. Suggested uses: sound cue icon, voice indicator, audio collectible, jukebox prop, feedback marker, player character, NPC, enemy, avatar, story character. Related sprite: mark."
 	},
 	"images/marks_legend.png": {
 		"url": "assets/marks_legend.png",
-		"description": "Bundled starter image asset. Filename indicates the suggested prop or theme."
+		"description": "KAPLAY crew sprite asset: Mark's Legend. Official description: One day, in an unknown place and time, the world has been corrupted by the evil forces of the dark lord named Deprecation, who was spreading his malicious magic across the land. The people were living in fear, and the... Pack: Icons; tags: books. Suggested uses: book prop, lore item, tutorial object, magic manual."
 	},
 	"images/marroc.png": {
 		"url": "assets/marroc.png",
-		"description": "Bundled starter image asset. Filename indicates the suggested prop or theme."
+		"description": "KAPLAY crew sprite asset: Marroc. Official description: Woof woof. Pack: KAWorld; tags: crew, animals; search terms: dog. Suggested uses: player character, NPC, enemy, avatar, story character, creature, animal character, companion, wildlife, dog."
 	},
 	"images/meat.png": {
 		"url": "assets/meat.png",
-		"description": "Bundled starter image asset. Filename indicates the suggested prop or theme."
+		"description": "KAPLAY crew sprite asset: Meat. Official description: What are you looking for? Pack: KAWorld; tags: food. Suggested uses: food pickup, survival reward, collectible, health item, snack reward, cooking ingredient."
 	},
 	"images/menu.png": {
 		"url": "assets/menu.png",
-		"description": "Bundled starter image asset. Filename indicates the suggested prop or theme."
+		"description": "KAPLAY crew sprite asset: Menu. Official description: A menu icon. Pack: Icons; tags: ui, icons; search terms: hamburger. Suggested uses: UI control, cursor, button, tap target, selection marker, HUD icon, menu button, inventory item, control affordance, status indicator."
 	},
 	"images/minus.png": {
 		"url": "assets/minus.png",
-		"description": "Bundled starter image asset. Filename indicates the suggested prop or theme."
+		"description": "KAPLAY crew sprite asset: Minus. Official description: A minus sign. Pack: Icons; tags: ui, icons. Suggested uses: decrease button, remove action, UI control, cursor, button, tap target, selection marker, HUD icon, menu button, inventory item."
 	},
 	"images/money_bag.png": {
 		"url": "assets/money_bag.png",
-		"description": "Bundled starter image asset. Filename indicates the suggested prop or theme."
+		"description": "KAPLAY crew sprite asset: Money Bag. Official description: A pink bag who likes much coins, but she doesn't know what to do with them. Pack: KAWorld; tags: crew; search terms: elephant, bank, coin. Suggested uses: treasure, loot, shop reward, player character, NPC, enemy, avatar, story character, elephant, bank."
 	},
 	"images/moon.png": {
 		"url": "assets/moon.png",
-		"description": "Bundled starter image asset. Filename indicates the suggested prop or theme."
+		"description": "KAPLAY crew sprite asset: Moon. Official description: The moon, behind it, there's a secret. Pack: KAWorld; tags: objects. Suggested uses: night backdrop, sky decoration, prop, collectible, pickup, obstacle, interactive object."
 	},
 	"images/mushroom.png": {
 		"url": "assets/mushroom.png",
-		"description": "Bundled starter image asset. Filename indicates the suggested prop or theme."
+		"description": "KAPLAY crew sprite asset: Mushroom. Official description: A mushroom, with unknown effects. Maybe it makes you grow. Pack: KAWorld; tags: food. Suggested uses: forest prop, growth power-up, food pickup, collectible, health item, snack reward, cooking ingredient."
 	},
 	"images/note.png": {
 		"url": "assets/note.png",
-		"description": "Bundled starter image asset. Filename indicates the suggested prop or theme."
+		"description": "KAPLAY crew sprite asset: Note. Official description: A musical note block! Pack: KAWorld; tags: tiles; search terms: sound, music, audio. Suggested uses: terrain tile, platform, floor, wall, level decoration, sound, music, audio."
 	},
 	"images/old_kaplay.png": {
 		"url": "assets/old_kaplay.png",
-		"description": "Bundled starter image asset. Filename indicates the suggested prop or theme."
+		"description": "KAPLAY crew sprite asset: OG KAPLAY. Official description: The legacy KAPLAY logo. Pack: Brand; tags: brand. Suggested uses: logo, splash screen, title badge, branding, loading mark."
 	},
 	"images/old_kaplayground.png": {
 		"url": "assets/old_kaplayground.png",
-		"description": "Bundled starter image asset. Filename indicates the suggested prop or theme."
+		"description": "KAPLAY crew sprite asset: OG KAPLAYGROUND. Official description: The legacy KAPLAY Playground logo. Pack: Brand; tags: brand. Suggested uses: logo, splash screen, title badge, branding, loading mark."
 	},
 	"images/onion.png": {
 		"url": "assets/onion.png",
-		"description": "Bundled starter image asset. Filename indicates the suggested prop or theme."
+		"description": "KAPLAY crew sprite asset: Onion. Official description: The Onion, is here, say hi, because he won't leave. Pack: KAWorld; tags: crew. Suggested uses: food pickup, garden prop, player character, NPC, enemy, avatar, story character."
 	},
 	"images/palette.png": {
 		"url": "assets/palette.png",
-		"description": "Bundled starter image asset. Filename indicates the suggested prop or theme."
+		"description": "KAPLAY crew sprite asset: Palette. Official description: A color palette. Pack: Icons; tags: icons. Suggested uses: HUD icon, menu button, inventory item, control affordance, status indicator."
 	},
 	"images/paper.png": {
 		"url": "assets/paper.png",
-		"description": "Bundled starter image asset. Filename indicates the suggested prop or theme."
+		"description": "KAPLAY crew sprite asset: Paper. Official description: What's new? Pack: Icons; tags: icons; search terms: news. Suggested uses: HUD icon, menu button, inventory item, control affordance, status indicator, news."
 	},
 	"images/pause.png": {
 		"url": "assets/pause.png",
-		"description": "Bundled starter image asset. Filename indicates the suggested prop or theme."
+		"description": "KAPLAY crew sprite asset: Pause. Official description: A pause icon. Pack: Icons; tags: ui, icons. Suggested uses: pause button, UI control, cursor, button, tap target, selection marker, HUD icon, menu button, inventory item, control affordance."
 	},
 	"images/pencil.png": {
 		"url": "assets/pencil.png",
-		"description": "Bundled starter image asset. Filename indicates the suggested prop or theme."
+		"description": "KAPLAY crew sprite asset: Pencil. Official description: A pencil. With an eraser. Pack: Icons; tags: ui, icons; search terms: edit. Suggested uses: UI control, cursor, button, tap target, selection marker, HUD icon, menu button, inventory item, control affordance, status indicator."
 	},
 	"images/pineapple.png": {
 		"url": "assets/pineapple.png",
-		"description": "Bundled starter image asset. Filename indicates the suggested prop or theme."
+		"description": "KAPLAY crew sprite asset: Pineapple. Official description: A tasty pineapple. Pack: KAWorld; tags: food. Suggested uses: fruit pickup, tropical collectible, food pickup, collectible, health item, snack reward, cooking ingredient."
 	},
 	"images/play.png": {
 		"url": "assets/play.png",
-		"description": "Bundled starter image asset. Filename indicates the suggested prop or theme."
+		"description": "KAPLAY crew sprite asset: Play. Official description: The play button. Pack: Icons; tags: ui, icons. Suggested uses: start button, UI control, cursor, button, tap target, selection marker, HUD icon, menu button, inventory item, control affordance."
 	},
 	"images/plus.png": {
 		"url": "assets/plus.png",
-		"description": "Bundled starter image asset. Filename indicates the suggested prop or theme."
+		"description": "KAPLAY crew sprite asset: Plus. Official description: A plus sign. Pack: Icons; tags: icons. Suggested uses: increase button, add action, HUD icon, menu button, inventory item, control affordance, status indicator."
 	},
 	"images/pog.png": {
 		"url": "assets/pog.png",
-		"description": "Bundled starter image asset. Filename indicates the suggested prop or theme."
+		"description": "KAPLAY crew sprite asset: Pog. Official description: Express your awesomeness with this pog! Pack: Emojis; tags: emojis; search terms: dino. Suggested uses: reaction, status effect, mood badge, reward pop-up, comic feedback, dino."
 	},
 	"images/pointer.png": {
 		"url": "assets/pointer.png",
-		"description": "Bundled starter image asset. Filename indicates the suggested prop or theme."
+		"description": "KAPLAY crew sprite asset: Pointer. Official description: Is pointing. Pack: KAWorld; tags: ui; search terms: up, hand, cursor. Suggested uses: tap hint, tutorial pointer, UI control, cursor, button, tap target, selection marker, up, hand."
 	},
 	"images/portal.png": {
 		"url": "assets/portal.png",
-		"description": "Bundled starter image asset. Filename indicates the suggested prop or theme."
+		"description": "KAPLAY crew sprite asset: Portal. Official description: A portal out of the KAWorld. Pack: KAWorld; tags: objects; search terms: exit. Suggested uses: teleporter, spawn gate, scene transition, prop, collectible, pickup, obstacle, interactive object, exit."
 	},
 	"images/pumpka.png": {
 		"url": "assets/pumpka.png",
-		"description": "Bundled starter image asset. Filename indicates the suggested prop or theme."
+		"description": "KAPLAY crew sprite asset: Pumpka. Official description: Pumpka works as a lantern on halloween (if not.. sleeping..). Cake borrowed his candle. Pack: KAWorld; tags: crew; search terms: pumpkin, halloween, jack-o-lantern. Suggested uses: player character, NPC, enemy, avatar, story character, pumpkin, halloween, jack-o-lantern."
 	},
 	"images/question_mark.png": {
 		"url": "assets/question_mark.png",
-		"description": "Bundled starter image asset. Filename indicates the suggested prop or theme."
+		"description": "KAPLAY crew sprite asset: Question Mark. Official description: What is this? Pack: Icons; tags: ui, icons. Suggested uses: help icon, mystery item, UI control, cursor, button, tap target, selection marker, HUD icon, menu button, inventory item."
 	},
 	"images/rule.png": {
 		"url": "assets/rule.png",
-		"description": "Bundled starter image asset. Filename indicates the suggested prop or theme."
+		"description": "KAPLAY crew sprite asset: Rule. Official description: A rule. Pack: Icons; tags: icons. Suggested uses: HUD icon, menu button, inventory item, control affordance, status indicator."
 	},
 	"images/save.png": {
 		"url": "assets/save.png",
-		"description": "Bundled starter image asset. Filename indicates the suggested prop or theme."
+		"description": "KAPLAY crew sprite asset: Save. Official description: A chill diskette. Pack: Icons; tags: ui, icons; search terms: floppy. Suggested uses: save UI, checkpoint, UI control, cursor, button, tap target, selection marker, HUD icon, menu button, inventory item."
 	},
 	"images/search.png": {
 		"url": "assets/search.png",
-		"description": "Bundled starter image asset. Filename indicates the suggested prop or theme."
+		"description": "KAPLAY crew sprite asset: Search. Official description: A magnifying glass. Pack: Icons; tags: ui, icons; search terms: magnifying, glass, zoom. Suggested uses: search UI, scanner, UI control, cursor, button, tap target, selection marker, HUD icon, menu button, inventory item."
 	},
 	"images/share.png": {
 		"url": "assets/share.png",
-		"description": "Bundled starter image asset. Filename indicates the suggested prop or theme."
+		"description": "KAPLAY crew sprite asset: Share. Official description: The share icon. Pack: Icons; tags: ui, icons. Suggested uses: share UI, social action, UI control, cursor, button, tap target, selection marker, HUD icon, menu button, inventory item."
 	},
 	"images/skuller.png": {
 		"url": "assets/skuller.png",
-		"description": "Bundled starter image asset. Filename indicates the suggested prop or theme."
+		"description": "KAPLAY crew sprite asset: Skuller. Official description: Spooky bones is here to scare you! Pack: KAWorld; tags: crew; search terms: sans. Suggested uses: player character, NPC, enemy, avatar, story character, sans."
 	},
 	"images/sok.png": {
 		"url": "assets/sok.png",
-		"description": "Bundled starter image asset. Filename indicates the suggested prop or theme."
+		"description": "KAPLAY crew sprite asset: SOK. Official description: The State of KAPLAY blog post series' footwear. Pack: KAWorld; tags: objects; search terms: sock. Suggested uses: prop, collectible, pickup, obstacle, interactive object, sock."
 	},
 	"images/sounds.png": {
 		"url": "assets/sounds.png",
-		"description": "Bundled starter image asset. Filename indicates the suggested prop or theme."
+		"description": "KAPLAY crew sprite asset: Sounds. Official description: Two sound brothers. Pack: Icons; tags: ui, icons; search terms: notes, music, audio. Suggested uses: UI control, cursor, button, tap target, selection marker, HUD icon, menu button, inventory item, control affordance, status indicator."
 	},
 	"images/spark.png": {
 		"url": "assets/spark.png",
-		"description": "Bundled starter image asset. Filename indicates the suggested prop or theme."
+		"description": "KAPLAY crew sprite asset: Spark. Official description: One of many sparks. Pack: KAWorld; tags: objects; search terms: sparkle, magic. Suggested uses: prop, collectible, pickup, obstacle, interactive object, sparkle, magic."
 	},
 	"images/sparkle.png": {
 		"url": "assets/sparkle.png",
-		"description": "Bundled starter image asset. Filename indicates the suggested prop or theme."
+		"description": "KAPLAY crew sprite asset: Sparkle. Official description: One of many sparkles. Pack: KAWorld; tags: objects; search terms: magic. Suggested uses: prop, collectible, pickup, obstacle, interactive object, magic."
 	},
 	"images/sparkles.png": {
 		"url": "assets/sparkles.png",
-		"description": "Bundled starter image asset. Filename indicates the suggested prop or theme."
+		"description": "KAPLAY crew sprite asset: Sparkles. Official description: Oh, shiny! Pack: KAWorld; tags: objects; search terms: magic. Suggested uses: prop, collectible, pickup, obstacle, interactive object, magic."
 	},
 	"images/sparkling.gif": {
 		"url": "assets/sparkling.gif",
-		"description": "Bundled starter image asset. Filename indicates the suggested prop or theme."
+		"description": "KAPLAY crew sprite asset: Sparkling. Official description: This is magical. Pack: Emojis; tags: emojis; search terms: sparkles, magic. Suggested uses: reaction, status effect, mood badge, reward pop-up, comic feedback, sparkles, magic."
 	},
 	"images/spider_web.png": {
 		"url": "assets/spider_web.png",
-		"description": "Bundled starter image asset. Filename indicates the suggested prop or theme."
+		"description": "KAPLAY crew sprite asset: Spider Web. Official description: But wait.. where is the spider?! Pack: KAWorld; tags: objects. Suggested uses: prop, collectible, pickup, obstacle, interactive object."
 	},
 	"images/spike.png": {
 		"url": "assets/spike.png",
-		"description": "Bundled starter image asset. Filename indicates the suggested prop or theme."
+		"description": "KAPLAY crew sprite asset: Spike. Official description: A spike, be careful! Pack: KAWorld; tags: tiles. Suggested uses: hazard, trap, deadly obstacle, terrain tile, platform, floor, wall, level decoration."
 	},
 	"images/star.png": {
 		"url": "assets/star.png",
-		"description": "Bundled starter image asset. Filename indicates the suggested prop or theme."
+		"description": "KAPLAY crew sprite asset: Star. Official description: Quick, wish something before it gets collected by Super Mark! Pack: KAWorld; tags: objects. Suggested uses: bonus, rating, power-up, prop, collectible, pickup, obstacle, interactive object."
 	},
 	"images/steel.png": {
 		"url": "assets/steel.png",
-		"description": "Bundled starter image asset. Filename indicates the suggested prop or theme."
+		"description": "KAPLAY crew sprite asset: Steel. Official description: Hard steel. Pack: KAWorld; tags: tiles. Suggested uses: terrain tile, platform, floor, wall, level decoration."
 	},
 	"images/stranger.png": {
 		"url": "assets/stranger.png",
-		"description": "Bundled starter image asset. Filename indicates the suggested prop or theme."
+		"description": "KAPLAY crew sprite asset: Stranger. Official description: A Bean, an elephant, a stranger?. Pack: Icons; tags: icons; search terms: question. Suggested uses: HUD icon, menu button, inventory item, control affordance, status indicator, question."
 	},
 	"images/sukomi.png": {
 		"url": "assets/sukomi.png",
-		"description": "Bundled starter image asset. Filename indicates the suggested prop or theme."
+		"description": "KAPLAY crew sprite asset: Sukomi. Official description: The best friend of Bobo! Addicted to math. Pack: KAWorld; tags: crew, animals; search terms: fish. Suggested uses: player character, NPC, enemy, avatar, story character, creature, animal character, companion, wildlife, fish."
 	},
 	"images/sun.png": {
 		"url": "assets/sun.png",
-		"description": "Bundled starter image asset. Filename indicates the suggested prop or theme."
+		"description": "KAPLAY crew sprite asset: Sun. Official description: The source of light. Pack: KAWorld; tags: objects. Suggested uses: day backdrop, sky decoration, prop, collectible, pickup, obstacle, interactive object."
 	},
 	"images/sword.png": {
 		"url": "assets/sword.png",
-		"description": "Bundled starter image asset. Filename indicates the suggested prop or theme."
+		"description": "KAPLAY crew sprite asset: Hero's Sword. Official description: Is the hero's sword. Pack: KAWorld; tags: objects; search terms: weapon. Suggested uses: weapon, attack pickup, hero prop, prop, collectible, pickup, obstacle, interactive object."
 	},
 	"images/tga.png": {
 		"url": "assets/tga.png",
-		"description": "Bundled starter image asset. Filename indicates the suggested prop or theme."
+		"description": "KAPLAY crew sprite asset: tga. Official description: A dino, he was the crew's babysitter when they were small. Pack: KAWorld; tags: crew. Suggested uses: player character, NPC, enemy, avatar, story character."
 	},
 	"images/toolbox.png": {
 		"url": "assets/toolbox.png",
-		"description": "Bundled starter image asset. Filename indicates the suggested prop or theme."
+		"description": "KAPLAY crew sprite asset: Toolbox. Official description: Can we fix it? Yes we can! Pack: Icons; tags: ui, icons. Suggested uses: UI control, cursor, button, tap target, selection marker, HUD icon, menu button, inventory item, control affordance, status indicator."
 	},
 	"images/trash.png": {
 		"url": "assets/trash.png",
-		"description": "Bundled starter image asset. Filename indicates the suggested prop or theme."
+		"description": "KAPLAY crew sprite asset: Trash. Official description: A trash can. Pack: Icons; tags: ui, icons; search terms: bin, delete, remove. Suggested uses: delete UI, discard action, UI control, cursor, button, tap target, selection marker, HUD icon, menu button, inventory item."
 	},
 	"images/watermelon.png": {
 		"url": "assets/watermelon.png",
-		"description": "Bundled starter image asset. Filename indicates the suggested prop or theme."
+		"description": "KAPLAY crew sprite asset: Watermelon. Official description: Watermelon, is the most abundant fruit in KAWorld. Pack: KAWorld; tags: food. Suggested uses: fruit pickup, summer collectible, food pickup, collectible, health item, snack reward, cooking ingredient."
 	},
 	"images/weight.png": {
 		"url": "assets/weight.png",
-		"description": "Bundled starter image asset. Filename indicates the suggested prop or theme."
+		"description": "KAPLAY crew sprite asset: Weight. Official description: The weight. Pack: Icons; tags: icons; search terms: kg. Suggested uses: HUD icon, menu button, inventory item, control affordance, status indicator, kg."
 	},
 	"images/wizarding.gif": {
 		"url": "assets/wizarding.gif",
-		"description": "Bundled starter image asset. Filename indicates the suggested prop or theme."
+		"description": "KAPLAY crew sprite asset: Wizarding. Official description: Bean Wizard is casting math. Pack: Emojis; tags: emojis; search terms: bean, magic. Suggested uses: reaction, status effect, mood badge, reward pop-up, comic feedback, bean, magic."
 	},
 	"images/zombean.png": {
 		"url": "assets/zombean.png",
-		"description": "Bundled starter image asset. Filename indicates the suggested prop or theme."
+		"description": "KAPLAY crew sprite asset: Zombean. Official description: A Zombified Bean! He's not here to eat your brains, but your beans! Pack: KAWorld; tags: crew. Suggested uses: player character, NPC, enemy, avatar, story character."
 	}
 }
