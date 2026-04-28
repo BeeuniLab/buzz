@@ -83,6 +83,15 @@ export interface UserContext {
     images?: ProcessedImageAttachment[];  // Image URLs
 }
 
+export interface QueueRequestOptions {
+    /**
+     * Maximum number of follow-up implementation phases this request should unlock.
+     * Keep follow-ups small so a later phase does not drift away from a user-approved preview.
+     */
+    maxPhases?: number;
+    changeScope?: 'minor' | 'major';
+}
+
 export interface PhaseExecutionResult {
     currentDevState: CurrentDevState;
     staticAnalysis?: StaticAnalysisResponse;

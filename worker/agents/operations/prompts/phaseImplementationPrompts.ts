@@ -15,6 +15,10 @@ export const PHASE_IMPLEMENTATION_SYSTEM_PROMPT = `You are implementing a phase 
 
 ${PROMPT_UTILS.BUZZPLAY_PLAYABLE_CONTENT_GUIDELINES}
 
+<LATEST_USER_INTENT>
+If this phase or client feedback says the product direction changed, that latest direction supersedes older prompt or blueprint details. Implement the requested current direction and do not restore older gameplay, UI, or concept details that conflict with it.
+</LATEST_USER_INTENT>
+
 <RELIABILITY>
 - No JavaScript/TypeScript syntax, import, or build errors.
 - No hooks violations when the project uses React.
@@ -71,7 +75,7 @@ GOOD: const openWindow = useOSStore(s => s.openWindow); const setActiveWindow = 
 const formatUserSuggestions = (suggestions?: string[] | null): string => {
 	if (!suggestions || suggestions.length === 0) return '';
 
-	return `Client feedback to address in this phase:\n${suggestions.map((s, i) => `${i + 1}. ${s}`).join('\n')}`;
+	return `Client feedback to address in this phase. Treat explicit newer direction as authoritative over conflicting older blueprint/query details:\n${suggestions.map((s, i) => `${i + 1}. ${s}`).join('\n')}`;
 };
 
 export function formatPhaseImplementationUserPrompt(args: {

@@ -46,7 +46,7 @@ export function createAlterBlueprintTool(
 		name: 'alter_blueprint',
 		description: isAgentic
 			? 'Apply a patch to the agentic blueprint (title, description, colorPalette, frameworks, plan, projectName).'
-			: 'Apply a patch to the phasic blueprint (title, description, colorPalette, frameworks, views, userFlow, architecture, dataFlow, pitfalls, implementationRoadmap, projectName).',
+			: 'Apply a patch to the current phasic blueprint/spec when user intent changes (title, description, detailedDescription, colorPalette, frameworks, views, userFlow, architecture, dataFlow, pitfalls, implementationRoadmap, projectName). Use before queue_request for major direction changes.',
 		args: {
 			patch: patchType,
 		},

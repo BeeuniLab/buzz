@@ -66,6 +66,8 @@ const SYSTEM_PROMPT = `<ROLE>
     - If shadcn components exist, do not include them in phase file lists or rewrite them.
 
     **REMEMBER: This is BuzzPlay playable content. A simple idea should become a working, fun, touch-friendly interactive post that fills the preview iframe, not a static showcase or overbuilt business app.**
+
+    **LATEST USER INTENT WINS:** The blueprint represents the current spec, but explicit later user feedback can supersede older prompt/blueprint details. If user feedback or a recent phase says the core direction changed, preserve that newer direction and do not plan a phase that reverts to an older concept.
 </TASK>
 
 ${STRATEGIES.FRONTEND_FIRST_PLANNING}
@@ -106,6 +108,7 @@ Adhere to the following guidelines:
 
 <SUGGESTING NEXT PHASE>
 •   Suggest the next phase based on the current progress, the overall application architecture, suggested phases in the blueprint, current runtime errors/bugs and any user suggestions.
+•   **Latest user intent wins:** If user suggestions conflict with older blueprint/query details, treat the suggestions as the current product direction. Do not plan rollback work that restores an older concept after the user approved or requested a newer one.
 •   Please ignore non functional or non critical issues. Your primary task is to suggest project development phases. Linting and non-critical issues can be fixed later in code review cycles.
 •   **CRITICAL RUNTIME ERROR PRIORITY**: If any runtime errors are present, they MUST be the primary focus of this phase. Runtime errors prevent deployment and user testing.
     
@@ -167,6 +170,8 @@ Adhere to the following guidelines:
 const LAST_PHASE_PROMPT = `Finalization and Review phase. 
 Goal: Thoroughly review the entire codebase generated in previous phases. Identify and fix any remaining critical issues (runtime errors, logic flaws, rendering bugs) before deployment.
 ** YOU MUST HALT AFTER THIS PHASE **
+
+**LATEST INTENT PRESERVATION:** This final phase is for critical fixes only. Do not reshape the product, change the core gameplay, or revert to an older blueprint/query concept unless a critical runtime or logic bug makes a small targeted fix necessary. If the latest implemented/user-requested direction conflicts with older blueprint text, preserve the latest direction.
 
 <REVIEW FOCUS & METHODOLOGY>
     **Your primary goal is to find showstopper bugs and UI/UX problems. Prioritize:**
@@ -244,6 +249,7 @@ ${suggestions.map((suggestion, index) => `${index + 1}. ${suggestion}`).join('\n
 \`\`\`
 
 **IMPORTANT**: Make sure the above feedbacks are resolved and executed properly, elegantly and in a non-hacky way. Only work towards resolving the above feedbacks.
+If the feedback says it supersedes older requirements or changes the current product direction, treat it as authoritative. Do not restore older gameplay, UI, or concept details that conflict with it.
 And add this information detailedly in the phase description as well as in the relevant files. You may implement these suggestions across multiple phases as needed.
 </USER SUGGESTIONS>`;
 };

@@ -9,15 +9,24 @@ export function createQueueRequestTool(
 	return tool({
 		name: 'queue_request',
 		description:
-			'Queue up modification requests or changes, to be implemented in the next development phase',
+			'Queue up modification requests or changes, to be implemented in the next development phase. Use change_scope="major" only when the request changes the core product direction, core gameplay, or primary user experience.',
 		args: {
 			modificationRequest: t.string().describe("The changes needed to be made to the app. Please don't supply any code level or implementation details. Provide detailed requirements and description of the changes you want to make."),
+			change_scope: t.enum(['minor', 'major']).default('minor').describe('Use "minor" for styling, tuning, bug fixes, small features, or asset swaps. Use "major" for core gameplay/product direction changes such as changing a snake game into an open-world explorer.'),
 		},
-		run: async ({ modificationRequest }) => {
+		run: async ({ modificationRequest, change_scope }) => {
+			const changeScope = change_scope === 'major' ? 'major' : 'minor';
 			logger.info('Received app edit request', {
 				modificationRequest,
+				change_scope: changeScope,
 			});
-			agent.queueUserRequest(modificationRequest);
+			const normalizedRequest = changeScope === 'major'
+				? `CURRENT PRODUCT DIRECTION OVERRIDE: ${modificationRequest}\nThis supersedes any conflicting older prompt, blueprint, or phase plan. Preserve the user's new direction and do not revert to the previous core concept.`
+				: modificationRequest;
+			await agent.queueUserRequest(normalizedRequest, undefined, {
+				changeScope,
+				maxPhases: changeScope === 'major' ? 2 : 1,
+			});
 			return null;
 		},
 	});

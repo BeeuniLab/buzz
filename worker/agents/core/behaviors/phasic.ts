@@ -6,7 +6,7 @@ import {
 } from '../../schemas';
 import { StaticAnalysisResponse } from 'worker/types/project-types';
 import { CurrentDevState, MAX_PHASES, PhasicState } from '../state';
-import { AllIssues, AgentInitArgs, PhaseExecutionResult, UserContext } from '../types';
+import { AllIssues, AgentInitArgs, PhaseExecutionResult, QueueRequestOptions, UserContext } from '../types';
 import { WebSocketMessageResponses } from '../../constants';
 import { UserConversationProcessor } from '../../operations/UserConversationProcessor';
 import { GenerationContext, PhasicGenerationContext } from '../../domain/values/GenerationContext';
@@ -247,9 +247,28 @@ export class PhasicCodingBehavior extends BaseCodingBehavior<PhasicState> implem
         this.logger.info("Completed phases:", JSON.stringify(phases, null, 2));
     }
 
-    async queueUserRequest(request: string, images?: ProcessedImageAttachment[]): Promise<void> {
-        this.rechargePhasesCounter(3);
-        await super.queueUserRequest(request, images);
+    private resolveFollowupPhaseBudget(options?: QueueRequestOptions): number {
+        const requested = options?.maxPhases ?? (options?.changeScope === 'major' ? 2 : 1);
+        return Math.max(1, Math.min(2, Math.floor(requested)));
+    }
+
+    async queueUserRequest(request: string, images?: ProcessedImageAttachment[], options?: QueueRequestOptions): Promise<void> {
+        const maxPhases = this.resolveFollowupPhaseBudget(options);
+        this.setState({
+            ...this.state,
+            phasesCounter: maxPhases,
+            pendingUserInputs: [...this.state.pendingUserInputs, request]
+        });
+        if (images && images.length > 0) {
+            this.logger.info('Storing user images in-memory for phase generation', {
+                imageCount: images.length,
+            });
+            this.pendingUserImages = [...this.pendingUserImages, ...images];
+        }
+        this.logger.info('Queued user request with follow-up phase budget', {
+            maxPhases,
+            changeScope: options?.changeScope ?? 'minor',
+        });
     }
 
     async build(): Promise<void> {

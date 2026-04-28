@@ -9,7 +9,7 @@ import {
 import { ExecuteCommandsResponse } from 'worker/services/sandbox/sandboxTypes';
 import { PreviewType, RuntimeError, StaticAnalysisResponse, TemplateDetails, TemplateFile } from 'worker/types/project-types';
 import { BaseProjectState, AgenticState, FileState } from '../state';
-import { AllIssues, AgentSummary, AgentInitArgs, BehaviorType, DeploymentTarget, ProjectType } from '../types';
+import { AllIssues, AgentSummary, AgentInitArgs, BehaviorType, DeploymentTarget, ProjectType, QueueRequestOptions } from '../types';
 import { WebSocketMessageResponses } from '../../constants';
 import { ProjectSetupAssistant } from '../../assistants/projectsetup';
 import { UserConversationProcessor, RenderToolCall } from '../../operations/UserConversationProcessor';
@@ -408,7 +408,7 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
         return this.state.projectType;
     }
 
-    async queueUserRequest(request: string, images?: ProcessedImageAttachment[]): Promise<void> {
+    async queueUserRequest(request: string, images?: ProcessedImageAttachment[], _options?: QueueRequestOptions): Promise<void> {
         this.setState({
             ...this.state,
             pendingUserInputs: [...this.state.pendingUserInputs, request]
