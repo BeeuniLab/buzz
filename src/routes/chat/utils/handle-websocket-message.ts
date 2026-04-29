@@ -695,7 +695,6 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
                     setMessages(prev => {
                         const restoredWithPreservedAttachments = preserveExistingUserAttachments(deduplicated, prev);
                         const hasFetching = prev.some(m => m.role === 'assistant' && m.conversationId === 'fetching-chat');
-                        const hasReconnect = prev.some(m => m.role === 'assistant' && m.conversationId === 'websocket_reconnected');
                         
                         if (hasFetching) {
                             const next = appendToolEvent(prev, 'fetching-chat', { 
@@ -703,11 +702,6 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
                                 status: 'success' 
                             });
                             return [...next, ...restoredWithPreservedAttachments];
-                        }
-                        
-                        if (hasReconnect) {
-                            // Preserve reconnect message on top when restoring state after reconnect
-                            return [...prev, ...restoredWithPreservedAttachments];
                         }
                         
                         return restoredWithPreservedAttachments;

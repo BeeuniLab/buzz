@@ -404,12 +404,8 @@ export function useChat({
 					retryTimeouts.current.forEach(clearTimeout);
 					retryTimeouts.current = [];
 
-					// Send success message to user
 					if (isRetry) {
-						// Clear old messages on reconnect to prevent duplicates
-						setMessages(() => [
-							createAIMessage('websocket_reconnected', 'Seems we lost connection for a while there. Fixed now!', true)
-						]);
+						logger.info('WebSocket reconnected after retry');
 					}
 
 					// Always request conversation state explicitly (running/full history)
@@ -493,8 +489,6 @@ export function useChat({
 
 			logger.warn(`🔄 Retrying WebSocket connection in ${actualDelay / 1000}s (attempt ${retryCount.current + 1}/${maxRetries + 1})`);
 			
-			sendMessage(createAIMessage('websocket_retrying', `🔄 Connection failed. Retrying in ${Math.ceil(actualDelay / 1000)} seconds... (attempt ${retryCount.current + 1}/${maxRetries + 1})\n\n❌ Reason: ${reason}`, true));
-
 			const timeoutId = setTimeout(() => {
 				connectWithRetryRef.current?.(wsUrl, { disableGenerate, isRetry: true });
 			}, actualDelay);
