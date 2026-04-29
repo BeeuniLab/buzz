@@ -7,12 +7,22 @@ import {
     generateTemplateForSchema,
     parseContentForSchema,
 } from './schemaFormatters';
-import { zodResponseFormat } from 'openai/helpers/zod.mjs';
+import { zodTextFormat } from 'openai/helpers/zod.mjs';
 import {
     ChatCompletionMessageFunctionToolCall,
     type ReasoningEffort,
-    type ChatCompletionChunk,
 } from 'openai/resources.mjs';
+import type {
+    FunctionTool,
+    Response,
+    ResponseCreateParamsBase,
+    ResponseFunctionToolCall,
+    ResponseInput,
+    ResponseInputContent,
+    ResponseInputItem,
+    ResponseOutputItem,
+    ResponseStreamEvent,
+} from 'openai/resources/responses/responses.mjs';
 import { CompletionSignal, Message, MessageContent, MessageRole } from './common';
 import { ToolCallResult, ToolDefinition, toOpenAITool } from '../tools/types';
 import { AgentActionKey, AI_MODEL_CONFIG, AIModelConfig, AIModels, InferenceMetadata, normalizeAIModelId, type InferenceRuntimeOverrides } from './config.types';
@@ -32,36 +42,27 @@ function optimizeInputs(messages: Message[]): Message[] {
 }
 
 // Streaming tool-call accumulation helpers 
-type ToolCallsArray = NonNullable<NonNullable<ChatCompletionChunk['choices'][number]['delta']>['tool_calls']>;
-type ToolCallDelta = ToolCallsArray[number];
 type ToolAccumulatorEntry = ChatCompletionMessageFunctionToolCall & { index?: number; __order: number };
 
 function synthIdForIndex(i: number): string {
     return `tool_${Date.now()}_${i}_${Math.random().toString(36).slice(2)}`;
 }
 
-function accumulateToolCallDelta(
+function getOrCreateResponseToolCallEntry(
     byIndex: Map<number, ToolAccumulatorEntry>,
-    byId: Map<string, ToolAccumulatorEntry>,
-    deltaToolCall: ToolCallDelta,
-    orderCounterRef: { value: number }
-): void {
-    const idx = deltaToolCall.index;
-    const idFromDelta = deltaToolCall.id;
-
+    byItemId: Map<string, ToolAccumulatorEntry>,
+    outputIndex: number | undefined,
+    itemId: string | undefined,
+    orderCounterRef: { value: number },
+): ToolAccumulatorEntry {
     let entry: ToolAccumulatorEntry | undefined;
 
-    // Look up existing entry by id or index
-    if (idFromDelta && byId.has(idFromDelta)) {
-        entry = byId.get(idFromDelta)!;
-        console.log(`[TOOL_CALL_DEBUG] Found existing entry by id: ${idFromDelta}`);
-    } else if (idx !== undefined && byIndex.has(idx)) {
-        entry = byIndex.get(idx)!;
-        console.log(`[TOOL_CALL_DEBUG] Found existing entry by index: ${idx}`);
+    if (itemId && byItemId.has(itemId)) {
+        entry = byItemId.get(itemId)!;
+    } else if (outputIndex !== undefined && byIndex.has(outputIndex)) {
+        entry = byIndex.get(outputIndex)!;
     } else {
-        console.log(`[TOOL_CALL_DEBUG] Creating new entry - id: ${idFromDelta}, index: ${idx}`);
-        // Create new entry
-        const provisionalId = idFromDelta || synthIdForIndex(idx ?? byId.size);
+        const provisionalId = itemId || synthIdForIndex(outputIndex ?? byItemId.size);
         entry = {
             id: provisionalId,
             type: 'function',
@@ -70,77 +71,110 @@ function accumulateToolCallDelta(
                 arguments: '',
             },
             __order: orderCounterRef.value++,
-            ...(idx !== undefined ? { index: idx } : {}),
+            ...(outputIndex !== undefined ? { index: outputIndex } : {}),
         };
-        if (idx !== undefined) byIndex.set(idx, entry);
-        byId.set(provisionalId, entry);
+        if (outputIndex !== undefined) byIndex.set(outputIndex, entry);
     }
 
-    // Update id if provided and different
-    if (idFromDelta && entry.id !== idFromDelta) {
-        byId.delete(entry.id);
-        entry.id = idFromDelta;
-        byId.set(entry.id, entry);
+    if (itemId) {
+        byItemId.set(itemId, entry);
     }
 
-    // Register index if provided and not yet registered
-    if (idx !== undefined && entry.index === undefined) {
-        entry.index = idx;
-        byIndex.set(idx, entry);
+    if (outputIndex !== undefined && entry.index === undefined) {
+        entry.index = outputIndex;
+        byIndex.set(outputIndex, entry);
     }
 
-    // Update function name - replace if provided
-    if (deltaToolCall.function?.name) {
-        entry.function.name = deltaToolCall.function.name;
+    return entry;
+}
+
+function applyResponseFunctionCallItem(
+    byIndex: Map<number, ToolAccumulatorEntry>,
+    byItemId: Map<string, ToolAccumulatorEntry>,
+    item: ResponseFunctionToolCall,
+    outputIndex: number | undefined,
+    orderCounterRef: { value: number },
+): void {
+    const itemId = item.id ?? item.call_id;
+    const entry = getOrCreateResponseToolCallEntry(byIndex, byItemId, outputIndex, itemId, orderCounterRef);
+
+    if (item.call_id && entry.id !== item.call_id) {
+        entry.id = item.call_id;
     }
 
-    // Append arguments - accumulate string chunks
-    if (deltaToolCall.function?.arguments !== undefined) {
-        const before = entry.function.arguments;
-        const chunk = deltaToolCall.function.arguments;
+    if (item.name) {
+        entry.function.name = item.name;
+    }
 
-        // Check if we already have complete JSON and this is extra data. Question: Do we want this?
-        let isComplete = false;
-        if (before.length > 0) {
-            try {
-                JSON.parse(before);
-                isComplete = true;
-                console.warn(`[TOOL_CALL_WARNING] Already have complete JSON, ignoring additional chunk for ${entry.function.name}:`, {
-                    existing_json: before,
-                    ignored_chunk: chunk
-                });
-            } catch {
-                // Not complete yet, continue accumulating
-            }
+    if (item.arguments !== undefined) {
+        entry.function.arguments = item.arguments;
+    }
+}
+
+function appendResponseFunctionArguments(
+    byIndex: Map<number, ToolAccumulatorEntry>,
+    byItemId: Map<string, ToolAccumulatorEntry>,
+    outputIndex: number | undefined,
+    itemId: string | undefined,
+    delta: string,
+    orderCounterRef: { value: number },
+): void {
+    const entry = getOrCreateResponseToolCallEntry(byIndex, byItemId, outputIndex, itemId, orderCounterRef);
+    entry.function.arguments += delta;
+}
+
+function setResponseFunctionArguments(
+    byIndex: Map<number, ToolAccumulatorEntry>,
+    byItemId: Map<string, ToolAccumulatorEntry>,
+    outputIndex: number | undefined,
+    itemId: string | undefined,
+    args: string,
+    orderCounterRef: { value: number },
+): void {
+    const entry = getOrCreateResponseToolCallEntry(byIndex, byItemId, outputIndex, itemId, orderCounterRef);
+    entry.function.arguments = args;
+}
+
+function isResponseFunctionToolCall(item: ResponseOutputItem | ResponseInputItem): item is ResponseFunctionToolCall {
+    return item.type === 'function_call';
+}
+
+function responseFunctionToolCallToChatToolCall(
+    item: ResponseFunctionToolCall,
+    fallbackIndex: number,
+): ChatCompletionMessageFunctionToolCall {
+    return {
+        id: item.call_id || item.id || synthIdForIndex(fallbackIndex),
+        type: 'function',
+        function: {
+            name: item.name,
+            arguments: item.arguments || '{}',
+        },
+    };
+}
+
+function uniqueToolAccumulatorEntries(entries: ToolAccumulatorEntry[]): ToolAccumulatorEntry[] {
+    const seen = new Set<ToolAccumulatorEntry>();
+    const unique: ToolAccumulatorEntry[] = [];
+    for (const entry of entries) {
+        if (!seen.has(entry)) {
+            seen.add(entry);
+            unique.push(entry);
         }
-
-        if (!isComplete) {
-            entry.function.arguments += chunk;
-
-            // Debug logging for tool call argument accumulation
-            console.log(`[TOOL_CALL_DEBUG] Accumulating arguments for ${entry.function.name || 'unknown'}:`, {
-                id: entry.id,
-                index: entry.index,
-                before_length: before.length,
-                chunk_length: chunk.length,
-                chunk_content: chunk,
-                after_length: entry.function.arguments.length,
-                after_content: entry.function.arguments
-            });
-        }
     }
+    return unique;
 }
 
 function assembleToolCalls(
     byIndex: Map<number, ToolAccumulatorEntry>,
-    byId: Map<string, ToolAccumulatorEntry>
+    byItemId: Map<string, ToolAccumulatorEntry>
 ): ChatCompletionMessageFunctionToolCall[] {
     if (byIndex.size > 0) {
         return Array.from(byIndex.values())
             .sort((a, b) => (a.index! - b.index!))
             .map((e) => ({ id: e.id, type: 'function' as const, function: { name: e.function.name, arguments: e.function.arguments } }));
     }
-    return Array.from(byId.values())
+    return uniqueToolAccumulatorEntries(Array.from(byItemId.values()))
         .sort((a, b) => a.__order - b.__order)
         .map((e) => ({ id: e.id, type: 'function' as const, function: { name: e.function.name, arguments: e.function.arguments } }));
 }
@@ -338,6 +372,151 @@ function parseJsonSchemaContent(content: string): unknown {
 
         throw directError;
     }
+}
+
+function contentToPlainText(content: MessageContent): string {
+    if (!content) return '';
+    if (typeof content === 'string') return content;
+
+    return content
+        .map((item) => {
+            switch (item.type) {
+                case 'text':
+                    return item.text;
+                case 'image_url':
+                    return `[image: ${item.image_url.url}]`;
+                case 'input_audio':
+                    return `[audio: ${item.input_audio.format}]`;
+                case 'file':
+                    return `[file: ${item.file.filename ?? 'uploaded file'}]`;
+                default:
+                    return '';
+            }
+        })
+        .filter(Boolean)
+        .join('\n');
+}
+
+function contentToResponseInputContent(content: MessageContent): string | ResponseInputContent[] {
+    if (!content) return '';
+    if (typeof content === 'string') return content;
+
+    return content.map((item): ResponseInputContent => {
+        switch (item.type) {
+            case 'text':
+                return { type: 'input_text', text: item.text };
+            case 'image_url':
+                return {
+                    type: 'input_image',
+                    image_url: item.image_url.url,
+                    detail: item.image_url.detail ?? 'auto',
+                };
+            case 'input_audio':
+                return {
+                    type: 'input_audio',
+                    input_audio: item.input_audio,
+                };
+            case 'file':
+                return {
+                    type: 'input_file',
+                    file_data: item.file.file_data,
+                    filename: item.file.filename,
+                };
+            default:
+                return { type: 'input_text', text: '' };
+        }
+    });
+}
+
+function chatToolCallToResponseFunctionCall(toolCall: ChatCompletionMessageFunctionToolCall): ResponseFunctionToolCall {
+    return {
+        type: 'function_call',
+        call_id: toolCall.id,
+        name: toolCall.function.name,
+        arguments: toolCall.function.arguments || '{}',
+    };
+}
+
+function buildResponsesInput(messages: Message[]): { instructions: string; input: ResponseInput } {
+    const instructionParts: string[] = [];
+    const input: ResponseInput = [];
+
+    for (const message of messages) {
+        if (message.role === 'system') {
+            const text = contentToPlainText(message.content);
+            if (text.trim()) instructionParts.push(text);
+            continue;
+        }
+
+        if (message.role === 'tool' || message.role === 'function') {
+            if (!message.tool_call_id) {
+                console.warn('[RESPONSES_INPUT] Dropping tool output without tool_call_id:', message.name);
+                continue;
+            }
+            input.push({
+                type: 'function_call_output',
+                call_id: message.tool_call_id,
+                output: contentToPlainText(message.content) || 'done',
+            });
+            continue;
+        }
+
+        const responseContent = contentToResponseInputContent(message.content);
+        const hasContent = Array.isArray(responseContent)
+            ? responseContent.length > 0
+            : responseContent.trim().length > 0;
+
+        if (hasContent) {
+            input.push({
+                type: 'message',
+                role: message.role === 'assistant' ? 'assistant' : 'user',
+                content: responseContent,
+            } as ResponseInputItem);
+        }
+
+        if (message.role === 'assistant' && message.tool_calls?.length) {
+            input.push(...message.tool_calls.map(chatToolCallToResponseFunctionCall));
+        }
+    }
+
+    return {
+        // The configured GPT proxy rejects Responses requests with no instructions.
+        instructions: instructionParts.join('\n\n') || 'Follow the user request.',
+        input,
+    };
+}
+
+function chatToolToResponseTool(tool: ToolDefinition<unknown, unknown>): FunctionTool {
+    const openAITool = toOpenAITool(tool);
+    return {
+        type: 'function',
+        name: openAITool.function.name,
+        description: openAITool.function.description,
+        parameters: openAITool.function.parameters as Record<string, unknown>,
+        strict: false,
+    };
+}
+
+function extractResponseContent(response: Response): string {
+    if (typeof response.output_text === 'string' && response.output_text.length > 0) {
+        return response.output_text;
+    }
+
+    return response.output.map(extractOutputTextFromResponseItem).join('');
+}
+
+function extractOutputTextFromResponseItem(item: ResponseOutputItem): string {
+    if (item.type !== 'message') return '';
+    return item.content
+        .map((part) => part.type === 'output_text' ? part.text : '')
+        .filter(Boolean)
+        .join('');
+}
+
+function extractResponseToolCalls(response: Response): ChatCompletionMessageFunctionToolCall[] {
+    return response.output
+        .map((item, index) => isResponseFunctionToolCall(item) ? responseFunctionToolCallToChatToolCall(item, index) : null)
+        .filter((item): item is ChatCompletionMessageFunctionToolCall => Boolean(item));
 }
 
 function hasValidProxyConfig(url: string | undefined, apiKey: string | undefined): boolean {
@@ -570,13 +749,6 @@ export class AbortError extends InferError {
     }
 }
 
-const claude_thinking_budget_tokens = {
-    medium: 8000,
-    high: 16000,
-    low: 4000,
-    minimal: 1000,
-};
-
 export type InferResponseObject<OutputSchema extends z.AnyZodObject> = {
     object: z.infer<OutputSchema>;
     toolCallContext?: ToolCallContext;
@@ -727,19 +899,10 @@ export async function infer<OutputSchema extends z.AnyZodObject>({
             : requestModelName;
 
         const client = new OpenAI({ apiKey, baseURL: baseURL, defaultHeaders });
-        const schemaObj =
+        const textOpts =
             schema && schemaName && !format
-                ? { response_format: zodResponseFormat(schema, schemaName) }
+                ? { text: { format: zodTextFormat(schema, schemaName) } }
                 : {};
-        const extraBody = requestModelName.includes('claude')? {
-                    extra_body: {
-                        thinking: {
-                            type: 'enabled',
-                            budget_tokens: claude_thinking_budget_tokens[reasoning_effort ?? 'medium'],
-                        },
-                    },
-                }
-            : {};
 
         // Optimize messages to reduce token count
         const optimizedMessages = optimizeInputs(messages);
@@ -828,28 +991,32 @@ export async function infer<OutputSchema extends z.AnyZodObject>({
             }
         }
 
-        console.log(`Running inference with ${apiModelName} using structured output with ${format} format, reasoning effort: ${reasoning_effort}, configured max tokens: ${maxTokens} (not sent), temperature: ${temperature}, frequency_penalty: ${frequency_penalty}, baseURL: ${baseURL}`);
+        console.log(`Running inference with ${apiModelName} using Responses API with ${format ?? 'json_schema'} format, reasoning effort: ${reasoning_effort}, configured max tokens: ${maxTokens} (not sent), temperature: ${temperature}, frequency_penalty: ${frequency_penalty} (not sent), baseURL: ${baseURL}`);
 
         const toolsOpts = tools ? {
-            tools: tools.map(t => {
-                return toOpenAITool(t);
-            }),
+            tools: tools.map(chatToolToResponseTool),
             tool_choice: 'auto' as const
         } : {};
-        let response: OpenAI.ChatCompletion | OpenAI.ChatCompletionChunk | Stream<OpenAI.ChatCompletionChunk>;
+        const responsesInput = buildResponsesInput(messagesToPass);
+        let response: Response | Stream<ResponseStreamEvent>;
         try {
-            // Call OpenAI API with proper structured output format
-            response = await client.chat.completions.create({
-                ...schemaObj,
-                ...extraBody,
+            const responseParams: ResponseCreateParamsBase = {
+                ...textOpts,
                 ...toolsOpts,
                 model: apiModelName,
-                messages: messagesToPass as OpenAI.ChatCompletionMessageParam[],
-                stream: stream ? true : false,
-                reasoning_effort: modelConfig.nonReasoning ? undefined : reasoning_effort,
+                instructions: responsesInput.instructions,
+                input: responsesInput.input,
+                // The configured GPT proxy returns SSE for /responses even when
+                // stream=false, so always use the SDK streaming path and aggregate
+                // internally for non-stream callers.
+                stream: true,
+                store: false,
+                reasoning: modelConfig.nonReasoning || !reasoning_effort ? undefined : { effort: reasoning_effort },
+                parallel_tool_calls: tools ? true : undefined,
                 temperature,
-                frequency_penalty,
-            }, {
+            } as ResponseCreateParamsBase;
+
+            response = await client.responses.create(responseParams, {
                 signal: abortSignal,
                 headers: {
                     "cf-aig-metadata": JSON.stringify({
@@ -882,46 +1049,120 @@ export async function infer<OutputSchema extends z.AnyZodObject>({
         */
 
         let content = '';
-        if (stream) {
-            // If streaming is enabled, handle the stream response
-            if (response instanceof Stream) {
+        if (response instanceof Stream) {
                 let streamIndex = 0;
-                // Accumulators for tool calls: by index (preferred) and by id (fallback when index is missing)
+                let completedResponse: Response | undefined;
+                // Accumulators for Responses function calls: by output index (preferred) and item id.
                 const byIndex = new Map<number, ToolAccumulatorEntry>();
-                const byId = new Map<string, ToolAccumulatorEntry>();
+                const byItemId = new Map<string, ToolAccumulatorEntry>();
                 const orderCounterRef = { value: 0 };
-                
-                for await (const event of response) {
-                    const delta = (event as ChatCompletionChunk).choices[0]?.delta;
-                    
-                    // Provider-specific logging
-                    const provider = requestModelName.split('/')[0];
-                    if (delta?.tool_calls && (provider === 'google-ai-studio' || provider === 'gemini')) {
-                        console.log(`[PROVIDER_DEBUG] ${provider} tool_calls delta:`, JSON.stringify(delta.tool_calls, null, 2));
+                const flushStreamChunk = (force = false) => {
+                    if (!stream) {
+                        return;
                     }
-                    
-                    if (delta?.tool_calls) {
-                        try {
-                            for (const deltaToolCall of delta.tool_calls as ToolCallsArray) {
-                                accumulateToolCallDelta(byIndex, byId, deltaToolCall, orderCounterRef);
-                            }
-                        } catch (error) {
-                            console.error('Error processing tool calls in streaming:', error);
-                        }
-                    }
-                    
-                    // Process content
-                    content += delta?.content || '';
                     const slice = content.slice(streamIndex);
-                    const finishReason = (event as ChatCompletionChunk).choices[0]?.finish_reason;
-                    if (slice.length >= stream.chunk_size || finishReason != null) {
+                    if (slice.length >= stream.chunk_size || (force && slice.length > 0)) {
                         stream.onChunk(slice);
                         streamIndex += slice.length;
                     }
-                }
+                };
                 
+                for await (const event of response) {
+                    switch (event.type) {
+                        case 'response.output_text.delta':
+                            content += event.delta || '';
+                            flushStreamChunk();
+                            break;
+                        case 'response.output_text.done':
+                            if (!content && event.text) {
+                                content = event.text;
+                            }
+                            flushStreamChunk(true);
+                            break;
+                        case 'response.output_item.added':
+                        case 'response.output_item.done':
+                            if (isResponseFunctionToolCall(event.item)) {
+                                applyResponseFunctionCallItem(
+                                    byIndex,
+                                    byItemId,
+                                    event.item,
+                                    event.output_index,
+                                    orderCounterRef,
+                                );
+                            } else if (event.type === 'response.output_item.done' && !content) {
+                                content = extractOutputTextFromResponseItem(event.item);
+                                flushStreamChunk(true);
+                            }
+                            break;
+                        case 'response.function_call_arguments.delta':
+                            appendResponseFunctionArguments(
+                                byIndex,
+                                byItemId,
+                                event.output_index,
+                                event.item_id,
+                                event.delta,
+                                orderCounterRef,
+                            );
+                            break;
+                        case 'response.function_call_arguments.done':
+                            setResponseFunctionArguments(
+                                byIndex,
+                                byItemId,
+                                event.output_index,
+                                event.item_id,
+                                event.arguments,
+                                orderCounterRef,
+                            );
+                            break;
+                        case 'response.completed':
+                            completedResponse = event.response;
+                            break;
+                        case 'response.failed':
+                            throw new Error(`Responses API failed: ${event.response.error?.message ?? 'unknown error'}`);
+                        case 'response.incomplete':
+                            console.warn('Responses API returned incomplete response:', event.response.incomplete_details);
+                            completedResponse = event.response;
+                            break;
+                        case 'error':
+                            throw new Error(`Responses API stream error: ${event.message}`);
+                        default:
+                            break;
+                    }
+                }
+
+                if (!content && completedResponse) {
+                    content = extractResponseContent(completedResponse);
+                    flushStreamChunk(true);
+                }
+
+                if (completedResponse) {
+                    const existingToolCallIds = new Set(
+                        uniqueToolAccumulatorEntries([
+                            ...Array.from(byIndex.values()),
+                            ...Array.from(byItemId.values()),
+                        ]).map(entry => entry.id),
+                    );
+                    for (const responseToolCall of extractResponseToolCalls(completedResponse)) {
+                        if (existingToolCallIds.has(responseToolCall.id)) {
+                            continue;
+                        }
+                        const entry = getOrCreateResponseToolCallEntry(
+                            byIndex,
+                            byItemId,
+                            byIndex.size,
+                            responseToolCall.id,
+                            orderCounterRef,
+                        );
+                        entry.id = responseToolCall.id;
+                        entry.function.name = responseToolCall.function.name;
+                        entry.function.arguments = responseToolCall.function.arguments;
+                        existingToolCallIds.add(responseToolCall.id);
+                    }
+                    console.log(`Total tokens used in prompt: ${completedResponse.usage?.total_tokens}`);
+                }
+
                 // Assemble toolCalls with preference for index ordering, else first-seen order
-                const assembled = assembleToolCalls(byIndex, byId);
+                const assembled = assembleToolCalls(byIndex, byItemId);
                 const dropped = assembled.filter(tc => !tc.function.name || tc.function.name.trim() === '');
                 if (dropped.length) {
                     console.warn(`[TOOL_CALL_WARNING] Dropping ${dropped.length} streamed tool_call(s) without function name`, dropped);
@@ -948,29 +1189,18 @@ export async function infer<OutputSchema extends z.AnyZodObject>({
                         }
                     }
                 }
-                // Do not drop tool calls without id; we used a synthetic id and will update if a real id arrives in later deltas
-            } else {
-                // Handle the case where stream was requested but a non-stream response was received
-                console.error('Expected a stream response but received a ChatCompletion object.');
-                // Properly extract both content and tool calls from non-stream response
-                const completion = response as OpenAI.ChatCompletion;
-                const message = completion.choices[0]?.message;
-                if (message) {
-                    content = message.content || '';
-                    toolCalls = (message.tool_calls as ChatCompletionMessageFunctionToolCall[]) || [];
-                }
-            }
         } else {
-            // If not streaming, get the full response content (response is ChatCompletion)
-            content = (response as OpenAI.ChatCompletion).choices[0]?.message?.content || '';
-            const allToolCalls = ((response as OpenAI.ChatCompletion).choices[0]?.message?.tool_calls as ChatCompletionMessageFunctionToolCall[] || []);
+            // Fallback for providers that return JSON for Responses despite stream=true.
+            const nonStreamResponse = response as Response;
+            content = extractResponseContent(nonStreamResponse);
+            const allToolCalls = extractResponseToolCalls(nonStreamResponse);
             const droppedNonStream = allToolCalls.filter(tc => !tc.function.name || tc.function.name.trim() === '');
             if (droppedNonStream.length) {
                 console.warn(`[TOOL_CALL_WARNING] Dropping ${droppedNonStream.length} non-stream tool_call(s) without function name`, droppedNonStream);
             }
             toolCalls = allToolCalls.filter(tc => tc.function.name && tc.function.name.trim() !== '');
             // Also print the total number of tokens used in the prompt
-            const totalTokens = (response as OpenAI.ChatCompletion).usage?.total_tokens;
+            const totalTokens = nonStreamResponse.usage?.total_tokens;
             console.log(`Total tokens used in prompt: ${totalTokens}`);
         }
 
