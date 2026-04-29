@@ -29,7 +29,6 @@ import { appEvents } from '@/lib/app-events';
 
 const ACTIVE_APP_TASK_STALE_MS = 30 * 60 * 1000;
 const GENERATION_WORKFLOW_KINDS = new Set(['create_project', 'generate_all', 'resume_generation', 'user_input']);
-const OPERATIONAL_WORKFLOW_KINDS = new Set(['deploy_project', 'deploy_preview']);
 
 const isGenerationWorkflow = (workflow: AgentState['activeWorkflow']): boolean =>
 	Boolean(workflow && GENERATION_WORKFLOW_KINDS.has(workflow.kind));
@@ -777,8 +776,6 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
                 setIsRedeployReady(true);
                 setFiles((prev) => setAllFilesCompleted(prev));
                 setProjectStages((prev) => completeStages(prev, ['code']));
-
-                sendMessage(createAIMessage('generation-complete', 'Code generation has been completed.'));
                 
                 // Reset all phase indicators
                 setIsPhaseProgressActive(false);
@@ -1168,14 +1165,6 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
                     'server_log',
                     message,
                 );
-
-                if (
-                    message.source === 'workflow' &&
-                    message.level !== 'debug' &&
-                    !OPERATIONAL_WORKFLOW_KINDS.has(message.workflowKind ?? '')
-                ) {
-                    sendMessage(createAIMessage(`conv-workflow-${message.timestamp}`, message.message));
-                }
                 break;
             }
 
