@@ -74,8 +74,8 @@ export function handleWebSocketMessage(
 
                         sendToConnection(connection, WebSocketMessageResponses.GENERATION_STOPPED, {
                             message: workflowTerminated || wasCancelled
-                                ? 'Generation workflow stopped successfully'
-                                : 'No active generation task to cancel'
+                                ? 'Task stopped successfully'
+                                : 'No active task to cancel'
                         });
                     })
                     .catch((error: unknown) => {

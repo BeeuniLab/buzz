@@ -362,6 +362,7 @@ type ServerLogMessage = {
 	level: 'info' | 'warn' | 'error' | 'debug';
 	timestamp: number;
 	source?: string;
+	workflowKind?: string;
 };
 
 // ========== VAULT MESSAGES ==========

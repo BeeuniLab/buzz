@@ -29,6 +29,7 @@ import { appEvents } from '@/lib/app-events';
 
 const ACTIVE_APP_TASK_STALE_MS = 30 * 60 * 1000;
 const GENERATION_WORKFLOW_KINDS = new Set(['create_project', 'generate_all', 'resume_generation', 'user_input']);
+const OPERATIONAL_WORKFLOW_KINDS = new Set(['deploy_project', 'deploy_preview']);
 
 const isGenerationWorkflow = (workflow: AgentState['activeWorkflow']): boolean =>
 	Boolean(workflow && GENERATION_WORKFLOW_KINDS.has(workflow.kind));
@@ -749,6 +750,9 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
 
             case 'deployment_started': {
                 setIsPreviewDeploying(true);
+                if (deps.urlChatId) {
+                    appEvents.emitAppUpdated(deps.urlChatId, { status: 'generating' });
+                }
                 break;
             }
 
@@ -756,11 +760,18 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
                 setIsPreviewDeploying(false);
                 const finalPreviewURL = getPreviewUrl(message.previewURL, message.tunnelURL);
                 setPreviewUrl(finalPreviewURL);
+                if (deps.urlChatId) {
+                    appEvents.emitAppUpdated(deps.urlChatId, { status: 'completed' });
+                }
                 break;
             }
 
             case 'deployment_failed': {
+                setIsPreviewDeploying(false);
                 toast.error(message.error);
+                if (deps.urlChatId) {
+                    appEvents.emitAppUpdated(deps.urlChatId, { status: 'completed' });
+                }
                 break;
             }
 
@@ -938,10 +949,13 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
             }
 
             case 'generation_stopped': {
+                clearDeploymentTimeout?.();
                 setIsConversationProcessing(false);
                 setIsGenerating(false);
                 setIsGenerationPaused(isGenerating);
                 setIsDebugging(false);
+                setIsDeploying(false);
+                setIsPreviewDeploying(false);
                 
                 // Reset phase indicators
                 setIsPhaseProgressActive(false);
@@ -965,8 +979,8 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
                 );
                 
                 // Show toast notification for user-initiated stop
-                toast.info('Generation stopped', {
-                    description: message.message || 'Code generation has been stopped'
+                toast.info('Task stopped', {
+                    description: message.message || 'The running task has been stopped'
                 });
 
                 if (deps.urlChatId) {
@@ -986,6 +1000,9 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
 
             case 'cloudflare_deployment_started': {
                 setIsDeploying(true);
+                if (deps.urlChatId) {
+                    appEvents.emitAppUpdated(deps.urlChatId, { status: 'generating' });
+                }
                 onDebugMessage?.('info',
                     'Playable Update Started',
                     message.message,
@@ -1000,6 +1017,9 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
                 setCloudflareDeploymentUrl(message.deploymentUrl);
                 setDeploymentError('');
                 setIsRedeployReady(false);
+                if (deps.urlChatId) {
+                    appEvents.emitAppUpdated(deps.urlChatId, { status: 'completed' });
+                }
                 toast.success('Playable updated');
 
                 onDebugMessage?.('info',
@@ -1016,6 +1036,9 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
                 setDeploymentError(message.error || 'Unknown deployment error');
                 setCloudflareDeploymentUrl('');
                 setIsRedeployReady(true);
+                if (deps.urlChatId) {
+                    appEvents.emitAppUpdated(deps.urlChatId, { status: 'completed' });
+                }
                 toast.error(message.message || 'Playable update failed', {
                     description: message.error,
                 });
@@ -1104,7 +1127,11 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
                     message,
                 );
 
-                if (message.source === 'workflow' && message.level !== 'debug') {
+                if (
+                    message.source === 'workflow' &&
+                    message.level !== 'debug' &&
+                    !OPERATIONAL_WORKFLOW_KINDS.has(message.workflowKind ?? '')
+                ) {
                     sendMessage(createAIMessage(`conv-workflow-${message.timestamp}`, message.message));
                 }
                 break;

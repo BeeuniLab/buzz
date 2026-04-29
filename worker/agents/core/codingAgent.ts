@@ -376,6 +376,7 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
             level: args.status === 'failed' ? 'error' : 'info',
             timestamp: now,
             source: 'workflow',
+            workflowKind: args.kind,
         });
 
         if (args.status === 'failed') {
@@ -452,6 +453,7 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
             level: terminated ? 'info' : 'warn',
             timestamp: Date.now(),
             source: 'workflow',
+            workflowKind: activeWorkflow.kind,
         });
 
         return terminated;
@@ -599,6 +601,7 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
             level: 'info',
             timestamp: Date.now(),
             source: 'workflow',
+            workflowKind: kind,
         });
         return workflowId;
     }
@@ -739,6 +742,7 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
             level: 'info',
             timestamp: Date.now(),
             source: 'workflow',
+            workflowKind: params.kind,
         });
         return workflowId;
     }
