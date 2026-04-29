@@ -11,6 +11,7 @@ import AppView from './routes/app';
 import DiscoverPage from './routes/discover';
 import FeedPage from './routes/feed';
 import Inbox from './routes/inbox';
+import LegalPage from './routes/legal';
 import { ProtectedRoute } from './routes/protected-route';
 
 const routes = [
@@ -29,6 +30,10 @@ const routes = [
 			{
 				path: 'discover',
 				Component: DiscoverPage,
+			},
+			{
+				path: 'legal',
+				Component: LegalPage,
 			},
 			{
 				path: 'inbox',

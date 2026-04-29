@@ -17,6 +17,7 @@ export function MobileTopNav() {
 		pathname === '/' ||
 		pathname.startsWith('/feed') ||
 		pathname.startsWith('/discover') ||
+		pathname.startsWith('/legal') ||
 		pathname.startsWith('/profile') ||
 		pathname.startsWith('/build');
 

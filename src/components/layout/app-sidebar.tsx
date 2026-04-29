@@ -646,7 +646,7 @@ export function AppSidebar() {
 
 	const [showLoginModal, setShowLoginModal] = React.useState(false);
 
-	const isDiscoverContext = location.pathname === '/' || location.pathname.startsWith('/profile') || location.pathname.startsWith('/feed') || location.pathname.startsWith('/discover') || location.pathname.startsWith('/inbox');
+	const isDiscoverContext = location.pathname === '/' || location.pathname.startsWith('/profile') || location.pathname.startsWith('/feed') || location.pathname.startsWith('/discover') || location.pathname.startsWith('/legal') || location.pathname.startsWith('/inbox');
 
 	const getInitials = () => {
 		if (!user) return '?';

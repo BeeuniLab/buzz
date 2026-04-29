@@ -15,6 +15,9 @@ import { useAuth } from '@/contexts/auth-context';
 // 	validateDisplayName,
 // } from '../../utils/validationUtils';
 
+const TERMS_URL = '/legal?tab=terms';
+const PRIVACY_URL = '/legal?tab=privacy';
+
 interface LoginModalProps {
 	isOpen: boolean;
 	onClose: () => void;
@@ -443,17 +446,21 @@ export function LoginModal({
 									</div>
 								)}
 
-								<p className="text-center text-xs text-text-tertiary">
-									By continuing, you agree to our{' '}
+								<p className="text-center text-xs leading-relaxed text-text-tertiary">
+									By continuing, you agree to BuzzPlay&apos;s{' '}
 									<a
-										href="#"
+										href={TERMS_URL}
+										target="_blank"
+										rel="noopener noreferrer"
 										className="underline hover:text-text-primary"
 									>
 										Terms of Service
 									</a>{' '}
-									and{' '}
+									and acknowledge its{' '}
 									<a
-										href="#"
+										href={PRIVACY_URL}
+										target="_blank"
+										rel="noopener noreferrer"
 										className="underline hover:text-text-primary"
 									>
 										Privacy Policy

@@ -84,6 +84,7 @@ export function AuthModalProvider({ children }: AuthModalProviderProps) {
     pathname === '/' ||
     pathname.startsWith('/feed') ||
     pathname.startsWith('/discover') ||
+    pathname.startsWith('/legal') ||
     pathname.startsWith('/profile') ||
     pathname.startsWith('/build');
 
