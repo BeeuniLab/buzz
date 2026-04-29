@@ -5,7 +5,7 @@ import { buildUserWorkerUrl } from '../../../utils/urls';
 import { BaseController } from '../baseController';
 import { ApiResponse, ControllerResponse } from '../types';
 import type { RouteContext } from '../../types/route-context';
-import { getAgentStubLightweight } from '../../../agents';
+import { getAgentStub, getAgentStubLightweight } from '../../../agents';
 import { CloudflareAPI } from '../../../services/deployer/api/cloudflare-api';
 import { 
     AppsListData,
@@ -61,6 +61,22 @@ export class AppController extends BaseController {
         AppController.logger.info('Deleted published playable deployment', {
             deploymentId,
         });
+    }
+
+    private static async stopAgentBeforeDelete(env: Env, appId: string): Promise<void> {
+        try {
+            const agentStub = await getAgentStub(env, appId);
+            const result = await agentStub.deleteProject('app_deleted');
+            AppController.logger.info('Stopped agent tasks before deleting app', {
+                appId,
+                ...result,
+            });
+        } catch (error) {
+            AppController.logger.warn('Could not stop agent before deleting app; continuing with database deletion', {
+                appId,
+                error: error instanceof Error ? error.message : String(error),
+            });
+        }
     }
 
     // Get all apps for the current user
@@ -352,6 +368,8 @@ export class AppController extends BaseController {
                     );
                 }
             }
+
+            await AppController.stopAgentBeforeDelete(env, appId);
 
             const result = await appService.deleteApp(appId, user.id);
 

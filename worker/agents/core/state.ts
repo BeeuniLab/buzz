@@ -68,6 +68,7 @@ export interface BaseProjectState {
     activeAppTask?: ActiveAppTask;
     activeWorkflow?: ActiveWorkflowTask;
     lastUserStopAt?: number;
+    deletedAt?: number;
     
     // Common file storage
     sandboxInstanceId?: string;

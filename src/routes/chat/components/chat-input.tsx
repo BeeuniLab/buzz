@@ -1,9 +1,7 @@
 import { type FormEvent, type RefObject } from 'react';
-import { WebSocket } from 'partysocket';
 import { SendHorizontal, X } from 'lucide-react';
 import { ImageAttachmentPreview } from '@/components/image-attachment-preview';
 import { AttachmentPickerDropdown } from '@/components/attachment-picker-dropdown';
-import { sendWebSocketMessage } from '../utils/websocket-helpers';
 import { type ImageAttachment } from '@/api-types';
 
 const MAX_WORDS = 4000;
@@ -38,9 +36,7 @@ interface ChatInputProps {
 	canStopCurrentTask: boolean;
 	isConversationProcessing: boolean;
 	isDebugging: boolean;
-
-	// WebSocket
-	websocket?: WebSocket;
+	onStopCurrentTask: () => void;
 
 	// Refs
 	chatFormRef: RefObject<HTMLFormElement | null>;
@@ -61,7 +57,7 @@ export function ChatInput({
 	canStopCurrentTask,
 	isConversationProcessing,
 	isDebugging,
-	websocket,
+	onStopCurrentTask,
 	chatFormRef,
 }: ChatInputProps) {
 	const attachDisabled = isChatDisabled || isProcessing;
@@ -91,9 +87,7 @@ export function ChatInput({
 	};
 
 	const handleStopGeneration = () => {
-		if (websocket) {
-			sendWebSocketMessage(websocket, 'stop_generation');
-		}
+		onStopCurrentTask();
 	};
 
 	const placeholder = isDebugging

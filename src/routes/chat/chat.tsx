@@ -148,6 +148,7 @@ export default function Chat() {
 		deploymentError,
 		isRedeployReady,
 		isConversationProcessing,
+		handleStopGeneration,
 		handleResumeGeneration,
 		handleDeployToCloudflare,
 		// Preview refresh control
@@ -542,8 +543,8 @@ export default function Chat() {
 	}, [isSendLockActive, isServerTaskRunning]);
 
 	const canStopCurrentTask = useMemo(() => {
-		return isGenerating || isGeneratingBlueprint || isThinking || isDebugging || isConversationProcessing;
-	}, [isGenerating, isGeneratingBlueprint, isThinking, isDebugging, isConversationProcessing]);
+		return isBootstrapping || isGenerating || isGeneratingBlueprint || isThinking || isDebugging || isConversationProcessing;
+	}, [isBootstrapping, isGenerating, isGeneratingBlueprint, isThinking, isDebugging, isConversationProcessing]);
 
 	// Check if chat input should be disabled (before blueprint completion, or during debugging)
 	const isChatDisabled = useMemo(() => {
@@ -827,7 +828,7 @@ export default function Chat() {
 					canStopCurrentTask={canStopCurrentTask}
 					isConversationProcessing={isConversationProcessing}
 					isDebugging={isDebugging}
-					websocket={websocket}
+					onStopCurrentTask={handleStopGeneration}
 					chatFormRef={chatFormRef}
 				/>
 				</motion.div>

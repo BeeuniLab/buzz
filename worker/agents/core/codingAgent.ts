@@ -310,6 +310,16 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
         return `${this.getAgentId()}-${kind}-${Date.now().toString(36)}-${suffix}`;
     }
 
+    private isDeleted(): boolean {
+        return Boolean(this.state.deletedAt);
+    }
+
+    private throwIfDeleted(operation: string): void {
+        if (this.isDeleted()) {
+            throw new Error(`Cannot ${operation}; project has been deleted`);
+        }
+    }
+
     private async uploadWorkflowUserInputAssets(images?: ImageAttachment[]): Promise<ProcessedImageAttachment[] | undefined> {
         if (!images || images.length === 0) return undefined;
 
@@ -327,6 +337,10 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
 
     private async updateAppStatus(status: 'generating' | 'completed', reason: string): Promise<void> {
         try {
+            if (this.isDeleted()) {
+                this.logger().info('Skipping app status update for deleted project', { status, reason });
+                return;
+            }
             const agentId = this.getAgentId();
             if (!agentId) return;
             const appService = new AppService(this.env);
@@ -347,6 +361,11 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
         status: ActiveWorkflowTask['status'] | 'completed';
         message?: string;
     }): Promise<void> {
+        if (this.isDeleted()) {
+            this.logger().info('Ignoring workflow status update for deleted project', args);
+            return;
+        }
+
         const now = Date.now();
         const existing = this.state.activeWorkflow;
         const shouldClear = args.status === 'completed';
@@ -459,6 +478,51 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
         return terminated;
     }
 
+    async deleteProject(reason = 'app_deleted'): Promise<{ workflowTerminated: boolean; taskStopped: boolean }> {
+        const [workflowResult, taskResult] = await Promise.allSettled([
+            this.stopActiveWorkflow(reason),
+            this.behavior?.stopCurrentTask?.() ?? Promise.resolve(false),
+        ]);
+
+        const workflowTerminated = workflowResult.status === 'fulfilled' ? workflowResult.value : false;
+        const taskStopped = taskResult.status === 'fulfilled' ? taskResult.value : false;
+        const now = Date.now();
+
+        this.setState({
+            ...this.state,
+            activeAppTask: undefined,
+            activeWorkflow: undefined,
+            shouldBeGenerating: false,
+            lastUserStopAt: now,
+            deletedAt: now,
+        } as AgentState);
+
+        this.broadcast(WebSocketMessageResponses.GENERATION_STOPPED, {
+            message: 'Project deleted; running task stopped',
+        });
+        this.broadcast(WebSocketMessageResponses.SERVER_LOG, {
+            message: 'Project deleted; agent task state cleared',
+            level: 'info',
+            timestamp: now,
+            source: 'workflow',
+        });
+
+        if (workflowResult.status === 'rejected') {
+            this.logger().warn('Failed to terminate workflow during project deletion', {
+                reason,
+                error: workflowResult.reason instanceof Error ? workflowResult.reason.message : String(workflowResult.reason),
+            });
+        }
+        if (taskResult.status === 'rejected') {
+            this.logger().warn('Failed to stop active task during project deletion', {
+                reason,
+                error: taskResult.reason instanceof Error ? taskResult.reason.message : String(taskResult.reason),
+            });
+        }
+
+        return { workflowTerminated, taskStopped };
+    }
+
     async prepareWorkflowProject(args: {
         agentId: string;
         userId: string;
@@ -469,6 +533,7 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
         workflowId?: string;
         workflowKind?: ActiveWorkflowTask['kind'];
     }): Promise<void> {
+        this.throwIfDeleted('prepare workflow project');
         const sessionId = DeploymentManager.generateNewSessionId();
         this.initLogger(args.agentId, args.userId, sessionId);
         this.setState({
@@ -498,6 +563,7 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
     }
 
     async initializeFromWorkflow(initArgs: WorkflowInitArgs): Promise<AgentState> {
+        this.throwIfDeleted('initialize project from workflow');
         if (this.state.templateName && Object.keys(this.state.blueprint ?? {}).length > 0) {
             this.logger().info('Workflow initialization skipped; agent already has a blueprint');
             return this.state;
@@ -519,6 +585,7 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
     }
 
     async runGenerationFromWorkflow(reason: CodeGenerationWorkflowParams['kind'], workflowId?: string): Promise<void> {
+        this.throwIfDeleted('run generation workflow');
         this.setState({
             ...this.state,
             shouldBeGenerating: true,
@@ -546,6 +613,7 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
     }
 
     async startGenerationWorkflow(kind: ExistingProjectWorkflowParams['kind']): Promise<string | null> {
+        this.throwIfDeleted('start generation workflow');
         if (this.behavior?.isCodeGenerating?.() || this.state.shouldBeGenerating || this.state.activeWorkflow) {
             this.logger().info('Generation workflow already active or queued, skipping duplicate', {
                 kind,
@@ -607,6 +675,7 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
     }
 
     async startUserInputWorkflow(userMessage: string, images?: ImageAttachment[]): Promise<string | null> {
+        this.throwIfDeleted('start user input workflow');
         if (this.state.activeWorkflow) {
             this.logger().info('Workflow already active, skipping user input workflow', {
                 activeWorkflow: this.state.activeWorkflow,
@@ -689,6 +758,7 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
         params: DeployProjectWorkflowParams | DeployPreviewWorkflowParams,
         queuedMessage: string,
     ): Promise<string | null> {
+        this.throwIfDeleted(`queue ${params.kind} workflow`);
         if (this.isBusyForOperationalWorkflow()) {
             const message = 'Another task is still running. Please wait for it to finish before starting this one.';
             this.logger().info('Operational workflow skipped because agent is busy', {
@@ -838,6 +908,7 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
         uploaded: ProcessedImageAttachment[],
         inferenceContext?: InferenceContext,
     ): Promise<void> {
+        this.throwIfDeleted('sync uploaded assets');
         return this.behavior.syncAndCaptionUploadedAssets(uploaded, inferenceContext);
     }
 
@@ -984,6 +1055,7 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
     }
 
     async runDeployProjectFromWorkflow(workflowId: string, options?: DeployOptions): Promise<DeployResult> {
+        this.throwIfDeleted('run deploy project workflow');
         await this.updateWorkflowStatus({
             workflowId,
             kind: 'deploy_project',
@@ -999,6 +1071,7 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
         clearLogs = true,
         forceRedeploy = false,
     ): Promise<void> {
+        this.throwIfDeleted('run deploy preview workflow');
         await this.updateWorkflowStatus({
             workflowId,
             kind: 'deploy_preview',
@@ -1360,6 +1433,7 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
         images?: Array<ImageAttachment | ProcessedImageAttachment>,
         workflowId?: string,
     ): Promise<void> {
+        this.throwIfDeleted('run user input workflow');
         try {
             if (workflowId) {
                 await this.updateWorkflowStatus({
