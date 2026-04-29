@@ -150,11 +150,12 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
 
     protected async initializeAsync(): Promise<void> {
         try {
+            this.infrastructure.trackBackgroundTask('cover_generation', this.generateCover());
+
             const [, setupCommands] = await Promise.all([
                 this.deployToSandbox(),
                 this.getProjectSetupAssistant().generateSetupCommands(),
                 this.generateReadme(),
-                this.generateCover(),
             ]);
             this.logger.info("Deployment and initialization completed successfully");
             await this.executeCommands(setupCommands.commands);
@@ -582,6 +583,22 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
     private async buildWrapper() {
         let completed = false;
         let cancelled = false;
+        const heartbeatStartedAt = Date.now();
+        const heartbeat = setInterval(() => {
+            const elapsedMs = Date.now() - heartbeatStartedAt;
+            this.logger.info('Generation heartbeat', {
+                elapsedMs,
+                activeTask: this.state.activeAppTask?.type,
+                websocketCount: this.infrastructure.getWebSockets().length,
+            });
+            this.broadcast(WebSocketMessageResponses.SERVER_LOG, {
+                message: `Generation still running (${Math.round(elapsedMs / 1000)}s)`,
+                level: 'debug',
+                timestamp: Date.now(),
+                source: 'generation-heartbeat',
+            });
+        }, 15_000);
+
         this.setActiveAppTask('generation');
         await this.updatePersistedAppStatus('generating', 'generation_started');
         this.broadcast(WebSocketMessageResponses.GENERATION_STARTED, {
@@ -609,6 +626,7 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
                 this.broadcastError("Error during generation", error);
             }
         } finally {
+            clearInterval(heartbeat);
             // Clear abort controller after generation completes
             this.clearAbortController();
             
@@ -1309,15 +1327,23 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
             throw new Error('Project is not previewable');
         }
 
+        const templateDetails = this.getTemplateDetails();
+
         this.logger.info('[AGENT] Deploying to sandbox', {
             files: files.length,
             redeploy,
             commitMessage,
-            renderMode: this.getTemplateDetails()?.renderMode,
-            templateDetails: this.getTemplateDetails()
+            renderMode: templateDetails?.renderMode,
+            template: templateDetails ? {
+                name: templateDetails.name,
+                importantFiles: templateDetails.importantFiles?.length ?? 0,
+                dontTouchFiles: templateDetails.dontTouchFiles?.length ?? 0,
+                redactedFiles: templateDetails.redactedFiles?.length ?? 0,
+                allFilesCount: Object.keys(templateDetails.allFiles ?? {}).length,
+            } : null,
         });
 
-        if (this.getTemplateDetails()?.renderMode === 'browser') {
+        if (templateDetails?.renderMode === 'browser') {
             this.logger.info('Deploying to browser native sandbox');
             this.broadcast(WebSocketMessageResponses.DEPLOYMENT_STARTED, {});
             const result: PreviewType = {

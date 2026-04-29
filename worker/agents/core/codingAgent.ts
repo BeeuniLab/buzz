@@ -261,6 +261,14 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
         return this.ctx.getWebSockets();
     }
 
+    trackBackgroundTask(label: string, task: Promise<unknown>): void {
+        this.ctx.waitUntil(
+            task.catch((error: unknown) => {
+                this.logger().error(`Background task failed: ${label}`, error);
+            })
+        );
+    }
+
     handleVaultUnlocked(): void {
         this.secretsClient?.notifyUnlocked();
         this.logger().info('Vault unlocked notification received', {});
@@ -822,7 +830,7 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
                 // If idle, start generation process
                 this.logger().info('User input during IDLE state, starting generation');
                 let generationFailed = false;
-                this.behavior.generateAllFiles().catch(error => {
+                const generationTask = this.behavior.generateAllFiles().catch(error => {
                     generationFailed = true;
                     this.logger().error('Error starting generation from user input:', error);
                     this.broadcast(WebSocketMessageResponses.USER_SUGGESTIONS_PROCESSING, {
@@ -837,6 +845,7 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
                         });
                     }
                 });
+                this.trackBackgroundTask('user_input_generation', generationTask);
             } else {
                 this.broadcast(WebSocketMessageResponses.USER_SUGGESTIONS_PROCESSING, {
                     message: 'User message processed',

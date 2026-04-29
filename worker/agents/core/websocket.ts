@@ -43,7 +43,7 @@ export function handleWebSocketMessage(
                 
                 // Start generation process
                 logger.info('Starting code generation process');
-                agent.getBehavior().generateAllFiles().catch(error => {
+                const generationTask = agent.getBehavior().generateAllFiles().catch(error => {
                     logger.error('Error during code generation:', error);
                     sendError(connection, `Error generating files: ${error instanceof Error ? error.message : String(error)}`);
                 }).finally(() => {
@@ -56,6 +56,7 @@ export function handleWebSocketMessage(
                         });
                     }
                 });
+                agent.trackBackgroundTask('generate_all', generationTask);
                 break;
             case WebSocketMessageRequests.DEPLOY:
                 agent.deployProject().then((deploymentResult) => {
@@ -113,10 +114,11 @@ export function handleWebSocketMessage(
                     sendToConnection(connection, WebSocketMessageResponses.GENERATION_RESUMED, {
                         message: 'Code generation resumed'
                     });
-                    agent.getBehavior().generateAllFiles().catch(error => {
+                    const resumeTask = agent.getBehavior().generateAllFiles().catch(error => {
                         logger.error('Error resuming code generation:', error);
                         sendError(connection, `Error resuming generation: ${error instanceof Error ? error.message : String(error)}`);
                     });
+                    agent.trackBackgroundTask('resume_generation', resumeTask);
                 } else {
                     // sendToConnection(connection, WebSocketMessageResponses.GENERATION_STARTED, {
                     //     message: 'Code generation is already in progress'

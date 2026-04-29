@@ -4,6 +4,8 @@ import { PhasicBlueprint } from '../schemas';
 const logger = createObjectLogger('CoverGenerator');
 
 const COVER_IMAGE_MODEL = 'google/gemini-3-pro-image-preview';
+const COVER_IMAGE_TIMEOUT_MS = 60_000;
+const COVER_IMAGE_MAX_ATTEMPTS = 3;
 
 /**
  * Build a cover art generation prompt from the blueprint.
@@ -56,17 +58,45 @@ export async function generateCoverImage(
 
 	logger.info('Generating cover image', { title: blueprint.title, model: COVER_IMAGE_MODEL });
 
-	const response = await fetch('https://ai-gateway.vercel.sh/v1/chat/completions', {
-		method: 'POST',
-		headers: {
-			'Authorization': `Bearer ${env.VERCEL_AI_GATEWAY_API_KEY}`,
-			'Content-Type': 'application/json',
-		},
-		body: JSON.stringify({
-			model: COVER_IMAGE_MODEL,
-			messages: [{ role: 'user', content: prompt }],
-		}),
-	});
+	let response: Response | undefined;
+	let lastError: unknown;
+
+	for (let attempt = 1; attempt <= COVER_IMAGE_MAX_ATTEMPTS; attempt++) {
+		try {
+			response = await fetch('https://ai-gateway.vercel.sh/v1/chat/completions', {
+				method: 'POST',
+				signal: AbortSignal.timeout(COVER_IMAGE_TIMEOUT_MS),
+				headers: {
+					'Authorization': `Bearer ${env.VERCEL_AI_GATEWAY_API_KEY}`,
+					'Content-Type': 'application/json',
+				},
+				body: JSON.stringify({
+					model: COVER_IMAGE_MODEL,
+					messages: [{ role: 'user', content: prompt }],
+				}),
+			});
+
+			if (response.ok || response.status < 500) {
+				break;
+			}
+
+			lastError = new Error(`Cover image generation failed: ${response.status} ${await response.text()}`);
+		} catch (error) {
+			lastError = error;
+		}
+
+		if (attempt < COVER_IMAGE_MAX_ATTEMPTS) {
+			logger.warn('Cover image generation attempt failed, retrying', {
+				attempt,
+				maxAttempts: COVER_IMAGE_MAX_ATTEMPTS,
+				error: lastError instanceof Error ? lastError.message : String(lastError),
+			});
+		}
+	}
+
+	if (!response) {
+		throw lastError instanceof Error ? lastError : new Error(String(lastError || 'Cover image generation failed'));
+	}
 
 	if (!response.ok) {
 		const errorText = await response.text();

@@ -22,6 +22,7 @@ export interface AgentInfrastructure<TState extends BaseProjectState> {
         type: T, 
         data?: WebSocketMessageData<T>
     ): void;
+    trackBackgroundTask(label: string, task: Promise<unknown>): void;
     getAgentId(): string;
     logger(): StructuredLogger;
     readonly env: Env;
