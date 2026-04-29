@@ -22,7 +22,7 @@ export interface ActiveAppTask {
 
 export interface ActiveWorkflowTask {
     id: string;
-    kind: 'create_project' | 'generate_all' | 'resume_generation' | 'user_input';
+    kind: 'create_project' | 'generate_all' | 'resume_generation' | 'user_input' | 'deploy_project' | 'deploy_preview';
     status: 'queued' | 'running' | 'failed';
     message?: string;
     startedAt: number;

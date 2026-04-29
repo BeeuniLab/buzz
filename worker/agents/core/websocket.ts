@@ -42,23 +42,19 @@ export function handleWebSocketMessage(
                 });
                 break;
             case WebSocketMessageRequests.DEPLOY:
-                agent.deployProject().then((deploymentResult) => {
-                    if (!deploymentResult.success) {
-                        logger.error('Deployment failed', deploymentResult);
-                        return;
-                    }
-                    logger.info('Deployment completed', deploymentResult);
-                }).catch((error: unknown) => {
-                    logger.error('Error during deployment:', error);
+                agent.startDeployProjectWorkflow().catch((error: unknown) => {
+                    logger.error('Error queueing deployment workflow:', error);
+                    sendError(connection, `Error starting deployment: ${error instanceof Error ? error.message : String(error)}`);
                 });
                 break;
             case WebSocketMessageRequests.PREVIEW:
                 // Deploy current state for preview
                 logger.info('Deploying for preview');
-                agent.getBehavior().deployPreview().then((deploymentResult) => {
-                    logger.info(`Preview deployed successfully!, deploymentResult:`, deploymentResult);
+                agent.startDeployPreviewWorkflow().then((workflowId) => {
+                    logger.info(`Preview workflow queued successfully`, { workflowId });
                 }).catch((error: unknown) => {
-                    logger.error('Error during preview deployment:', error);
+                    logger.error('Error queueing preview workflow:', error);
+                    sendError(connection, `Error starting preview deployment: ${error instanceof Error ? error.message : String(error)}`);
                 });
                 break;
             case WebSocketMessageRequests.STOP_GENERATION: {
@@ -113,7 +109,12 @@ export function handleWebSocketMessage(
                     imageCount: parsedMessage.images?.length || 0
                 });
 
-                if (agent.getBehavior().isCodeGenerating() || agent.getBehavior().isDeepDebugging() || agent.state.shouldBeGenerating) {
+                if (
+                    agent.getBehavior().isCodeGenerating() ||
+                    agent.getBehavior().isDeepDebugging() ||
+                    agent.state.shouldBeGenerating ||
+                    agent.state.activeWorkflow
+                ) {
                     sendError(connection, 'A task is still running. Please stop it or wait for it to finish before sending another message.');
                     return;
                 }

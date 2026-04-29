@@ -5,7 +5,7 @@ import {
 	type WorkflowStepConfig,
 } from 'cloudflare:workers';
 import { getAgentStub, getTemplateForQuery } from '../index';
-import type { BehaviorType, ProjectType } from '../core/types';
+import type { BehaviorType, DeployOptions, ProjectType } from '../core/types';
 import type { InferenceContext } from '../inferutils/config.types';
 import type { ProcessedImageAttachment } from '../../types/image-attachment';
 import { createLogger } from '../../logger';
@@ -45,6 +45,17 @@ export type ExistingProjectWorkflowParams = BaseWorkflowParams & {
 	kind: 'generate_all' | 'resume_generation';
 };
 
+export type DeployProjectWorkflowParams = BaseWorkflowParams & {
+	kind: 'deploy_project';
+	options?: DeployOptions;
+};
+
+export type DeployPreviewWorkflowParams = BaseWorkflowParams & {
+	kind: 'deploy_preview';
+	clearLogs?: boolean;
+	forceRedeploy?: boolean;
+};
+
 export type UserInputWorkflowParams = BaseWorkflowParams & {
 	kind: 'user_input';
 	message: string;
@@ -54,6 +65,8 @@ export type UserInputWorkflowParams = BaseWorkflowParams & {
 export type CodeGenerationWorkflowParams =
 	| CreateProjectWorkflowParams
 	| ExistingProjectWorkflowParams
+	| DeployProjectWorkflowParams
+	| DeployPreviewWorkflowParams
 	| UserInputWorkflowParams;
 
 export class CodeGenerationWorkflow extends WorkflowEntrypoint<Env, CodeGenerationWorkflowParams> {
@@ -76,6 +89,18 @@ export class CodeGenerationWorkflow extends WorkflowEntrypoint<Env, CodeGenerati
 			if (params.kind === 'user_input') {
 				await this.runUserInputJob(event, step, params);
 				await this.updateAgentWorkflowStatus(params, workflowId, 'completed', 'User input workflow completed');
+				return { ok: true, kind: params.kind, agentId: params.agentId };
+			}
+
+			if (params.kind === 'deploy_project') {
+				await this.runDeployProjectJob(event, step, params);
+				await this.updateAgentWorkflowStatus(params, workflowId, 'completed', 'Playable update workflow completed');
+				return { ok: true, kind: params.kind, agentId: params.agentId };
+			}
+
+			if (params.kind === 'deploy_preview') {
+				await this.runDeployPreviewJob(event, step, params);
+				await this.updateAgentWorkflowStatus(params, workflowId, 'completed', 'Preview workflow completed');
 				return { ok: true, kind: params.kind, agentId: params.agentId };
 			}
 
@@ -199,6 +224,52 @@ export class CodeGenerationWorkflow extends WorkflowEntrypoint<Env, CodeGenerati
 			});
 			await agent.runUserInputFromWorkflow(params.message, params.images, event.instanceId);
 			return { processed: true, workflowInstanceId: event.instanceId };
+		});
+	}
+
+	private async runDeployProjectJob(
+		event: Readonly<WorkflowEvent<CodeGenerationWorkflowParams>>,
+		step: WorkflowStep,
+		params: DeployProjectWorkflowParams,
+	): Promise<void> {
+		const deployResult = await step.do('validate and deploy playable', LONG_STEP, async (): Promise<{ success: boolean; error?: string }> => {
+			const agent = await getAgentStub(this.env, params.agentId, {
+				behaviorType: params.behaviorType,
+				projectType: params.projectType,
+			});
+			const result = await (
+				agent.runDeployProjectFromWorkflow(event.instanceId, params.options) as unknown as Promise<{
+					success: boolean;
+					error?: string;
+				}>
+			);
+			return {
+				success: result.success,
+				error: result.error,
+			};
+		});
+
+		if (!deployResult.success) {
+			throw new Error(deployResult.error || 'Playable update failed');
+		}
+	}
+
+	private async runDeployPreviewJob(
+		event: Readonly<WorkflowEvent<CodeGenerationWorkflowParams>>,
+		step: WorkflowStep,
+		params: DeployPreviewWorkflowParams,
+	): Promise<void> {
+		await step.do('deploy preview sandbox', LONG_STEP, async () => {
+			const agent = await getAgentStub(this.env, params.agentId, {
+				behaviorType: params.behaviorType,
+				projectType: params.projectType,
+			});
+			await agent.runDeployPreviewFromWorkflow(
+				event.instanceId,
+				params.clearLogs ?? true,
+				params.forceRedeploy ?? false,
+			);
+			return { deployed: true, workflowInstanceId: event.instanceId };
 		});
 	}
 

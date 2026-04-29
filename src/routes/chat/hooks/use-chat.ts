@@ -786,9 +786,9 @@ export function useChat({
 					deploymentTimeoutRef.current = null;
 				}
 
-				// Set 1-minute timeout for deployment
+				// Keep this above the backend's 5-minute deployment guard so durable workflows can finish.
 				deploymentTimeoutRef.current = setTimeout(() => {
-					logger.warn('Deployment timeout after 1 minute');
+					logger.warn('Deployment timeout after 6 minutes');
 
 					// Reset deployment state
 					setIsDeploying(false);
@@ -802,11 +802,11 @@ export function useChat({
 					// Debug logging for timeout
 					onDebugMessage?.('warning',
 						'Deployment Timeout',
-						`Deployment for ${instanceId} timed out after 60 seconds`,
+						`Deployment for ${instanceId} timed out after 6 minutes`,
 						'Deployment Timeout Management'
 					);
 					deploymentTimeoutRef.current = null;
-				}, 60000); // 1 minute = 60,000ms
+				}, 6 * 60 * 1000);
 
 			} else {
 				throw new Error('WebSocket connection not available');

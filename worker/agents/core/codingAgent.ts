@@ -34,6 +34,8 @@ import { computeAgentAssetMapJson, parseAssetMapJson, uniqueAgentAssetRelativePa
 import { uploadImageAsAgentAsset } from '../../utils/images';
 import type {
     CodeGenerationWorkflowParams,
+    DeployPreviewWorkflowParams,
+    DeployProjectWorkflowParams,
     ExistingProjectWorkflowParams,
     UserInputWorkflowParams,
 } from '../workflows/codeGenerationWorkflow';
@@ -542,11 +544,12 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
     }
 
     async startGenerationWorkflow(kind: ExistingProjectWorkflowParams['kind']): Promise<string | null> {
-        if (this.behavior?.isCodeGenerating?.() || this.state.shouldBeGenerating) {
+        if (this.behavior?.isCodeGenerating?.() || this.state.shouldBeGenerating || this.state.activeWorkflow) {
             this.logger().info('Generation workflow already active or queued, skipping duplicate', {
                 kind,
                 isCodeGenerating: this.behavior?.isCodeGenerating?.(),
                 shouldBeGenerating: this.state.shouldBeGenerating,
+                activeWorkflow: this.state.activeWorkflow,
             });
             return null;
         }
@@ -601,6 +604,13 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
     }
 
     async startUserInputWorkflow(userMessage: string, images?: ImageAttachment[]): Promise<string | null> {
+        if (this.state.activeWorkflow) {
+            this.logger().info('Workflow already active, skipping user input workflow', {
+                activeWorkflow: this.state.activeWorkflow,
+            });
+            return null;
+        }
+
         const workflow = this.getWorkflowBinding();
         if (!workflow) {
             this.logger().warn('Workflow binding missing; falling back to direct user input handling');
@@ -647,6 +657,117 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
         }
         this.logger().info('User input workflow queued', { workflowId });
         return workflowId;
+    }
+
+    private isBusyForOperationalWorkflow(): boolean {
+        return Boolean(
+            this.state.activeWorkflow ||
+            this.state.shouldBeGenerating ||
+            this.behavior?.isCodeGenerating?.() ||
+            this.behavior?.isConversationProcessing?.() ||
+            this.behavior?.isDeepDebugging?.()
+        );
+    }
+
+    private broadcastOperationalWorkflowStartFailure(kind: DeployProjectWorkflowParams['kind'] | DeployPreviewWorkflowParams['kind'], error: string): void {
+        if (kind === 'deploy_project') {
+            this.broadcast(WebSocketMessageResponses.CLOUDFLARE_DEPLOYMENT_ERROR, {
+                message: 'Playable update could not start',
+                instanceId: this.state.sandboxInstanceId ?? this.state.sessionId ?? '',
+                error,
+            });
+            return;
+        }
+
+        this.broadcast(WebSocketMessageResponses.DEPLOYMENT_FAILED, { error });
+    }
+
+    private async queueOperationalWorkflow(
+        params: DeployProjectWorkflowParams | DeployPreviewWorkflowParams,
+        queuedMessage: string,
+    ): Promise<string | null> {
+        if (this.isBusyForOperationalWorkflow()) {
+            const message = 'Another task is still running. Please wait for it to finish before starting this one.';
+            this.logger().info('Operational workflow skipped because agent is busy', {
+                kind: params.kind,
+                activeWorkflow: this.state.activeWorkflow,
+                shouldBeGenerating: this.state.shouldBeGenerating,
+            });
+            this.broadcastOperationalWorkflowStartFailure(params.kind, message);
+            this.broadcast(WebSocketMessageResponses.ERROR, { error: message });
+            return null;
+        }
+
+        const workflow = this.getWorkflowBinding();
+        if (!workflow) {
+            this.logger().warn('Workflow binding missing; falling back to direct operational task', { kind: params.kind });
+            const task = params.kind === 'deploy_project'
+                ? this.deployProject(params.options)
+                : this.behavior.deployPreview(params.clearLogs ?? true, params.forceRedeploy ?? false);
+            this.trackBackgroundTask(params.kind, task);
+            return null;
+        }
+
+        const workflowId = this.createWorkflowId(params.kind);
+        this.setState({
+            ...this.state,
+            lastUserStopAt: undefined,
+            activeWorkflow: {
+                id: workflowId,
+                kind: params.kind,
+                status: 'queued',
+                message: queuedMessage,
+                startedAt: Date.now(),
+                updatedAt: Date.now(),
+            },
+        });
+        await this.updateAppStatus('generating', `workflow_${params.kind}_queued`);
+
+        try {
+            await workflow.create({ id: workflowId, params });
+        } catch (error) {
+            const message = error instanceof Error ? error.message : String(error);
+            this.setState({ ...this.state, activeWorkflow: undefined });
+            await this.updateAppStatus('completed', `workflow_${params.kind}_queue_failed`);
+            this.broadcastOperationalWorkflowStartFailure(params.kind, message);
+            throw error;
+        }
+
+        this.logger().info('Operational workflow queued', { kind: params.kind, workflowId });
+        this.broadcast(WebSocketMessageResponses.SERVER_LOG, {
+            message: queuedMessage,
+            level: 'info',
+            timestamp: Date.now(),
+            source: 'workflow',
+        });
+        return workflowId;
+    }
+
+    async startDeployProjectWorkflow(options?: DeployOptions): Promise<string | null> {
+        return this.queueOperationalWorkflow(
+            {
+                kind: 'deploy_project',
+                agentId: this.getAgentId(),
+                behaviorType: this.state.behaviorType,
+                projectType: this.state.projectType,
+                options,
+            },
+            'Queued playable update workflow',
+        );
+    }
+
+    async startDeployPreviewWorkflow(clearLogs = true, forceRedeploy = false): Promise<string | null> {
+        return this.queueOperationalWorkflow(
+            {
+                kind: 'deploy_preview',
+                agentId: this.getAgentId(),
+                behaviorType: this.state.behaviorType,
+                projectType: this.state.projectType,
+                clearLogs,
+                forceRedeploy,
+            },
+            'Queued preview deployment workflow',
+        );
     }
 
     trackBackgroundTask(label: string, task: Promise<unknown>): void {
@@ -856,6 +977,35 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
         }
 
         return this.objective.deploy(options);
+    }
+
+    async runDeployProjectFromWorkflow(workflowId: string, options?: DeployOptions): Promise<DeployResult> {
+        await this.updateWorkflowStatus({
+            workflowId,
+            kind: 'deploy_project',
+            status: 'running',
+            message: 'Playable update workflow is validating and deploying',
+        });
+
+        return this.deployProject(options);
+    }
+
+    async runDeployPreviewFromWorkflow(
+        workflowId: string,
+        clearLogs = true,
+        forceRedeploy = false,
+    ): Promise<void> {
+        await this.updateWorkflowStatus({
+            workflowId,
+            kind: 'deploy_preview',
+            status: 'running',
+            message: 'Preview workflow is deploying the sandbox',
+        });
+
+        const previewUrl = await this.behavior.deployPreview(clearLogs, forceRedeploy);
+        if (!previewUrl) {
+            throw new Error('Preview deployment did not return a preview URL');
+        }
     }
 
     exportProject(options: ExportOptions): Promise<ExportResult> {

@@ -28,6 +28,16 @@ import { createRepairingJSONParser } from '@/utils/ndjson-parser/ndjson-parser';
 import { appEvents } from '@/lib/app-events';
 
 const ACTIVE_APP_TASK_STALE_MS = 30 * 60 * 1000;
+const GENERATION_WORKFLOW_KINDS = new Set(['create_project', 'generate_all', 'resume_generation', 'user_input']);
+
+const isGenerationWorkflow = (workflow: AgentState['activeWorkflow']): boolean =>
+	Boolean(workflow && GENERATION_WORKFLOW_KINDS.has(workflow.kind));
+
+const isDeployProjectWorkflow = (workflow: AgentState['activeWorkflow']): boolean =>
+	workflow?.kind === 'deploy_project';
+
+const isDeployPreviewWorkflow = (workflow: AgentState['activeWorkflow']): boolean =>
+	workflow?.kind === 'deploy_preview';
 
 const isPhasicState = (state: AgentState): state is PhasicState => {
 	const record = state as unknown as Record<string, unknown>;
@@ -77,7 +87,7 @@ const shouldRestoreCodeGeneration = (state: AgentState): boolean => {
 	return !state.lastUserStopAt && (
 		state.shouldBeGenerating === true ||
 		freshActiveTask?.type === 'generation' ||
-		Boolean(freshActiveWorkflow)
+		isGenerationWorkflow(freshActiveWorkflow)
 	);
 };
 
@@ -406,10 +416,19 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
                     
                     if (state.generatedFilesMap && Object.keys(state.generatedFilesMap).length > 0) {
                         updateStage('code', { status: 'completed' });
-                        if (urlChatId !== 'new') {
+                        if (urlChatId !== 'new' && !getFreshActiveWorkflow(state)) {
                             logger.debug('🚀 Requesting preview deployment for existing chat with files');
                             sendWebSocketMessage(websocket, 'preview');
                         }
+                    }
+
+                    const freshActiveWorkflow = getFreshActiveWorkflow(state);
+                    if (isDeployProjectWorkflow(freshActiveWorkflow)) {
+                        setIsDeploying(true);
+                        setDeploymentError('');
+                    }
+                    if (isDeployPreviewWorkflow(freshActiveWorkflow)) {
+                        setIsPreviewDeploying(true);
                     }
 
                     // Display queued user messages from state
@@ -486,12 +505,25 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
                         if (state.generatedFilesMap && Object.keys(state.generatedFilesMap).length > 0) {
                             updateStage('code', { status: 'completed' });
 
-                            if (!previewUrl) {
+                            if (!previewUrl && !getFreshActiveWorkflow(state)) {
                                 logger.debug('🚀 Generated files exist but no preview URL - auto-deploying preview');
                                 sendWebSocketMessage(websocket, 'preview');
                             }
                         }
                     }
+                }
+
+                const freshActiveWorkflow = getFreshActiveWorkflow(state);
+                if (isDeployProjectWorkflow(freshActiveWorkflow)) {
+                    setIsDeploying(true);
+                    setDeploymentError('');
+                } else if (!freshActiveWorkflow) {
+                    setIsDeploying(false);
+                }
+                if (isDeployPreviewWorkflow(freshActiveWorkflow)) {
+                    setIsPreviewDeploying(true);
+                } else if (!freshActiveWorkflow) {
+                    setIsPreviewDeploying(false);
                 }
 
                 logger.debug('✅ Agent state update processed');
