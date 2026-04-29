@@ -505,20 +505,13 @@ export class PhasicCodingBehavior extends BaseCodingBehavior<PhasicState> implem
     async executeFinalizing(): Promise<CurrentDevState> {
         this.logger.info("Executing FINALIZING state - final review and cleanup");
 
-        if (this.setMVPGenerated()) {
-            this.logger.info("Finalizing stage already done");
+        if (this.state.mvpGenerated) {
+            this.logger.info("MVP already generated, skipping finalizing phase for follow-up");
             return CurrentDevState.REVIEWING;
         }
-
-        const { result: phaseConcept, userContext } = await this.executePhaseGeneration(true);
-        if (!phaseConcept) {
-            this.logger.warn("Phase concept not generated, skipping final review");
-            return CurrentDevState.REVIEWING;
-        }
-        
-        await this.executePhaseImplementation(phaseConcept, userContext);
 
         const numFilesGenerated = this.fileManager.getGeneratedFilePaths().length;
+        this.setMVPGenerated();
         this.logger.info(`Finalization complete. Generated ${numFilesGenerated}/${this.getTotalFiles()} files.`);
 
         // Transition to IDLE - generation complete
