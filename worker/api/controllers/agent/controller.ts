@@ -95,17 +95,6 @@ export class CodingAgentController extends BaseController {
                     413,
                 );
             }
-            const { readable, writable } = new TransformStream({
-                transform(chunk, controller) {
-                    if (chunk === "terminate") {
-                        controller.terminate();
-                    } else {
-                        const encoded = new TextEncoder().encode(JSON.stringify(chunk) + '\n');
-                        controller.enqueue(encoded);
-                    }
-                }
-            });
-            const writer = writable.getWriter();
             // Check if user is authenticated (required for app creation)
             const user = context.user!;
             try {
@@ -232,7 +221,7 @@ export class CodingAgentController extends BaseController {
                 },
             });
 
-            await writer.write({
+            const acknowledgement = {
                 message: 'Code generation queued',
                 agentId,
                 websocketUrl,
@@ -241,14 +230,12 @@ export class CodingAgentController extends BaseController {
                 projectType: workflowProjectType,
                 workflowStarted: true,
                 workflowId,
-            });
-            await writer.write("terminate");
-            await writer.close();
+            };
 
             this.logger.info(`Agent ${agentId} workflow launched successfully`, { workflowId });
             pendingAppForCleanup = null;
             
-            return new Response(readable, {
+            return new Response(`${JSON.stringify(acknowledgement)}\n`, {
                 status: 200,
                 headers: {
                     // Use SSE content-type to ensure Cloudflare disables buffering,

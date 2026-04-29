@@ -364,7 +364,32 @@ class ApiClient {
 				return { response, data: null };
 			}
 			
-			const data = await response.json() as ApiResponse<T>;
+			const responseText = await response.text();
+			let data: ApiResponse<T>;
+			try {
+				data = JSON.parse(responseText) as ApiResponse<T>;
+			} catch (parseError) {
+				const fallbackMessage = responseText.trim() ||
+					(parseError instanceof Error ? parseError.message : 'Invalid JSON response');
+
+				if (response.ok) {
+					throw new ApiError(
+						response.status,
+						response.statusText,
+						`Invalid JSON response from ${endpoint}: ${fallbackMessage}`,
+						endpoint,
+					);
+				}
+
+				data = {
+					success: false,
+					error: {
+						message: fallbackMessage,
+						name: 'Error',
+					},
+					message: fallbackMessage,
+				} as ApiResponse<T>;
+			}
 
 			if (!response.ok) {
 				if (response.status === 401) {

@@ -14,6 +14,27 @@ import { AuthConfig, setAuthLevel } from './middleware/auth/routeAuth';
 export function createApp(env: Env): Hono<AppEnv> {
     const app = new Hono<AppEnv>();
 
+    app.onError((error, c) => {
+        const pathname = new URL(c.req.url).pathname;
+        const message = error instanceof Error ? error.message : 'Internal server error';
+
+        if (pathname.startsWith('/api/')) {
+            return new Response(JSON.stringify({
+                success: false,
+                error: {
+                    message,
+                    name: error instanceof Error ? error.name : 'Error',
+                },
+                message,
+            }), {
+                status: 500,
+                headers: { 'Content-Type': 'application/json' },
+            });
+        }
+
+        return new Response('Internal Server Error', { status: 500 });
+    });
+
     // Observability: Sentry error reporting & context
     // initHonoSentry(app);
 
