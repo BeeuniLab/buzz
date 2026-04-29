@@ -737,8 +737,17 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
     }
 
     private isBusyForOperationalWorkflow(): boolean {
+        const activeWorkflow = this.state.activeWorkflow;
+        const workflowUpdatedAt = activeWorkflow?.updatedAt ?? activeWorkflow?.startedAt;
+        const hasBlockingWorkflow = Boolean(
+            activeWorkflow &&
+            activeWorkflow.status !== 'failed' &&
+            typeof workflowUpdatedAt === 'number' &&
+            Date.now() - workflowUpdatedAt < ACTIVE_WORKFLOW_STALE_MS
+        );
+
         return Boolean(
-            this.state.activeWorkflow ||
+            hasBlockingWorkflow ||
             this.state.shouldBeGenerating ||
             this.behavior?.isCodeGenerating?.() ||
             this.behavior?.isConversationProcessing?.() ||
@@ -1017,13 +1026,14 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
                 lintErrorCount > 0
             ) {
                 const issueSummary = [
-                    runtimeErrorCount > 0 ? `${runtimeErrorCount} runtime` : '',
-                    typecheckErrorCount > 0 ? `${typecheckErrorCount} type` : '',
-                    lintErrorCount > 0 ? `${lintErrorCount} lint` : '',
+                    runtimeErrorCount > 0 ? `${runtimeErrorCount} runtime error${runtimeErrorCount === 1 ? '' : 's'}` : '',
+                    typecheckErrorCount > 0 ? `${typecheckErrorCount} type error${typecheckErrorCount === 1 ? '' : 's'}` : '',
+                    lintErrorCount > 0 ? `${lintErrorCount} lint error${lintErrorCount === 1 ? '' : 's'}` : '',
                 ].filter(Boolean).join(', ');
-                const message = issueSummary
-                    ? `Fix issues before updating the playable (${issueSummary}).`
-                    : 'Fix issues before updating the playable.';
+                const message = 'Playable needs fixes before updating';
+                const error = issueSummary
+                    ? `Found ${issueSummary}. Ask Buzz to fix the playable, then try updating again.`
+                    : 'Ask Buzz to fix the playable, then try updating again.';
 
                 this.logger().warn('Playable update blocked by quality gate', {
                     runtimeErrorCount,
@@ -1036,13 +1046,13 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
                 this.broadcast(WebSocketMessageResponses.CLOUDFLARE_DEPLOYMENT_ERROR, {
                     message,
                     instanceId: this.state.sandboxInstanceId ?? this.state.sessionId ?? '',
-                    error: message,
+                    error,
                 });
 
                 return {
                     success: false,
                     target,
-                    error: message,
+                    error,
                     metadata: {
                         qualityGate: {
                             runtimeErrorCount,
