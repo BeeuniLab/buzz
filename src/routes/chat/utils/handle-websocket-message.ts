@@ -72,11 +72,17 @@ const getFreshActiveWorkflow = (state: AgentState) => {
 	return isFresh ? workflow : undefined;
 };
 
+const hasGeneratedFiles = (state: AgentState): boolean =>
+	Object.keys(state.generatedFilesMap ?? {}).length > 0;
+
+const hasCompletedPlayable = (state: AgentState): boolean =>
+	Boolean(state.mvpGenerated && hasGeneratedFiles(state) && (state.pendingUserInputs?.length ?? 0) === 0);
+
 const isStateActivelyGenerating = (state: AgentState): boolean => {
 	const freshActiveTask = getFreshActiveTask(state);
 	const freshActiveWorkflow = getFreshActiveWorkflow(state);
 	return !state.lastUserStopAt && (
-		state.shouldBeGenerating === true ||
+		(state.shouldBeGenerating === true && !hasCompletedPlayable(state)) ||
 		Boolean(freshActiveTask) ||
 		Boolean(freshActiveWorkflow)
 	);
@@ -86,14 +92,14 @@ const shouldRestoreCodeGeneration = (state: AgentState): boolean => {
 	const freshActiveTask = getFreshActiveTask(state);
 	const freshActiveWorkflow = getFreshActiveWorkflow(state);
 	return !state.lastUserStopAt && (
-		state.shouldBeGenerating === true ||
+		(state.shouldBeGenerating === true && !hasCompletedPlayable(state)) ||
 		freshActiveTask?.type === 'generation' ||
 		isGenerationWorkflow(freshActiveWorkflow)
 	);
 };
 
 const shouldRequestGenerationResume = (state: AgentState): boolean =>
-	!getFreshActiveWorkflow(state) && state.shouldBeGenerating === true;
+	!getFreshActiveWorkflow(state) && state.shouldBeGenerating === true && !hasCompletedPlayable(state);
 
 const getRestoredAppStatus = (state: AgentState): 'generating' | 'completed' =>
 	isStateActivelyGenerating(state) ? 'generating' : 'completed';

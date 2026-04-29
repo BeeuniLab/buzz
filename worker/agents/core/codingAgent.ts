@@ -67,6 +67,8 @@ const isBehaviorType = (value: unknown): value is BehaviorType =>
 const isProjectType = (value: unknown): value is ProjectType =>
     value === 'app' || value === 'workflow' || value === 'presentation' || value === 'general';
 
+const ACTIVE_WORKFLOW_STALE_MS = 30 * 60 * 1000;
+
 export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentInfrastructure<AgentState> {
     public _logger: StructuredLogger | undefined;
     private behavior!: BaseCodingBehavior<AgentState>;
@@ -405,6 +407,8 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
             });
         } else if (args.status === 'queued' || args.status === 'running') {
             await this.updateAppStatus('generating', `workflow_${args.kind}_${args.status}`);
+        } else if (args.status === 'completed') {
+            await this.updateAppStatus(await this.getDesiredAppStatus(), `workflow_${args.kind}_completed`);
         }
     }
 
@@ -929,15 +933,24 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
         const isDebugging = this.behavior?.isDeepDebugging() ?? false;
         const isConversationProcessing = this.behavior?.isConversationProcessing() ?? false;
         const hasActivePersistedTask = this.behavior?.hasActivePersistedAppTask() ?? false;
-        const hasActiveWorkflow = Boolean(this.state.activeWorkflow && this.state.activeWorkflow.status !== 'failed');
+        const workflowUpdatedAt = this.state.activeWorkflow?.updatedAt ?? this.state.activeWorkflow?.startedAt;
+        const hasFreshActiveWorkflow = Boolean(
+            this.state.activeWorkflow &&
+            this.state.activeWorkflow.status !== 'failed' &&
+            typeof workflowUpdatedAt === 'number' &&
+            Date.now() - workflowUpdatedAt < ACTIVE_WORKFLOW_STALE_MS
+        );
+        const hasGeneratedFiles = Object.keys(this.state.generatedFilesMap ?? {}).length > 0;
+        const hasCompletedPlayable = this.state.mvpGenerated && hasGeneratedFiles && this.state.pendingUserInputs.length === 0;
+        const hasQueuedGenerationIntent = this.state.shouldBeGenerating && !hasCompletedPlayable;
 
         if (
             isGenerating ||
             isDebugging ||
             isConversationProcessing ||
             hasActivePersistedTask ||
-            hasActiveWorkflow ||
-            this.state.shouldBeGenerating
+            hasFreshActiveWorkflow ||
+            hasQueuedGenerationIntent
         ) {
             return 'generating';
         }

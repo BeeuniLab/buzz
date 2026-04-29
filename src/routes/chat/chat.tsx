@@ -598,15 +598,22 @@ export default function Chat() {
 	const [progress, total] = useMemo((): [number, number] => {
 		// Calculate phase progress instead of file progress
 		const completedPhases = phaseTimeline.filter(p => p.status === 'completed').length;
+		const actualPhaseCount = Math.max(phaseTimeline.length, completedPhases);
+		const codeStageCompleted = projectStages.find((stage) => stage.id === 'code')?.status === 'completed';
+
+		if (codeStageCompleted) {
+			const completedTotal = Math.max(actualPhaseCount, 1);
+			return [Math.min(completedPhases, completedTotal), completedTotal];
+		}
 
 		// Get predicted phase count from blueprint, fallback to current phase count
 		const predictedPhaseCount = isPhasicBlueprint(blueprint)
 			? blueprint.implementationRoadmap.length
 			: 0;
-		const totalPhases = Math.max(predictedPhaseCount, phaseTimeline.length, 1);
+		const totalPhases = Math.max(predictedPhaseCount, actualPhaseCount, 1);
 
 		return [completedPhases, totalPhases];
-	}, [phaseTimeline, blueprint]);
+	}, [phaseTimeline, blueprint, projectStages]);
 
 	if (import.meta.env.DEV) {
 		logger.debug({
