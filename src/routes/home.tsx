@@ -12,12 +12,27 @@ import { useDragDrop } from '@/hooks/use-drag-drop';
 import { AttachmentPickerDropdown } from '@/components/attachment-picker-dropdown';
 import { ImageAttachmentPreview } from '@/components/image-attachment-preview';
 import { toast } from 'sonner';
+import { Shuffle } from 'lucide-react';
+
+const SURPRISE_PROMPTS = [
+	"A 'This is Fine' dog meme but the user can drag a fire extinguisher to save the room or a gasoline can to make it worse.",
+	"Help a shy cat cross a room full of cucumbers. The user must tap to freeze the cat when the cucumbers move.",
+	"Distracted Boyfriend meme: The user can drag different labels onto the girl in the red dress to see the boyfriend's hilarious reactions.",
+	"Can you survive a 30-second elevator ride with an annoying boss? Tap to 'nod' or 'smile' to keep your sanity bar from hitting zero.",
+	"Build your 'Dream Date' by dragging 3 random items into a portal. Get a ridiculous persona result card at the end.",
+	"Red Button Dilemma: Two impossible choices appear. See what percentage of other players chose the same as you.",
+	"A grumpy AI chef. Drag ingredients like 'a shoe' or 'glitter' into the pot and see the chef's animated rage or confusion.",
+	"Dress up a Capybara for a red carpet event. Each item chosen changes the background music and the crowd's cheering level.",
+	"Poke a sleeping dragon to see how many gems you can steal before it wakes up. Share your 'Greed Score' with friends.",
+	"Create a 'Fortune Cookie' for 2026. Users shake their phone to crack the cookie and reveal a personalized AI-generated blessing.",
+];
 
 export default function Home() {
 	const navigate = useNavigate();
 	const { requireAuth } = useAuthGuard();
 	const { requireInviteCode } = useInviteCode();
 	const textareaRef = useRef<HTMLTextAreaElement>(null);
+	const lastSurprisePromptIndex = useRef<number | null>(null);
 	const [projectMode, setProjectMode] = useState<ProjectType>('app');
 	const [query, setQuery] = useState('');
 	const { isLoadingCapabilities, capabilities, getEnabledFeatures } = useFeature();
@@ -122,6 +137,24 @@ export default function Home() {
 			textareaRef.current.style.height =
 				Math.min(scrollHeight, maxHeight) + 'px';
 		}
+	};
+
+	const handleSurprisePrompt = () => {
+		let nextIndex = Math.floor(Math.random() * SURPRISE_PROMPTS.length);
+		if (
+			SURPRISE_PROMPTS.length > 1 &&
+			lastSurprisePromptIndex.current !== null &&
+			nextIndex === lastSurprisePromptIndex.current
+		) {
+			nextIndex = (nextIndex + 1) % SURPRISE_PROMPTS.length;
+		}
+
+		lastSurprisePromptIndex.current = nextIndex;
+		setQuery(SURPRISE_PROMPTS[nextIndex]);
+		requestAnimationFrame(() => {
+			textareaRef.current?.focus();
+			adjustTextareaHeight();
+		});
 	};
 
 	useEffect(() => {
@@ -310,22 +343,29 @@ export default function Home() {
 								</div>
 							)}
 						</div>
-						<div
-							className={clsx(
-								'flex items-center mt-4 pt-1',
-								showModeSelector ? 'justify-between' : 'justify-end',
-							)}
-						>
-							{showModeSelector && (
-								<ProjectModeSelector
-									value={projectMode}
-									onChange={setProjectMode}
-									modes={modeOptions}
-									className="flex-1"
-								/>
-							)}
+						<div className="flex items-center justify-between mt-4 pt-1 gap-3">
+							<div className="flex min-w-0 flex-1 items-center gap-2">
+								<button
+									type="button"
+									onClick={handleSurprisePrompt}
+									className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border-2 border-[var(--neo-border-color)] bg-neo-cyan px-2.5 py-1.5 text-xs font-black text-[#1a1a1a] shadow-[2px_2px_0px_0px_var(--neo-border-color)] transition-all duration-150 hover:shadow-[3px_3px_0px_0px_var(--neo-border-color)] hover:-translate-x-[0.5px] hover:-translate-y-[0.5px] active:translate-x-[1px] active:translate-y-[1px] active:shadow-[1px_1px_0px_0px_var(--neo-border-color)]"
+									aria-label="Fill with a surprise prompt"
+								>
+									<Shuffle className="size-3.5" />
+									<span>Surprise</span>
+								</button>
 
-							<div className={clsx('flex items-center gap-2', showModeSelector && 'ml-4')}>
+								{showModeSelector && (
+									<ProjectModeSelector
+										value={projectMode}
+										onChange={setProjectMode}
+										modes={modeOptions}
+										className="flex-1"
+									/>
+								)}
+							</div>
+
+							<div className="flex shrink-0 items-center gap-2">
 								<AttachmentPickerDropdown
 									onFilesSelected={(files) => {
 										void addImages(files);
