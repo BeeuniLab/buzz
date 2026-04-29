@@ -65,6 +65,7 @@ export interface BaseCodingOperations {
 export abstract class BaseCodingBehavior<TState extends BaseProjectState> 
     extends AgentComponent<TState> implements ICodingAgent {
     protected static readonly MAX_COMMANDS_HISTORY = 10;
+    protected static readonly ACTIVE_APP_TASK_STALE_MS = 30 * 60 * 1000;
 
     protected projectSetupAssistant: ProjectSetupAssistant | undefined;
 
@@ -77,6 +78,7 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
     protected currentGenerationCancelled = false;
     protected deepDebugPromise: Promise<{ transcript: string } | { error: string }> | null = null;
     protected deepDebugConversationId: string | null = null;
+    protected conversationProcessing = false;
 
     protected staticAnalysisCache: StaticAnalysisResponse | null = null;
     private sandboxReadyPromise: Promise<void>;
@@ -272,6 +274,108 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
 
     isCodeGenerating(): boolean {
         return this.generationPromise !== null;
+    }
+
+    isConversationProcessing(): boolean {
+        return this.conversationProcessing;
+    }
+
+    hasActivePersistedAppTask(): boolean {
+        const activeTask = this.state.activeAppTask;
+        if (!activeTask) return false;
+        return Date.now() - activeTask.startedAt < BaseCodingBehavior.ACTIVE_APP_TASK_STALE_MS;
+    }
+
+    protected getDesiredPersistedAppStatus(): 'generating' | 'completed' {
+        if (this.state.lastUserStopAt) {
+            return 'completed';
+        }
+
+        if (
+            this.isCodeGenerating() ||
+            this.isDeepDebugging() ||
+            this.isConversationProcessing() ||
+            this.hasActivePersistedAppTask() ||
+            this.state.shouldBeGenerating
+        ) {
+            return 'generating';
+        }
+
+        return 'completed';
+    }
+
+    protected throwIfTaskStopped(): void {
+        if (this.currentGenerationCancelled || this.state.lastUserStopAt) {
+            throw new AbortError('**User cancelled inference**');
+        }
+    }
+
+    protected setActiveAppTask(type: NonNullable<BaseProjectState['activeAppTask']>['type']): void {
+        if (this.state.activeAppTask) {
+            return;
+        }
+
+        this.setState({
+            ...this.state,
+            lastUserStopAt: undefined,
+            activeAppTask: {
+                type,
+                startedAt: Date.now(),
+            },
+        });
+    }
+
+    protected clearActiveAppTask(type: NonNullable<BaseProjectState['activeAppTask']>['type']): void {
+        if (this.state.activeAppTask?.type !== type) {
+            return;
+        }
+
+        this.setState({
+            ...this.state,
+            activeAppTask: undefined,
+        });
+    }
+
+    public async stopCurrentTask(): Promise<boolean> {
+        const hadActiveTask = Boolean(
+            this.currentAbortController ||
+            this.state.activeAppTask ||
+            this.isCodeGenerating() ||
+            this.isDeepDebugging() ||
+            this.isConversationProcessing() ||
+            this.state.shouldBeGenerating,
+        );
+        const wasCancelled = this.cancelCurrentInference();
+        this.currentGenerationCancelled = true;
+        this.conversationProcessing = false;
+        this.setState({
+            ...this.state,
+            activeAppTask: undefined,
+            lastUserStopAt: Date.now(),
+        });
+        await this.updatePersistedAppStatus('completed', 'user_stopped_task');
+        return wasCancelled || hadActiveTask;
+    }
+
+    protected async updatePersistedAppStatus(
+        status: 'generating' | 'completed',
+        reason: string,
+    ): Promise<void> {
+        try {
+            const appService = new AppService(this.env);
+            await appService.updateApp(this.getAgentId(), { status });
+            this.logger.info('Updated persisted app status', { status, reason });
+        } catch (error) {
+            this.logger.warn('Failed to update persisted app status', {
+                status,
+                reason,
+                error: error instanceof Error ? error.message : String(error),
+            });
+        }
+    }
+
+    protected async syncPersistedAppStatus(reason: string): Promise<void> {
+        await this.updatePersistedAppStatus(this.getDesiredPersistedAppStatus(), reason);
     }
 
     getUserModelConfigs(): Record<AgentActionKey, ModelConfig> | undefined {
@@ -478,6 +582,8 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
     private async buildWrapper() {
         let completed = false;
         let cancelled = false;
+        this.setActiveAppTask('generation');
+        await this.updatePersistedAppStatus('generating', 'generation_started');
         this.broadcast(WebSocketMessageResponses.GENERATION_STARTED, {
             message: 'Starting code generation',
             totalFiles: this.getTotalFiles()
@@ -507,21 +613,32 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
             this.clearAbortController();
             
             this.generationPromise = null;
+            this.clearActiveAppTask('generation');
 
             if (completed) {
-                const appService = new AppService(this.env);
-                await appService.updateApp(
-                    this.getAgentId(),
-                    {
-                        status: 'completed',
-                    }
-                );
+                this.setState({
+                    ...this.state,
+                    shouldBeGenerating: false,
+                    lastUserStopAt: undefined,
+                });
+                await this.syncPersistedAppStatus('generation_completed');
                 this.broadcast(WebSocketMessageResponses.GENERATION_COMPLETE, {
                     message: "Code generation and review process completed.",
                     instanceId: this.state.sessionId,
                 });
             } else if (cancelled) {
-                this.logger.info('Generation stopped before completion; leaving app status as generating for resume.');
+                this.setState({
+                    ...this.state,
+                    shouldBeGenerating: false,
+                });
+                await this.syncPersistedAppStatus('generation_cancelled');
+                this.logger.info('Generation stopped before completion; app status reconciled.');
+            } else {
+                this.setState({
+                    ...this.state,
+                    shouldBeGenerating: false,
+                });
+                await this.syncPersistedAppStatus('generation_finished_without_completion');
             }
         }
     }
@@ -539,6 +656,8 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
         focusPaths?: string[],
     ): Promise<DeepDebugResult> {
         const debugPromise = (async () => {
+            this.setActiveAppTask('deep_debug');
+            await this.updatePersistedAppStatus('generating', 'deep_debug_started');
             try {
                 const previousTranscript = this.state.lastDeepDebugTranscript ?? undefined;
                 const operationOptions = this.getOperationOptions();
@@ -578,6 +697,8 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
             } finally {
                 this.deepDebugPromise = null;
                 this.deepDebugConversationId = null;
+                this.clearActiveAppTask('deep_debug');
+                await this.syncPersistedAppStatus('deep_debug_finished');
             }
         })();
 
@@ -1678,7 +1799,10 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
      * Processes user messages and updates pendingUserInputs state
      */
     async handleUserInput(userMessage: string, images?: ImageAttachment[]): Promise<void> {
+        this.conversationProcessing = true;
+        this.setActiveAppTask('conversation');
         try {
+            await this.updatePersistedAppStatus('generating', 'conversation_started');
             this.logger.info('Processing user input message', { 
                 messageLength: userMessage.length,
                 pendingInputsCount: this.state.pendingUserInputs.length,
@@ -1756,7 +1880,10 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
             this.logger.error('Error processing user input', error);
             throw error;
         } finally {
+            this.conversationProcessing = false;
+            this.clearActiveAppTask('conversation');
             this.clearAbortController();
+            await this.syncPersistedAppStatus('conversation_finished');
         }
     }
 }

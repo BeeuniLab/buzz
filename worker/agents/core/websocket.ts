@@ -28,7 +28,8 @@ export function handleWebSocketMessage(
                 // Set shouldBeGenerating flag to indicate persistent intent
                 agent.setState({ 
                     ...agent.state, 
-                    shouldBeGenerating: true 
+                    shouldBeGenerating: true,
+                    lastUserStopAt: undefined,
                 });
                 
                 // Check if generation is already active to avoid duplicate processes
@@ -79,20 +80,24 @@ export function handleWebSocketMessage(
             case WebSocketMessageRequests.STOP_GENERATION: {
                 logger.info('User requested to stop generation');
                 
-                // Cancel current inference operation
-                const wasCancelled = agent.getBehavior().cancelCurrentInference();
-                
-                // Clear shouldBeGenerating flag
-                agent.setState({ 
-                    ...agent.state, 
-                    shouldBeGenerating: false 
-                });
-                
-                sendToConnection(connection, WebSocketMessageResponses.GENERATION_STOPPED, {
-                    message: wasCancelled 
-                        ? 'Inference operation cancelled successfully'
-                        : 'No active inference to cancel'
-                });
+                agent.getBehavior().stopCurrentTask()
+                    .then((wasCancelled) => {
+                        // Clear shouldBeGenerating after behavior state updates so the stopped marker is preserved.
+                        agent.setState({
+                            ...agent.state,
+                            shouldBeGenerating: false,
+                        });
+
+                        sendToConnection(connection, WebSocketMessageResponses.GENERATION_STOPPED, {
+                            message: wasCancelled
+                                ? 'Inference operation cancelled successfully'
+                                : 'No active inference to cancel'
+                        });
+                    })
+                    .catch((error: unknown) => {
+                        logger.error('Error stopping generation:', error);
+                        sendError(connection, `Error stopping generation: ${error instanceof Error ? error.message : String(error)}`);
+                    });
                 break;
             }
             case WebSocketMessageRequests.RESUME_GENERATION:
@@ -100,7 +105,8 @@ export function handleWebSocketMessage(
                 logger.info('Resuming code generation');
                 agent.setState({ 
                     ...agent.state, 
-                    shouldBeGenerating: true 
+                    shouldBeGenerating: true,
+                    lastUserStopAt: undefined,
                 });
                 
                 if (!agent.getBehavior().isCodeGenerating()) {

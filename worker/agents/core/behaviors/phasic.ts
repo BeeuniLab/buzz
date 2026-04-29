@@ -307,6 +307,7 @@ export class PhasicCodingBehavior extends BaseCodingBehavior<PhasicState> implem
             let executionResults: PhaseExecutionResult;
             // State machine loop - continues until IDLE state
             while (currentDevState !== CurrentDevState.IDLE) {
+                this.throwIfTaskStopped();
                 this.logger.info(`[generateAllFiles] Executing state: ${currentDevState}`);
                 switch (currentDevState) {
                     case CurrentDevState.PHASE_GENERATING:
@@ -346,6 +347,7 @@ export class PhasicCodingBehavior extends BaseCodingBehavior<PhasicState> implem
     async executePhaseGeneration(isFinal?: boolean): Promise<PhaseExecutionResult> {
         this.logger.info("Executing PHASE_GENERATING state");
         try {
+            this.throwIfTaskStopped();
             const currentIssues = await this.fetchAllIssues();
             
             // Generate next phase with user suggestions if available
@@ -375,6 +377,7 @@ export class PhasicCodingBehavior extends BaseCodingBehavior<PhasicState> implem
             }
             
             const nextPhase = await this.generateNextPhase(currentIssues, userContext, isFinal);
+            this.throwIfTaskStopped();
                 
             if (!nextPhase) {
                 this.logger.info("No more phases to implement, transitioning to FINALIZING");
@@ -413,6 +416,7 @@ export class PhasicCodingBehavior extends BaseCodingBehavior<PhasicState> implem
      */
     async executePhaseImplementation(phaseConcept?: PhaseConceptType, userContext?: UserContext): Promise<{currentDevState: CurrentDevState, staticAnalysis?: StaticAnalysisResponse}> {
         try {
+            this.throwIfTaskStopped();
             this.logger.info("Executing PHASE_IMPLEMENTING state");
     
             if (phaseConcept === undefined) {
@@ -435,9 +439,11 @@ export class PhasicCodingBehavior extends BaseCodingBehavior<PhasicState> implem
             
             // Prepare issues for implementation
             const currentIssues = await this.fetchAllIssues(true);
+            this.throwIfTaskStopped();
             
             // Implement the phase with user context (suggestions and images)
             await this.implementPhase(phaseConcept, currentIssues, userContext);
+            this.throwIfTaskStopped();
     
             this.logger.info(`Phase ${phaseConcept.name} completed, generating next phase`);
 
@@ -523,6 +529,7 @@ export class PhasicCodingBehavior extends BaseCodingBehavior<PhasicState> implem
      * Generate next phase with user context (suggestions and images)
      */
     async generateNextPhase(currentIssues: AllIssues, userContext?: UserContext, isFinal?: boolean): Promise<PhaseConceptGenerationSchemaType | undefined> {
+        this.throwIfTaskStopped();
         const issues = IssueReport.from(currentIssues);
         
         // Build notification message
@@ -553,6 +560,8 @@ export class PhasicCodingBehavior extends BaseCodingBehavior<PhasicState> implem
             },
             this.getOperationOptions()
         )
+        this.throwIfTaskStopped();
+
         if (result.installCommands && result.installCommands.length > 0) {
             this.executeCommands(result.installCommands);
         }
@@ -589,6 +598,7 @@ export class PhasicCodingBehavior extends BaseCodingBehavior<PhasicState> implem
      * Streams file generation with real-time updates and incorporates technical instructions
      */
     async implementPhase(phase: PhaseConceptType, currentIssues: AllIssues, userContext?: UserContext, streamChunks: boolean = true, postPhaseFixing: boolean = true): Promise<PhaseImplementationSchemaType> {
+        this.throwIfTaskStopped();
         const issues = IssueReport.from(currentIssues);
         
         const implementationMsg = userContext?.suggestions && userContext.suggestions.length > 0
@@ -636,6 +646,7 @@ export class PhasicCodingBehavior extends BaseCodingBehavior<PhasicState> implem
             },
             this.getOperationOptions()
         );
+        this.throwIfTaskStopped();
         
         this.broadcast(WebSocketMessageResponses.PHASE_VALIDATING, {
             message: `Validating files for phase: ${phase.name}`,
@@ -652,6 +663,7 @@ export class PhasicCodingBehavior extends BaseCodingBehavior<PhasicState> implem
                 }
             }).filter((f): f is FileOutputType => f !== null);
         });
+        this.throwIfTaskStopped();
     
         const templateDetails = this.getTemplateDetails();
         const safeFiles = templateDetails
@@ -664,22 +676,28 @@ export class PhasicCodingBehavior extends BaseCodingBehavior<PhasicState> implem
                   phase,
               })
             : finalFiles;
+        this.throwIfTaskStopped();
 
         await this.fileManager.saveGeneratedFiles(safeFiles, `feat: ${phase.name}\n\n${phase.description}`);
+        this.throwIfTaskStopped();
 
         this.logger.info("Files generated for phase:", phase.name, safeFiles.map(f => f.filePath));
 
         if (result.commands && result.commands.length > 0) {
             this.logger.info("Phase implementation suggested install commands:", result.commands);
             await this.executeCommands(result.commands, false);
+            this.throwIfTaskStopped();
         }
 
         if (safeFiles.length > 0) {
             await this.deployToSandbox(safeFiles, false, phase.name, true);
+            this.throwIfTaskStopped();
             if (postPhaseFixing) {
                 await this.applyDeterministicCodeFixes();
+                this.throwIfTaskStopped();
                 if (this.getInferenceContext().enableFastSmartCodeFix) {
                     await this.applyFastSmartCodeFixes();
+                    this.throwIfTaskStopped();
                 }
             }
         }

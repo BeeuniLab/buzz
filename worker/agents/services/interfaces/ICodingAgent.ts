@@ -65,6 +65,10 @@ export interface ICodingAgent {
 
     isCodeGenerating(): boolean;
 
+    isConversationProcessing(): boolean;
+
+    hasActivePersistedAppTask(): boolean;
+
     waitForGeneration(): Promise<void>;
 
     isDeepDebugging(): boolean;

@@ -15,6 +15,11 @@ export interface FileServingToken {
     createdAt: number;
 }
 
+export interface ActiveAppTask {
+    type: 'generation' | 'conversation' | 'deep_debug';
+    startedAt: number;
+}
+
 export interface PhaseState extends PhaseConceptType {
     // deploymentNeeded: boolean;
     completed: boolean;
@@ -51,6 +56,8 @@ export interface BaseProjectState {
     
     // Generation control
     shouldBeGenerating: boolean;
+    activeAppTask?: ActiveAppTask;
+    lastUserStopAt?: number;
     
     // Common file storage
     sandboxInstanceId?: string;

@@ -27,6 +27,8 @@ import { toast } from 'sonner';
 import { createRepairingJSONParser } from '@/utils/ndjson-parser/ndjson-parser';
 import { appEvents } from '@/lib/app-events';
 
+const ACTIVE_APP_TASK_STALE_MS = 30 * 60 * 1000;
+
 const isPhasicState = (state: AgentState): state is PhasicState => {
 	const record = state as unknown as Record<string, unknown>;
 	const behaviorType = record.behaviorType;
@@ -36,6 +38,35 @@ const isPhasicState = (state: AgentState): state is PhasicState => {
 	}
 	return false;
 };
+
+const getFreshActiveTask = (state: AgentState) => {
+	const startedAt = state.activeAppTask?.startedAt;
+	const isFresh =
+		!state.lastUserStopAt &&
+		typeof startedAt === 'number' &&
+		Date.now() - startedAt < ACTIVE_APP_TASK_STALE_MS;
+
+	return isFresh ? state.activeAppTask : undefined;
+};
+
+const isStateActivelyGenerating = (state: AgentState): boolean => {
+	const freshActiveTask = getFreshActiveTask(state);
+	return !state.lastUserStopAt && (state.shouldBeGenerating === true || Boolean(freshActiveTask));
+};
+
+const shouldRestoreCodeGeneration = (state: AgentState): boolean => {
+	const freshActiveTask = getFreshActiveTask(state);
+	return !state.lastUserStopAt && (
+		state.shouldBeGenerating === true ||
+		freshActiveTask?.type === 'generation'
+	);
+};
+
+const getRestoredAppStatus = (state: AgentState): 'generating' | 'completed' =>
+	isStateActivelyGenerating(state) ? 'generating' : 'completed';
+
+const isRestoredBuildPaused = (state: AgentState): boolean =>
+	!isStateActivelyGenerating(state) && !state.mvpGenerated;
 
 export interface HandleMessageDeps {
     // State setters
@@ -219,13 +250,11 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
 
                     if (urlChatId && urlChatId !== 'new') {
                         appEvents.emitAppUpdated(urlChatId, {
-                            status: state.shouldBeGenerating
-                                ? 'generating'
-                                : state.mvpGenerated
-                                    ? 'completed'
-                                    : 'generating',
+                            status: getRestoredAppStatus(state),
                         });
                     }
+
+                    setIsGenerationPaused(isRestoredBuildPaused(state));
 
                     const restoredBehaviorType = state.behaviorType ?? 'phasic';
                     if (restoredBehaviorType !== behaviorType) {
@@ -296,19 +325,22 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
 
                     if (isPhasicState(state) && state.generatedPhases.length > 0 && phaseTimeline.length === 0) {
                         logger.debug('📋 Restoring phase timeline:', state.generatedPhases);
-                        // If not actively generating, mark incomplete phases as cancelled (they were interrupted)
-                        const isActivelyGenerating = state.shouldBeGenerating === true;
+                        const isActivelyGenerating = isStateActivelyGenerating(state);
+                        const wasExplicitlyStopped = Boolean(state.lastUserStopAt);
                         
                         const timeline = state.generatedPhases.map((phase, index: number) => {
                             // Determine phase status:
                             // - completed if explicitly marked complete
-                            // - cancelled if incomplete and not actively generating (interrupted)
+                            // - cancelled only when the user explicitly stopped the task
                             // - generating if incomplete and actively generating
+                            // - error if incomplete and no active task is present
                             const phaseStatus = phase.completed 
                                 ? 'completed' as const 
-                                : !isActivelyGenerating 
+                                : wasExplicitlyStopped
                                     ? 'cancelled' as const 
-                                    : 'generating' as const;
+                                    : isActivelyGenerating
+                                        ? 'generating' as const
+                                        : 'error' as const;
                             
                             return {
                                 id: `phase-${index}`,
@@ -323,9 +355,11 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
                                     // - generating if missing and actively generating
                                     const fileStatus = file 
                                         ? 'completed' as const 
-                                        : !isActivelyGenerating 
+                                        : wasExplicitlyStopped
                                             ? 'cancelled' as const 
-                                            : 'generating' as const;
+                                            : isActivelyGenerating
+                                                ? 'generating' as const
+                                                : 'error' as const;
                                     return {
                                         path: filesConcept.path,
                                         purpose: filesConcept.purpose,
@@ -369,11 +403,13 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
 
                     setIsInitialStateRestored(true);
                     
-                    if (state.shouldBeGenerating && !isGenerating) {
+                    if (shouldRestoreCodeGeneration(state) && !isGenerating) {
                         logger.debug('🔄 Reconnected with shouldBeGenerating=true, auto-resuming generation');
                         setIsGenerating(true); 
                         updateStage('code', { status: 'active' });
-                        sendWebSocketMessage(websocket, 'generate_all');
+                        if (state.shouldBeGenerating) {
+                            sendWebSocketMessage(websocket, 'generate_all');
+                        }
                     }
                 }
                 break;
@@ -408,10 +444,18 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
                     setInternalProjectType(state.projectType);
                 }
 
-                if (state.shouldBeGenerating && !isGenerating) {
+                if (deps.urlChatId) {
+                    appEvents.emitAppUpdated(deps.urlChatId, {
+                        status: getRestoredAppStatus(state),
+                    });
+                }
+
+                setIsGenerationPaused(isRestoredBuildPaused(state));
+
+                if (shouldRestoreCodeGeneration(state) && !isGenerating) {
                     logger.debug('🔄 shouldBeGenerating=true, updating UI to active state');
                     updateStage('code', { status: 'active' });
-                } else if (!state.shouldBeGenerating) {
+                } else if (!isStateActivelyGenerating(state)) {
                     const codeStage = projectStages.find((stage) => stage.id === 'code');
                     if (codeStage?.status === 'active' && !isGenerating) {
                         if (state.generatedFilesMap && Object.keys(state.generatedFilesMap).length > 0) {
@@ -839,7 +883,7 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
             case 'generation_stopped': {
                 setIsConversationProcessing(false);
                 setIsGenerating(false);
-                setIsGenerationPaused(true);
+                setIsGenerationPaused(isGenerating);
                 setIsDebugging(false);
                 
                 // Reset phase indicators
@@ -867,6 +911,10 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
                 toast.info('Generation stopped', {
                     description: message.message || 'Code generation has been stopped'
                 });
+
+                if (deps.urlChatId) {
+                    appEvents.emitAppUpdated(deps.urlChatId, { status: 'completed' });
+                }
                 
                 sendMessage(createAIMessage('generation_stopped', message.message));
                 break;
@@ -979,7 +1027,13 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
             }
 
             case 'user_suggestions_processing': {
-                setIsConversationProcessing(message.status !== 'complete' && message.status !== 'error');
+                const isProcessing = message.status !== 'complete' && message.status !== 'error';
+                setIsConversationProcessing(isProcessing);
+                if (deps.urlChatId) {
+                    appEvents.emitAppUpdated(deps.urlChatId, {
+                        status: isProcessing ? 'generating' : 'completed',
+                    });
+                }
                 break;
             }
 

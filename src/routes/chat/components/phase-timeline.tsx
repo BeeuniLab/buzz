@@ -290,6 +290,7 @@ export function PhaseTimeline({
 													<span className="text-sm font-medium text-text-50 flex-1 break-words">
 														{phase.status === 'completed' ? 'Created a playable version' :
 														 phase.status === 'cancelled' ? 'Paused this step' :
+														 phase.status === 'error' ? 'Interrupted step' :
 														 phase.status === 'validating' ? 'Polishing the experience' :
 														 'Creating the playable experience'}
 													</span>

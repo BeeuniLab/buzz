@@ -6,8 +6,10 @@ import { AppService } from '../../../database/services/AppService';
 import { Visibility, AppSortOption, SortOrder, TimePeriod } from '../../../database/types';
 import { UserAppsData, ProfileUpdateData, UserFollowData, FollowerInboxData, PublicUserProfileData } from './types';
 import { createLogger } from '../../../logger';
+import { getAgentStubLightweight } from '../../../agents';
 
 const logger = createLogger('UserController');
+const MAX_RECONCILE_APPS_PER_LIST_REQUEST = 5;
 
 /**
  * User Management Controller for Orange
@@ -15,6 +17,57 @@ const logger = createLogger('UserController');
  */
 export class UserController extends BaseController {
     static logger = logger;
+
+    private static shouldReconcileGeneratingApp(app: { status: string }): boolean {
+        return app.status === 'generating';
+    }
+
+    private static async reconcileStaleGeneratingApps(
+        env: Env,
+        apps: UserAppsData['apps'],
+    ): Promise<UserAppsData['apps']> {
+        const staleApps = apps
+            .filter(app => UserController.shouldReconcileGeneratingApp(app))
+            .slice(0, MAX_RECONCILE_APPS_PER_LIST_REQUEST);
+
+        if (staleApps.length === 0) {
+            return apps;
+        }
+
+        const appService = new AppService(env);
+        const completedIds = new Set<string>();
+
+        await Promise.all(staleApps.map(async app => {
+            try {
+                const agent = await getAgentStubLightweight(env, app.id);
+                const desiredStatus = await agent.getDesiredAppStatus();
+                if (desiredStatus !== 'completed') {
+                    return;
+                }
+
+                const updated = await appService.updateApp(app.id, { status: 'completed' });
+                if (updated) {
+                    completedIds.add(app.id);
+                }
+            } catch (error) {
+                UserController.logger.warn('Failed to reconcile stale generating app', {
+                    appId: app.id,
+                    error: error instanceof Error ? error.message : String(error),
+                });
+            }
+        }));
+
+        if (completedIds.size === 0) {
+            return apps;
+        }
+
+        const now = new Date();
+        return apps.map(app =>
+            completedIds.has(app.id)
+                ? { ...app, status: 'completed' as const, updatedAt: now }
+                : app
+        );
+    }
     
     /**
      * Get user's apps with pagination and filtering
@@ -50,10 +103,11 @@ export class UserController extends BaseController {
             const appService = new AppService(env);
             
             // Get user apps with analytics and proper total count
-            const [apps, totalCount] = await Promise.all([
+            const [rawApps, totalCount] = await Promise.all([
                 appService.getUserAppsWithAnalytics(user.id, queryOptions),
                 appService.getUserAppsCount(user.id, queryOptions)
             ]);
+            const apps = await UserController.reconcileStaleGeneratingApps(env, rawApps);
 
             const responseData: UserAppsData = {
                 apps,

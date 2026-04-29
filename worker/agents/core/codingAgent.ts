@@ -329,13 +329,26 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
     }
 
     async getDesiredAppStatus(): Promise<'generating' | 'completed'> {
-        const isGenerating = this.behavior?.isCodeGenerating() ?? false;
+        if (this.state.lastUserStopAt) {
+            return 'completed';
+        }
 
-        if (isGenerating || this.state.shouldBeGenerating) {
+        const isGenerating = this.behavior?.isCodeGenerating() ?? false;
+        const isDebugging = this.behavior?.isDeepDebugging() ?? false;
+        const isConversationProcessing = this.behavior?.isConversationProcessing() ?? false;
+        const hasActivePersistedTask = this.behavior?.hasActivePersistedAppTask() ?? false;
+
+        if (
+            isGenerating ||
+            isDebugging ||
+            isConversationProcessing ||
+            hasActivePersistedTask ||
+            this.state.shouldBeGenerating
+        ) {
             return 'generating';
         }
 
-        return this.state.mvpGenerated ? 'completed' : 'generating';
+        return 'completed';
     }
 
     async getPreviewUrlCache(): Promise<string> {

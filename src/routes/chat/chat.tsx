@@ -142,11 +142,13 @@ export default function Chat() {
 		isThinking,
 		// Deployment and generation control
 		isGenerating,
+		isGenerationPaused,
 		isDeploying,
 		cloudflareDeploymentUrl,
 		deploymentError,
 		isRedeployReady,
 		isConversationProcessing,
+		handleResumeGeneration,
 		handleDeployToCloudflare,
 		// Preview refresh control
 		shouldRefreshPreview,
@@ -525,6 +527,7 @@ export default function Chat() {
 	]);
 
 	const isRunning = isServerTaskRunning || isSendLockActive;
+	const showResumeGeneration = isGenerationPaused && !isRunning && Boolean(blueprint);
 
 	useEffect(() => {
 		if (isServerTaskRunning && isSendLockActive) {
@@ -759,6 +762,26 @@ export default function Chat() {
 									isGenerating={isGenerating}
 									isThinking={isThinking}
 								/>
+							)}
+
+							{showResumeGeneration && (
+								<div className="mb-4 rounded-xl border border-orange-300/30 bg-orange-500/10 px-3 py-3 text-sm text-text-primary">
+									<div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+										<div>
+											<div className="font-medium">Build is paused</div>
+											<div className="text-xs text-text-tertiary">
+												This project is not running right now. Resume generation from the saved blueprint when you're ready.
+											</div>
+										</div>
+										<Button
+											type="button"
+											onClick={handleResumeGeneration}
+											className="h-8 shrink-0 bg-accent text-text-primary hover:bg-neo-yellow"
+										>
+											Resume build
+										</Button>
+									</div>
+								</div>
 							)}
 
 	

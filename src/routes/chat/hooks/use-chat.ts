@@ -149,6 +149,7 @@ export function useChat({
 	
 	// Track whether we've completed initial state restoration to avoid disrupting active sessions
 	const [isInitialStateRestored, setIsInitialStateRestored] = useState(false);
+	const activeRouteChatIdRef = useRef<string | undefined>(urlChatId);
 
 	const updateStage = useCallback(
 		(stageId: ProjectStage['id'], data: Partial<Omit<ProjectStage, 'id'>>) => {
@@ -174,6 +175,54 @@ export function useChat({
 		}
 	}, []);
 
+	const resetLocalChatState = useCallback((nextRouteChatId: string | undefined) => {
+		connectAttemptIdRef.current += 1;
+		connectionStatus.current = 'idle';
+		retryCount.current = 0;
+		emittedAppCreatedRef.current = false;
+		retryTimeouts.current.forEach(clearTimeout);
+		retryTimeouts.current = [];
+		clearDeploymentTimeout();
+		websocket?.close();
+		setWebsocket(undefined);
+		setChatId(nextRouteChatId === 'new' ? undefined : nextRouteChatId);
+		setMessages([createAIMessage('main', nextRouteChatId === 'new' ? 'Thinking...' : 'Starting from where you left off...', true)]);
+		setBootstrapFiles([]);
+		setBlueprint(undefined);
+		setPreviewUrl(undefined);
+		setQuery(undefined);
+		setInitialPromptAttachments(
+			nextRouteChatId === 'new' && userImages && userImages.length > 0
+				? buildOptimisticChatAttachments(userImages)
+				: [],
+		);
+		setBehaviorType(getInitialBehaviorType());
+		setInternalProjectType(projectType);
+		setTemplateDetails(null);
+		setIsGeneratingBlueprint(false);
+		setIsBootstrapping(nextRouteChatId === 'new');
+		setProjectStages(defaultStages);
+		setPhaseTimeline([]);
+		setFiles([]);
+		setTotalFiles(undefined);
+		setEdit(undefined);
+		setIsDeploying(false);
+		setCloudflareDeploymentUrl('');
+		setDeploymentError(undefined);
+		setRuntimeErrorCount(0);
+		setStaticIssueCount(0);
+		setIsDebugging(false);
+		setIsPreviewDeploying(false);
+		setIsRedeployReady(false);
+		setIsGenerationPaused(false);
+		setIsGenerating(false);
+		setIsConversationProcessing(false);
+		setIsPhaseProgressActive(false);
+		setIsThinking(false);
+		setShouldRefreshPreview(false);
+		setIsInitialStateRestored(false);
+	}, [clearDeploymentTimeout, projectType, userImages, websocket]);
+
 
 	const sendMessage = useCallback((message: ChatMessage) => {
 		// Only add conversational messages to the chat UI
@@ -184,6 +233,15 @@ export function useChat({
 	const sendUserMessage = useCallback((message: string, attachments?: ChatAttachmentPreview[]) => {
 		setMessages(prev => [...prev, createUserMessage(message, attachments)]);
 	}, []);
+
+	useEffect(() => {
+		if (activeRouteChatIdRef.current === urlChatId) {
+			return;
+		}
+
+		activeRouteChatIdRef.current = urlChatId;
+		resetLocalChatState(urlChatId);
+	}, [resetLocalChatState, urlChatId]);
 
 	const loadBootstrapFiles = useCallback((files: FileType[]) => {
 		setBootstrapFiles((prev) => [

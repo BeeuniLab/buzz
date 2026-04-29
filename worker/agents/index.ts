@@ -15,6 +15,7 @@ import { BehaviorType, ProjectType } from './core/types';
 type AgentStubProps = {
     behaviorType?: BehaviorType;
     projectType?: ProjectType;
+    readOnlyMode?: boolean;
 };
 
 export async function getAgentStub(
@@ -28,7 +29,7 @@ export async function getAgentStub(
 
 export async function getAgentStubLightweight(env: Env, agentId: string) : Promise<DurableObjectStub<CodeGeneratorAgent>> {
     return getAgentByName<Env, CodeGeneratorAgent>(env.CodeGenObject, agentId, {
-        // props: { readOnlyMode: true }
+        props: { readOnlyMode: true }
     });
 }
 
