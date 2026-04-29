@@ -436,6 +436,7 @@ export default function AppView() {
 
 	const isOwner = app.userId === user?.id;
 	const appUrl = getAppUrl();
+	const feedUrl = app.visibility === 'public' ? `/feed/${app.id}` : undefined;
 
 	return (
 		<div className="min-h-screen bg-bg-3 flex flex-col">
@@ -526,6 +527,18 @@ export default function AppView() {
 									<Star className="h-3.5 w-3.5" />
 									<span>{app.starCount || 0}</span>
 								</div>
+								{feedUrl && (
+									<Button
+										variant="outline"
+										size="sm"
+										onClick={() => navigate(feedUrl)}
+										className="gap-2 border-border-primary bg-bg-4 text-text-primary hover:bg-bg-1"
+										title="Open in Feed"
+									>
+										<Play className="h-4 w-4" />
+										Feed
+									</Button>
+								)}
 							</div>
 						</div>
 

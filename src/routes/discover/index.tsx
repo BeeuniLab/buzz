@@ -1,9 +1,11 @@
 import React from 'react';
 import { useNavigate } from 'react-router';
 import { motion } from 'framer-motion';
+import { Search, X } from 'lucide-react';
 import { usePaginatedApps } from '@/hooks/use-paginated-apps';
 import { AppListContainer } from '@/components/shared/AppListContainer';
 import { AppCarouselSection } from '@/components/shared/AppCarouselSection';
+import { Input } from '@/components/ui/input';
 import { apiClient } from '@/lib/api-client';
 import { cn } from '@/lib/utils';
 import type { AppWithUserAndStats } from '@/api-types';
@@ -27,6 +29,7 @@ export default function DiscoverPage() {
 	const [recentApps, setRecentApps] = React.useState<AppWithUserAndStats[]>([]);
 	const [carouselLoading, setCarouselLoading] = React.useState(true);
 	const [selectedCategory, setSelectedCategory] = React.useState('All');
+	const [manualSearchQuery, setManualSearchQuery] = React.useState('');
 
 	// Fetch carousel data
 	React.useEffect(() => {
@@ -66,6 +69,7 @@ export default function DiscoverPage() {
 		hasMore,
 		sortBy,
 		setSearchQuery,
+		handleSearchSubmit,
 		refetch,
 		loadMore,
 	} = usePaginatedApps({
@@ -77,6 +81,7 @@ export default function DiscoverPage() {
 
 	const handleCategoryChange = (cat: string) => {
 		setSelectedCategory(cat);
+		setManualSearchQuery('');
 		if (cat === 'All') {
 			setSearchQuery('');
 		} else {
@@ -84,18 +89,64 @@ export default function DiscoverPage() {
 		}
 	};
 
+	const handleManualSearchChange = (query: string) => {
+		setManualSearchQuery(query);
+		setSelectedCategory('All');
+		setSearchQuery(query);
+	};
+
+	const clearManualSearch = () => {
+		setManualSearchQuery('');
+		setSelectedCategory('All');
+		setSearchQuery('');
+	};
+
 	const handleAppClick = (appId: string) => navigate(`/feed/${appId}`);
+	const isTextSearching = manualSearchQuery.trim().length > 0;
+
+	const renderSearchForm = () => (
+		<form onSubmit={handleSearchSubmit}>
+			<div className="relative">
+				<Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-text-tertiary" />
+				<Input
+					type="text"
+					inputMode="search"
+					value={manualSearchQuery}
+					onChange={(event) => handleManualSearchChange(event.target.value)}
+					placeholder="Search games or creators"
+					className="h-11 rounded-full border-2 border-border-primary bg-bg-4 pl-10 pr-11 text-sm shadow-neo-sm"
+				/>
+				{manualSearchQuery && (
+					<button
+						type="button"
+						onClick={clearManualSearch}
+						aria-label="Clear search"
+						className="absolute right-2 top-1/2 inline-flex size-7 -translate-y-1/2 items-center justify-center rounded-full text-text-tertiary transition-colors hover:bg-bg-3 hover:text-text-primary"
+					>
+						<X className="size-4" />
+					</button>
+				)}
+			</div>
+		</form>
+	);
 
 	return (
-		<div className="min-h-screen">
+		<div className="min-h-screen pb-32 md:pb-0">
+			<div className="fixed inset-x-0 bottom-[calc(4rem+env(safe-area-inset-bottom))] z-40 px-3 md:hidden">
+				{renderSearchForm()}
+			</div>
 			<div className="container mx-auto px-2 md:px-4 py-4">
 				<motion.div
 					initial={{ opacity: 0, y: -20 }}
 					animate={{ opacity: 1, y: 0 }}
 					transition={{ duration: 0.5 }}
 				>
+					<div className="mb-5 hidden max-w-2xl md:block">
+						{renderSearchForm()}
+					</div>
+
 					{/* Recent Section */}
-					{recentApps.length > 0 && (
+					{!isTextSearching && recentApps.length > 0 && (
 						<AppCarouselSection
 							title="Recent"
 							apps={recentApps}
@@ -106,26 +157,30 @@ export default function DiscoverPage() {
 					)}
 
 					{/* Popular Section */}
-					<AppCarouselSection
-						title="Popular"
-						apps={popularApps}
-						loading={carouselLoading}
-						onAppClick={handleAppClick}
-						size="small"
-					/>
+					{!isTextSearching && (
+						<AppCarouselSection
+							title="Popular"
+							apps={popularApps}
+							loading={carouselLoading}
+							onAppClick={handleAppClick}
+							size="small"
+						/>
+					)}
 
 					{/* Trending Section */}
-					<AppCarouselSection
-						title="Trending"
-						apps={trendingApps}
-						loading={carouselLoading}
-						onAppClick={handleAppClick}
-						size="large"
-					/>
+					{!isTextSearching && (
+						<AppCarouselSection
+							title="Trending"
+							apps={trendingApps}
+							loading={carouselLoading}
+							onAppClick={handleAppClick}
+							size="large"
+						/>
+					)}
 
 					{/* Categories Section */}
 					<div className="mt-4">
-						<div className="flex gap-2 mb-6 overflow-x-auto md:flex-wrap pb-2 md:pb-0" style={{ scrollbarWidth: 'none' }}>
+						{!isTextSearching && <div className="flex gap-2 mb-6 overflow-x-auto md:flex-wrap pb-2 md:pb-0" style={{ scrollbarWidth: 'none' }}>
 							{CATEGORIES.map((cat) => (
 								<button
 									key={cat}
@@ -140,7 +195,7 @@ export default function DiscoverPage() {
 									{cat}
 								</button>
 							))}
-						</div>
+						</div>}
 
 						<AppListContainer
 							apps={categoryApps}

@@ -257,6 +257,24 @@ export class AppService extends BaseService {
         return conditions.filter(Boolean);
     }
 
+    private buildPublicSearchFilter(search?: string): WhereCondition {
+        if (!search) return undefined;
+
+        const searchTerm = `%${search.toLowerCase()}%`;
+        return or(
+            sql`LOWER(${schema.apps.title}) LIKE ${searchTerm}`,
+            sql`LOWER(${schema.apps.description}) LIKE ${searchTerm}`,
+            sql`EXISTS (
+                SELECT 1 FROM ${schema.users}
+                WHERE ${schema.users.id} = ${schema.apps.userId}
+                AND (
+                    LOWER(${schema.users.displayName}) LIKE ${searchTerm}
+                    OR LOWER(${schema.users.username}) LIKE ${searchTerm}
+                )
+            )`
+        );
+    }
+
     /**
      * Helper to build public app query conditions
      */
@@ -276,8 +294,9 @@ export class AppService extends BaseService {
                 eq(schema.apps.status, 'completed'),
                 eq(schema.apps.status, 'generating')
             ),
-            // Use shared helper for common filters
-            ...this.buildCommonAppFilters(framework, search),
+            // Use shared helper for framework filter; public search also checks author identity.
+            ...this.buildCommonAppFilters(framework),
+            this.buildPublicSearchFilter(search),
         ];
 
         if (authorId) {
