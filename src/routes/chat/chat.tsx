@@ -174,7 +174,7 @@ export default function Chat() {
 	});
 
 	const navigate = useNavigate();
-	const hasStablePlayable = Boolean(cloudflareDeploymentUrl || app?.cloudflareUrl || app?.previewUrl);
+	const hasStablePlayable = Boolean(cloudflareDeploymentUrl || app?.cloudflareUrl);
 	const hasInvalidPlayableDeployment = Boolean(
 		app?.deploymentId && /[^a-z0-9-]/.test(app.deploymentId)
 	) || Boolean(app?.cloudflareUrl && /\.localhost(?::|\/|$)/.test(app.cloudflareUrl));

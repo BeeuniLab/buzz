@@ -84,6 +84,13 @@ export class ProjectObjective<
 				await appService.updateDeploymentId(this.getAgentId(), result.deploymentId, {
 					publishIfFirstDeployment: true,
 				});
+				this.setState({
+					...this.state,
+					lastPlayableDeploymentRevision: this.state.generatedFilesRevision ?? 0,
+					lastPlayableDeploymentAt: Date.now(),
+					lastPlayableDeploymentId: result.deploymentId,
+					lastPlayableDeploymentUrl: result.deploymentUrl,
+				});
 				this.logger.info('Updated deployment ID in database', {
 					deploymentId: result.deploymentId,
 				});

@@ -103,6 +103,7 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
         blueprint: {} as unknown as Blueprint,
         templateName: '',
         generatedFilesMap: {},
+        generatedFilesRevision: 0,
         conversationMessages: [],
         metadata: {} as InferenceMetadata,
         shouldBeGenerating: false,

@@ -8,6 +8,18 @@ import { TemplateDetails } from 'worker/types/project-types';
 import { GitVersionControl } from 'worker/agents/git';
 import { isFileModifiable } from 'worker/services/templates/utils';
 
+function generatedFilesChanged(
+    previous: Record<string, FileState>,
+    next: Record<string, FileState>
+): boolean {
+    const previousPaths = Object.keys(previous);
+    const nextPaths = Object.keys(next);
+
+    if (previousPaths.length !== nextPaths.length) return true;
+
+    return nextPaths.some((path) => previous[path]?.fileContents !== next[path]?.fileContents);
+}
+
 /**
  * Manages file operations for code generation
  * Handles both template and generated files
@@ -36,7 +48,8 @@ export class FileManager implements IFileManager {
             const gitFiles = await this.git.getAllFilesFromHead();
             
             // Get old map to preserve purposes
-            const oldMap = this.stateManager.getState().generatedFilesMap;
+            const currentState = this.stateManager.getState();
+            const oldMap = currentState.generatedFilesMap;
             
             // Build new map, preserving existing purposes
             const newMap: Record<string, FileState> = {};
@@ -52,10 +65,16 @@ export class FileManager implements IFileManager {
                 };
             }
             
+            const changed = generatedFilesChanged(oldMap, newMap);
+            const latestState = this.stateManager.getState();
+
             // Update state
             this.stateManager.setState({
-                ...this.stateManager.getState(),
-                generatedFilesMap: newMap
+                ...latestState,
+                generatedFilesMap: newMap,
+                generatedFilesRevision: changed
+                    ? (latestState.generatedFilesRevision ?? 0) + 1
+                    : latestState.generatedFilesRevision
             });
             
             console.log('[FileManager] Sync complete', {
@@ -104,6 +123,7 @@ export class FileManager implements IFileManager {
 
         const filesMap = { ...this.stateManager.getState().generatedFilesMap };
         const fileStates: FileState[] = [];
+        let hasContentChanges = false;
 
         for (const file of files) {
             if (!isFileModifiable(file.filePath, dontTouchFiles).allowed && !overwrite) {
@@ -118,6 +138,7 @@ export class FileManager implements IFileManager {
             
             // Generate diff if contents changed
             if (oldFileContents !== file.fileContents) {
+                hasContentChanges = true;
                 try {
                     lastDiff = Diff.createPatch(file.filePath, oldFileContents, file.fileContents);
                 } catch (error) {
@@ -136,9 +157,13 @@ export class FileManager implements IFileManager {
             fileStates.push(fileState);
         }
         
+        const latestState = this.stateManager.getState();
         this.stateManager.setState({
-            ...this.stateManager.getState(),
-            generatedFilesMap: filesMap
+            ...latestState,
+            generatedFilesMap: filesMap,
+            generatedFilesRevision: hasContentChanges
+                ? (latestState.generatedFilesRevision ?? 0) + 1
+                : latestState.generatedFilesRevision
         });
 
         return fileStates;
@@ -174,14 +199,22 @@ export class FileManager implements IFileManager {
 
     deleteFiles(filePaths: string[]): void {
         const newFilesMap = { ...this.stateManager.getState().generatedFilesMap };
+        let hasDeletedFiles = false;
         
         for (const filePath of filePaths) {
+            if (filePath in newFilesMap) {
+                hasDeletedFiles = true;
+            }
             delete newFilesMap[filePath];
         }
-        
+
+        const latestState = this.stateManager.getState();
         this.stateManager.setState({
-            ...this.stateManager.getState(),
-            generatedFilesMap: newFilesMap
+            ...latestState,
+            generatedFilesMap: newFilesMap,
+            generatedFilesRevision: hasDeletedFiles
+                ? (latestState.generatedFilesRevision ?? 0) + 1
+                : latestState.generatedFilesRevision
         });
     }
 

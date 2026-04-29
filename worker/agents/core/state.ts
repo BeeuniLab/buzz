@@ -73,6 +73,11 @@ export interface BaseProjectState {
     // Common file storage
     sandboxInstanceId?: string;
     generatedFilesMap: Record<string, FileState>;
+    generatedFilesRevision?: number;
+    lastPlayableDeploymentRevision?: number;
+    lastPlayableDeploymentAt?: number;
+    lastPlayableDeploymentId?: string;
+    lastPlayableDeploymentUrl?: string;
     
     // Common infrastructure
     fileServingToken?: FileServingToken;

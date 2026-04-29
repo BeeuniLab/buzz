@@ -1444,6 +1444,13 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
                     result.deploymentId,
                     { publishIfFirstDeployment: true }
                 );
+                this.setState({
+                    ...this.state,
+                    lastPlayableDeploymentRevision: this.state.generatedFilesRevision ?? 0,
+                    lastPlayableDeploymentAt: Date.now(),
+                    lastPlayableDeploymentId: result.deploymentId,
+                    lastPlayableDeploymentUrl: result.deploymentUrl,
+                });
             }
 
             return result.deploymentUrl ? { deploymentUrl: result.deploymentUrl } : null;

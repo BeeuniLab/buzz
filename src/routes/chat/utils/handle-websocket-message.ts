@@ -77,6 +77,19 @@ const getFreshActiveWorkflow = (state: AgentState) => {
 const hasGeneratedFiles = (state: AgentState): boolean =>
 	Object.keys(state.generatedFilesMap ?? {}).length > 0;
 
+const hasPlayableChangesSinceLastDeployment = (state: AgentState): boolean => {
+	if (!hasGeneratedFiles(state)) return false;
+
+	const currentRevision = state.generatedFilesRevision;
+	const deployedRevision = state.lastPlayableDeploymentRevision;
+
+	if (typeof currentRevision === 'number' && typeof deployedRevision === 'number') {
+		return currentRevision > deployedRevision;
+	}
+
+	return deployedRevision === undefined;
+};
+
 const hasCompletedPlayable = (state: AgentState): boolean =>
 	Boolean(state.mvpGenerated && hasGeneratedFiles(state) && (state.pendingUserInputs?.length ?? 0) === 0);
 
@@ -443,6 +456,7 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
                     
                     if (state.generatedFilesMap && Object.keys(state.generatedFilesMap).length > 0) {
                         updateStage('code', { status: 'completed' });
+                        setIsRedeployReady(hasPlayableChangesSinceLastDeployment(state));
                         if (urlChatId !== 'new' && !getFreshActiveWorkflow(state)) {
                             logger.debug('🚀 Requesting preview deployment for existing chat with files');
                             sendWebSocketMessage(websocket, 'preview');
@@ -513,6 +527,10 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
                 // Sync projectType from backend if it changed
                 if (state.projectType) {
                     setInternalProjectType(state.projectType);
+                }
+
+                if (hasPlayableChangesSinceLastDeployment(state)) {
+                    setIsRedeployReady(true);
                 }
 
                 if (deps.urlChatId) {

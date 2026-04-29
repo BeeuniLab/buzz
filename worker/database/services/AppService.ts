@@ -331,6 +331,7 @@ export class AppService extends BaseService {
 
         return this.updateApp(appId, {
             deploymentId,
+            lastDeployedAt: new Date(),
             ...(options.publishIfFirstDeployment && !existingApp?.deploymentId
                 ? { visibility: 'public' as const }
                 : {}),
