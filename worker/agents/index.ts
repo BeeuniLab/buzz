@@ -3,7 +3,7 @@ import { generateId } from '../utils/idGenerator';
 import { StructuredLogger } from '../logger';
 import { InferenceContext } from './inferutils/config.types';
 import { selectTemplate } from './planning/templateSelector';
-import { TemplateDetails } from 'worker/types/project-types';
+import { TemplateDetails, TemplateInfo } from 'worker/types/project-types';
 import { listTemplates, getTemplateDetails as fetchTemplateDetails } from '../services/templates/templateCatalog';
 import { createScratchTemplateDetails } from './utils/templates';
 import { TemplateSelection } from './schemas';
@@ -81,6 +81,12 @@ type TemplateQueryArgs = {
     selectedTemplate?: string;
 };
 
+function getSelectableTemplates(templates: TemplateInfo[]): TemplateInfo[] {
+    return templates.filter(
+        t => !t.disabled && !t.hiddenFromSelection && !t.name.includes('minimal')
+    );
+}
+
 async function handleGeneralType(): Promise<TemplateQueryResult> {
     const scratch = createScratchTemplateDetails();
     const selection: TemplateSelection = {
@@ -97,9 +103,10 @@ async function handleGeneralType(): Promise<TemplateQueryResult> {
 async function handleUserSelectedTemplate(
     env: Env,
     templateName: string,
-    logger: StructuredLogger
+    logger: StructuredLogger,
+    reason?: string,
 ): Promise<TemplateQueryResult> {
-    logger.info('Using user-specified template, bypassing AI selection', { selectedTemplate: templateName });
+    logger.info(reason || 'Using user-specified template, bypassing AI selection', { selectedTemplate: templateName });
 
     const detailsResponse = await fetchTemplateDetails(env.TEMPLATES_BUCKET, templateName);
     if (!detailsResponse.success || !detailsResponse.templateDetails) {
@@ -109,7 +116,7 @@ async function handleUserSelectedTemplate(
     const templateDetails = detailsResponse.templateDetails;
     const selection: TemplateSelection = {
         selectedTemplateName: templateName,
-        reasoning: `User-specified template: ${templateName}`,
+        reasoning: reason || `User-specified template: ${templateName}`,
         useCase: templateDetails.description?.selection || templateName,
         complexity: 'moderate',
         styleSelection: 'Custom',
@@ -131,11 +138,22 @@ async function handleAITemplateSelection(args: Omit<TemplateQueryArgs, 'selected
         throw new Error(`Failed to fetch templates: ${catalogResponse.error}`);
     }
 
+    const selectableTemplates = getSelectableTemplates(catalogResponse.templates);
+    if (selectableTemplates.length === 1) {
+        const templateName = selectableTemplates[0].name;
+        return handleUserSelectedTemplate(
+            env,
+            templateName,
+            logger,
+            `Only one selectable template is available; auto-selected ${templateName}`,
+        );
+    }
+
     const selection = await selectTemplate({
         env,
         query,
         projectType,
-        availableTemplates: catalogResponse.templates,
+        availableTemplates: selectableTemplates,
         inferenceContext,
         images,
     });
