@@ -40,6 +40,9 @@ const isDeployProjectWorkflow = (workflow: AgentState['activeWorkflow']): boolea
 const isDeployPreviewWorkflow = (workflow: AgentState['activeWorkflow']): boolean =>
 	workflow?.kind === 'deploy_preview';
 
+const isCreateProjectWorkflow = (workflow: AgentState['activeWorkflow']): boolean =>
+	workflow?.kind === 'create_project';
+
 const isPhasicState = (state: AgentState): state is PhasicState => {
 	const record = state as unknown as Record<string, unknown>;
 	const behaviorType = record.behaviorType;
@@ -78,6 +81,14 @@ const hasGeneratedFiles = (state: AgentState): boolean =>
 const hasCompletedPlayable = (state: AgentState): boolean =>
 	Boolean(state.mvpGenerated && hasGeneratedFiles(state) && (state.pendingUserInputs?.length ?? 0) === 0);
 
+const hasMeaningfulBlueprint = (state: AgentState): boolean =>
+	Boolean(state.blueprint && Object.keys(state.blueprint).length > 0);
+
+const isPreparingInitialBlueprint = (state: AgentState): boolean =>
+	isCreateProjectWorkflow(getFreshActiveWorkflow(state)) &&
+	!hasMeaningfulBlueprint(state) &&
+	!hasGeneratedFiles(state);
+
 const isStateActivelyGenerating = (state: AgentState): boolean => {
 	const freshActiveTask = getFreshActiveTask(state);
 	const freshActiveWorkflow = getFreshActiveWorkflow(state);
@@ -89,6 +100,8 @@ const isStateActivelyGenerating = (state: AgentState): boolean => {
 };
 
 const shouldRestoreCodeGeneration = (state: AgentState): boolean => {
+	if (isPreparingInitialBlueprint(state)) return false;
+
 	const freshActiveTask = getFreshActiveTask(state);
 	const freshActiveWorkflow = getFreshActiveWorkflow(state);
 	return !state.lastUserStopAt && (
@@ -99,16 +112,16 @@ const shouldRestoreCodeGeneration = (state: AgentState): boolean => {
 };
 
 const shouldRequestGenerationResume = (state: AgentState): boolean =>
-	!getFreshActiveWorkflow(state) && state.shouldBeGenerating === true && !hasCompletedPlayable(state);
+	!isPreparingInitialBlueprint(state) &&
+	!getFreshActiveWorkflow(state) &&
+	state.shouldBeGenerating === true &&
+	!hasCompletedPlayable(state);
 
 const getRestoredAppStatus = (state: AgentState): 'generating' | 'completed' =>
 	isStateActivelyGenerating(state) ? 'generating' : 'completed';
 
 const isRestoredBuildPaused = (state: AgentState): boolean =>
 	!isStateActivelyGenerating(state) && !state.mvpGenerated;
-
-const hasMeaningfulBlueprint = (state: AgentState): boolean =>
-	Boolean(state.blueprint && Object.keys(state.blueprint).length > 0);
 
 export interface HandleMessageDeps {
     // State setters
@@ -122,6 +135,7 @@ export interface HandleMessageDeps {
     setTotalFiles: React.Dispatch<React.SetStateAction<number | undefined>>;
     setIsRedeployReady: React.Dispatch<React.SetStateAction<boolean>>;
     setIsPreviewDeploying: React.Dispatch<React.SetStateAction<boolean>>;
+    setIsGeneratingBlueprint: React.Dispatch<React.SetStateAction<boolean>>;
     setIsThinking: React.Dispatch<React.SetStateAction<boolean>>;
     setIsInitialStateRestored: React.Dispatch<React.SetStateAction<boolean>>;
     setShouldRefreshPreview: React.Dispatch<React.SetStateAction<boolean>>;
@@ -231,6 +245,7 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
             setTotalFiles,
             setIsRedeployReady,
             setIsPreviewDeploying,
+            setIsGeneratingBlueprint,
             setIsThinking,
             setIsInitialStateRestored,
             setShouldRefreshPreview,
@@ -416,8 +431,14 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
                     }
                     
                     updateStage('bootstrap', { status: 'completed' });
-                    
-                    if (hasMeaningfulBlueprint(state)) {
+
+                    const preparingInitialBlueprint = isPreparingInitialBlueprint(state);
+                    if (preparingInitialBlueprint) {
+                        setIsGeneratingBlueprint(true);
+                        updateStage('blueprint', { status: 'active' });
+                        updateStage('code', { status: 'pending' });
+                    } else if (hasMeaningfulBlueprint(state)) {
+                        setIsGeneratingBlueprint(false);
                         updateStage('blueprint', { status: 'completed' });
                     }
                     
@@ -502,6 +523,18 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
                 }
 
                 setIsGenerationPaused(isRestoredBuildPaused(state));
+
+                if (isPreparingInitialBlueprint(state)) {
+                    logger.debug('🔄 Initial create workflow is still preparing blueprint');
+                    setIsGeneratingBlueprint(true);
+                    updateStage('bootstrap', { status: 'completed' });
+                    updateStage('blueprint', { status: 'active' });
+                    updateStage('code', { status: 'pending' });
+                } else if (hasMeaningfulBlueprint(state)) {
+                    setIsGeneratingBlueprint(false);
+                    updateStage('bootstrap', { status: 'completed' });
+                    updateStage('blueprint', { status: 'completed' });
+                }
 
                 if (shouldRestoreCodeGeneration(state) && !isGenerating) {
                     logger.debug('🔄 Active generation intent detected, updating UI to active state');
@@ -727,6 +760,9 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
             }
 
             case 'generation_started': {
+                setIsGeneratingBlueprint(false);
+                updateStage('bootstrap', { status: 'completed' });
+                updateStage('blueprint', { status: 'completed' });
                 updateStage('code', { status: 'active' });
                 setTotalFiles(message.totalFiles);
                 setIsGenerating(true);
@@ -1148,6 +1184,8 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
                 if (!blueprintParser) {
                     blueprintParser = createRepairingJSONParser();
                     logger.debug('Blueprint streaming started');
+                    setIsGeneratingBlueprint(true);
+                    updateStage('bootstrap', { status: 'completed' });
                     updateStage('blueprint', { status: 'active' });
                 }
 
@@ -1160,6 +1198,7 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
                     setBlueprint(partial);
                     updateStage('bootstrap', { status: 'completed' });
                     updateStage('blueprint', { status: 'completed' });
+                    setIsGeneratingBlueprint(false);
                     logger.debug('Blueprint chunk processed, partial blueprint updated');
                 } catch (e) {
                     logger.debug('Blueprint chunk accumulated, waiting for more data');

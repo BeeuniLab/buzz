@@ -268,6 +268,7 @@ export function useChat({
 			setTotalFiles,
 			setIsRedeployReady,
 			setIsPreviewDeploying,
+			setIsGeneratingBlueprint,
 			setIsThinking,
 			setIsInitialStateRestored,
 			setShouldRefreshPreview,
@@ -634,6 +635,8 @@ export function useChat({
 						setIsGeneratingBlueprint(false);
 					} else {
 						setIsBootstrapping(false);
+						setIsGeneratingBlueprint(true);
+						updateStage('bootstrap', { status: 'completed' });
 						updateStage('blueprint', { status: 'active' });
 						sendMessage(
 							createAIMessage('workflow-started', 'The build is running durably now. You can leave this page and come back.', true),
