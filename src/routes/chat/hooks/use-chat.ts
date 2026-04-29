@@ -87,6 +87,7 @@ export function useChat({
 	const handleConnectionFailureRef = useRef<
 		((wsUrl: string, disableGenerate: boolean, reason: string) => void) | null
 	>(null);
+	const handleWebSocketMessageRef = useRef<ReturnType<typeof createWebSocketMessageHandler> | null>(null);
 	const [chatId, setChatId] = useState<string>();
 	const [messages, setMessages] = useState<ChatMessage[]>([
 		createAIMessage('main', 'Thinking...', true),
@@ -332,6 +333,10 @@ export function useChat({
 	);
 
 	useEffect(() => {
+		handleWebSocketMessageRef.current = handleWebSocketMessage;
+	}, [handleWebSocketMessage]);
+
+	useEffect(() => {
 		if (urlChatId === 'new') {
 			setInitialPromptAttachments(
 				userImages && userImages.length > 0 ? buildOptimisticChatAttachments(userImages) : [],
@@ -421,7 +426,7 @@ export function useChat({
 				ws.addEventListener('message', (event) => {
 					try {
 						const message: WebSocketMessage = JSON.parse(event.data);
-						handleWebSocketMessage(ws, message);
+						handleWebSocketMessageRef.current?.(ws, message);
 					} catch (parseError) {
 						logger.error('❌ Error parsing WebSocket message:', parseError, event.data);
 					}
@@ -458,7 +463,7 @@ export function useChat({
 				handleConnectionFailureRef.current?.(wsUrl, disableGenerate, 'Connection setup failed');
 			}
 		},
-		[maxRetries, handleWebSocketMessage, urlChatId],
+		[maxRetries, urlChatId],
 	);
 
 	// Handle connection failures with exponential backoff retry
