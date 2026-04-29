@@ -1,6 +1,6 @@
 import { Agent, AgentContext, ConnectionContext } from "agents";
 import { AgentInitArgs, AgentSummary, DeployOptions, DeployResult, ExportOptions, ExportResult, BehaviorType } from "./types";
-import { AgenticState, AgentState, BaseProjectState, CurrentDevState, FileState, MAX_PHASES, PhasicState } from "./state";
+import { AgenticState, AgentState, BaseProjectState, CurrentDevState, FileState, MAX_PHASES, PhasicState, type ActiveWorkflowTask } from "./state";
 import { Blueprint } from "../schemas";
 import { BaseCodingBehavior } from "./behaviors/base";
 import { createObjectLogger, StructuredLogger } from '../../logger';
@@ -30,7 +30,13 @@ import { SecretsClient, type UserSecretsStoreStub } from '../../services/secrets
 import { StateMigration } from './stateMigration';
 import { PendingWsTicket, TicketConsumptionResult } from '../../types/auth-types';
 import { WsTicketManager } from '../../utils/wsTicketManager';
-import { computeAgentAssetMapJson, parseAssetMapJson } from '../../utils/agentAssets';
+import { computeAgentAssetMapJson, parseAssetMapJson, uniqueAgentAssetRelativePath } from '../../utils/agentAssets';
+import { uploadImageAsAgentAsset } from '../../utils/images';
+import type {
+    CodeGenerationWorkflowParams,
+    ExistingProjectWorkflowParams,
+    UserInputWorkflowParams,
+} from '../workflows/codeGenerationWorkflow';
 
 const DEFAULT_CONVERSATION_SESSION_ID = 'default';
 
@@ -38,6 +44,23 @@ interface AgentBootstrapProps {
     behaviorType?: BehaviorType;
     projectType?: ProjectType;
 }
+
+type WorkflowBindingEnv = Env & {
+    CODE_GENERATION_WORKFLOW?: Workflow<CodeGenerationWorkflowParams>;
+};
+
+type WorkflowInitArgs = Omit<AgentInitArgs<AgentState>, 'onBlueprintChunk'>;
+
+const stripBase64FromProcessedAttachment = (attachment: ProcessedImageAttachment): ProcessedImageAttachment => {
+    const { base64Data: _base64Data, ...workflowAttachment } = attachment;
+    return workflowAttachment;
+};
+
+const isBehaviorType = (value: unknown): value is BehaviorType =>
+    value === 'phasic' || value === 'agentic';
+
+const isProjectType = (value: unknown): value is ProjectType =>
+    value === 'app' || value === 'workflow' || value === 'presentation' || value === 'general';
 
 export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentInfrastructure<AgentState> {
     public _logger: StructuredLogger | undefined;
@@ -76,6 +99,7 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
         conversationMessages: [],
         metadata: {} as InferenceMetadata,
         shouldBeGenerating: false,
+        activeWorkflow: undefined,
         sandboxInstanceId: undefined,
         commandsHistory: [],
         lastPackageJson: '',
@@ -166,8 +190,10 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
 
         this.logger().info('Bootstrapping CodeGeneratorAgent', { props });
         const agentProps = props as AgentBootstrapProps;
-        const behaviorType = agentProps?.behaviorType ?? this.state.behaviorType ?? 'phasic';
-        const projectType = agentProps?.projectType ?? this.state.projectType ?? 'app';
+        const behaviorCandidate = agentProps?.behaviorType ?? this.state.behaviorType;
+        const projectTypeCandidate = agentProps?.projectType ?? this.state.projectType;
+        const behaviorType = isBehaviorType(behaviorCandidate) ? behaviorCandidate : 'phasic';
+        const projectType = isProjectType(projectTypeCandidate) ? projectTypeCandidate : 'app';
 
         if (behaviorType === 'phasic') {
             this.behavior = new PhasicCodingBehavior(this as AgentInfrastructure<PhasicState>, projectType);
@@ -197,6 +223,11 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
             return;
         }
         
+        if (!this.state.templateName) {
+            this.logger().info(`Agent ${this.getAgentId()} is pending workflow initialization; skipping template bootstrap`);
+            return;
+        }
+
         // Just in case
         await this.gitInit();
         
@@ -213,16 +244,20 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
     onConnect(connection: Connection, ctx: ConnectionContext) {
         this.logger().info(`Agent connected for agent ${this.getAgentId()}`, { connection, ctx });
         let previewUrl = '';
+        let templateDetails: TemplateDetails | null = null;
         try {
-            if (this.behavior.getTemplateDetails().renderMode === 'browser') {
+            templateDetails = this.behavior.getTemplateDetails();
+            if (templateDetails.renderMode === 'browser') {
                 previewUrl = this.behavior.getBrowserPreviewURL();
             }
         } catch (error) {
-            this.logger().error('Error getting preview URL:', error);
+            this.logger().info('Template details not ready during websocket connect', {
+                error: error instanceof Error ? error.message : String(error),
+            });
         }
         sendToConnection(connection, WebSocketMessageResponses.AGENT_CONNECTED, {
             state: this.state,
-            templateDetails: this.behavior.getTemplateDetails(),
+            templateDetails,
             previewUrl: previewUrl
         });
     }
@@ -259,6 +294,283 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
     
     getWebSockets(): WebSocket[] {
         return this.ctx.getWebSockets();
+    }
+
+    private getWorkflowBinding(): Workflow<CodeGenerationWorkflowParams> | null {
+        return (this.env as WorkflowBindingEnv).CODE_GENERATION_WORKFLOW ?? null;
+    }
+
+    private createWorkflowId(kind: CodeGenerationWorkflowParams['kind']): string {
+        const suffix = Math.random().toString(36).slice(2, 8);
+        return `${this.getAgentId()}-${kind}-${Date.now().toString(36)}-${suffix}`;
+    }
+
+    private async uploadWorkflowUserInputAssets(images?: ImageAttachment[]): Promise<ProcessedImageAttachment[] | undefined> {
+        if (!images || images.length === 0) return undefined;
+
+        const usedPaths = new Set<string>();
+        const uploadedImages = await Promise.all(
+            images.map(async (image, index) => {
+                const relativePath = uniqueAgentAssetRelativePath(image, index, usedPaths);
+                const uploaded = await uploadImageAsAgentAsset(this.env, this.getAgentId(), image, relativePath);
+                return stripBase64FromProcessedAttachment(uploaded);
+            }),
+        );
+
+        return uploadedImages;
+    }
+
+    private async updateAppStatus(status: 'generating' | 'completed', reason: string): Promise<void> {
+        try {
+            const agentId = this.getAgentId();
+            if (!agentId) return;
+            const appService = new AppService(this.env);
+            await appService.updateApp(agentId, { status });
+            this.logger().info('Updated app status from agent workflow control', { status, reason });
+        } catch (error) {
+            this.logger().warn('Failed to update app status from agent workflow control', {
+                status,
+                reason,
+                error: error instanceof Error ? error.message : String(error),
+            });
+        }
+    }
+
+    async updateWorkflowStatus(args: {
+        workflowId: string;
+        kind: ActiveWorkflowTask['kind'];
+        status: ActiveWorkflowTask['status'] | 'completed';
+        message?: string;
+    }): Promise<void> {
+        const now = Date.now();
+        const existing = this.state.activeWorkflow;
+        const shouldClear = args.status === 'completed';
+
+        this.setState({
+            ...this.state,
+            activeWorkflow: shouldClear ? undefined : {
+                id: args.workflowId,
+                kind: args.kind,
+                status: args.status,
+                message: args.message,
+                startedAt: existing?.id === args.workflowId ? existing.startedAt : now,
+                updatedAt: now,
+            },
+            shouldBeGenerating: args.status === 'failed' || shouldClear
+                ? false
+                : this.state.shouldBeGenerating,
+        } as AgentState);
+
+        this.logger().info('Workflow status updated', args);
+        this.broadcast(WebSocketMessageResponses.SERVER_LOG, {
+            message: args.message || `Workflow ${args.kind} ${args.status}`,
+            level: args.status === 'failed' ? 'error' : 'info',
+            timestamp: now,
+            source: 'workflow',
+        });
+
+        if (args.status === 'failed') {
+            await this.updateAppStatus('completed', `workflow_${args.kind}_failed`);
+            this.broadcast(WebSocketMessageResponses.ERROR, {
+                error: args.message || `Workflow ${args.kind} failed`,
+            });
+        } else if (args.status === 'queued' || args.status === 'running') {
+            await this.updateAppStatus('generating', `workflow_${args.kind}_${args.status}`);
+        }
+    }
+
+    async prepareWorkflowProject(args: {
+        agentId: string;
+        userId: string;
+        query: string;
+        hostname: string;
+        behaviorType: BehaviorType;
+        projectType: ProjectType;
+        workflowId?: string;
+        workflowKind?: ActiveWorkflowTask['kind'];
+    }): Promise<void> {
+        const sessionId = DeploymentManager.generateNewSessionId();
+        this.initLogger(args.agentId, args.userId, sessionId);
+        this.setState({
+            ...this.state,
+            behaviorType: args.behaviorType,
+            projectType: args.projectType,
+            projectName: '',
+            query: args.query,
+            sessionId,
+            hostname: args.hostname,
+            metadata: {
+                agentId: args.agentId,
+                userId: args.userId,
+            } as InferenceMetadata,
+            shouldBeGenerating: true,
+            lastUserStopAt: undefined,
+            activeWorkflow: args.workflowId && args.workflowKind ? {
+                id: args.workflowId,
+                kind: args.workflowKind,
+                status: 'queued',
+                message: 'Create project workflow queued',
+                startedAt: Date.now(),
+                updatedAt: Date.now(),
+            } : this.state.activeWorkflow,
+        } as AgentState);
+        await this.updateAppStatus('generating', 'workflow_project_prepared');
+    }
+
+    async initializeFromWorkflow(initArgs: WorkflowInitArgs): Promise<AgentState> {
+        if (this.state.templateName && Object.keys(this.state.blueprint ?? {}).length > 0) {
+            this.logger().info('Workflow initialization skipped; agent already has a blueprint');
+            return this.state;
+        }
+
+        const templateDetails = initArgs.templateInfo?.templateDetails ?? null;
+        if (templateDetails) {
+            this.broadcast(WebSocketMessageResponses.TEMPLATE_UPDATED, {
+                templateDetails,
+            });
+        }
+
+        return this.initialize({
+            ...initArgs,
+            onBlueprintChunk: (chunk: string) => {
+                this.broadcast(WebSocketMessageResponses.BLUEPRINT_CHUNK, { chunk });
+            },
+        } as AgentInitArgs<AgentState>);
+    }
+
+    async runGenerationFromWorkflow(reason: CodeGenerationWorkflowParams['kind'], workflowId?: string): Promise<void> {
+        this.setState({
+            ...this.state,
+            shouldBeGenerating: true,
+            lastUserStopAt: undefined,
+        });
+        this.logger().info('Workflow generation started', { reason });
+        if (workflowId) {
+            await this.updateWorkflowStatus({
+                workflowId,
+                kind: reason,
+                status: 'running',
+                message: `Workflow ${reason} is generating files`,
+            });
+        }
+        await this.updateAppStatus('generating', `workflow_${reason}_started`);
+        await this.behavior.generateAllFiles();
+        if (workflowId) {
+            await this.updateWorkflowStatus({
+                workflowId,
+                kind: reason,
+                status: 'completed',
+                message: `Workflow ${reason} completed`,
+            });
+        }
+    }
+
+    async startGenerationWorkflow(kind: ExistingProjectWorkflowParams['kind']): Promise<string | null> {
+        if (this.behavior?.isCodeGenerating?.() || this.state.shouldBeGenerating) {
+            this.logger().info('Generation workflow already active or queued, skipping duplicate', {
+                kind,
+                isCodeGenerating: this.behavior?.isCodeGenerating?.(),
+                shouldBeGenerating: this.state.shouldBeGenerating,
+            });
+            return null;
+        }
+
+        const workflow = this.getWorkflowBinding();
+        if (!workflow) {
+            this.logger().warn('Workflow binding missing; falling back to waitUntil generation', { kind });
+            const task = this.behavior.generateAllFiles();
+            this.trackBackgroundTask(kind, task);
+            return null;
+        }
+
+        const workflowId = this.createWorkflowId(kind);
+        this.setState({
+            ...this.state,
+            shouldBeGenerating: true,
+            lastUserStopAt: undefined,
+            activeWorkflow: {
+                id: workflowId,
+                kind,
+                status: 'queued',
+                message: `Queued ${kind} workflow`,
+                startedAt: Date.now(),
+                updatedAt: Date.now(),
+            },
+        });
+        await this.updateAppStatus('generating', `workflow_${kind}_queued`);
+
+        try {
+            await workflow.create({
+                id: workflowId,
+                params: {
+                    kind,
+                    agentId: this.getAgentId(),
+                    behaviorType: this.state.behaviorType,
+                    projectType: this.state.projectType,
+                },
+            });
+        } catch (error) {
+            this.setState({ ...this.state, shouldBeGenerating: false, activeWorkflow: undefined });
+            await this.updateAppStatus('completed', `workflow_${kind}_queue_failed`);
+            throw error;
+        }
+        this.logger().info('Generation workflow queued', { kind, workflowId });
+        this.broadcast(WebSocketMessageResponses.SERVER_LOG, {
+            message: `Queued ${kind} workflow`,
+            level: 'info',
+            timestamp: Date.now(),
+            source: 'workflow',
+        });
+        return workflowId;
+    }
+
+    async startUserInputWorkflow(userMessage: string, images?: ImageAttachment[]): Promise<string | null> {
+        const workflow = this.getWorkflowBinding();
+        if (!workflow) {
+            this.logger().warn('Workflow binding missing; falling back to direct user input handling');
+            const task = this.handleUserInput(userMessage, images);
+            this.trackBackgroundTask('user_input', task);
+            return null;
+        }
+
+        const workflowId = this.createWorkflowId('user_input');
+        this.setState({
+            ...this.state,
+            shouldBeGenerating: true,
+            lastUserStopAt: undefined,
+            activeWorkflow: {
+                id: workflowId,
+                kind: 'user_input',
+                status: 'queued',
+                message: 'Queued user input workflow',
+                startedAt: Date.now(),
+                updatedAt: Date.now(),
+            },
+        });
+        await this.updateAppStatus('generating', 'workflow_user_input_queued');
+        this.broadcast(WebSocketMessageResponses.USER_SUGGESTIONS_PROCESSING, {
+            message: 'Processing user message',
+            status: 'start',
+        });
+
+        try {
+            const workflowImages = await this.uploadWorkflowUserInputAssets(images);
+            const params: UserInputWorkflowParams = {
+                kind: 'user_input',
+                agentId: this.getAgentId(),
+                behaviorType: this.state.behaviorType,
+                projectType: this.state.projectType,
+                message: userMessage,
+                images: workflowImages,
+            };
+            await workflow.create({ id: workflowId, params });
+        } catch (error) {
+            this.setState({ ...this.state, shouldBeGenerating: false, activeWorkflow: undefined });
+            await this.updateAppStatus('completed', 'workflow_user_input_queue_failed');
+            throw error;
+        }
+        this.logger().info('User input workflow queued', { workflowId });
+        return workflowId;
     }
 
     trackBackgroundTask(label: string, task: Promise<unknown>): void {
@@ -811,8 +1123,20 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
      * Handle user input during conversational code generation
      * Processes user messages and updates pendingUserInputs state
      */
-    async handleUserInput(userMessage: string, images?: ImageAttachment[]): Promise<void> {
+    async runUserInputFromWorkflow(
+        userMessage: string,
+        images?: Array<ImageAttachment | ProcessedImageAttachment>,
+        workflowId?: string,
+    ): Promise<void> {
         try {
+            if (workflowId) {
+                await this.updateWorkflowStatus({
+                    workflowId,
+                    kind: 'user_input',
+                    status: 'running',
+                    message: 'User input workflow is processing the message',
+                });
+            }
             this.logger().info('Processing user input message', { 
                 messageLength: userMessage.length,
                 pendingInputsCount: this.state.pendingUserInputs.length,
@@ -830,27 +1154,38 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
                 // If idle, start generation process
                 this.logger().info('User input during IDLE state, starting generation');
                 let generationFailed = false;
-                const generationTask = this.behavior.generateAllFiles().catch(error => {
+                let generationError: unknown;
+                await this.runGenerationFromWorkflow('user_input', workflowId).catch(error => {
                     generationFailed = true;
+                    generationError = error;
                     this.logger().error('Error starting generation from user input:', error);
                     this.broadcast(WebSocketMessageResponses.USER_SUGGESTIONS_PROCESSING, {
                         message: 'User message processing failed',
                         status: 'error',
                     });
-                }).finally(() => {
-                    if (!generationFailed) {
-                        this.broadcast(WebSocketMessageResponses.USER_SUGGESTIONS_PROCESSING, {
-                            message: 'User message processed',
-                            status: 'complete',
-                        });
-                    }
                 });
-                this.trackBackgroundTask('user_input_generation', generationTask);
+                if (generationError) {
+                    throw generationError;
+                }
+                if (!generationFailed) {
+                    this.broadcast(WebSocketMessageResponses.USER_SUGGESTIONS_PROCESSING, {
+                        message: 'User message processed',
+                        status: 'complete',
+                    });
+                }
             } else {
                 this.broadcast(WebSocketMessageResponses.USER_SUGGESTIONS_PROCESSING, {
                     message: 'User message processed',
                     status: 'complete',
                 });
+                if (workflowId) {
+                    await this.updateWorkflowStatus({
+                        workflowId,
+                        kind: 'user_input',
+                        status: 'completed',
+                        message: 'User input workflow completed',
+                    });
+                }
             }
 
         } catch (error) {
@@ -858,16 +1193,29 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
                 message: 'User message processing failed',
                 status: 'error',
             });
+            if (workflowId) {
+                await this.updateWorkflowStatus({
+                    workflowId,
+                    kind: 'user_input',
+                    status: 'failed',
+                    message: error instanceof Error ? error.message : String(error),
+                });
+            }
 
             if (error instanceof RateLimitExceededError) {
                 this.logger().error('Rate limit exceeded:', error);
                 this.broadcast(WebSocketMessageResponses.RATE_LIMIT_ERROR, {
                     error
                 });
-                return;
+                throw error;
             }
             this.broadcastError('Error processing user input', error);
+            throw error;
         }
+    }
+
+    async handleUserInput(userMessage: string, images?: ImageAttachment[]): Promise<void> {
+        return this.runUserInputFromWorkflow(userMessage, images);
     }
     // ==========================================
     // WebSocket Management

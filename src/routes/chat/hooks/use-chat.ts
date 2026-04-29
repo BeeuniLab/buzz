@@ -550,7 +550,8 @@ export function useChat({
 						agentId: string;
 						behaviorType: BehaviorType;
 						projectType: ProjectType;
-						template: {
+						workflowStarted?: boolean;
+						template?: {
 							files: FileType[];
 						};
 					} = {
@@ -558,9 +559,6 @@ export function useChat({
 						agentId: '',
 						behaviorType: 'phasic',
 						projectType: 'app',
-						template: {
-							files: [],
-						},
 					};
 
 					const publishCreatedApp = (agentId: string) => {
@@ -618,6 +616,10 @@ export function useChat({
 							result.projectType = obj.projectType;
 							logger.debug('Received projectType from server:', obj.projectType);
 						}
+						if (obj.workflowStarted) {
+							result.workflowStarted = true;
+							logger.debug('Received workflow start acknowledgement from server');
+						}
 						if (obj.template) {
 							logger.debug('Received template from server:', obj.template);
 							result.template = obj.template;
@@ -627,10 +629,19 @@ export function useChat({
 						}
 					}
 
-					updateStage('blueprint', { status: 'completed' });
-					setIsGeneratingBlueprint(false);
+					if (startedBlueprintStream) {
+						updateStage('blueprint', { status: 'completed' });
+						setIsGeneratingBlueprint(false);
+					} else {
+						setIsBootstrapping(false);
+						updateStage('blueprint', { status: 'active' });
+						sendMessage(
+							createAIMessage('workflow-started', 'The build is running durably now. You can leave this page and come back.', true),
+						);
+					}
+
 					const finalBehaviorType = getBehaviorTypeForProject(projectType);
-					if (finalBehaviorType === 'phasic') {
+					if (startedBlueprintStream && finalBehaviorType === 'phasic') {
 						sendMessage(
 							createAIMessage('main', 'The concept is set. Now making it playable...', true),
 						);
@@ -642,7 +653,9 @@ export function useChat({
 
 					// Connect to WebSocket
 					logger.debug('connecting to ws with created id');
-					connectWithRetry(result.websocketUrl);
+					connectWithRetry(result.websocketUrl, {
+						disableGenerate: result.workflowStarted === true,
+					});
 					publishCreatedApp(result.agentId);
 				} else if (connectionStatus.current === 'idle') {
 					// Prevent duplicate connect calls on rerenders

@@ -73,7 +73,9 @@ export async function uploadImageAsAgentAsset(
 		} catch (err) {
 			console.warn('Cloudflare Images upload failed, will try R2 fallback', {
 				error: err instanceof Error ? err.message : String(err),
-				image,
+				filename: image.filename,
+				mimeType: image.mimeType,
+				size: image.size,
 				type: 'agent-asset',
 			});
 		}

@@ -8,6 +8,7 @@
 import { AIModels, type InferenceContext } from '../agents/inferutils/config.types';
 import type { ProcessedImageAttachment } from '../types/image-attachment';
 import { MAX_IMAGE_SIZE_BYTES } from '../types/image-attachment';
+import { downloadR2Image } from './images';
 
 const VERCEL_AI_GATEWAY_CHAT_COMPLETIONS_URL = 'https://ai-gateway.vercel.sh/v1/chat/completions';
 const ASSET_CAPTION_MODEL = AIModels.GEMINI_3_1_FLASH_LITE_PREVIEW;
@@ -65,9 +66,36 @@ function fileExtensionForMime(mime: string): string {
 	return map[mime] ?? 'bin';
 }
 
-function buildCaptionContent(attachment: ProcessedImageAttachment): VercelChatContentPart[] | null {
-	const mime = attachment.mimeType;
-	const b64 = attachment.base64Data;
+async function resolveAttachmentBase64(
+	env: Env,
+	attachment: ProcessedImageAttachment,
+): Promise<{ mime: string; b64: string } | null> {
+	if (attachment.base64Data) {
+		return { mime: attachment.mimeType, b64: attachment.base64Data };
+	}
+
+	if (!attachment.r2Key) {
+		return null;
+	}
+
+	const downloaded = await downloadR2Image(env, attachment.r2Key);
+	if (!downloaded.base64Data) {
+		return null;
+	}
+
+	return {
+		mime: downloaded.mimeType || attachment.mimeType,
+		b64: downloaded.base64Data,
+	};
+}
+
+async function buildCaptionContent(env: Env, attachment: ProcessedImageAttachment): Promise<VercelChatContentPart[] | null> {
+	const resolved = await resolveAttachmentBase64(env, attachment);
+	if (!resolved) {
+		return null;
+	}
+
+	const { mime, b64 } = resolved;
 	if (!b64 || approxBytesFromBase64(b64) > MAX_IMAGE_SIZE_BYTES) {
 		return null;
 	}
@@ -131,7 +159,7 @@ export async function generateAssetMediaCaption(
 		return null;
 	}
 
-	const content = buildCaptionContent(attachment);
+	const content = await buildCaptionContent(env, attachment);
 	if (!content) {
 		return null;
 	}

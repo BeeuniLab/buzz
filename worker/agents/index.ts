@@ -7,7 +7,7 @@ import { TemplateDetails, TemplateInfo } from 'worker/types/project-types';
 import { listTemplates, getTemplateDetails as fetchTemplateDetails } from '../services/templates/templateCatalog';
 import { createScratchTemplateDetails } from './utils/templates';
 import { TemplateSelection } from './schemas';
-import type { ImageAttachment } from '../types/image-attachment';
+import type { ImageAttachment, ProcessedImageAttachment } from '../types/image-attachment';
 import { AgentState, CurrentDevState } from './core/state';
 import { CodeGeneratorAgent } from './core/codingAgent';
 import { BehaviorType, ProjectType } from './core/types';
@@ -52,6 +52,7 @@ export async function cloneAgent(env: Env, agentId: string) : Promise<{newAgentI
         sessionId: newAgentId,
         pendingUserInputs: [],
         shouldBeGenerating: false,
+        activeWorkflow: undefined,
         projectUpdatesAccumulator: [],
         reviewingInitiated: false,
         mvpGenerated: false,
@@ -77,7 +78,7 @@ type TemplateQueryArgs = {
     inferenceContext: InferenceContext;
     query: string;
     projectType: ProjectType | 'auto';
-    images: ImageAttachment[] | undefined;
+    images: Array<ImageAttachment | ProcessedImageAttachment> | undefined;
     logger: StructuredLogger;
     selectedTemplate?: string;
 };
@@ -182,7 +183,7 @@ export async function getTemplateForQuery(
     inferenceContext: InferenceContext,
     query: string,
     projectType: ProjectType | 'auto',
-    images: ImageAttachment[] | undefined,
+    images: Array<ImageAttachment | ProcessedImageAttachment> | undefined,
     logger: StructuredLogger,
     selectedTemplate?: string,
 ): Promise<TemplateQueryResult> {

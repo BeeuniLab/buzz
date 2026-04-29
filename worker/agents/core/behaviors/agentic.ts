@@ -21,8 +21,6 @@ import { compactifyContext } from '../../utils/conversationCompactifier';
 import { ConversationMessage, createMultiModalUserMessage, createUserMessage, Message } from '../../inferutils/common';
 import { AbortError } from 'worker/agents/inferutils/core';
 import { ImageAttachment, ProcessedImageAttachment, toInitialUserAttachment } from 'worker/types/image-attachment';
-import { uploadImageAsAgentAsset } from 'worker/utils/images';
-import { uniqueAgentAssetRelativePath } from 'worker/utils/agentAssets';
 
 interface AgenticOperations extends BaseCodingOperations {
     generateNextPhase: PhaseGenerationOperation;
@@ -137,20 +135,13 @@ export class AgenticCodingBehavior extends BaseCodingBehavior<AgenticState> impl
      * Override handleUserInput to just queue messages without AI processing
      * Messages will be injected into conversation after tool call completions
      */
-    async handleUserInput(userMessage: string, images?: ImageAttachment[]): Promise<void> {
+    async handleUserInput(userMessage: string, images?: Array<ImageAttachment | ProcessedImageAttachment>): Promise<void> {
         let processedImages: ProcessedImageAttachment[] | undefined;
 
         if (images && images.length > 0) {
-            const usedPaths = new Set<string>();
-            const agentId = this.getAgentId();
-            processedImages = await Promise.all(
-                images.map(async (image, index) => {
-                    const relativePath = uniqueAgentAssetRelativePath(image, index, usedPaths);
-                    return uploadImageAsAgentAsset(this.env, agentId, image, relativePath);
-                }),
-            );
+            processedImages = await this.prepareUserInputAssets(images);
 
-            this.logger.info('Uploaded images for queued request', {
+            this.logger.info('Prepared media assets for queued request', {
                 imageCount: processedImages.length
             });
             try {

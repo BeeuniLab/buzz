@@ -770,7 +770,7 @@ export class PhasicCodingBehavior extends BaseCodingBehavior<PhasicState> implem
         }
     }
 
-    async handleUserInput(userMessage: string, images?: ImageAttachment[]): Promise<void> {
+    async handleUserInput(userMessage: string, images?: Array<ImageAttachment | ProcessedImageAttachment>): Promise<void> {
         const result = await super.handleUserInput(userMessage, images);
         return result;
     }

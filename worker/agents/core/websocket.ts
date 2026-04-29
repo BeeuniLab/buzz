@@ -25,13 +25,6 @@ export function handleWebSocketMessage(
                 break;
             }
             case WebSocketMessageRequests.GENERATE_ALL:
-                // Set shouldBeGenerating flag to indicate persistent intent
-                agent.setState({ 
-                    ...agent.state, 
-                    shouldBeGenerating: true,
-                    lastUserStopAt: undefined,
-                });
-                
                 // Check if generation is already active to avoid duplicate processes
                 if (agent.getBehavior().isCodeGenerating()) {
                     logger.info('Generation already in progress, skipping duplicate request');
@@ -41,22 +34,12 @@ export function handleWebSocketMessage(
                     return;
                 }
                 
-                // Start generation process
-                logger.info('Starting code generation process');
-                const generationTask = agent.getBehavior().generateAllFiles().catch(error => {
+                // Start durable generation workflow.
+                logger.info('Queueing code generation workflow');
+                agent.startGenerationWorkflow('generate_all').catch(error => {
                     logger.error('Error during code generation:', error);
                     sendError(connection, `Error generating files: ${error instanceof Error ? error.message : String(error)}`);
-                }).finally(() => {
-                    // Only clear shouldBeGenerating on successful completion
-                    // (errors might want to retry, so this could be handled differently)
-                    if (!agent.getBehavior().isCodeGenerating()) {
-                        agent.setState({ 
-                            ...agent.state, 
-                            shouldBeGenerating: false 
-                        });
-                    }
                 });
-                agent.trackBackgroundTask('generate_all', generationTask);
                 break;
             case WebSocketMessageRequests.DEPLOY:
                 agent.deployProject().then((deploymentResult) => {
@@ -102,23 +85,16 @@ export function handleWebSocketMessage(
                 break;
             }
             case WebSocketMessageRequests.RESUME_GENERATION:
-                // Set shouldBeGenerating and restart generation
                 logger.info('Resuming code generation');
-                agent.setState({ 
-                    ...agent.state, 
-                    shouldBeGenerating: true,
-                    lastUserStopAt: undefined,
-                });
                 
                 if (!agent.getBehavior().isCodeGenerating()) {
                     sendToConnection(connection, WebSocketMessageResponses.GENERATION_RESUMED, {
                         message: 'Code generation resumed'
                     });
-                    const resumeTask = agent.getBehavior().generateAllFiles().catch(error => {
+                    agent.startGenerationWorkflow('resume_generation').catch(error => {
                         logger.error('Error resuming code generation:', error);
                         sendError(connection, `Error resuming generation: ${error instanceof Error ? error.message : String(error)}`);
                     });
-                    agent.trackBackgroundTask('resume_generation', resumeTask);
                 } else {
                     // sendToConnection(connection, WebSocketMessageResponses.GENERATION_STARTED, {
                     //     message: 'Code generation is already in progress'
@@ -133,7 +109,7 @@ export function handleWebSocketMessage(
                     imageCount: parsedMessage.images?.length || 0
                 });
 
-                if (agent.getBehavior().isCodeGenerating() || agent.getBehavior().isDeepDebugging()) {
+                if (agent.getBehavior().isCodeGenerating() || agent.getBehavior().isDeepDebugging() || agent.state.shouldBeGenerating) {
                     sendError(connection, 'A task is still running. Please stop it or wait for it to finish before sending another message.');
                     return;
                 }
@@ -163,7 +139,7 @@ export function handleWebSocketMessage(
                 }
                 
                 agent
-                    .handleUserInput(
+                    .startUserInputWorkflow(
                         typeof parsedMessage.message === 'string' ? parsedMessage.message : '',
                         parsedMessage.images,
                     )

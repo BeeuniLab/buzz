@@ -35,6 +35,7 @@ declare namespace Cloudflare {
 		Sandbox: DurableObjectNamespace<import("./worker/index").UserAppSandboxService>;
 		DORateLimitStore: DurableObjectNamespace<import("./worker/index").DORateLimitStore>;
 		UserSecretsStore: DurableObjectNamespace<import("./worker/index").UserSecretsStore>;
+		CODE_GENERATION_WORKFLOW: Workflow<import("./worker/agents/workflows/codeGenerationWorkflow").CodeGenerationWorkflowParams>;
 		TEMPLATES_BUCKET: R2Bucket;
 		DB: D1Database;
 		DISPATCHER: DispatchNamespace;

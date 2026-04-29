@@ -91,6 +91,13 @@
             }
 		]
 	},
+    "workflows": [
+        {
+            "binding": "CODE_GENERATION_WORKFLOW",
+            "name": "code-generation-workflow",
+            "class_name": "CodeGenerationWorkflow"
+        }
+    ],
     "r2_buckets": [
       {
         "binding": "TEMPLATES_BUCKET",

@@ -51,6 +51,12 @@ import { isDev } from 'worker/utils/envs';
 import { InMemoryAnalyzer } from '../../../services/static-analysis';
 import { getTemplateDetails as fetchTemplateDetails, listTemplates } from '../../../services/templates/templateCatalog';
 
+type UserInputAttachment = ImageAttachment | ProcessedImageAttachment;
+
+function isProcessedAttachment(attachment: UserInputAttachment): attachment is ProcessedImageAttachment {
+    return 'r2Key' in attachment && typeof attachment.r2Key === 'string';
+}
+
 
 export interface BaseCodingOperations {
     regenerateFile: FileRegenerationOperation;
@@ -273,6 +279,23 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
         return this.deploymentManager.getClient();
     }
 
+    protected async prepareUserInputAssets(images?: UserInputAttachment[]): Promise<ProcessedImageAttachment[]> {
+        if (!images || images.length === 0) return [];
+
+        const processed = images.filter(isProcessedAttachment);
+        const rawImages = images.filter((image): image is ImageAttachment => !isProcessedAttachment(image));
+        const usedPaths = new Set<string>();
+        const agentId = this.getAgentId();
+        const newlyUploaded = await Promise.all(
+            rawImages.map(async (image, index) => {
+                const relativePath = uniqueAgentAssetRelativePath(image, index, usedPaths);
+                return uploadImageAsAgentAsset(this.env, agentId, image, relativePath);
+            }),
+        );
+
+        return [...processed, ...newlyUploaded];
+    }
+
     isCodeGenerating(): boolean {
         return this.generationPromise !== null;
     }
@@ -352,6 +375,7 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
         this.setState({
             ...this.state,
             activeAppTask: undefined,
+            activeWorkflow: undefined,
             lastUserStopAt: Date.now(),
         });
         await this.updatePersistedAppStatus('completed', 'user_stopped_task');
@@ -1824,7 +1848,7 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
      * Handle user input during conversational code generation
      * Processes user messages and updates pendingUserInputs state
      */
-    async handleUserInput(userMessage: string, images?: ImageAttachment[]): Promise<void> {
+    async handleUserInput(userMessage: string, images?: UserInputAttachment[]): Promise<void> {
         this.conversationProcessing = true;
         this.setActiveAppTask('conversation');
         try {
@@ -1848,17 +1872,12 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
             const conversationState = this.infrastructure.getConversationState();
             // If there are images, upload them and pass the URLs to the conversation processor
             let uploadedImages: ProcessedImageAttachment[] = [];
-            if (images) {
-                const usedPaths = new Set<string>();
-                const agentId = this.getAgentId();
-                uploadedImages = await Promise.all(
-                    images.map(async (image, index) => {
-                        const relativePath = uniqueAgentAssetRelativePath(image, index, usedPaths);
-                        return uploadImageAsAgentAsset(this.env, agentId, image, relativePath);
-                    }),
-                );
-
-                this.logger.info('Uploaded images', { uploadedImages });
+            if (images && images.length > 0) {
+                uploadedImages = await this.prepareUserInputAssets(images);
+                this.logger.info('Prepared user input media assets', {
+                    imageCount: uploadedImages.length,
+                    reusedAssetCount: images.filter(isProcessedAttachment).length,
+                });
                 try {
                     await this.syncAndCaptionUploadedAssets(uploadedImages);
                 } catch (err) {

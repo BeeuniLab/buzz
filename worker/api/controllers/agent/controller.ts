@@ -1,9 +1,8 @@
 import { WebSocketMessageResponses } from '../../../agents/constants';
 import { BaseController } from '../baseController';
 import { generateId } from '../../../utils/idGenerator';
-import { AgentState } from '../../../agents/core/state';
 import { BehaviorType, ProjectType } from '../../../agents/core/types';
-import { getAgentStub, getTemplateForQuery } from '../../../agents';
+import { getAgentStub } from '../../../agents';
 import {
     AgentConnectionData,
     AgentPreviewResponse,
@@ -22,8 +21,8 @@ import { getPreviewDomain } from 'worker/utils/urls';
 import { uploadImageAsAgentAsset } from 'worker/utils/images';
 import { uniqueAgentAssetRelativePath } from 'worker/utils/agentAssets';
 import { ProcessedImageAttachment } from 'worker/types/image-attachment';
-import { getTemplateImportantFiles } from 'worker/services/templates/utils';
 import { hasTicketParam } from '../../../middleware/auth/ticketAuth';
+import type { CodeGenerationWorkflowParams } from '../../../agents/workflows/codeGenerationWorkflow';
 
 const defaultCodeGenArgs: Partial<CodeGenArgs> = {
     language: 'typescript',
@@ -43,10 +42,18 @@ const resolveProjectType = (body: CodeGenArgs): ProjectType | 'auto' => {
     return body.projectType || 'auto';
 };
 
+const normalizeProjectType = (projectType: ProjectType | 'auto'): ProjectType =>
+    projectType === 'auto' ? 'app' : projectType;
+
 const buildPendingAppTitle = (query: string): string => {
     const normalized = query.replace(/\s+/g, ' ').trim();
     if (!normalized) return 'New App';
     return normalized.length > 100 ? `${normalized.slice(0, 97)}...` : normalized;
+};
+
+const stripBase64ForWorkflow = (attachment: ProcessedImageAttachment): ProcessedImageAttachment => {
+    const { base64Data: _base64Data, ...workflowAttachment } = attachment;
+    return workflowAttachment;
 };
 
 
@@ -167,8 +174,6 @@ export class CodingAgentController extends BaseController {
             });
             this.logger.info(`Creating project of type: ${projectType}`);
 
-            const { templateDetails, selection, projectType: finalProjectType } = await getTemplateForQuery(env, inferenceContext, query, projectType, body.images, this.logger, body.selectedTemplate);
-
             const websocketUrl = `${url.protocol === 'https:' ? 'wss:' : 'ws:'}//${url.host}/api/agent/${agentId}/ws`;
             const httpStatusUrl = `${url.origin}/api/agent/${agentId}`;
 
@@ -182,52 +187,65 @@ export class CodingAgentController extends BaseController {
                     }),
                 );
             }
+            const workflowImages = uploadedImages.map(stripBase64ForWorkflow);
 
-            writer.write({
-                message: 'Code generation started',
-                agentId: agentId,
+            const workflowProjectType = normalizeProjectType(projectType);
+            const workflowId = `create-${agentId}`;
+            const agentInstance = await getAgentStub(env, agentId, {
+                behaviorType,
+                projectType: workflowProjectType,
+            });
+
+            await agentInstance.prepareWorkflowProject({
+                agentId,
+                userId: user.id,
+                query,
+                hostname,
+                behaviorType,
+                projectType: workflowProjectType,
+                workflowId,
+                workflowKind: 'create_project',
+            });
+
+            const workflow = (env as Env & {
+                CODE_GENERATION_WORKFLOW?: Workflow<CodeGenerationWorkflowParams>;
+            }).CODE_GENERATION_WORKFLOW;
+            if (!workflow) {
+                throw new Error('CODE_GENERATION_WORKFLOW binding is not configured');
+            }
+
+            await workflow.create({
+                id: workflowId,
+                params: {
+                    kind: 'create_project',
+                    agentId,
+                    behaviorType,
+                    projectType: workflowProjectType,
+                    requestedProjectType: projectType,
+                    query,
+                    language: body.language || defaultCodeGenArgs.language,
+                    frameworks: body.frameworks || defaultCodeGenArgs.frameworks,
+                    hostname,
+                    inferenceContext,
+                    images: workflowImages,
+                    selectedTemplate: body.selectedTemplate,
+                },
+            });
+
+            await writer.write({
+                message: 'Code generation queued',
+                agentId,
                 websocketUrl,
                 httpStatusUrl,
                 behaviorType,
-                projectType: finalProjectType,
-                template: {
-                    name: templateDetails.name,
-                    files: getTemplateImportantFiles(templateDetails),
-                }
+                projectType: workflowProjectType,
+                workflowStarted: true,
+                workflowId,
             });
-            const agentInstance = await getAgentStub(env, agentId, { behaviorType, projectType: finalProjectType });
+            await writer.write("terminate");
+            await writer.close();
 
-            const baseInitArgs = {
-                query,
-                language: body.language || defaultCodeGenArgs.language,
-                frameworks: body.frameworks || defaultCodeGenArgs.frameworks,
-                hostname,
-                inferenceContext,
-                images: uploadedImages,
-                onBlueprintChunk: (chunk: string) => {
-                    writer.write({chunk});
-                },
-            } as const;
-
-            const initArgs = { ...baseInitArgs, templateInfo: { templateDetails, selection } }
-
-            const agentPromise = agentInstance.initialize(initArgs) as Promise<AgentState>;
-            agentPromise.then(async (_state: AgentState) => {
-                if (uploadedImages.length > 0) {
-                    await agentInstance.syncAndCaptionUploadedAssets(uploadedImages, inferenceContext);
-                }
-                writer.write("terminate");
-                writer.close();
-                this.logger.info(`Agent ${agentId} terminated successfully`);
-            }).catch((error: unknown) => {
-                this.logger.error(`Agent ${agentId} initialization failed`, error);
-                writer.write({
-                    error: error instanceof Error ? error.message : String(error),
-                });
-                writer.close();
-            });
-
-            this.logger.info(`Agent ${agentId} init launched successfully`);
+            this.logger.info(`Agent ${agentId} workflow launched successfully`, { workflowId });
             pendingAppForCleanup = null;
             
             return new Response(readable, {

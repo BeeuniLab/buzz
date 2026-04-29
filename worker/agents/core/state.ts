@@ -20,6 +20,15 @@ export interface ActiveAppTask {
     startedAt: number;
 }
 
+export interface ActiveWorkflowTask {
+    id: string;
+    kind: 'create_project' | 'generate_all' | 'resume_generation' | 'user_input';
+    status: 'queued' | 'running' | 'failed';
+    message?: string;
+    startedAt: number;
+    updatedAt: number;
+}
+
 export interface PhaseState extends PhaseConceptType {
     // deploymentNeeded: boolean;
     completed: boolean;
@@ -57,6 +66,7 @@ export interface BaseProjectState {
     // Generation control
     shouldBeGenerating: boolean;
     activeAppTask?: ActiveAppTask;
+    activeWorkflow?: ActiveWorkflowTask;
     lastUserStopAt?: number;
     
     // Common file storage

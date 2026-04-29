@@ -68,6 +68,9 @@ const getRestoredAppStatus = (state: AgentState): 'generating' | 'completed' =>
 const isRestoredBuildPaused = (state: AgentState): boolean =>
 	!isStateActivelyGenerating(state) && !state.mvpGenerated;
 
+const hasMeaningfulBlueprint = (state: AgentState): boolean =>
+	Boolean(state.blueprint && Object.keys(state.blueprint).length > 0);
+
 export interface HandleMessageDeps {
     // State setters
     setFiles: React.Dispatch<React.SetStateAction<FileType[]>>;
@@ -268,7 +271,7 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
                         logger.debug('🔄 Restored projectType from backend:', restoredProjectType);
                     }
 
-                    if (state.blueprint && !blueprint) {
+                    if (hasMeaningfulBlueprint(state) && !blueprint) {
                         setBlueprint(state.blueprint);
                         updateStage('blueprint', { status: 'completed' });
                     }
@@ -375,7 +378,7 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
                     
                     updateStage('bootstrap', { status: 'completed' });
                     
-                    if (state.blueprint) {
+                    if (hasMeaningfulBlueprint(state)) {
                         updateStage('blueprint', { status: 'completed' });
                     }
                     
@@ -1042,6 +1045,7 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
                 if (!blueprintParser) {
                     blueprintParser = createRepairingJSONParser();
                     logger.debug('Blueprint streaming started');
+                    updateStage('blueprint', { status: 'active' });
                 }
 
                 // Feed chunk to parser
@@ -1051,6 +1055,8 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
                 try {
                     const partial = blueprintParser.finalize();
                     setBlueprint(partial);
+                    updateStage('bootstrap', { status: 'completed' });
+                    updateStage('blueprint', { status: 'completed' });
                     logger.debug('Blueprint chunk processed, partial blueprint updated');
                 } catch (e) {
                     logger.debug('Blueprint chunk accumulated, waiting for more data');

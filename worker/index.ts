@@ -13,6 +13,7 @@ import { getAgentStub } from './agents';
 // Durable Object and Service exports
 export { UserAppSandboxService } from './services/sandbox/sandboxSdkClient';
 export { CodeGeneratorAgent } from './agents/core/codingAgent';
+export { CodeGenerationWorkflow } from './agents/workflows/codeGenerationWorkflow';
 export { UserSecretsStore } from './services/secrets/UserSecretsStore';
 
 // export const CodeGeneratorAgent = Sentry.instrumentDurableObjectWithSentry(sentryOptions, CodeGeneratorAgent);

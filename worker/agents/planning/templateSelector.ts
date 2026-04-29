@@ -11,16 +11,29 @@ import { InferenceContext } from '../inferutils/config.types';
 import { RateLimitExceededError, SecurityError } from 'shared/types/errors';
 import { TemplateSelection, TemplateSelectionSchema, ProjectTypePredictionSchema } from '../../agents/schemas';
 import { generateSecureToken } from 'worker/utils/cryptoUtils';
-import type { ImageAttachment } from '../../types/image-attachment';
+import type { ImageAttachment, ProcessedImageAttachment } from '../../types/image-attachment';
+import { imagesToBase64 } from 'worker/utils/images';
 import { ProjectType } from '../core/types';
 
 const logger = createLogger('TemplateSelector');
+type TemplateSelectionAttachment = ImageAttachment | ProcessedImageAttachment;
+
+function isProcessedAttachment(attachment: TemplateSelectionAttachment): attachment is ProcessedImageAttachment {
+	return 'r2Key' in attachment && typeof attachment.r2Key === 'string';
+}
+
+function getAttachmentName(attachment: TemplateSelectionAttachment): string {
+	if (attachment.filename) return attachment.filename;
+	if (isProcessedAttachment(attachment)) return attachment.r2Key.split('/').pop() || 'attachment';
+	return 'attachment';
+}
 
 /** Vision only for image/*; audio/video as filename hints (same pattern as chat). */
-function buildTemplateSelectionUserMessage(
+async function buildTemplateSelectionUserMessage(
+	env: Env,
 	userPrompt: string,
-	images: ImageAttachment[] | undefined,
-): Message {
+	images: TemplateSelectionAttachment[] | undefined,
+): Promise<Message> {
 	if (!images?.length) {
 		return createUserMessage(userPrompt);
 	}
@@ -28,15 +41,27 @@ function buildTemplateSelectionUserMessage(
 	const nonImage = images.filter((a) => !a.mimeType.startsWith('image/'));
 	let text = userPrompt;
 	if (nonImage.length > 0) {
-		const lines = nonImage.map((f) => `${f.filename} (${f.mimeType})`).join('; ');
+		const lines = nonImage.map((f) => `${getAttachmentName(f)} (${f.mimeType})`).join('; ');
 		text += `\n\n**Note:** User also attached non-image file(s) (not sent as vision): ${lines}. Infer intent from names, types, and the text request.`;
 	}
 	if (imageAttachments.length === 0) {
 		return createUserMessage(text);
 	}
+
+	const rawImages = imageAttachments.filter((img): img is ImageAttachment => !isProcessedAttachment(img));
+	const processedImages = imageAttachments.filter(isProcessedAttachment);
+	const imageDataUrls = [
+		...rawImages.map((img) => `data:${img.mimeType};base64,${img.base64Data}`),
+		...(processedImages.length > 0 ? await imagesToBase64(env, processedImages) : []),
+	];
+
+	if (imageDataUrls.length === 0) {
+		return createUserMessage(text);
+	}
+
 	return createMultiModalUserMessage(
 		text,
-		imageAttachments.map((img) => `data:${img.mimeType};base64,${img.base64Data}`),
+		imageDataUrls,
 		'high',
 	);
 }
@@ -47,7 +72,7 @@ interface SelectTemplateArgs {
     projectType?: ProjectType | 'auto';
     availableTemplates: TemplateInfo[];
     inferenceContext: InferenceContext;
-    images?: ImageAttachment[];
+    images?: TemplateSelectionAttachment[];
 }
 
 /**
@@ -57,7 +82,7 @@ async function predictProjectType(
     env: Env,
     query: string,
     inferenceContext: InferenceContext,
-    images?: ImageAttachment[]
+    images?: TemplateSelectionAttachment[]
 ): Promise<ProjectType> {
     try {
         logger.info('Predicting project type from query', { queryLength: query.length });
@@ -106,7 +131,7 @@ async function predictProjectType(
 
 Analyze the request carefully and classify accordingly.`;
 
-        const userMessage = buildTemplateSelectionUserMessage(userPrompt, images);
+        const userMessage = await buildTemplateSelectionUserMessage(env, userPrompt, images);
 
         const messages = [
             createSystemMessage(systemPrompt),
@@ -314,7 +339,7 @@ ${images && images.length > 0 ? `\n**Note:** User provided reference attachment(
 
 ENTROPY SEED: ${generateSecureToken(64)} - for unique results`;
 
-        const userMessage = buildTemplateSelectionUserMessage(userPrompt, images);
+        const userMessage = await buildTemplateSelectionUserMessage(env, userPrompt, images);
 
         const messages = [
             createSystemMessage(systemPrompt),
