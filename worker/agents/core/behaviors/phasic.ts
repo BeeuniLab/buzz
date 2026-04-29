@@ -21,6 +21,7 @@ import { RateLimitExceededError } from 'shared/types/errors';
 import {  ImageAttachment, toInitialUserAttachment, type ProcessedImageAttachment } from '../../../types/image-attachment';
 import { OperationOptions } from '../../operations/common';
 import { ConversationMessage } from '../../inferutils/common';
+import { AbortError } from '../../inferutils/core';
 import { generateNanoId } from 'worker/utils/idGenerator';
 import { IdGenerator } from '../../utils/idGenerator';
 import { BaseCodingBehavior, BaseCodingOperations } from './base';
@@ -332,6 +333,9 @@ export class PhasicCodingBehavior extends BaseCodingBehavior<PhasicState> implem
 
             this.logger.info("State machine completed successfully");
         } catch (error) {
+            if (error instanceof AbortError) {
+                throw error;
+            }
             this.logger.error("Error in state machine:", error);
         }
     }
@@ -391,6 +395,9 @@ export class PhasicCodingBehavior extends BaseCodingBehavior<PhasicState> implem
                 userContext: userContext,
             };
         } catch (error) {
+            if (error instanceof AbortError) {
+                throw error;
+            }
             if (error instanceof RateLimitExceededError) {
                 throw error;
             }
@@ -440,6 +447,9 @@ export class PhasicCodingBehavior extends BaseCodingBehavior<PhasicState> implem
             return {currentDevState: CurrentDevState.PHASE_GENERATING};
         } catch (error) {
             this.logger.error("Error implementing phase", error);
+            if (error instanceof AbortError) {
+                throw error;
+            }
             if (error instanceof RateLimitExceededError) {
                 throw error;
             }

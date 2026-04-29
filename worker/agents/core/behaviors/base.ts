@@ -27,6 +27,7 @@ import { looksLikeCommand, validateAndCleanBootstrapCommands } from '../../utils
 import { customizeTemplateFiles, generateBootstrapScript } from '../../utils/templateCustomizer';
 import { AppService } from '../../../database';
 import { RateLimitExceededError } from 'shared/types/errors';
+import { AbortError } from '../../inferutils/core';
 import { ImageAttachment, type ProcessedImageAttachment } from '../../../types/image-attachment';
 import { OperationOptions } from '../../operations/common';
 import { uploadImageAsAgentAsset } from 'worker/utils/images';
@@ -73,6 +74,7 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
     protected pendingUserImages: ProcessedImageAttachment[] = []
     protected generationPromise: Promise<void> | null = null;
     protected currentAbortController?: AbortController;
+    protected currentGenerationCancelled = false;
     protected deepDebugPromise: Promise<{ transcript: string } | { error: string }> | null = null;
     protected deepDebugConversationId: string | null = null;
 
@@ -312,6 +314,7 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
     public cancelCurrentInference(): boolean {
         if (this.currentAbortController) {
             this.logger.info('Cancelling current inference operation');
+            this.currentGenerationCancelled = true;
             this.currentAbortController.abort();
             this.currentAbortController = undefined;
             return true;
@@ -454,6 +457,7 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
             this.logger.info("Code generation already in progress");
             return;
         }
+        this.currentGenerationCancelled = false;
         this.generationPromise = this.buildWrapper();
         await this.generationPromise;
     }
@@ -472,6 +476,8 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
     }
 
     private async buildWrapper() {
+        let completed = false;
+        let cancelled = false;
         this.broadcast(WebSocketMessageResponses.GENERATION_STARTED, {
             message: 'Starting code generation',
             totalFiles: this.getTotalFiles()
@@ -482,8 +488,15 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
         await this.ensureTemplateDetails();
         try {
             await this.build();
+            completed = !this.currentGenerationCancelled;
         } catch (error) {
-            if (error instanceof RateLimitExceededError) {
+            if (this.currentGenerationCancelled || (
+                error instanceof AbortError &&
+                error.message.toLowerCase().includes('cancelled')
+            )) {
+                cancelled = true;
+                this.logger.info('Generation cancelled by user');
+            } else if (error instanceof RateLimitExceededError) {
                 this.logger.error("Error in state machine:", error);
                 this.broadcast(WebSocketMessageResponses.RATE_LIMIT_ERROR, { error });
             } else {
@@ -493,18 +506,23 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
             // Clear abort controller after generation completes
             this.clearAbortController();
             
-            const appService = new AppService(this.env);
-            await appService.updateApp(
-                this.getAgentId(),
-                {
-                    status: 'completed',
-                }
-            );
             this.generationPromise = null;
-            this.broadcast(WebSocketMessageResponses.GENERATION_COMPLETE, {
-                message: "Code generation and review process completed.",
-                instanceId: this.state.sessionId,
-            });
+
+            if (completed) {
+                const appService = new AppService(this.env);
+                await appService.updateApp(
+                    this.getAgentId(),
+                    {
+                        status: 'completed',
+                    }
+                );
+                this.broadcast(WebSocketMessageResponses.GENERATION_COMPLETE, {
+                    message: "Code generation and review process completed.",
+                    instanceId: this.state.sessionId,
+                });
+            } else if (cancelled) {
+                this.logger.info('Generation stopped before completion; leaving app status as generating for resume.');
+            }
         }
     }
     

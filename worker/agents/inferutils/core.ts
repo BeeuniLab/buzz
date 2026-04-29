@@ -519,6 +519,15 @@ function extractResponseToolCalls(response: Response): ChatCompletionMessageFunc
         .filter((item): item is ChatCompletionMessageFunctionToolCall => Boolean(item));
 }
 
+function isAbortLikeError(error: unknown): boolean {
+    if (!(error instanceof Error)) {
+        return false;
+    }
+    return error.name === 'AbortError'
+        || error.message?.includes('aborted')
+        || error.message?.includes('abort');
+}
+
 function hasValidProxyConfig(url: string | undefined, apiKey: string | undefined): boolean {
     return Boolean(url && isValidApiKey(apiKey || ''));
 }
@@ -1013,7 +1022,6 @@ export async function infer<OutputSchema extends z.AnyZodObject>({
                 store: false,
                 reasoning: modelConfig.nonReasoning || !reasoning_effort ? undefined : { effort: reasoning_effort },
                 parallel_tool_calls: tools ? true : undefined,
-                temperature,
             } as ResponseCreateParamsBase;
 
             response = await client.responses.create(responseParams, {
@@ -1030,7 +1038,7 @@ export async function infer<OutputSchema extends z.AnyZodObject>({
             console.log(`Inference response received`);
         } catch (error) {
             // Check if error is due to abort
-            if (error instanceof Error && (error.name === 'AbortError' || error.message?.includes('aborted') || error.message?.includes('abort'))) {
+            if (isAbortLikeError(error)) {
                 console.log('Inference cancelled by user');
                 throw new AbortError('**User cancelled inference**', toolCallContext);
             }
@@ -1067,67 +1075,75 @@ export async function infer<OutputSchema extends z.AnyZodObject>({
                     }
                 };
                 
-                for await (const event of response) {
-                    switch (event.type) {
-                        case 'response.output_text.delta':
-                            content += event.delta || '';
-                            flushStreamChunk();
-                            break;
-                        case 'response.output_text.done':
-                            if (!content && event.text) {
-                                content = event.text;
-                            }
-                            flushStreamChunk(true);
-                            break;
-                        case 'response.output_item.added':
-                        case 'response.output_item.done':
-                            if (isResponseFunctionToolCall(event.item)) {
-                                applyResponseFunctionCallItem(
+                try {
+                    for await (const event of response) {
+                        switch (event.type) {
+                            case 'response.output_text.delta':
+                                content += event.delta || '';
+                                flushStreamChunk();
+                                break;
+                            case 'response.output_text.done':
+                                if (!content && event.text) {
+                                    content = event.text;
+                                }
+                                flushStreamChunk(true);
+                                break;
+                            case 'response.output_item.added':
+                            case 'response.output_item.done':
+                                if (isResponseFunctionToolCall(event.item)) {
+                                    applyResponseFunctionCallItem(
+                                        byIndex,
+                                        byItemId,
+                                        event.item,
+                                        event.output_index,
+                                        orderCounterRef,
+                                    );
+                                } else if (event.type === 'response.output_item.done' && !content) {
+                                    content = extractOutputTextFromResponseItem(event.item);
+                                    flushStreamChunk(true);
+                                }
+                                break;
+                            case 'response.function_call_arguments.delta':
+                                appendResponseFunctionArguments(
                                     byIndex,
                                     byItemId,
-                                    event.item,
                                     event.output_index,
+                                    event.item_id,
+                                    event.delta,
                                     orderCounterRef,
                                 );
-                            } else if (event.type === 'response.output_item.done' && !content) {
-                                content = extractOutputTextFromResponseItem(event.item);
-                                flushStreamChunk(true);
-                            }
-                            break;
-                        case 'response.function_call_arguments.delta':
-                            appendResponseFunctionArguments(
-                                byIndex,
-                                byItemId,
-                                event.output_index,
-                                event.item_id,
-                                event.delta,
-                                orderCounterRef,
-                            );
-                            break;
-                        case 'response.function_call_arguments.done':
-                            setResponseFunctionArguments(
-                                byIndex,
-                                byItemId,
-                                event.output_index,
-                                event.item_id,
-                                event.arguments,
-                                orderCounterRef,
-                            );
-                            break;
-                        case 'response.completed':
-                            completedResponse = event.response;
-                            break;
-                        case 'response.failed':
-                            throw new Error(`Responses API failed: ${event.response.error?.message ?? 'unknown error'}`);
-                        case 'response.incomplete':
-                            console.warn('Responses API returned incomplete response:', event.response.incomplete_details);
-                            completedResponse = event.response;
-                            break;
-                        case 'error':
-                            throw new Error(`Responses API stream error: ${event.message}`);
-                        default:
-                            break;
+                                break;
+                            case 'response.function_call_arguments.done':
+                                setResponseFunctionArguments(
+                                    byIndex,
+                                    byItemId,
+                                    event.output_index,
+                                    event.item_id,
+                                    event.arguments,
+                                    orderCounterRef,
+                                );
+                                break;
+                            case 'response.completed':
+                                completedResponse = event.response;
+                                break;
+                            case 'response.failed':
+                                throw new Error(`Responses API failed: ${event.response.error?.message ?? 'unknown error'}`);
+                            case 'response.incomplete':
+                                console.warn('Responses API returned incomplete response:', event.response.incomplete_details);
+                                completedResponse = event.response;
+                                break;
+                            case 'error':
+                                throw new Error(`Responses API stream error: ${event.message}`);
+                            default:
+                                break;
+                        }
                     }
+                } catch (error) {
+                    if (abortSignal?.aborted || isAbortLikeError(error)) {
+                        console.log('Inference stream cancelled by user');
+                        throw new AbortError('**User cancelled inference**', toolCallContext);
+                    }
+                    throw error;
                 }
 
                 if (!content && completedResponse) {

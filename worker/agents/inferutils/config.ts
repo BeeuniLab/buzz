@@ -31,7 +31,7 @@ const COMMON_AGENT_CONFIGS = {
     },
     realtimeCodeFixer: {
         name: PRIMARY_AGENT_MODEL,
-        reasoning_effort: 'low' as const,
+        reasoning_effort: 'medium' as const,
         max_tokens: 32000,
         temperature: 0.2,
         fallbackModel: FALLBACK_AGENT_MODEL,
@@ -53,7 +53,7 @@ const COMMON_AGENT_CONFIGS = {
 
 const SHARED_IMPLEMENTATION_CONFIG = {
     name: PRIMARY_AGENT_MODEL,
-    reasoning_effort: 'low' as const,
+    reasoning_effort: 'medium' as const,
     max_tokens: 48000,
     temperature: 1,
     fallbackModel: FALLBACK_AGENT_MODEL,
@@ -98,7 +98,7 @@ const PLATFORM_AGENT_CONFIG: AgentConfig = {
     },
     conversationalResponse: {
         name: PRIMARY_AGENT_MODEL,
-        reasoning_effort: 'low',
+        reasoning_effort: 'medium',
         max_tokens: 4000,
         temperature: 1,
         fallbackModel: FALLBACK_AGENT_MODEL,
@@ -112,7 +112,7 @@ const PLATFORM_AGENT_CONFIG: AgentConfig = {
     },
     fileRegeneration: {
         name: PRIMARY_AGENT_MODEL,
-        reasoning_effort: 'low',
+        reasoning_effort: 'medium',
         max_tokens: 16000,
         temperature: 0.0,
         fallbackModel: FALLBACK_AGENT_MODEL,
@@ -126,9 +126,7 @@ const PLATFORM_AGENT_CONFIG: AgentConfig = {
     },
     assetMediaCaption: {
         name: ASSET_MEDIA_CAPTION_MODEL,
-        reasoning_effort: 'low',
         max_tokens: 512,
-        temperature: 0,
         fallbackModel: ASSET_MEDIA_CAPTION_MODEL,
     },
 };
@@ -153,14 +151,14 @@ const DEFAULT_AGENT_CONFIG: AgentConfig = {
     },
     projectSetup: {
         name: PRIMARY_AGENT_MODEL,
-        reasoning_effort: 'low',
+        reasoning_effort: 'medium',
         max_tokens: 48000,
         temperature: 1,
         fallbackModel: FALLBACK_AGENT_MODEL,
     },
     phaseGeneration: {
         name: PRIMARY_AGENT_MODEL,
-        reasoning_effort: 'low',
+        reasoning_effort: 'medium',
         max_tokens: 48000,
         temperature: 1,
         fallbackModel: FALLBACK_AGENT_MODEL,
@@ -173,7 +171,7 @@ const DEFAULT_AGENT_CONFIG: AgentConfig = {
     },
     conversationalResponse: {
         name: PRIMARY_AGENT_MODEL,
-        reasoning_effort: 'low',
+        reasoning_effort: 'medium',
         max_tokens: 4000,
         temperature: 0,
         fallbackModel: FALLBACK_AGENT_MODEL,
@@ -187,7 +185,7 @@ const DEFAULT_AGENT_CONFIG: AgentConfig = {
     },
     fileRegeneration: {
         name: PRIMARY_AGENT_MODEL,
-        reasoning_effort: 'low',
+        reasoning_effort: 'medium',
         max_tokens: 32000,
         temperature: 1,
         fallbackModel: FALLBACK_AGENT_MODEL,
@@ -201,9 +199,7 @@ const DEFAULT_AGENT_CONFIG: AgentConfig = {
     },
     assetMediaCaption: {
         name: ASSET_MEDIA_CAPTION_MODEL,
-        reasoning_effort: 'low',
         max_tokens: 512,
-        temperature: 0,
         fallbackModel: ASSET_MEDIA_CAPTION_MODEL,
     },
 };

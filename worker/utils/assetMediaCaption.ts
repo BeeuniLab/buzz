@@ -145,7 +145,6 @@ export async function generateAssetMediaCaption(
 		body: JSON.stringify({
 			model: ASSET_CAPTION_MODEL,
 			messages: [{ role: 'user', content }],
-			temperature: 0,
 		}),
 		signal: inferenceContext.abortSignal,
 	});
