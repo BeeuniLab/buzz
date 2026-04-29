@@ -320,6 +320,7 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
             this.isDeepDebugging() ||
             this.isConversationProcessing() ||
             this.hasActivePersistedAppTask() ||
+            Boolean(this.state.activeWorkflow && this.state.activeWorkflow.status !== 'failed') ||
             this.state.shouldBeGenerating
         ) {
             return 'generating';

@@ -49,18 +49,40 @@ const getFreshActiveTask = (state: AgentState) => {
 	return isFresh ? state.activeAppTask : undefined;
 };
 
+const getFreshActiveWorkflow = (state: AgentState) => {
+	const workflow = state.activeWorkflow;
+	const updatedAt = workflow?.updatedAt ?? workflow?.startedAt;
+	const isFresh =
+		!state.lastUserStopAt &&
+		workflow?.status !== 'failed' &&
+		typeof updatedAt === 'number' &&
+		Date.now() - updatedAt < ACTIVE_APP_TASK_STALE_MS;
+
+	return isFresh ? workflow : undefined;
+};
+
 const isStateActivelyGenerating = (state: AgentState): boolean => {
 	const freshActiveTask = getFreshActiveTask(state);
-	return !state.lastUserStopAt && (state.shouldBeGenerating === true || Boolean(freshActiveTask));
+	const freshActiveWorkflow = getFreshActiveWorkflow(state);
+	return !state.lastUserStopAt && (
+		state.shouldBeGenerating === true ||
+		Boolean(freshActiveTask) ||
+		Boolean(freshActiveWorkflow)
+	);
 };
 
 const shouldRestoreCodeGeneration = (state: AgentState): boolean => {
 	const freshActiveTask = getFreshActiveTask(state);
+	const freshActiveWorkflow = getFreshActiveWorkflow(state);
 	return !state.lastUserStopAt && (
 		state.shouldBeGenerating === true ||
-		freshActiveTask?.type === 'generation'
+		freshActiveTask?.type === 'generation' ||
+		Boolean(freshActiveWorkflow)
 	);
 };
+
+const shouldRequestGenerationResume = (state: AgentState): boolean =>
+	!getFreshActiveWorkflow(state) && state.shouldBeGenerating === true;
 
 const getRestoredAppStatus = (state: AgentState): 'generating' | 'completed' =>
 	isStateActivelyGenerating(state) ? 'generating' : 'completed';
@@ -407,10 +429,10 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
                     setIsInitialStateRestored(true);
                     
                     if (shouldRestoreCodeGeneration(state) && !isGenerating) {
-                        logger.debug('🔄 Reconnected with shouldBeGenerating=true, auto-resuming generation');
+                        logger.debug('🔄 Reconnected with active generation intent, restoring generation UI');
                         setIsGenerating(true); 
                         updateStage('code', { status: 'active' });
-                        if (state.shouldBeGenerating) {
+                        if (shouldRequestGenerationResume(state)) {
                             sendWebSocketMessage(websocket, 'generate_all');
                         }
                     }
@@ -456,7 +478,7 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
                 setIsGenerationPaused(isRestoredBuildPaused(state));
 
                 if (shouldRestoreCodeGeneration(state) && !isGenerating) {
-                    logger.debug('🔄 shouldBeGenerating=true, updating UI to active state');
+                    logger.debug('🔄 Active generation intent detected, updating UI to active state');
                     updateStage('code', { status: 'active' });
                 } else if (!isStateActivelyGenerating(state)) {
                     const codeStage = projectStages.find((stage) => stage.id === 'code');
@@ -1036,6 +1058,22 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
                     appEvents.emitAppUpdated(deps.urlChatId, {
                         status: isProcessing ? 'generating' : 'completed',
                     });
+                }
+                break;
+            }
+
+            case 'server_log': {
+                onDebugMessage?.(
+                    message.level === 'error' ? 'error' : message.level === 'warn' ? 'warning' : 'info',
+                    message.message,
+                    message.source,
+                    'Server',
+                    'server_log',
+                    message,
+                );
+
+                if (message.source === 'workflow' && message.level !== 'debug') {
+                    sendMessage(createAIMessage(`conv-workflow-${message.timestamp}`, message.message));
                 }
                 break;
             }

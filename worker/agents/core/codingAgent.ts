@@ -56,6 +56,9 @@ const stripBase64FromProcessedAttachment = (attachment: ProcessedImageAttachment
     return workflowAttachment;
 };
 
+const isWorkflowTerminalStatus = (status: string | undefined): boolean =>
+    status === 'complete' || status === 'errored' || status === 'terminated';
+
 const isBehaviorType = (value: unknown): value is BehaviorType =>
     value === 'phasic' || value === 'agentic';
 
@@ -345,6 +348,10 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
         const now = Date.now();
         const existing = this.state.activeWorkflow;
         const shouldClear = args.status === 'completed';
+        const wasStopped = shouldClear && Boolean(this.state.lastUserStopAt);
+        const message = wasStopped
+            ? `Workflow ${args.kind} stopped`
+            : args.message;
 
         this.setState({
             ...this.state,
@@ -352,7 +359,7 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
                 id: args.workflowId,
                 kind: args.kind,
                 status: args.status,
-                message: args.message,
+                message,
                 startedAt: existing?.id === args.workflowId ? existing.startedAt : now,
                 updatedAt: now,
             },
@@ -361,9 +368,9 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
                 : this.state.shouldBeGenerating,
         } as AgentState);
 
-        this.logger().info('Workflow status updated', args);
+        this.logger().info('Workflow status updated', { ...args, message });
         this.broadcast(WebSocketMessageResponses.SERVER_LOG, {
-            message: args.message || `Workflow ${args.kind} ${args.status}`,
+            message: message || `Workflow ${args.kind} ${args.status}`,
             level: args.status === 'failed' ? 'error' : 'info',
             timestamp: now,
             source: 'workflow',
@@ -377,6 +384,75 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
         } else if (args.status === 'queued' || args.status === 'running') {
             await this.updateAppStatus('generating', `workflow_${args.kind}_${args.status}`);
         }
+    }
+
+    async stopActiveWorkflow(reason = 'user_stopped_generation'): Promise<boolean> {
+        const activeWorkflow = this.state.activeWorkflow;
+        if (!activeWorkflow?.id) {
+            this.logger().info('No active workflow to stop', { reason });
+            return false;
+        }
+
+        const workflow = this.getWorkflowBinding();
+        let terminated = false;
+        let status: string | undefined;
+
+        if (!workflow) {
+            this.logger().warn('Workflow binding missing while stopping active workflow', {
+                reason,
+                activeWorkflow,
+            });
+        } else {
+            try {
+                const instance = await workflow.get(activeWorkflow.id);
+                try {
+                    status = (await instance.status()).status;
+                } catch (statusError) {
+                    this.logger().warn('Unable to fetch workflow status before terminate', {
+                        workflowId: activeWorkflow.id,
+                        error: statusError instanceof Error ? statusError.message : String(statusError),
+                    });
+                }
+
+                if (!isWorkflowTerminalStatus(status)) {
+                    await instance.terminate();
+                    terminated = true;
+                }
+
+                this.logger().info('Stopped active workflow', {
+                    reason,
+                    workflowId: activeWorkflow.id,
+                    kind: activeWorkflow.kind,
+                    previousStatus: status,
+                    terminated,
+                });
+            } catch (error) {
+                this.logger().warn('Failed to terminate active workflow', {
+                    reason,
+                    workflowId: activeWorkflow.id,
+                    kind: activeWorkflow.kind,
+                    error: error instanceof Error ? error.message : String(error),
+                });
+            }
+        }
+
+        this.setState({
+            ...this.state,
+            activeWorkflow: undefined,
+            shouldBeGenerating: false,
+            lastUserStopAt: Date.now(),
+        });
+        await this.updateAppStatus('completed', reason);
+        this.broadcast(WebSocketMessageResponses.SERVER_LOG, {
+            message: terminated
+                ? `Stopped workflow ${activeWorkflow.kind}`
+                : `Cleared workflow ${activeWorkflow.kind}`,
+            level: terminated ? 'info' : 'warn',
+            timestamp: Date.now(),
+            source: 'workflow',
+        });
+
+        return terminated;
     }
 
     async prepareWorkflowProject(args: {
@@ -657,12 +733,14 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
         const isDebugging = this.behavior?.isDeepDebugging() ?? false;
         const isConversationProcessing = this.behavior?.isConversationProcessing() ?? false;
         const hasActivePersistedTask = this.behavior?.hasActivePersistedAppTask() ?? false;
+        const hasActiveWorkflow = Boolean(this.state.activeWorkflow && this.state.activeWorkflow.status !== 'failed');
 
         if (
             isGenerating ||
             isDebugging ||
             isConversationProcessing ||
             hasActivePersistedTask ||
+            hasActiveWorkflow ||
             this.state.shouldBeGenerating
         ) {
             return 'generating';
