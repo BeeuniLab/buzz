@@ -257,6 +257,24 @@ export function appendToolEvent(
                     }
                 };
             }
+
+            const existingSuccessIndex = current.findIndex(ev => ev.name === tool.name && ev.status === 'success');
+            if (existingSuccessIndex !== -1) {
+                return {
+                    ...m,
+                    ui: {
+                        ...m.ui,
+                        toolEvents: current.map((ev, j) =>
+                            j === existingSuccessIndex
+                                ? {
+                                    ...ev,
+                                    result: tool.result ?? ev.result,
+                                }
+                                : ev
+                        )
+                    }
+                };
+            }
             
             // No prior start found, just add success event with position
             return {
