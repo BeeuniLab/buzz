@@ -786,24 +786,18 @@ export function useChat({
 					deploymentTimeoutRef.current = null;
 				}
 
-				// Keep this above the backend's 5-minute deployment guard so durable workflows can finish.
+				// Workflow deployments are durable; this is only a reassurance nudge, not a failure timeout.
 				deploymentTimeoutRef.current = setTimeout(() => {
-					logger.warn('Deployment timeout after 6 minutes');
+					logger.warn('Deployment still running after 6 minutes');
 
-					// Reset deployment state
-					setIsDeploying(false);
-					setCloudflareDeploymentUrl('');
-					setIsRedeployReady(true);
-
-					toast.error('Playable update took too long', {
-						description: 'Please try again in a moment.',
+					toast.info('Playable update is still running', {
+						description: 'This is continuing in the background. You can leave and come back.',
 					});
 
-					// Debug logging for timeout
 					onDebugMessage?.('warning',
-						'Deployment Timeout',
-						`Deployment for ${instanceId} timed out after 6 minutes`,
-						'Deployment Timeout Management'
+						'Deployment Still Running',
+						`Deployment workflow for ${instanceId} is still running after 6 minutes`,
+						'Deployment Workflow'
 					);
 					deploymentTimeoutRef.current = null;
 				}, 6 * 60 * 1000);
