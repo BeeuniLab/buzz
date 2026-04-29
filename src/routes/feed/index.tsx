@@ -334,6 +334,14 @@ export default function FeedPage() {
 	};
 
 	const getShareUrl = () => currentApp ? `${window.location.origin}/feed/${currentApp.id}` : '';
+	const seoIntro = (
+		<div className="sr-only">
+			<h1>BuzzPlay interactive AI content feed</h1>
+			<p>
+				Create, play, remix, and share playable interactive AI content on BuzzPlay.
+			</p>
+		</div>
+	);
 
 	const handleCopyLink = () => {
 		navigator.clipboard.writeText(getShareUrl()).then(() => {
@@ -396,6 +404,7 @@ export default function FeedPage() {
 	if (loading) {
 		return (
 			<div className="h-full flex items-center justify-center bg-bg-1">
+				{seoIntro}
 				<Loader2 className="h-8 w-8 text-text-tertiary animate-spin" />
 			</div>
 		);
@@ -404,6 +413,7 @@ export default function FeedPage() {
 	if (apps.length === 0) {
 		return (
 			<div className="h-full flex items-center justify-center bg-bg-1">
+				{seoIntro}
 				<p className="text-text-tertiary">No apps to show</p>
 			</div>
 		);
@@ -531,6 +541,7 @@ export default function FeedPage() {
 		return (
 			<>
 				<div className="fixed inset-0 z-[60] bg-black flex flex-col">
+					{seoIntro}
 					{/* Game area */}
 					<div className="flex-1 min-h-0 relative overflow-hidden">
 						{scrollContent}
@@ -650,6 +661,7 @@ export default function FeedPage() {
 	// Desktop: phone frame with side action buttons
 	return (
 		<div className="h-full flex items-center justify-center bg-bg-1 overflow-hidden">
+			{seoIntro}
 			<div className="relative flex items-end gap-4">
 				<div className="relative h-[calc(100vh-64px)] aspect-[9/16] rounded-2xl overflow-hidden shadow-2xl border border-border-primary bg-black">
 					{scrollContent}

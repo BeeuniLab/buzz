@@ -7,6 +7,7 @@ import React, { createContext, useContext, useState, useCallback, useEffect } fr
 import { LoginModal } from './login-modal';
 import { useAuth } from '../../contexts/auth-context';
 import { setGlobalAuthModalTrigger } from '../../lib/api-client';
+import { useLocation } from 'react-router';
 
 interface AuthModalContextType {
   showAuthModal: (context?: string, onSuccess?: () => void, intendedUrl?: string) => void;
@@ -29,6 +30,7 @@ interface AuthModalProviderProps {
 }
 
 export function AuthModalProvider({ children }: AuthModalProviderProps) {
+  const { pathname } = useLocation();
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [modalContext, setModalContext] = useState<string | undefined>();
   const [pendingAction, setPendingAction] = useState<(() => void) | undefined>();
@@ -74,10 +76,16 @@ export function AuthModalProvider({ children }: AuthModalProviderProps) {
     setGlobalAuthModalTrigger(showAuthModal);
   }, [showAuthModal]);
 
-  // Auto-show login modal for unauthenticated users on initial page load only
+  // Auto-show login modal for unauthenticated users on private entry points only.
   // Uses a ref to track the resolved auth state and a brief delay to avoid
   // flashing on OAuth redirects where the cookie is set but profile hasn't loaded
   const authResolvedRef = React.useRef(false);
+  const suppressAutoAuthModal =
+    pathname === '/' ||
+    pathname.startsWith('/feed') ||
+    pathname.startsWith('/discover') ||
+    pathname.startsWith('/profile') ||
+    pathname.startsWith('/build');
 
   useEffect(() => {
     if (isLoading) return;
@@ -85,10 +93,11 @@ export function AuthModalProvider({ children }: AuthModalProviderProps) {
       authResolvedRef.current = true;
       return;
     }
+    if (suppressAutoAuthModal) return;
     if (authResolvedRef.current) return;
     authResolvedRef.current = true;
     showAuthModal();
-  }, [isLoading, isAuthenticated, showAuthModal]);
+  }, [isLoading, isAuthenticated, showAuthModal, suppressAutoAuthModal]);
 
   const value: AuthModalContextType = {
     showAuthModal,

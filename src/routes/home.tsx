@@ -336,11 +336,11 @@ export default function Home() {
 					<div className="w-full mb-6 flex flex-col items-center">
 						<div className="bg-neo-yellow border-3 border-[var(--neo-border-color)] rounded-2xl px-6 py-3 shadow-[6px_6px_0px_0px_var(--neo-border-color)] mb-3 inline-block">
 							<h1 className="text-3xl sm:text-4xl font-black text-[#1a1a1a] tracking-tight text-center leading-tight">
-								What should we create?
+								Create interactive AI content with BuzzPlay
 							</h1>
 						</div>
 						<p className="text-text-secondary font-bold text-sm tracking-wide">
-							Games, stories, art, music — if you can imagine it, let's build it
+							Turn an idea, meme, or character into a playable post you can share
 						</p>
 					</div>
 
