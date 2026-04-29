@@ -142,17 +142,15 @@ function AppMenuItem({
 								<Loader2 className="h-3 w-3 animate-spin text-accent flex-shrink-0" />
 							)}
 
-							<div className="relative flex-1 min-w-0 overflow-hidden">
-								<span className="font-medium flex justify-start  items-center  gap-2 text-text-primary/80 whitespace-nowrap">
-									<span className="text-ellipsis w-fit overflow-hidden">
+							<div className="flex-1 min-w-0 overflow-hidden">
+								<span className="font-medium flex justify-start items-center gap-2 text-text-primary/80 whitespace-nowrap">
+									<span className="min-w-0 flex-1 truncate">
 										{app.title}{' '}
 									</span>
 									<div className="flex-shrink-0 min-w-6">
 										{getVisibilityIcon(app.visibility)}
 									</div>
 								</span>
-
-								<div className="absolute inset-y-0 right-0 w-4 bg-gradient-to-l from-bg-2 to-transparent pointer-events-none" />
 							</div>
 						</div>
 						<p className="text-xs text-text-tertiary truncate">
