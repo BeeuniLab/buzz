@@ -5,12 +5,12 @@
  * independent from the main GPT-5.5 coding proxy.
  */
 
-import type { InferenceContext } from '../agents/inferutils/config.types';
+import { AIModels, type InferenceContext } from '../agents/inferutils/config.types';
 import type { ProcessedImageAttachment } from '../types/image-attachment';
 import { MAX_IMAGE_SIZE_BYTES } from '../types/image-attachment';
 
 const VERCEL_AI_GATEWAY_CHAT_COMPLETIONS_URL = 'https://ai-gateway.vercel.sh/v1/chat/completions';
-const ASSET_CAPTION_MODEL = 'google/gemini-3.1-flash-lite-preview';
+const ASSET_CAPTION_MODEL = AIModels.GEMINI_3_1_FLASH_LITE_PREVIEW;
 const CAPTION_PROMPT =
 	'Write one src/asset_map description for the attached user asset. '
 	+ 'Match the examples: short subject sentence, then "Use as ..." with concrete gameplay roles. '

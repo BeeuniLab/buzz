@@ -8,8 +8,17 @@ import { env } from 'cloudflare:workers';
 
 const PRIMARY_AGENT_MODEL = AIModels.OPENAI_5_5;
 const FALLBACK_AGENT_MODEL = AIModels.OPENAI_5_5;
+const BLUEPRINT_AGENT_MODEL = AIModels.OPENAI_5_4_MINI;
+const ASSET_MEDIA_CAPTION_MODEL = AIModels.GEMINI_3_1_FLASH_LITE_PREVIEW;
 const gpt55Only = (): Set<AIModels> => new Set([AIModels.OPENAI_5_5]);
 const gpt55OrDisabled = (): Set<AIModels> => new Set([AIModels.DISABLED, AIModels.OPENAI_5_5]);
+const blueprintAllowedModels = (): Set<AIModels> => new Set([
+    AIModels.OPENAI_5_4_MINI,
+    AIModels.OPENAI_5_5,
+]);
+const assetMediaCaptionAllowedModels = (): Set<AIModels> => new Set([
+    AIModels.GEMINI_3_1_FLASH_LITE_PREVIEW,
+]);
 
 // Common configs - these are good defaults
 const COMMON_AGENT_CONFIGS = {
@@ -61,10 +70,10 @@ Cloudflare AI Gateway unified billing for seamless model access without managing
 const PLATFORM_AGENT_CONFIG: AgentConfig = {
     ...COMMON_AGENT_CONFIGS,
     blueprint: {
-        name: PRIMARY_AGENT_MODEL,
+        name: BLUEPRINT_AGENT_MODEL,
         reasoning_effort: 'high',
         max_tokens: 20000,
-        fallbackModel: FALLBACK_AGENT_MODEL,
+        fallbackModel: BLUEPRINT_AGENT_MODEL,
         temperature: 1.0,
     },
     projectSetup: {
@@ -116,11 +125,11 @@ const PLATFORM_AGENT_CONFIG: AgentConfig = {
         fallbackModel: FALLBACK_AGENT_MODEL,
     },
     assetMediaCaption: {
-        name: PRIMARY_AGENT_MODEL,
+        name: ASSET_MEDIA_CAPTION_MODEL,
         reasoning_effort: 'low',
         max_tokens: 512,
         temperature: 0,
-        fallbackModel: FALLBACK_AGENT_MODEL,
+        fallbackModel: ASSET_MEDIA_CAPTION_MODEL,
     },
 };
 
@@ -136,10 +145,10 @@ const DEFAULT_AGENT_CONFIG: AgentConfig = {
         temperature: 0.6,
     },
     blueprint: {
-        name: PRIMARY_AGENT_MODEL,
+        name: BLUEPRINT_AGENT_MODEL,
         reasoning_effort: 'high',
         max_tokens: 64000,
-        fallbackModel: FALLBACK_AGENT_MODEL,
+        fallbackModel: BLUEPRINT_AGENT_MODEL,
         temperature: 1,
     },
     projectSetup: {
@@ -191,11 +200,11 @@ const DEFAULT_AGENT_CONFIG: AgentConfig = {
         fallbackModel: FALLBACK_AGENT_MODEL,
     },
     assetMediaCaption: {
-        name: PRIMARY_AGENT_MODEL,
+        name: ASSET_MEDIA_CAPTION_MODEL,
         reasoning_effort: 'low',
         max_tokens: 512,
         temperature: 0,
-        fallbackModel: FALLBACK_AGENT_MODEL,
+        fallbackModel: ASSET_MEDIA_CAPTION_MODEL,
     },
 };
 
@@ -210,7 +219,7 @@ export const AGENT_CONSTRAINTS: Map<AgentActionKey, AgentConstraintConfig> = new
 		enabled: true,
 	}],
 	['blueprint', {
-		allowedModels: gpt55Only(),
+		allowedModels: blueprintAllowedModels(),
 		enabled: true,
 	}],
 	['projectSetup', {
@@ -258,7 +267,7 @@ export const AGENT_CONSTRAINTS: Map<AgentActionKey, AgentConstraintConfig> = new
 		enabled: true,
 	}],
 	['assetMediaCaption', {
-		allowedModels: gpt55Only(),
+		allowedModels: assetMediaCaptionAllowedModels(),
 		enabled: true,
 	}],
 ]);

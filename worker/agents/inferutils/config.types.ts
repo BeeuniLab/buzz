@@ -208,6 +208,16 @@ const MODELS_MASTER = {
             contextSize: 400000,
         }
     },
+    OPENAI_5_4_MINI: {
+        id: 'openai/gpt-5.4-mini',
+        config: {
+            name: 'GPT-5.4 Mini',
+            size: ModelSize.LITE,
+            provider: 'openai',
+            creditCost: 1,
+            contextSize: 400000,
+        }
+    },
     OPENAI_5_5: {
         id: 'openai/gpt-5.5',
         config: {
