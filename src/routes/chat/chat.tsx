@@ -391,11 +391,15 @@ export default function Chat() {
 	const canUpdatePlayable = Boolean(
 		chatId &&
 		previewAvailable &&
+		!isBootstrapping &&
+		!isThinking &&
 		!isGenerating &&
 		!isGeneratingBlueprint &&
 		!isConversationProcessing &&
 		!isDebugging &&
-		!isPreviewDeploying,
+		!isPreviewDeploying &&
+		!isDeploying &&
+		!isSendLockActive,
 	);
 
 	const showMainView = useMemo(() => {
@@ -672,6 +676,7 @@ export default function Chat() {
 									{chatId && (previewAvailable || hasStablePlayable || playableUpdateAvailable || isDeploying) && (
 										<UpdatePlayableAction
 											isDeploying={isDeploying}
+											isTaskRunning={isServerTaskRunning || isSendLockActive}
 											hasStablePlayable={hasStablePlayable}
 											isUpdateAvailable={playableUpdateAvailable || !hasStablePlayable}
 											canUpdate={canUpdatePlayable}

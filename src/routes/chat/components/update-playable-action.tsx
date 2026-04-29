@@ -3,6 +3,7 @@ import { AlertCircle, CheckCircle2, LoaderCircle, Play, Upload } from 'lucide-re
 
 interface UpdatePlayableActionProps {
 	isDeploying: boolean;
+	isTaskRunning?: boolean;
 	hasStablePlayable: boolean;
 	isUpdateAvailable: boolean;
 	canUpdate: boolean;
@@ -13,6 +14,7 @@ interface UpdatePlayableActionProps {
 
 export function UpdatePlayableAction({
 	isDeploying,
+	isTaskRunning = false,
 	hasStablePlayable,
 	isUpdateAvailable,
 	canUpdate,
@@ -21,7 +23,7 @@ export function UpdatePlayableAction({
 	onUpdate,
 }: UpdatePlayableActionProps) {
 	const isReady = hasStablePlayable && !isUpdateAvailable && !deploymentError;
-	const disabled = isDeploying || !canUpdate || isReady;
+	const disabled = isDeploying || isTaskRunning || !canUpdate || isReady;
 	const Icon = isDeploying
 		? LoaderCircle
 		: deploymentError && isUpdateAvailable
@@ -37,16 +39,18 @@ export function UpdatePlayableAction({
 			? 'Ready'
 			: hasStablePlayable
 				? 'Update'
-				: 'Prepare';
+				: 'Post';
 	const title = isDeploying
 		? 'Updating playable'
-		: !canUpdate
+		: isTaskRunning
+			? 'Please wait for the current task to finish before posting'
+			: !canUpdate
 			? 'Preview needs to be ready first'
 			: isReady
 				? 'Playable is up to date'
 				: hasStablePlayable
 					? 'Update playable'
-					: 'Prepare playable';
+					: 'Post playable';
 
 	return (
 		<button
