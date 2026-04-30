@@ -36,6 +36,7 @@ import {
     deployToDispatch, 
     deployWorker,
 } from '../deployer/deploy';
+import type { WranglerConfig } from '../deployer/types';
 import { 
     createAssetManifest 
 } from '../deployer/utils/index';
@@ -1914,14 +1915,12 @@ export class SandboxSdkClient extends BaseSandboxService {
             }
             
             // Step 4: Check for static assets and process them
-            const assetsPath = `${instanceId}/dist/client`;
             let assetsManifest: Record<string, { hash: string; size: number }> | undefined;
             let fileContents: Map<string, Buffer> | undefined;
-            
-            const assetDirResult = await this.safeSandboxExec(`test -d ${assetsPath} && echo "exists" || echo "missing"`);
-            const hasAssets = assetDirResult.exitCode === 0 && assetDirResult.stdout.trim() === "exists";
-            
-            if (hasAssets) {
+
+            const assetsPath = await this.resolveStaticAssetsPath(instanceId, config);
+
+            if (assetsPath) {
                 this.logger.info('Processing static assets', { assetsPath });
                 const assetProcessResult = await this.processAssetsInSandbox(instanceId, assetsPath);
                 assetsManifest = assetProcessResult.assetsManifest;
@@ -2008,6 +2007,29 @@ export class SandboxSdkClient extends BaseSandboxService {
     /**
      * Process static assets in sandbox and create manifest for deployment
      */
+    private async resolveStaticAssetsPath(instanceId: string, config: WranglerConfig): Promise<string | undefined> {
+        if (!config.assets) return undefined;
+
+        const candidates: string[] = [`${instanceId}/dist/client`];
+        const configuredDirectory = config.assets.directory?.replace(/^\.?\//, '').replace(/\/+$/, '');
+        if (configuredDirectory && configuredDirectory !== 'dist/client') {
+            candidates.push(`${instanceId}/${configuredDirectory}`);
+        }
+
+        for (const candidate of [...new Set(candidates)]) {
+            const result = await this.safeSandboxExec(`test -d "${candidate}" && echo "exists" || echo "missing"`);
+            if (result.exitCode === 0 && result.stdout.trim() === 'exists') {
+                return candidate;
+            }
+        }
+
+        this.logger.warn('Configured assets directory was not found in sandbox output', {
+            candidates,
+            configuredDirectory,
+        });
+        return undefined;
+    }
+
     private async processAssetsInSandbox(_instanceId: string, assetsPath: string): Promise<{
         assetsManifest: Record<string, { hash: string; size: number }>;
         fileContents: Map<string, Buffer>;

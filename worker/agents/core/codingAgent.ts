@@ -32,6 +32,7 @@ import { PendingWsTicket, TicketConsumptionResult } from '../../types/auth-types
 import { WsTicketManager } from '../../utils/wsTicketManager';
 import { computeAgentAssetMapJson, parseAssetMapJson, uniqueAgentAssetRelativePath } from '../../utils/agentAssets';
 import { uploadImageAsAgentAsset } from '../../utils/images';
+import { generateProjectName } from '../utils/templateCustomizer';
 import type {
     CodeGenerationWorkflowParams,
     DeployPreviewWorkflowParams,
@@ -1154,6 +1155,7 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
     async importProject(args: {
         userId: string;
         agentId: string;
+        projectName?: string;
         title: string;
         description: string;
         files: Record<string, string>;
@@ -1167,20 +1169,26 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
         try {
             const sessionId = DeploymentManager.generateNewSessionId();
             this.initLogger(args.agentId, args.userId, sessionId);
+            const importProjectName = generateProjectName(
+                args.title,
+                args.agentId.replace(/-/g, '').slice(0, 12),
+                CodeGeneratorAgent.PROJECT_NAME_PREFIX_MAX_LENGTH,
+            );
+            const projectName = args.projectName || importProjectName;
 
             // Set minimal state directly (skip LLM generation)
             this.setState({
                 ...this.state,
                 behaviorType: 'phasic' as BehaviorType,
                 projectType: 'app' as ProjectType,
-                projectName: args.title,
+                projectName,
                 query: args.description,
                 initialUserAttachments: [],
                 sessionId,
                 hostname: '',
                 blueprint: {
                     title: args.title,
-                    projectName: args.title,
+                    projectName,
                     description: args.description,
                     detailedDescription: args.description,
                     colorPalette: [],

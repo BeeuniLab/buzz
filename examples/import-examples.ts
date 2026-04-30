@@ -30,6 +30,7 @@ interface ImportOptions {
 interface ProjectPayload {
 	slug: string;
 	agentId: string;
+	projectName: string;
 	title: string;
 	description: string;
 	files: Record<string, string>;
@@ -389,6 +390,18 @@ function toWranglerName(value: string): string {
 	return name || 'buzzplay-import';
 }
 
+function toImportedProjectName(title: string, agentId: string): string {
+	const prefix = title
+		.toLowerCase()
+		.replace(/[^a-z0-9]/g, '-')
+		.replace(/-+/g, '-')
+		.replace(/^-+|-+$/g, '')
+		.slice(0, 20)
+		.replace(/^-+|-+$/g, '') || 'playable';
+	const suffix = agentId.replace(/-/g, '').slice(0, 12);
+	return `${prefix}-${suffix}`;
+}
+
 function patchPackageJson(raw: string): string {
 	const pkg = JSON.parse(raw) as {
 		scripts?: Record<string, string>;
@@ -546,6 +559,7 @@ async function buildProjectPayload(projectDir: string, slug: string, opts: Impor
 	return {
 		slug,
 		agentId,
+		projectName: toImportedProjectName(title, agentId),
 		title,
 		description: `Imported BuzzPlay example: ${title}`,
 		files,
@@ -631,6 +645,7 @@ async function importProject(payload: ProjectPayload, opts: ImportOptions): Prom
 			userEmail: opts.email,
 			userId: opts.userId,
 			agentId: payload.agentId,
+			projectName: payload.projectName,
 			title: payload.title,
 			description: payload.description,
 			files: payload.files,

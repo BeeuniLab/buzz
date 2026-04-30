@@ -94,6 +94,7 @@ export function setupAdminRoutes(app: Hono<AppEnv>): void {
             files: Record<string, string>;
             templateName?: string;
             agentId?: string;
+            projectName?: string;
             coverBase64?: string;
             coverContentType?: string;
             visibility?: ImportVisibility;
@@ -134,6 +135,7 @@ export function setupAdminRoutes(app: Hono<AppEnv>): void {
         const result = await stub.importProject({
             userId,
             agentId,
+            projectName: body.projectName,
             title: body.title,
             description: body.description || body.title,
             files: body.files,
