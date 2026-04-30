@@ -100,6 +100,9 @@ export function useChat({
 	const [initialPromptAttachments, setInitialPromptAttachments] = useState<ChatAttachmentPreview[]>(
 		() => (userImages && userImages.length > 0 ? buildOptimisticChatAttachments(userImages) : []),
 	);
+	const optimisticInitialAttachmentsRef = useRef<ChatAttachmentPreview[]>(
+		userImages && userImages.length > 0 ? buildOptimisticChatAttachments(userImages) : [],
+	);
 	const [behaviorType, setBehaviorType] = useState<BehaviorType>(getInitialBehaviorType());
 	const [internalProjectType, setInternalProjectType] = useState<ProjectType>(projectType);
 	const [templateDetails, setTemplateDetails] = useState<TemplateDetails | null>(null);
@@ -176,7 +179,10 @@ export function useChat({
 		}
 	}, []);
 
-	const resetLocalChatState = useCallback((nextRouteChatId: string | undefined) => {
+	const resetLocalChatState = useCallback((
+		nextRouteChatId: string | undefined,
+		options?: { preserveInitialAttachments?: boolean },
+	) => {
 		connectAttemptIdRef.current += 1;
 		connectionStatus.current = 'idle';
 		retryCount.current = 0;
@@ -193,7 +199,9 @@ export function useChat({
 		setPreviewUrl(undefined);
 		setQuery(undefined);
 		setInitialPromptAttachments(
-			nextRouteChatId === 'new' && userImages && userImages.length > 0
+			options?.preserveInitialAttachments
+				? optimisticInitialAttachmentsRef.current
+				: nextRouteChatId === 'new' && userImages && userImages.length > 0
 				? buildOptimisticChatAttachments(userImages)
 				: [],
 		);
@@ -240,9 +248,13 @@ export function useChat({
 			return;
 		}
 
+		const previousRouteChatId = activeRouteChatIdRef.current;
+		const isCreatedChatRoute = previousRouteChatId === 'new' && !!chatId && urlChatId === chatId;
 		activeRouteChatIdRef.current = urlChatId;
-		resetLocalChatState(urlChatId);
-	}, [resetLocalChatState, urlChatId]);
+		resetLocalChatState(urlChatId, {
+			preserveInitialAttachments: isCreatedChatRoute,
+		});
+	}, [chatId, resetLocalChatState, urlChatId]);
 
 	const loadBootstrapFiles = useCallback((files: FileType[]) => {
 		setBootstrapFiles((prev) => [
@@ -338,8 +350,10 @@ export function useChat({
 
 	useEffect(() => {
 		if (urlChatId === 'new') {
+			const nextAttachments = userImages && userImages.length > 0 ? buildOptimisticChatAttachments(userImages) : [];
+			optimisticInitialAttachmentsRef.current = nextAttachments;
 			setInitialPromptAttachments(
-				userImages && userImages.length > 0 ? buildOptimisticChatAttachments(userImages) : [],
+				nextAttachments,
 			);
 			return;
 		}
