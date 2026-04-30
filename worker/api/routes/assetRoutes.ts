@@ -16,7 +16,7 @@ export function setupAssetRoutes(app: Hono<AppEnv>): void {
 	// Serve asset file binary (same-origin, avoids CSP issues with preview subdomain)
 	assetRouter.get(
 		'/:agentId/assets/file/*',
-		setAuthLevel(AuthConfig.authenticated),
+		setAuthLevel(AuthConfig.public),
 		adaptController(AssetController, AssetController.serveAsset),
 	);
 

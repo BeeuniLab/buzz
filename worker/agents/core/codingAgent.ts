@@ -1159,6 +1159,10 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
         files: Record<string, string>;
         templateName: string;
         coverBase64?: string;
+        coverContentType?: string;
+        coverExtension?: 'webp' | 'png' | 'jpg';
+        visibility?: 'private' | 'public';
+        framework?: string;
     }): Promise<{ success: boolean; error?: string }> {
         try {
             const sessionId = DeploymentManager.generateNewSessionId();
@@ -1225,10 +1229,11 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
             // Upload cover image to R2 and set screenshotUrl
             let screenshotUrl = '';
             if (args.coverBase64) {
-                const r2Key = `screenshots/${args.agentId}/latest.webp`;
+                const coverExtension = args.coverExtension || 'webp';
+                const r2Key = `screenshots/${args.agentId}/latest.${coverExtension}`;
                 const coverBytes = Uint8Array.from(atob(args.coverBase64), c => c.charCodeAt(0));
                 await this.env.TEMPLATES_BUCKET.put(r2Key, coverBytes, {
-                    httpMetadata: { contentType: 'image/webp' },
+                    httpMetadata: { contentType: args.coverContentType || 'image/webp' },
                 });
                 screenshotUrl = `/api/${r2Key}`;
             }
@@ -1241,8 +1246,8 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
                 title: args.title,
                 description: args.description,
                 originalPrompt: args.description,
-                framework: '',
-                visibility: 'public',
+                framework: args.framework || '',
+                visibility: args.visibility || 'public',
                 status: 'completed',
                 createdAt: new Date(),
                 updatedAt: new Date(),

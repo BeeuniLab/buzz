@@ -266,6 +266,8 @@ export class AssetController extends BaseController {
 				headers: {
 					'Content-Type': contentType,
 					'Cache-Control': 'public, max-age=86400',
+					'Access-Control-Allow-Origin': '*',
+					'Cross-Origin-Resource-Policy': 'cross-origin',
 					'X-Content-Type-Options': 'nosniff',
 				},
 			}) as unknown as ControllerResponse<ApiResponse<never>>;

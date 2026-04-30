@@ -45,6 +45,10 @@ export function createApp(env: Env): Hono<AppEnv> {
         if (upgradeHeader?.toLowerCase() === 'websocket') {
             return next();
         }
+        const pathname = new URL(c.req.url).pathname;
+        if (/^\/api\/projects\/[^/]+\/assets\/file\//.test(pathname)) {
+            return next();
+        }
         // Apply secure headers
         return secureHeaders(getSecureHeadersConfig(env))(c, next);
     });
