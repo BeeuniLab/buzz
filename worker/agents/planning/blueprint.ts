@@ -11,6 +11,7 @@ import { imagesToBase64 } from 'worker/utils/images';
 import { ProcessedImageAttachment } from 'worker/types/image-attachment';
 import { getTemplateImportantFiles } from 'worker/services/templates/utils';
 import { ProjectType } from '../core/types';
+import { formatUploadedAssetContext } from '../utils/assetContext';
 
 const logger = createLogger('Blueprint');
 
@@ -195,6 +196,7 @@ const PHASIC_SYSTEM_PROMPT = `<ROLE>
         - **Animation Libraries:** Framer Motion, React Spring for smooth interactions
         - **Visual Enhancement:** Packages for gradients, patterns, visual effects
         - **Image/Media:** Optimization and display libraries for clear media presentation
+        - **Uploaded Assets:** If the creator explicitly says how to use an uploaded asset, write that role into the blueprint so implementation phases preserve it
     • **SHADCN DESIGN SYSTEM:** Use shadcn/ui only when the selected template includes it; buzzplay-phaser does not. When available, enhance shadcn/ui components with:
         - Beautiful color variants and visual treatments
         - Sophisticated hover and interactive states
@@ -409,7 +411,12 @@ export async function generateBlueprint(
             dependencies: templateDetails?.deps,
         }));
 
-        const baseQuery = `CLIENT REQUEST: "${query}"`;
+        const assetContext = formatUploadedAssetContext(images, {
+            title: 'UPLOADED_ASSET_REQUIREMENTS',
+        });
+        const baseQuery = assetContext
+            ? `CLIENT REQUEST: "${query}"\n\n${assetContext}`
+            : `CLIENT REQUEST: "${query}"`;
         let userMessage;
         if (!images?.length) {
             userMessage = createUserMessage(baseQuery);

@@ -23,6 +23,7 @@ import { ICodingAgent } from '../services/interfaces/ICodingAgent';
 import { Message } from '../inferutils/common';
 import { ChatCompletionMessageFunctionToolCall } from 'openai/resources';
 import { DeepDebuggerSession } from '../operations/DeepDebugger';
+import type { ProcessedImageAttachment } from 'worker/types/image-attachment';
 
 export async function executeToolWithDefinition<TArgs, TResult>(
     toolCall: ChatCompletionMessageFunctionToolCall,
@@ -44,11 +45,12 @@ export function buildTools(
     logger: StructuredLogger,
     toolRenderer: RenderToolCall,
     streamCb: (chunk: string) => void,
+    currentUploadedAssets?: ProcessedImageAttachment[],
 ): ToolDefinition<any, any>[] {
     return [
         toolWebSearchDefinition,
         toolFeedbackDefinition,
-        createQueueRequestTool(agent, logger),
+        createQueueRequestTool(agent, logger, currentUploadedAssets),
         createGetLogsTool(agent, logger),
         createDeployPreviewTool(agent, logger),
         createWaitForGenerationTool(agent, logger),

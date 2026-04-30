@@ -9,6 +9,7 @@ import { AGENT_CONFIG } from '../inferutils/config';
 import type { UserContext } from '../core/types';
 import { imagesToBase64 } from 'worker/utils/images';
 import { PhasicGenerationContext } from '../domain/values/GenerationContext';
+import { formatUploadedAssetContext } from '../utils/assetContext';
 
 export interface PhaseGenerationInputs {
     issues: IssueReport;
@@ -160,7 +161,7 @@ Adhere to the following guidelines:
     
     ❌ "onPointerDown check e.target === e.currentTarget before dragControls.start"
     ✅ "Drag from title bar area only, not from buttons or title text. Use existing drag controls."
-•   **Visual assets:** For Phaser playable content, use Phaser display objects plus bundled starter assets or uploaded assets from \`src/asset_map\`; otherwise use external image URLs, canvas elements, or icon libraries. Reference these in file descriptions as needed.
+•   **Visual assets:** For Phaser playable content, use Phaser display objects plus bundled starter assets or uploaded assets from \`src/asset_map\`; if current uploaded asset requirements explicitly request a specific asset role, preserve that role in the phase. Otherwise use external image URLs, canvas elements, or icon libraries. Reference these in file descriptions as needed.
 </SUGGESTING NEXT PHASE>
 
 {{issues}}
@@ -299,7 +300,11 @@ export class PhaseGenerationOperation extends AgentOperation<PhasicGenerationCon
             logger.info(`Generating next phase ${suggestionsInfo}${imagesInfo} (isFinal: ${isFinal})`);
     
             // Create user message with optional images
-            const userPrompt = userPromptFormatter(isFinal, issues, userContext?.suggestions, isUserSuggestedPhase);
+            const assetContext = formatUploadedAssetContext(userContext?.images, {
+                title: 'CURRENT_UPLOADED_ASSET_REQUIREMENTS',
+            });
+            const userPrompt = userPromptFormatter(isFinal, issues, userContext?.suggestions, isUserSuggestedPhase)
+                + (assetContext ? `\n\n${assetContext}` : '');
             const userMessage = userContext?.images && userContext.images.length > 0
                 ? createMultiModalUserMessage(
                     userPrompt,

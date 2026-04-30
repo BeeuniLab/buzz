@@ -21,6 +21,7 @@ import { GenerationContext } from "../domain/values/GenerationContext";
 import { compactifyContext } from "../utils/conversationCompactifier";
 import { ChatCompletionMessageFunctionToolCall } from "openai/resources";
 import { prepareMessagesForInference } from "../utils/common";
+import { formatUploadedAssetContext } from "../utils/assetContext";
 
 // Constants
 const CHUNK_SIZE = 64;
@@ -97,6 +98,7 @@ ${PROMPT_UTILS.BUZZPLAY_PLAYABLE_CONTENT_GUIDELINES}
    - The modification request should be specific but NOT include code-level implementation details
    - For small edits, call queue_request with change_scope="minor". For core concept/gameplay/product changes, call queue_request with change_scope="major".
    - Latest explicit user intent wins. If the new user request conflicts with the original prompt or old blueprint, preserve the new request and do not ask the builder to restore the old concept.
+   - When the user uploads assets and says how to use them, include the exact asset usage in the queue_request modificationRequest. Latest explicit asset usage wins over older blueprint, phase, or chat instructions.
    - After calling the tool, confirm YOU are working on it: "I'll have that ready in the next phase or two"
    - The queue_request tool relays to the development agent behind the scenes. Use it often - it's cheap.
 
@@ -158,6 +160,8 @@ Users may face issues, bugs and runtime errors. You have TWO options:
     - Stream progress directly to the user
 
     When you call deep_debug, it runs to completion and returns a transcript. The user will see all the debugging steps in real-time.
+
+    **IMPORTANT: To run deep_debug, call the actual deep_debug tool. Never write raw tool syntax such as \`<functions.deep_debug ... />\`, JSON tool calls, or function-call markup in the visible response. If you write tool syntax as text, no tool has been invoked.**
 
     **IMPORTANT: You can only call deep_debug ONCE per conversation turn.** If you receive a CALL_LIMIT_EXCEEDED error, explain to the user that you've already debugged once this turn and ask if they'd like you to investigate further in a new message.
 
@@ -266,9 +270,11 @@ We have also recently added support for image inputs in beta. User can guide app
 
 ## IMPORTANT GUIDELINES:
 - DO NOT Write '<system_context>' tag in your response! That tag is only present in user responses
+- DO NOT write raw tool/function tags such as '<functions.deep_debug ... />' in your response. Use the provided tools directly.
 - DO NOT generate or discuss code-level implementation details. Do not try to solve bugs. You may generate ideas in a loop with the user though.
 - DO NOT provide specific technical instructions or code snippets
 - DO translate vague user requests into clear, actionable requirements when using queue_request
+- DO preserve user-specified uploaded asset roles when using queue_request, including which uploaded file should become which character, background, prop, sound, video, or UI element.
 - DO be helpful in understanding what the user wants to achieve
 - Always remember to make sure and use \`queue_request\` tool to queue any modification requests in **this turn** of the conversation! Not doing so will NOT queue up the changes.
 - You might have made modification requests earlier. Don't confuse previous tool results for the current turn.
@@ -325,6 +331,114 @@ function buildUserMessageWithContext(userMessage: string, errors: RuntimeError[]
     }
 }
 
+const RAW_DEEP_DEBUG_START = '<functions.deep_debug';
+
+function stripCompleteRawDeepDebugToolCalls(text: string): {
+    visibleText: string;
+    pendingText: string;
+    strippedTags: string[];
+} {
+    let visibleText = '';
+    let cursor = 0;
+    const strippedTags: string[] = [];
+
+    while (cursor < text.length) {
+        const start = text.indexOf(RAW_DEEP_DEBUG_START, cursor);
+        if (start === -1) {
+            visibleText += text.slice(cursor);
+            break;
+        }
+
+        visibleText += text.slice(cursor, start);
+        const end = text.indexOf('/>', start);
+        if (end === -1) {
+            return {
+                visibleText,
+                pendingText: text.slice(start),
+                strippedTags,
+            };
+        }
+
+        strippedTags.push(text.slice(start, end + 2));
+        cursor = end + 2;
+    }
+
+    return {
+        visibleText,
+        pendingText: '',
+        strippedTags,
+    };
+}
+
+function sanitizeRawDeepDebugToolCalls(text: string): string {
+    let sanitized = '';
+    let pending = text;
+
+    while (pending.length > 0) {
+        const stripped = stripCompleteRawDeepDebugToolCalls(pending);
+        sanitized += stripped.visibleText;
+        if (!stripped.pendingText) break;
+
+        // Leave incomplete markup visible; we only hide complete pseudo tool calls.
+        sanitized += stripped.pendingText;
+        break;
+    }
+
+    return sanitized.trim();
+}
+
+function extractQuotedAttribute(rawTag: string, name: string): string | undefined {
+    const doubleQuoted = rawTag.match(new RegExp(`${name}\\s*=\\s*"((?:\\\\.|[^"\\\\])*)"`));
+    const singleQuoted = rawTag.match(new RegExp(`${name}\\s*=\\s*'((?:\\\\.|[^'\\\\])*)'`));
+    const value = doubleQuoted?.[1] ?? singleQuoted?.[1];
+    if (!value) return undefined;
+
+    return value
+        .replace(/\\"/g, '"')
+        .replace(/\\'/g, "'")
+        .replace(/\\n/g, '\n')
+        .trim();
+}
+
+function extractFocusPaths(rawTag: string): string[] | undefined {
+    const match = rawTag.match(/focus_paths\s*=\s*(?:\{([\s\S]*?)\}|(".*?"|'.*?'))(?=\s|\/>)/);
+    const rawValue = match?.[1] ?? match?.[2];
+    if (!rawValue) return undefined;
+
+    try {
+        const parsed = JSON.parse(rawValue);
+        if (Array.isArray(parsed) && parsed.every((item) => typeof item === 'string')) {
+            return parsed;
+        }
+    } catch {
+        return undefined;
+    }
+
+    return undefined;
+}
+
+function parseRawDeepDebugToolCall(text: string): { issue: string; focus_paths?: string[]; rawTag: string } | null {
+    const match = text.match(/<functions\.deep_debug\b[\s\S]*?\/>/);
+    const rawTag = match?.[0];
+    if (!rawTag) return null;
+
+    const issue = extractQuotedAttribute(rawTag, 'issue');
+    if (!issue) return null;
+
+    return {
+        issue,
+        focus_paths: extractFocusPaths(rawTag),
+        rawTag,
+    };
+}
+
+function hasExecutedTool(result: InferResponseString, toolName: string): boolean {
+    return result.toolCallContext?.messages?.some((message) =>
+        message.role === 'assistant'
+        && message.tool_calls?.some((toolCall) => toolCall.function.name === toolName),
+    ) ?? false;
+}
+
 export class UserConversationProcessor extends AgentOperation<GenerationContext, UserConversationInputs, UserConversationOutputs> {
 
     async execute(inputs: UserConversationInputs, options: OperationOptions<GenerationContext>): Promise<UserConversationOutputs> {
@@ -343,21 +457,14 @@ export class UserConversationProcessor extends AgentOperation<GenerationContext,
         try {
             const systemPromptMessages = getSystemPromptWithProjectContext(SYSTEM_PROMPT, context, CodeSerializerType.SIMPLE);
             
-            const nonImageLines =
-                nonImageAttachments.length > 0
-                    ? nonImageAttachments.map(
-                          (m) =>
-                              `- ${m.r2Key.split('/').pop() ?? 'file'} (${m.mimeType}): ${m.publicUrl}`,
-                      )
-                    : [];
-            const mediaBlock =
-                nonImageLines.length > 0
-                    ? `\n\n[User-uploaded media — also listed in project assets / src/asset_map]\n${nonImageLines.join('\n')}`
-                    : '';
+            const assetContext = formatUploadedAssetContext(images, {
+                title: 'CURRENT_UPLOADED_ASSET_REQUIREMENTS',
+            });
 
             // Vision: only image/* as multimodal parts; audio/video as URLs in text (gateway chat schema).
             const userPromptForInference =
-                buildUserMessageWithContext(userMessage, errors, projectUpdates, true) + mediaBlock;
+                buildUserMessageWithContext(userMessage, errors, projectUpdates, true)
+                + (assetContext ? `\n\n${assetContext}` : '');
             const userMessageForInference =
                 imageAttachments.length > 0
                     ? createMultiModalUserMessage(
@@ -368,6 +475,8 @@ export class UserConversationProcessor extends AgentOperation<GenerationContext,
                     : createUserMessage(userPromptForInference);
 
             let extractedUserResponse = "";
+            let rawAssistantResponse = "";
+            let pendingRawToolText = "";
             
             // Generate unique conversation ID for this turn
             const aiConversationId = IdGenerator.generateConversationId();
@@ -381,7 +490,8 @@ export class UserConversationProcessor extends AgentOperation<GenerationContext,
                 agent,
                 logger,
                 toolCallRenderer,
-                (chunk: string) => inputs.conversationResponseCallback(chunk, aiConversationId, true)
+                (chunk: string) => inputs.conversationResponseCallback(chunk, aiConversationId, true),
+                images,
             ).map(td => ({
                 ...td,
                 onStart: (_tc: ChatCompletionMessageFunctionToolCall, args: Record<string, unknown>) => Promise.resolve(toolCallRenderer({ name: td.name, status: 'start', args })),
@@ -427,8 +537,21 @@ export class UserConversationProcessor extends AgentOperation<GenerationContext,
                     stream: {
                         onChunk: (chunk) => {
                             logger.info("Processing user message chunk", { chunkLength: chunk.length, aiConversationId });
-                            inputs.conversationResponseCallback(chunk, aiConversationId, true);
-                            extractedUserResponse += chunk;
+                            rawAssistantResponse += chunk;
+
+                            const stripped = stripCompleteRawDeepDebugToolCalls(pendingRawToolText + chunk);
+                            pendingRawToolText = stripped.pendingText;
+
+                            if (stripped.strippedTags.length > 0) {
+                                logger.warn('Suppressed raw deep_debug tool markup from streamed assistant response', {
+                                    strippedCount: stripped.strippedTags.length,
+                                });
+                            }
+
+                            if (stripped.visibleText) {
+                                inputs.conversationResponseCallback(stripped.visibleText, aiConversationId, true);
+                                extractedUserResponse += stripped.visibleText;
+                            }
                         },
                         chunk_size: CHUNK_SIZE
                     }
@@ -441,6 +564,74 @@ export class UserConversationProcessor extends AgentOperation<GenerationContext,
                     throw error;
                 }
             }
+
+            const rawModelResponse = result.string || rawAssistantResponse;
+            const rawDeepDebugCall = parseRawDeepDebugToolCall(rawModelResponse);
+            const sanitizedFinalResponse = sanitizeRawDeepDebugToolCalls(result.string || extractedUserResponse);
+            let fallbackRawDeepDebugExecuted = false;
+            if (rawDeepDebugCall && !hasExecutedTool(result, 'deep_debug')) {
+                const deepDebugTool = tools.find((tool) => tool.name === 'deep_debug');
+                if (deepDebugTool) {
+                    logger.warn('Executing fallback deep_debug from raw tool markup', {
+                        focusPaths: rawDeepDebugCall.focus_paths,
+                    });
+                    const args = deepDebugTool.schema.parse({
+                        issue: rawDeepDebugCall.issue,
+                        focus_paths: rawDeepDebugCall.focus_paths,
+                    });
+                    const fallbackToolCall: ChatCompletionMessageFunctionToolCall = {
+                        id: `fallback-${IdGenerator.generateConversationId()}`,
+                        type: 'function',
+                        function: {
+                            name: 'deep_debug',
+                            arguments: JSON.stringify(args),
+                        },
+                    };
+
+                    await deepDebugTool.onStart?.(fallbackToolCall, args);
+                    const fallbackResult = await deepDebugTool.implementation(args);
+                    await deepDebugTool.onComplete?.(fallbackToolCall, args, fallbackResult);
+
+                    const fallbackToolMessages: ConversationMessage[] = [
+                        {
+                            ...createAssistantMessage(sanitizedFinalResponse),
+                            tool_calls: [fallbackToolCall],
+                            conversationId: IdGenerator.generateConversationId(),
+                        },
+                        {
+                            role: 'tool',
+                            name: 'deep_debug',
+                            content: JSON.stringify(fallbackResult),
+                            tool_call_id: fallbackToolCall.id,
+                            conversationId: IdGenerator.generateConversationId(),
+                        },
+                    ];
+
+                    result = {
+                        string: sanitizedFinalResponse,
+                        toolCallContext: {
+                            depth: (result.toolCallContext?.depth ?? 0) + 1,
+                            messages: [
+                                ...(result.toolCallContext?.messages ?? []),
+                                ...fallbackToolMessages,
+                            ],
+                            completionSignal: result.toolCallContext?.completionSignal,
+                            warningInjected: result.toolCallContext?.warningInjected ?? false,
+                        },
+                    };
+                    fallbackRawDeepDebugExecuted = true;
+                }
+            } else if (pendingRawToolText) {
+                inputs.conversationResponseCallback(pendingRawToolText, aiConversationId, true);
+                extractedUserResponse += pendingRawToolText;
+                pendingRawToolText = "";
+            }
+
+            result = {
+                ...result,
+                string: sanitizedFinalResponse,
+            };
+            extractedUserResponse = sanitizeRawDeepDebugToolCalls(extractedUserResponse || sanitizedFinalResponse);
             
             logger.info("Successfully processed user message", {
                 streamingSuccess: !!extractedUserResponse,
@@ -453,7 +644,8 @@ export class UserConversationProcessor extends AgentOperation<GenerationContext,
             
             // History: image r2Keys for replay via prepareMessagesForInference; audio/video only in text (avoid non-image binary in image_url).
             const userPromptForHistory =
-                buildUserMessageWithContext(userMessage, errors, projectUpdates, false) + mediaBlock;
+                buildUserMessageWithContext(userMessage, errors, projectUpdates, false)
+                + (assetContext ? `\n\n${assetContext}` : '');
             const userMessageForHistory =
                 imageAttachments.length > 0
                     ? createMultiModalUserMessage(
@@ -481,7 +673,7 @@ export class UserConversationProcessor extends AgentOperation<GenerationContext,
             const isDuplicate = lastToolContextMessage?.role === 'assistant' && 
                                lastToolContextMessage?.content === finalResponse.content;
             
-            if (!isDuplicate) {
+            if (!fallbackRawDeepDebugExecuted && !isDuplicate && result.string.trim()) {
                 messages.push({...finalResponse, conversationId: IdGenerator.generateConversationId()});
                 logger.info("Added final assistant response to history");
             } else {

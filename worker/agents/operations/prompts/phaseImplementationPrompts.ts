@@ -3,6 +3,7 @@ import { PhaseConceptSchema, type PhaseConceptType } from '../../schemas';
 import type { IssueReport } from '../../domain/values/IssueReport';
 import type { UserContext } from '../../core/types';
 import { issuesPromptFormatter, PROMPT_UTILS } from '../../prompts';
+import { formatUploadedAssetContext } from '../../utils/assetContext';
 
 export const PHASE_IMPLEMENTATION_SYSTEM_PROMPT = `You are implementing a phase in the project's selected template and existing language/framework stack.
 
@@ -18,6 +19,13 @@ ${PROMPT_UTILS.BUZZPLAY_PLAYABLE_CONTENT_GUIDELINES}
 <LATEST_USER_INTENT>
 If this phase or client feedback says the product direction changed, that latest direction supersedes older prompt or blueprint details. Implement the requested current direction and do not restore older gameplay, UI, or concept details that conflict with it.
 </LATEST_USER_INTENT>
+
+<UPLOADED_ASSET_USAGE>
+If the latest user request, current phase, or blueprint explicitly says how to use an uploaded asset, that usage is mandatory.
+Latest explicit asset usage overrides older blueprint, phase, or chat instructions.
+For Phaser playable projects, use uploaded assets via src/asset_map and src/playable-assets.ts.
+Do not substitute requested uploaded assets with shapes, emoji, external media, or starter assets except as missing/loading fallbacks.
+</UPLOADED_ASSET_USAGE>
 
 <RELIABILITY>
 - No JavaScript/TypeScript syntax, import, or build errors.
@@ -101,11 +109,15 @@ export function buildPhaseImplementationUserPrompt(args: {
 }): string {
 	const phaseText = TemplateRegistry.markdown.serialize(args.phase, PhaseConceptSchema);
 	const fileCount = args.phase.files?.length ?? 0;
+	const userSuggestionsText = formatUserSuggestions(args.userContext?.suggestions);
+	const assetContext = formatUploadedAssetContext(args.userContext?.images, {
+		title: 'CURRENT_UPLOADED_ASSET_REQUIREMENTS',
+	});
 
 	return formatPhaseImplementationUserPrompt({
 		phaseText,
 		issuesText: issuesPromptFormatter(args.issues),
-		userSuggestionsText: formatUserSuggestions(args.userContext?.suggestions),
+		userSuggestionsText: [userSuggestionsText, assetContext].filter(Boolean).join('\n\n'),
 		fileCount,
 	});
 }

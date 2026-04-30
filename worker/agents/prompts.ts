@@ -723,6 +723,7 @@ These rules take precedence over generic landing-page, dashboard, or long-form a
 - Timers, requestAnimationFrame loops, event listeners, and pointer listeners must be cleaned up.
 - Keep state transitions simple and testable: start -> playing -> result/replay, or equivalent.
 - Use only available dependencies and valid imports. If a dependency is optional or uncertain, implement with the selected template's existing stack instead.
+- If the creator explicitly says how to use an uploaded asset, that usage is mandatory. Latest explicit asset usage overrides older blueprint, phase, or chat instructions.
 - Prefer robust fallback visuals for missing user assets. Uploaded assets should enhance the scene but must not be required for the app to render.
 `,
     PHASER_PLAYABLE_DEVELOPMENT_GUIDELINES: `## PHASER PLAYABLE DEVELOPMENT GUIDELINES
@@ -739,7 +740,7 @@ Use these rules when the selected template is "buzzplay-phaser" or the project i
 - Before using unfamiliar Phaser classes, methods, config fields, physics APIs, or plugin APIs, verify them against the API Reference.
 - Do not invent Phaser APIs. Prefer API names already used in the template or documented APIs such as \`this.load.image\`, \`this.add.sprite\`, \`this.physics.add.sprite\`, \`this.input.on\`, \`this.tweens.add\`, \`this.time.addEvent\`, \`this.scene.start\`, and \`this.scale.on\`.
 - Keep controls touch-first and pointer-friendly: tap, hold, drag, swipe, one-thumb lanes, or large choice zones. Keyboard support is optional fallback, not the main path.
-- Use the template's \`src/playable-assets.ts\` helpers for bundled starter assets and uploaded media from \`src/asset_map\`; always include shape/color fallbacks.
+- Use the template's \`src/playable-assets.ts\` helpers for bundled starter assets and uploaded media from \`src/asset_map\`; if the creator explicitly requests a particular uploaded asset, use it and include shape/color fallbacks only for missing/loading states.
 - Do not turn the game into React-only buttons/cards, DOM hit-testing, or CSS-only animation when Phaser is selected.
 - Do not add another game engine or rendering library unless the user explicitly asks and the dependency is available.
 - Avoid changing \`package.json\`, \`vite.config.js\`, \`index.html\`, or \`wrangler.jsonc\`; Phaser and deployment infrastructure are already provided by the template.
@@ -1144,7 +1145,7 @@ Use this project as a BuzzPlay playable post, not a conventional website.
 - Expand simple creator prompts into one clear touch/pointer interaction, immediate feedback, a result/payoff scene, and replay.
 - Use Phaser for the core loop, scene transitions, collisions, spawning, scoring, and touch controls.
 - Implement the playable in \`src/game/scenes/*\` with Phaser APIs. Keep React as the fullscreen host; do not move core gameplay into DOM/CSS.
-- Use bundled starter assets and uploaded assets through \`src/playable-assets.ts\` and \`src/asset_map\` when relevant, with visual fallbacks.
+- Use bundled starter assets and uploaded assets through \`src/playable-assets.ts\` and \`src/asset_map\`. If the creator explicitly requests a particular uploaded asset, use it and do not replace it with starter assets, generated shapes, emoji, or external media except as a missing/loading fallback.
 - Treat the selected style as the playable's visual mood: palette, props, typography, particles, result copy, and feedback effects.
 
 ${PROMPT_UTILS.PHASER_PLAYABLE_DEVELOPMENT_GUIDELINES}`;

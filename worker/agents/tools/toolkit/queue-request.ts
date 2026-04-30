@@ -1,10 +1,13 @@
 import { tool, t } from '../types';
 import { StructuredLogger } from '../../../logger';
 import { ICodingAgent } from 'worker/agents/services/interfaces/ICodingAgent';
+import type { ProcessedImageAttachment } from 'worker/types/image-attachment';
+import { formatUploadedAssetContext } from 'worker/agents/utils/assetContext';
 
 export function createQueueRequestTool(
 	agent: ICodingAgent,
-	logger: StructuredLogger
+	logger: StructuredLogger,
+	currentUploadedAssets?: ProcessedImageAttachment[],
 ) {
 	return tool({
 		name: 'queue_request',
@@ -23,7 +26,13 @@ export function createQueueRequestTool(
 			const normalizedRequest = changeScope === 'major'
 				? `CURRENT PRODUCT DIRECTION OVERRIDE: ${modificationRequest}\nThis supersedes any conflicting older prompt, blueprint, or phase plan. Preserve the user's new direction and do not revert to the previous core concept.`
 				: modificationRequest;
-			await agent.queueUserRequest(normalizedRequest, undefined, {
+			const assetContext = formatUploadedAssetContext(currentUploadedAssets, {
+				title: 'CURRENT_UPLOADED_ASSET_REQUIREMENTS',
+			});
+			const requestWithAssets = assetContext
+				? `${normalizedRequest}\n\n${assetContext}`
+				: normalizedRequest;
+			await agent.queueUserRequest(requestWithAssets, currentUploadedAssets, {
 				changeScope,
 				maxPhases: changeScope === 'major' ? 2 : 1,
 			});
