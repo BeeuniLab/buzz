@@ -74,6 +74,15 @@ function shellQuote(value: string): string {
     return `'${value.replace(/'/g, `'\\''`)}'`;
 }
 
+function normalizeWorkspacePath(instanceId: string, filePath: string): string {
+    const normalized = filePath.replace(/^\.?\//, '').replace(/\/+/g, '/');
+    return `/workspace/${instanceId}/${normalized}`;
+}
+
+function isJavaScriptWorkerEntry(filePath: string | undefined): boolean {
+    return Boolean(filePath && /\.(mjs|js)$/i.test(filePath));
+}
+
 /**
  * Streaming event for enhanced command execution
  */
@@ -1857,23 +1866,26 @@ export class SandboxSdkClient extends BaseSandboxService {
             this.logger.info('Worker configuration', { scriptName: config.name });
             this.logger.info('Worker compatibility', { compatibilityDate: config.compatibility_date });
             
-            // Step 3: Read worker script from dist
+            // Step 3: Read worker script. Wrangler-build outputs usually live at dist/index.js,
+            // but imported static Vite projects use a lightweight source worker from wrangler.main.
             this.logger.info('Reading worker script');
             const session = await this.getInstanceSession(instanceId);
-            const workerFile = await session.readFile(`/workspace/${instanceId}/dist/index.js`);
-            if (!workerFile.success) {
-                throw new Error(`Worker script not found at /${instanceId}/dist/index.js. Please build the project first.`);
-            }
-            
-            const workerContent = workerFile.content;
-            this.logger.info('Worker script loaded', { sizeKB: (workerContent.length / 1024).toFixed(2) });
+            const workerScript = await this.resolveWorkerScript(instanceId, config, session);
+            const workerContent = workerScript.content;
+            this.logger.info('Worker script loaded', {
+                path: workerScript.path,
+                sizeKB: (workerContent.length / 1024).toFixed(2),
+            });
             
             // Step 3a: Check for additional worker modules (ESM imports)
             // Process them the same way as assets but as strings for the Map
             let additionalModules: Map<string, string> | undefined;
             try {
                 const workerAssetsPath = `${instanceId}/dist/assets`;
-                const workerAssetsResult = await this.safeSandboxExec(`test -d ${workerAssetsPath} && echo "exists" || echo "missing"`);
+                const shouldProcessWorkerModules = workerScript.path.endsWith('/dist/index.js');
+                const workerAssetsResult = shouldProcessWorkerModules
+                    ? await this.safeSandboxExec(`test -d ${workerAssetsPath} && echo "exists" || echo "missing"`)
+                    : { exitCode: 0, stdout: 'missing' };
                 const hasWorkerAssets = workerAssetsResult.exitCode === 0 && workerAssetsResult.stdout.trim() === "exists";
                 
                 if (hasWorkerAssets) {
@@ -2007,6 +2019,35 @@ export class SandboxSdkClient extends BaseSandboxService {
     /**
      * Process static assets in sandbox and create manifest for deployment
      */
+    private async resolveWorkerScript(
+        instanceId: string,
+        config: WranglerConfig,
+        session: ExecutionSession,
+    ): Promise<{ content: string; path: string }> {
+        const candidates = [
+            ...(isJavaScriptWorkerEntry(config.main)
+                ? [normalizeWorkspacePath(instanceId, config.main)]
+                : []),
+            `/workspace/${instanceId}/dist/index.js`,
+            ...(config.main && !isJavaScriptWorkerEntry(config.main)
+                ? [normalizeWorkspacePath(instanceId, config.main)]
+                : []),
+        ];
+
+        const attempted = [...new Set(candidates)];
+        for (const candidate of attempted) {
+            const workerFile = await session.readFile(candidate);
+            if (workerFile.success) {
+                return {
+                    content: workerFile.content,
+                    path: candidate,
+                };
+            }
+        }
+
+        throw new Error(`Worker script not found. Tried: ${attempted.map(path => path.replace(`/workspace/${instanceId}/`, '')).join(', ')}. Please build the project first.`);
+    }
+
     private async resolveStaticAssetsPath(instanceId: string, config: WranglerConfig): Promise<string | undefined> {
         if (!config.assets) return undefined;
 
