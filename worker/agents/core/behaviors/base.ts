@@ -134,6 +134,34 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
         return ready;
     }
 
+    private emptyStaticAnalysisResponse(error?: string): StaticAnalysisResponse {
+        return {
+            success: false,
+            lint: { issues: [] },
+            typecheck: { issues: [] },
+            ...(error ? { error } : {}),
+        };
+    }
+
+    private async ensureSandboxForStaticAnalysis(): Promise<boolean> {
+        if (this.state.sandboxInstanceId) return true;
+
+        if (!this.isPreviewable()) {
+            this.logger.warn('Skipping sandbox static analysis because project is not previewable');
+            return false;
+        }
+
+        this.logger.info('No sandbox instance available for static analysis; deploying preview first');
+        const preview = await this.deployToSandbox(
+            [],
+            false,
+            'chore: prepare sandbox for static analysis',
+            false,
+        );
+
+        return Boolean(this.state.sandboxInstanceId || preview?.runId);
+    }
+
     public async initialize(
         initArgs: AgentInitArgs,
         ..._args: unknown[]
@@ -823,7 +851,14 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
             if (templateDetails?.renderMode === 'browser') {
                 analysisResponse = await this.runInMemoryAnalysis(files);
             } else {
-                analysisResponse = await this.deploymentManager.runStaticAnalysis(files);
+                const hasSandbox = await this.ensureSandboxForStaticAnalysis();
+                if (!hasSandbox) {
+                    analysisResponse = this.emptyStaticAnalysisResponse(
+                        'Sandbox unavailable for static analysis',
+                    );
+                } else {
+                    analysisResponse = await this.deploymentManager.runStaticAnalysis(files);
+                }
             }
 
             // Only cache full (unscoped) analysis results
@@ -840,7 +875,7 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
             return analysisResponse;
         } catch (error) {
             this.broadcastError("Failed to lint code", error);
-            return { success: false, lint: { issues: [], }, typecheck: { issues: [], } };
+            return this.emptyStaticAnalysisResponse(error instanceof Error ? error.message : String(error));
         }
     }
 
