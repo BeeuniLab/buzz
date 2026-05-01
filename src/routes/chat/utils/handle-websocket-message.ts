@@ -26,6 +26,7 @@ import type { FileType } from '@/api-types';
 import { toast } from 'sonner';
 import { createRepairingJSONParser } from '@/utils/ndjson-parser/ndjson-parser';
 import { appEvents } from '@/lib/app-events';
+import { getTaskBusyWarningTitle, isTaskBusyWarning } from '@/lib/task-warning';
 
 const ACTIVE_APP_TASK_STALE_MS = 30 * 60 * 1000;
 const GENERATION_WORKFLOW_KINDS = new Set(['create_project', 'generate_all', 'resume_generation', 'user_input']);
@@ -819,7 +820,18 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
 
             case 'deployment_failed': {
                 setIsPreviewDeploying(false);
-                toast.error(message.error);
+                if (isTaskBusyWarning(message.error)) {
+                    toast.warning(getTaskBusyWarningTitle(message.error), {
+                        description: message.error,
+                    });
+                    onDebugMessage?.('warning',
+                        getTaskBusyWarningTitle(message.error),
+                        message.error,
+                        'Preview Deployment'
+                    );
+                } else {
+                    toast.error(message.error);
+                }
                 if (deps.urlChatId) {
                     appEvents.emitAppUpdated(deps.urlChatId, { status: 'completed' });
                 }
@@ -1084,19 +1096,30 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
             case 'cloudflare_deployment_error': {
                 clearDeploymentTimeout?.();
                 setIsDeploying(false);
-                setDeploymentError(message.error || 'Unknown deployment error');
+                const isTaskWarning = isTaskBusyWarning(message.error || message.message);
+                if (!isTaskWarning) {
+                    setDeploymentError(message.error || 'Unknown deployment error');
+                } else {
+                    setDeploymentError('');
+                }
                 setCloudflareDeploymentUrl('');
                 setIsRedeployReady(true);
                 if (deps.urlChatId) {
                     appEvents.emitAppUpdated(deps.urlChatId, { status: 'completed' });
                 }
-                toast.error(message.message || 'Playable update failed', {
-                    description: message.error,
-                });
+                if (isTaskWarning) {
+                    toast.warning(getTaskBusyWarningTitle(message.error || message.message), {
+                        description: message.error || message.message,
+                    });
+                } else {
+                    toast.error(message.message || 'Playable update failed', {
+                        description: message.error,
+                    });
+                }
 
-                onDebugMessage?.('error', 
-                    'Playable Update Failed',
-                    `Error: ${message.error}`,
+                onDebugMessage?.(isTaskWarning ? 'warning' : 'error',
+                    isTaskWarning ? getTaskBusyWarningTitle(message.error || message.message) : 'Playable Update Failed',
+                    isTaskWarning ? (message.error || message.message) : `Error: ${message.error}`,
                     'Playable Update'
                 );
                 break;
@@ -1228,6 +1251,20 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
             case 'error': {
                 setIsConversationProcessing(false);
                 const errorData = message;
+                if (isTaskBusyWarning(errorData.error)) {
+                    toast.warning(getTaskBusyWarningTitle(errorData.error), {
+                        description: errorData.error,
+                    });
+                    onDebugMessage?.(
+                        'warning',
+                        getTaskBusyWarningTitle(errorData.error),
+                        errorData.error,
+                        'WebSocket',
+                        'error',
+                        errorData
+                    );
+                    break;
+                }
                 setMessages(prev => [
                     ...prev,
                     createAIMessage(`error_${Date.now()}`, `❌ ${errorData.error}`)

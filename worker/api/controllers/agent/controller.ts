@@ -23,6 +23,10 @@ import { uniqueAgentAssetRelativePath } from 'worker/utils/agentAssets';
 import { ProcessedImageAttachment } from 'worker/types/image-attachment';
 import { hasTicketParam } from '../../../middleware/auth/ticketAuth';
 import type { CodeGenerationWorkflowParams } from '../../../agents/workflows/codeGenerationWorkflow';
+import {
+    UserTaskConcurrencyLimitError,
+    UserTaskConcurrencyService,
+} from '../../../services/tasks/UserTaskConcurrencyService';
 
 const defaultCodeGenArgs: Partial<CodeGenArgs> = {
     language: 'typescript',
@@ -67,6 +71,7 @@ export class CodingAgentController extends BaseController {
      */
     static async startCodeGeneration(request: Request, env: Env, _: ExecutionContext, context: RouteContext): Promise<Response> {
         let pendingAppForCleanup: { agentId: string; userId: string } | null = null;
+        let pendingTaskSlot: { userId: string; taskId: string } | null = null;
 
         try {
             this.logger.info('Starting code generation process');
@@ -109,11 +114,27 @@ export class CodingAgentController extends BaseController {
             }
 
             const agentId = generateId();
+            const workflowId = `create-${agentId}`;
             const modelConfigService = new ModelConfigService(env);
             const projectType = resolveProjectType(body);
             const behaviorType = resolveBehaviorType(body);
             const appService = new AppService(env);
             const appTitle = buildPendingAppTitle(query);
+
+            try {
+                await UserTaskConcurrencyService.acquire(env, {
+                    userId: user.id,
+                    taskId: workflowId,
+                    agentId,
+                    kind: 'create_project',
+                });
+                pendingTaskSlot = { userId: user.id, taskId: workflowId };
+            } catch (error) {
+                if (error instanceof UserTaskConcurrencyLimitError) {
+                    return CodingAgentController.createErrorResponse(error.message, 429);
+                }
+                throw error;
+            }
 
             await appService.createOrUpdateApp({
                 id: agentId,
@@ -179,7 +200,6 @@ export class CodingAgentController extends BaseController {
             const workflowImages = uploadedImages.map(stripBase64ForWorkflow);
 
             const workflowProjectType = normalizeProjectType(projectType);
-            const workflowId = `create-${agentId}`;
             const agentInstance = await getAgentStub(env, agentId, {
                 behaviorType,
                 projectType: workflowProjectType,
@@ -234,6 +254,7 @@ export class CodingAgentController extends BaseController {
 
             this.logger.info(`Agent ${agentId} workflow launched successfully`, { workflowId });
             pendingAppForCleanup = null;
+            pendingTaskSlot = null;
             
             return new Response(`${JSON.stringify(acknowledgement)}\n`, {
                 status: 200,
@@ -254,6 +275,9 @@ export class CodingAgentController extends BaseController {
                 } catch (cleanupError) {
                     this.logger.warn('Failed to cleanup pending app after start failure', cleanupError);
                 }
+            }
+            if (pendingTaskSlot) {
+                await UserTaskConcurrencyService.release(env, pendingTaskSlot.userId, pendingTaskSlot.taskId);
             }
             this.logger.error('Error starting code generation', error);
             return CodingAgentController.handleError(error, 'start code generation');

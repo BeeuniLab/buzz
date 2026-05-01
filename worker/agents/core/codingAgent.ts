@@ -33,6 +33,10 @@ import { WsTicketManager } from '../../utils/wsTicketManager';
 import { computeAgentAssetMapJson, parseAssetMapJson, uniqueAgentAssetRelativePath } from '../../utils/agentAssets';
 import { uploadImageAsAgentAsset } from '../../utils/images';
 import { generateProjectName } from '../utils/templateCustomizer';
+import {
+    UserTaskConcurrencyLimitError,
+    UserTaskConcurrencyService,
+} from '../../services/tasks/UserTaskConcurrencyService';
 import type {
     CodeGenerationWorkflowParams,
     DeployPreviewWorkflowParams,
@@ -314,6 +318,30 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
         return `${this.getAgentId()}-${kind}-${Date.now().toString(36)}-${suffix}`;
     }
 
+    private getWorkflowUserId(): string | undefined {
+        return this.state.metadata?.userId;
+    }
+
+    private async acquireUserTaskSlot(workflowId: string, kind: ActiveWorkflowTask['kind']): Promise<void> {
+        const userId = this.getWorkflowUserId();
+        if (!userId) return;
+
+        await UserTaskConcurrencyService.acquire(this.env, {
+            userId,
+            taskId: workflowId,
+            agentId: this.getAgentId(),
+            kind,
+        });
+    }
+
+    private async touchUserTaskSlot(workflowId: string | undefined): Promise<void> {
+        await UserTaskConcurrencyService.touch(this.env, this.getWorkflowUserId(), workflowId);
+    }
+
+    private async releaseUserTaskSlot(workflowId: string | undefined): Promise<void> {
+        await UserTaskConcurrencyService.release(this.env, this.getWorkflowUserId(), workflowId);
+    }
+
     private isDeleted(): boolean {
         return Boolean(this.state.deletedAt);
     }
@@ -365,6 +393,13 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
         status: ActiveWorkflowTask['status'] | 'completed';
         message?: string;
     }): Promise<void> {
+        const shouldReleaseTaskSlot = args.status === 'failed' || args.status === 'completed';
+        if (shouldReleaseTaskSlot) {
+            await this.releaseUserTaskSlot(args.workflowId);
+        } else {
+            await this.touchUserTaskSlot(args.workflowId);
+        }
+
         if (this.isDeleted()) {
             this.logger().info('Ignoring workflow status update for deleted project', args);
             return;
@@ -470,6 +505,7 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
             shouldBeGenerating: false,
             lastUserStopAt: Date.now(),
         });
+        await this.releaseUserTaskSlot(activeWorkflow.id);
         await this.updateAppStatus('completed', reason);
         this.broadcast(WebSocketMessageResponses.SERVER_LOG, {
             message: terminated
@@ -630,15 +666,18 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
             return null;
         }
 
+        const workflowId = this.createWorkflowId(kind);
+        await this.acquireUserTaskSlot(workflowId, kind);
+
         const workflow = this.getWorkflowBinding();
         if (!workflow) {
             this.logger().warn('Workflow binding missing; falling back to waitUntil generation', { kind });
-            const task = this.behavior.generateAllFiles();
+            const task = this.behavior.generateAllFiles()
+                .finally(() => this.releaseUserTaskSlot(workflowId));
             this.trackBackgroundTask(kind, task);
             return null;
         }
 
-        const workflowId = this.createWorkflowId(kind);
         this.setState({
             ...this.state,
             shouldBeGenerating: true,
@@ -666,6 +705,7 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
             });
         } catch (error) {
             this.setState({ ...this.state, shouldBeGenerating: false, activeWorkflow: undefined });
+            await this.releaseUserTaskSlot(workflowId);
             await this.updateAppStatus('completed', `workflow_${kind}_queue_failed`);
             throw error;
         }
@@ -689,15 +729,18 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
             return null;
         }
 
+        const workflowId = this.createWorkflowId('user_input');
+        await this.acquireUserTaskSlot(workflowId, 'user_input');
+
         const workflow = this.getWorkflowBinding();
         if (!workflow) {
             this.logger().warn('Workflow binding missing; falling back to direct user input handling');
-            const task = this.handleUserInput(userMessage, images);
+            const task = this.handleUserInput(userMessage, images)
+                .finally(() => this.releaseUserTaskSlot(workflowId));
             this.trackBackgroundTask('user_input', task);
             return null;
         }
 
-        const workflowId = this.createWorkflowId('user_input');
         this.setState({
             ...this.state,
             shouldBeGenerating: true,
@@ -730,6 +773,7 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
             await workflow.create({ id: workflowId, params });
         } catch (error) {
             this.setState({ ...this.state, shouldBeGenerating: false, activeWorkflow: undefined });
+            await this.releaseUserTaskSlot(workflowId);
             await this.updateAppStatus('completed', 'workflow_user_input_queue_failed');
             throw error;
         }
@@ -786,17 +830,33 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
             return null;
         }
 
+        const workflowId = this.createWorkflowId(params.kind);
+        try {
+            await this.acquireUserTaskSlot(workflowId, params.kind);
+        } catch (error) {
+            if (error instanceof UserTaskConcurrencyLimitError) {
+                this.logger().info('Operational workflow skipped because user task limit is reached', {
+                    kind: params.kind,
+                    activeCount: error.result.activeCount,
+                    limit: error.result.limit,
+                });
+                this.broadcastOperationalWorkflowStartFailure(params.kind, error.message);
+                this.broadcast(WebSocketMessageResponses.ERROR, { error: error.message });
+                return null;
+            }
+            throw error;
+        }
+
         const workflow = this.getWorkflowBinding();
         if (!workflow) {
             this.logger().warn('Workflow binding missing; falling back to direct operational task', { kind: params.kind });
             const task = params.kind === 'deploy_project'
                 ? this.deployProject(params.options)
                 : this.behavior.deployPreview(params.clearLogs ?? true, params.forceRedeploy ?? false);
-            this.trackBackgroundTask(params.kind, task);
+            this.trackBackgroundTask(params.kind, task.finally(() => this.releaseUserTaskSlot(workflowId)));
             return null;
         }
 
-        const workflowId = this.createWorkflowId(params.kind);
         this.setState({
             ...this.state,
             lastUserStopAt: undefined,
@@ -816,6 +876,7 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
         } catch (error) {
             const message = error instanceof Error ? error.message : String(error);
             this.setState({ ...this.state, activeWorkflow: undefined });
+            await this.releaseUserTaskSlot(workflowId);
             await this.updateAppStatus('completed', `workflow_${params.kind}_queue_failed`);
             this.broadcastOperationalWorkflowStartFailure(params.kind, message);
             throw error;

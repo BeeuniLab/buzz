@@ -70,6 +70,7 @@ import {
 	SecurityError,
 	SecurityErrorType,
 } from '@/api-types';
+import { getTaskBusyWarningTitle, isTaskBusyWarning } from '@/lib/task-warning';
 import { toast } from 'sonner';
 
 /**
@@ -680,7 +681,13 @@ class ApiClient {
 		} catch (error) {
 			// Handle any network or parsing errors
 			const errorMessage = error instanceof Error ? error.message : 'Failed to create agent session';
-			toast.error(errorMessage);
+			if (isTaskBusyWarning(errorMessage)) {
+				toast.warning(getTaskBusyWarningTitle(errorMessage), {
+					description: errorMessage,
+				});
+			} else {
+				toast.error(errorMessage);
+			}
 			
             throw new Error(errorMessage);
 		}

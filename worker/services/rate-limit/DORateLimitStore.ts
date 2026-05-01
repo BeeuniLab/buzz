@@ -8,6 +8,8 @@ export interface RateLimitBucket {
 export interface RateLimitState {
     buckets: Map<string, RateLimitBucket>;
     lastCleanup: number;
+    activeTasks: Map<string, ActiveTaskLease>;
+    lastTaskCleanup: number;
 }
 
 export interface RateLimitConfig {
@@ -27,6 +29,23 @@ export interface RateLimitResult {
     periodSeconds?: number;
 }
 
+export interface ActiveTaskLease {
+    taskId: string;
+    userId: string;
+    agentId?: string;
+    kind?: string;
+    createdAt: number;
+    updatedAt: number;
+    expiresAt: number;
+}
+
+export interface TaskSlotResult {
+    success: boolean;
+    activeCount: number;
+    limit: number;
+    tasks: ActiveTaskLease[];
+}
+
 /**
  * DORateLimitStore - Durable Object-based rate limiting store
  * 
@@ -36,7 +55,9 @@ export interface RateLimitResult {
 export class DORateLimitStore extends DurableObject<Env> {
     private state: RateLimitState = {
         buckets: new Map(),
-        lastCleanup: Date.now()
+        lastCleanup: Date.now(),
+        activeTasks: new Map(),
+        lastTaskCleanup: Date.now()
     };
     private initialized = false;
 
@@ -165,6 +186,84 @@ export class DORateLimitStore extends DurableObject<Env> {
         await this.persistState();
     }
 
+    async acquireTaskSlot(
+        taskId: string,
+        task: Omit<ActiveTaskLease, 'taskId' | 'createdAt' | 'updatedAt' | 'expiresAt'>,
+        limit: number,
+        ttlMs: number,
+    ): Promise<TaskSlotResult> {
+        await this.ensureInitialized();
+
+        const now = Date.now();
+        this.cleanupExpiredTasks(now);
+
+        const existing = this.state.activeTasks.get(taskId);
+        if (existing) {
+            const refreshed = {
+                ...existing,
+                ...task,
+                updatedAt: now,
+                expiresAt: now + ttlMs,
+            };
+            this.state.activeTasks.set(taskId, refreshed);
+            await this.persistState();
+            return this.buildTaskSlotResult(true, limit);
+        }
+
+        if (this.state.activeTasks.size >= limit) {
+            await this.persistTaskCleanupIfNeeded(now);
+            return this.buildTaskSlotResult(false, limit);
+        }
+
+        this.state.activeTasks.set(taskId, {
+            taskId,
+            ...task,
+            createdAt: now,
+            updatedAt: now,
+            expiresAt: now + ttlMs,
+        });
+
+        await this.persistState();
+        return this.buildTaskSlotResult(true, limit);
+    }
+
+    async touchTaskSlot(taskId: string, ttlMs: number, limit: number): Promise<TaskSlotResult> {
+        await this.ensureInitialized();
+
+        const now = Date.now();
+        this.cleanupExpiredTasks(now);
+
+        const existing = this.state.activeTasks.get(taskId);
+        if (existing) {
+            this.state.activeTasks.set(taskId, {
+                ...existing,
+                updatedAt: now,
+                expiresAt: now + ttlMs,
+            });
+            await this.persistState();
+        } else {
+            await this.persistTaskCleanupIfNeeded(now);
+        }
+
+        return this.buildTaskSlotResult(Boolean(existing), limit);
+    }
+
+    async releaseTaskSlot(taskId: string, limit: number): Promise<TaskSlotResult> {
+        await this.ensureInitialized();
+
+        const now = Date.now();
+        this.cleanupExpiredTasks(now);
+        const existed = this.state.activeTasks.delete(taskId);
+
+        if (existed) {
+            await this.persistState();
+        } else {
+            await this.persistTaskCleanupIfNeeded(now);
+        }
+
+        return this.buildTaskSlotResult(true, limit);
+    }
+
     private getBucketsInWindow(key: string, now: number, windowMs: number, bucketSizeMs: number): RateLimitBucket[] {
         const buckets: RateLimitBucket[] = [];
         const windowStart = now - windowMs;
@@ -197,17 +296,54 @@ export class DORateLimitStore extends DurableObject<Env> {
         }
     }
 
+    private cleanupExpiredTasks(now: number): boolean {
+        let needsUpdate = false;
+
+        for (const [taskId, task] of this.state.activeTasks) {
+            if (task.expiresAt <= now) {
+                this.state.activeTasks.delete(taskId);
+                needsUpdate = true;
+            }
+        }
+
+        if (needsUpdate || now - this.state.lastTaskCleanup > 5 * 60 * 1000) {
+            this.state.lastTaskCleanup = now;
+            needsUpdate = true;
+        }
+
+        return needsUpdate;
+    }
+
+    private async persistTaskCleanupIfNeeded(now: number): Promise<void> {
+        if (this.cleanupExpiredTasks(now)) {
+            await this.persistState();
+        }
+    }
+
+    private buildTaskSlotResult(success: boolean, limit: number): TaskSlotResult {
+        return {
+            success,
+            activeCount: this.state.activeTasks.size,
+            limit,
+            tasks: Array.from(this.state.activeTasks.values()),
+        };
+    }
+
     private async ensureInitialized(): Promise<void> {
         if (!this.initialized) {
             const stored = await this.ctx.storage.get<{
                 buckets: [string, RateLimitBucket][];
                 lastCleanup: number;
+                activeTasks?: [string, ActiveTaskLease][];
+                lastTaskCleanup?: number;
             }>('state');
             
             if (stored) {
                 this.state = {
                     buckets: new Map(stored.buckets),
-                    lastCleanup: stored.lastCleanup
+                    lastCleanup: stored.lastCleanup,
+                    activeTasks: new Map(stored.activeTasks ?? []),
+                    lastTaskCleanup: stored.lastTaskCleanup ?? Date.now()
                 };
             }
             
@@ -218,7 +354,9 @@ export class DORateLimitStore extends DurableObject<Env> {
     private async persistState(): Promise<void> {
         await this.ctx.storage.put('state', {
             buckets: Array.from(this.state.buckets.entries()),
-            lastCleanup: this.state.lastCleanup
+            lastCleanup: this.state.lastCleanup,
+            activeTasks: Array.from(this.state.activeTasks.entries()),
+            lastTaskCleanup: this.state.lastTaskCleanup
         });
     }
 }
