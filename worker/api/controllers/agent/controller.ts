@@ -1,7 +1,7 @@
 import { WebSocketMessageResponses } from '../../../agents/constants';
 import { BaseController } from '../baseController';
 import { generateId } from '../../../utils/idGenerator';
-import { BehaviorType, ProjectType } from '../../../agents/core/types';
+import { BehaviorType, GenerationBackend, ProjectType } from '../../../agents/core/types';
 import { getAgentStub } from '../../../agents';
 import {
     AgentConnectionData,
@@ -48,6 +48,12 @@ const resolveProjectType = (body: CodeGenArgs): ProjectType | 'auto' => {
 
 const normalizeProjectType = (projectType: ProjectType | 'auto'): ProjectType =>
     projectType === 'auto' ? 'app' : projectType;
+
+const resolveGenerationBackend = (body: CodeGenArgs, env: Env): GenerationBackend => {
+    if (body.generationBackend === 'codex') return 'codex';
+    const configured = (env as unknown as { CODE_GENERATION_BACKEND?: string }).CODE_GENERATION_BACKEND;
+    return configured === 'codex' ? 'codex' : 'native';
+};
 
 const buildPendingAppTitle = (query: string): string => {
     const normalized = query.replace(/\s+/g, ' ').trim();
@@ -118,6 +124,7 @@ export class CodingAgentController extends BaseController {
             const modelConfigService = new ModelConfigService(env);
             const projectType = resolveProjectType(body);
             const behaviorType = resolveBehaviorType(body);
+            const generationBackend = resolveGenerationBackend(body, env);
             const appService = new AppService(env);
             const appTitle = buildPendingAppTitle(query);
 
@@ -152,7 +159,7 @@ export class CodingAgentController extends BaseController {
             });
             pendingAppForCleanup = { agentId, userId: user.id };
 
-            this.logger.info(`Resolved behaviorType: ${behaviorType}, projectType: ${projectType} for agent ${agentId}`);
+            this.logger.info(`Resolved behaviorType: ${behaviorType}, projectType: ${projectType}, generationBackend: ${generationBackend} for agent ${agentId}`);
                                 
             // Fetch all user model configs, api keys and agent instance at once
             const userConfigsRecord = await modelConfigService.getUserModelConfigs(user.id);
@@ -212,6 +219,7 @@ export class CodingAgentController extends BaseController {
                 hostname,
                 behaviorType,
                 projectType: workflowProjectType,
+                generationBackend,
                 workflowId,
                 workflowKind: 'create_project',
             });
@@ -238,6 +246,7 @@ export class CodingAgentController extends BaseController {
                     inferenceContext,
                     images: workflowImages,
                     selectedTemplate: body.selectedTemplate,
+                    generationBackend,
                 },
             });
 
@@ -250,6 +259,7 @@ export class CodingAgentController extends BaseController {
                 projectType: workflowProjectType,
                 workflowStarted: true,
                 workflowId,
+                generationBackend,
             };
 
             this.logger.info(`Agent ${agentId} workflow launched successfully`, { workflowId });

@@ -191,6 +191,7 @@ export type {
 
 export type {
   BehaviorType,
+  GenerationBackend,
   ProjectType
 } from 'worker/agents/core/types';
 

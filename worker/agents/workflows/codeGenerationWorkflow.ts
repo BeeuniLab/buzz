@@ -4,8 +4,9 @@ import {
 	type WorkflowStep,
 	type WorkflowStepConfig,
 } from 'cloudflare:workers';
+import { NonRetryableError } from 'cloudflare:workflows';
 import { getAgentStub, getTemplateForQuery } from '../index';
-import type { BehaviorType, DeployOptions, ProjectType } from '../core/types';
+import type { BehaviorType, DeployOptions, GenerationBackend, ProjectType } from '../core/types';
 import type { InferenceContext } from '../inferutils/config.types';
 import type { ProcessedImageAttachment } from '../../types/image-attachment';
 import { createLogger } from '../../logger';
@@ -20,6 +21,89 @@ const LONG_STEP = {
 	},
 	timeout: '30 minutes',
 } satisfies WorkflowStepConfig;
+
+const RETRYABLE_HTTP_STATUS_CODES = new Set([408, 409, 425, 429, 500, 502, 503, 504]);
+const NON_RETRYABLE_HTTP_STATUS_CODES = new Set([400, 401, 403, 404, 422]);
+
+const RETRYABLE_ERROR_PATTERNS = [
+	'rate limit',
+	'too many requests',
+	'timed out',
+	'timeout',
+	'temporarily unavailable',
+	'service unavailable',
+	'bad gateway',
+	'gateway timeout',
+	'internal server error',
+	'overloaded',
+	'connection reset',
+	'connection refused',
+	'network error',
+	'socket hang up',
+	'econnreset',
+	'etimedout',
+	'ehostunreach',
+	'enetunreach',
+];
+
+const NON_RETRYABLE_ERROR_PATTERNS = [
+	'codex backend requires',
+	'sandbox service does not support codex environment injection',
+	'invalid api key',
+	'incorrect api key',
+	'authentication failed',
+	'unauthorized',
+	'forbidden',
+	'model not found',
+	'unknown model',
+	'unsupported model',
+	'no such model',
+	'login required',
+	'forced_login_method',
+	'requires_openai_auth',
+	'must set up mfa',
+	'active credentials don',
+];
+
+function getErrorMessage(error: unknown): string {
+	return error instanceof Error ? error.message : String(error);
+}
+
+function extractHttpStatusCode(message: string): number | null {
+	const match = message.match(
+		/(?:status(?:[_ ]?code)?|http(?: response)?)["'\s:=]+(\d{3})\b/i,
+	);
+	return match ? Number(match[1]) : null;
+}
+
+function includesAny(message: string, patterns: string[]): boolean {
+	return patterns.some((pattern) => message.includes(pattern));
+}
+
+function shouldFailWithoutRetry(error: unknown): boolean {
+	const message = getErrorMessage(error);
+	const normalized = message.toLowerCase();
+	const statusCode = extractHttpStatusCode(message);
+
+	if (statusCode !== null) {
+		if (RETRYABLE_HTTP_STATUS_CODES.has(statusCode)) return false;
+		if (NON_RETRYABLE_HTTP_STATUS_CODES.has(statusCode)) return true;
+	}
+
+	if (includesAny(normalized, RETRYABLE_ERROR_PATTERNS)) {
+		return false;
+	}
+
+	return includesAny(normalized, NON_RETRYABLE_ERROR_PATTERNS);
+}
+
+function rethrowForWorkflowRetry(error: unknown): never {
+	const message = getErrorMessage(error);
+	if (shouldFailWithoutRetry(error)) {
+		throw new NonRetryableError(message);
+	}
+	throw (error instanceof Error ? error : new Error(message));
+}
 
 type BaseWorkflowParams = {
 	agentId: string;
@@ -37,12 +121,14 @@ export type CreateProjectWorkflowParams = BaseWorkflowParams & {
 	language?: string;
 	frameworks?: string[];
 	selectedTemplate?: string;
+	generationBackend?: GenerationBackend;
 	requestedProjectType: ProjectType | 'auto';
 	images?: ProcessedImageAttachment[];
 };
 
 export type ExistingProjectWorkflowParams = BaseWorkflowParams & {
 	kind: 'generate_all' | 'resume_generation';
+	generationBackend?: GenerationBackend;
 };
 
 export type DeployProjectWorkflowParams = BaseWorkflowParams & {
@@ -60,6 +146,7 @@ export type UserInputWorkflowParams = BaseWorkflowParams & {
 	kind: 'user_input';
 	message: string;
 	images?: ProcessedImageAttachment[];
+	generationBackend?: GenerationBackend;
 };
 
 export type CodeGenerationWorkflowParams =
@@ -182,18 +269,22 @@ export class CodeGenerationWorkflow extends WorkflowEntrypoint<Env, CodeGenerati
 		}
 
 		await step.do('generate project files', LONG_STEP, async () => {
-			await this.updateAgentWorkflowStatus(
-				params,
-				event.instanceId,
-				'running',
-				'Generating project files',
-			);
-			const agent = await getAgentStub(this.env, params.agentId, {
-				behaviorType: params.behaviorType,
-				projectType: selected.projectType,
-			});
-			await agent.runGenerationFromWorkflow('create_project', event.instanceId);
-			return { generated: true };
+			try {
+				await this.updateAgentWorkflowStatus(
+					params,
+					event.instanceId,
+					'running',
+					'Generating project files',
+				);
+				const agent = await getAgentStub(this.env, params.agentId, {
+					behaviorType: params.behaviorType,
+					projectType: selected.projectType,
+				});
+				await agent.runGenerationFromWorkflow('create_project', event.instanceId);
+				return { generated: true };
+			} catch (error) {
+				rethrowForWorkflowRetry(error);
+			}
 		});
 	}
 
@@ -203,12 +294,16 @@ export class CodeGenerationWorkflow extends WorkflowEntrypoint<Env, CodeGenerati
 		params: ExistingProjectWorkflowParams,
 	): Promise<void> {
 		await step.do(`run ${params.kind}`, LONG_STEP, async () => {
-			const agent = await getAgentStub(this.env, params.agentId, {
-				behaviorType: params.behaviorType,
-				projectType: params.projectType,
-			});
-			await agent.runGenerationFromWorkflow(params.kind, event.instanceId);
-			return { generated: true, workflowInstanceId: event.instanceId };
+			try {
+				const agent = await getAgentStub(this.env, params.agentId, {
+					behaviorType: params.behaviorType,
+					projectType: params.projectType,
+				});
+				await agent.runGenerationFromWorkflow(params.kind, event.instanceId);
+				return { generated: true, workflowInstanceId: event.instanceId };
+			} catch (error) {
+				rethrowForWorkflowRetry(error);
+			}
 		});
 	}
 
@@ -218,12 +313,16 @@ export class CodeGenerationWorkflow extends WorkflowEntrypoint<Env, CodeGenerati
 		params: UserInputWorkflowParams,
 	): Promise<void> {
 		await step.do('process user input and continue generation', LONG_STEP, async () => {
-			const agent = await getAgentStub(this.env, params.agentId, {
-				behaviorType: params.behaviorType,
-				projectType: params.projectType,
-			});
-			await agent.runUserInputFromWorkflow(params.message, params.images, event.instanceId);
-			return { processed: true, workflowInstanceId: event.instanceId };
+			try {
+				const agent = await getAgentStub(this.env, params.agentId, {
+					behaviorType: params.behaviorType,
+					projectType: params.projectType,
+				});
+				await agent.runUserInputFromWorkflow(params.message, params.images, event.instanceId);
+				return { processed: true, workflowInstanceId: event.instanceId };
+			} catch (error) {
+				rethrowForWorkflowRetry(error);
+			}
 		});
 	}
 

@@ -3,6 +3,7 @@ import {
     PhaseConceptType,
     FileOutputType,
     PhaseImplementationSchemaType,
+    type PhasicBlueprint,
 } from '../../schemas';
 import { StaticAnalysisResponse } from 'worker/types/project-types';
 import { CurrentDevState, MAX_PHASES, PhasicState } from '../state';
@@ -33,6 +34,48 @@ import { runPreDeploySafetyGate } from '../../utils/preDeploySafetyGate';
 interface PhasicOperations extends BaseCodingOperations {
     generateNextPhase: PhaseGenerationOperation;
     implementPhase: PhaseImplementationOperation;
+}
+
+function buildCodexBootstrapBlueprint(args: {
+    query: string;
+    projectName: string;
+    frameworks?: string[];
+    templateFrameworks?: string[];
+}): PhasicBlueprint {
+    const normalizedQuery = args.query.replace(/\s+/g, ' ').trim();
+    const title = normalizedQuery.length > 0 ? normalizedQuery : args.projectName;
+    const description = normalizedQuery || 'Build the requested project from the selected template.';
+    const mergedFrameworks = Array.from(new Set([
+        ...(args.frameworks ?? []),
+        ...(args.templateFrameworks ?? []),
+    ]));
+
+    return {
+        title: title.length > 100 ? `${title.slice(0, 97)}...` : title,
+        projectName: args.projectName,
+        description,
+        colorPalette: [],
+        frameworks: mergedFrameworks,
+        detailedDescription: description,
+        views: [],
+        userFlow: {
+            uiLayout: '',
+            uiDesign: '',
+            userJourney: '',
+        },
+        dataFlow: '',
+        architecture: {
+            dataFlow: '',
+        },
+        pitfalls: [],
+        implementationRoadmap: [],
+        initialPhase: {
+            name: 'implementation',
+            description: 'Implemented directly by Codex from the selected template and latest request.',
+            files: [],
+            lastPhase: false,
+        },
+    };
 }
 
 /**
@@ -70,39 +113,53 @@ export class PhasicCodingBehavior extends BaseCodingBehavior<PhasicState> implem
             throw new Error('Phasic initialization requires templateInfo.templateDetails');
         }
         const { query, language, frameworks, hostname, inferenceContext, sessionId } = initArgs;
-        
-        // Generate a blueprint
-        this.logger.info('Generating blueprint', { query, queryLength: query.length, imagesCount: initArgs.images?.length || 0 });
-        this.logger.info(`Using language: ${language}, frameworks: ${frameworks ? frameworks.join(", ") : "none"}`);
-        
-        const blueprint = await generateBlueprint({
-            env: this.env,
-            inferenceContext,
-            query,
-            language: language!,
-            frameworks: frameworks!,
-            templateDetails: templateInfo?.templateDetails,
-            templateMetaInfo: templateInfo?.selection,
-            images: initArgs.images,
-            projectType: this.projectType,
-            stream: {
-                chunk_size: 256,
-                onChunk: (chunk) => {
-                    initArgs.onBlueprintChunk(chunk);
-                }
-            }
-        })
-                
-        const packageJson = templateInfo.templateDetails.allFiles['package.json'];
-                
+        const isCodexBackend = this.state.generationBackend === 'codex';
+        const projectNameSeed = query || templateInfo?.templateDetails.name || 'project';
         const projectName = generateProjectName(
-            blueprint?.projectName || templateInfo?.templateDetails.name || '',
+            projectNameSeed,
             generateNanoId(),
             PhasicCodingBehavior.PROJECT_NAME_PREFIX_MAX_LENGTH
         );
-                        
+        let blueprint: PhasicBlueprint;
+
+        if (isCodexBackend) {
+            this.logger.info('Skipping blueprint generation for Codex backend', {
+                queryLength: query.length,
+                imagesCount: initArgs.images?.length || 0,
+            });
+            blueprint = buildCodexBootstrapBlueprint({
+                query,
+                projectName,
+                frameworks,
+                templateFrameworks: templateInfo.templateDetails.frameworks,
+            });
+        } else {
+            this.logger.info('Generating blueprint', { query, queryLength: query.length, imagesCount: initArgs.images?.length || 0 });
+            this.logger.info(`Using language: ${language}, frameworks: ${frameworks ? frameworks.join(", ") : "none"}`);
+
+            blueprint = await generateBlueprint({
+                env: this.env,
+                inferenceContext,
+                query,
+                language: language!,
+                frameworks: frameworks!,
+                templateDetails: templateInfo?.templateDetails,
+                templateMetaInfo: templateInfo?.selection,
+                images: initArgs.images,
+                projectType: this.projectType,
+                stream: {
+                    chunk_size: 256,
+                    onChunk: (chunk) => {
+                        initArgs.onBlueprintChunk(chunk);
+                    }
+                }
+            });
+        }
+
+        const packageJson = templateInfo.templateDetails.allFiles['package.json'];
+
         this.logger.info('Generated project name', { projectName });
-                        
+
         const nextState: PhasicState = {
             ...this.state,
             projectName,
@@ -129,11 +186,11 @@ export class PhasicCodingBehavior extends BaseCodingBehavior<PhasicState> implem
                 commandsHistory: []
             }
         );
-        
+
         this.logger.info('Customized template files', { 
             files: Object.keys(customizedFiles) 
         });
-        
+
         // Save customized files to git
         const filesToSave = Object.entries(customizedFiles).map(([filePath, content]) => ({
             filePath,
@@ -146,12 +203,16 @@ export class PhasicCodingBehavior extends BaseCodingBehavior<PhasicState> implem
             'Initialize project configuration files',
             true
         );
-        
+
         this.logger.info('Committed customized template files to git');
 
-        this.initializeAsync().catch((error: unknown) => {
-            this.broadcastError("Initialization failed", error);
-        });
+        if (isCodexBackend) {
+            this.logger.info('Skipping native bootstrap follow-up for Codex backend');
+        } else {
+            this.initializeAsync().catch((error: unknown) => {
+                this.broadcastError("Initialization failed", error);
+            });
+        }
         this.logger.info(`Agent ${this.getAgentId()} session: ${this.state.sessionId} initialized successfully`);
         return this.state;
     }

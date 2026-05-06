@@ -10,6 +10,7 @@ import {
 	type ImageAttachment,
 	type ProjectType,
 	type BehaviorType,
+	type GenerationBackend,
 	type FileType,
 	type TemplateDetails,
 	getBehaviorTypeForProject,
@@ -26,7 +27,11 @@ import { appEvents } from '@/lib/app-events';
 import { createWebSocketMessageHandler, type HandleMessageDeps } from '../utils/handle-websocket-message';
 import { isConversationalMessage, addOrUpdateMessage, createUserMessage, handleRateLimitError, createAIMessage, type ChatMessage } from '../utils/message-helpers';
 import { sendWebSocketMessage } from '../utils/websocket-helpers';
-import { initialStages as defaultStages, updateStage as updateStageHelper } from '../utils/project-stage-helpers';
+import {
+	createInitialStages,
+	syncStageTitles,
+	updateStage as updateStageHelper,
+} from '../utils/project-stage-helpers';
 import type { ProjectStage } from '../utils/project-stage-helpers';
 import { buildOptimisticChatAttachments, type ChatAttachmentPreview } from '../utils/chat-attachments';
 
@@ -105,6 +110,7 @@ export function useChat({
 	);
 	const [behaviorType, setBehaviorType] = useState<BehaviorType>(getInitialBehaviorType());
 	const [internalProjectType, setInternalProjectType] = useState<ProjectType>(projectType);
+	const [generationBackend, setGenerationBackend] = useState<GenerationBackend>();
 	const [templateDetails, setTemplateDetails] = useState<TemplateDetails | null>(null);
 
 	const [websocket, setWebsocket] = useState<WebSocket>();
@@ -112,7 +118,7 @@ export function useChat({
 	const [isGeneratingBlueprint, setIsGeneratingBlueprint] = useState(false);
 	const [isBootstrapping, setIsBootstrapping] = useState(true);
 
-	const [projectStages, setProjectStages] = useState<ProjectStage[]>(defaultStages);
+	const [projectStages, setProjectStages] = useState<ProjectStage[]>(() => createInitialStages());
 
 	// New state for phase timeline tracking
 	const [phaseTimeline, setPhaseTimeline] = useState<PhaseTimelineItem[]>([]);
@@ -167,6 +173,10 @@ export function useChat({
 		updateStage('bootstrap', { status: 'completed' });
 	}, [updateStage]);
 
+	useEffect(() => {
+		setProjectStages((prev) => syncStageTitles(prev, generationBackend));
+	}, [generationBackend]);
+
 	const clearEdit = useCallback(() => {
 		setEdit(undefined);
 	}, []);
@@ -207,10 +217,11 @@ export function useChat({
 		);
 		setBehaviorType(getInitialBehaviorType());
 		setInternalProjectType(projectType);
+		setGenerationBackend(undefined);
 		setTemplateDetails(null);
 		setIsGeneratingBlueprint(false);
 		setIsBootstrapping(nextRouteChatId === 'new');
-		setProjectStages(defaultStages);
+		setProjectStages(createInitialStages());
 		setPhaseTimeline([]);
 		setFiles([]);
 		setTotalFiles(undefined);
@@ -298,6 +309,7 @@ export function useChat({
 			setIsDebugging,
 			setBehaviorType,
 			setInternalProjectType,
+			setGenerationBackend,
 			setTemplateDetails,
 			// Current state
 			isInitialStateRestored,
@@ -554,7 +566,7 @@ export function useChat({
 					const response = await apiClient.createAgentSession({
 						query: userQuery,
 						projectType,
-						images: userImages, // Pass images from URL params for multi-modal blueprint
+						images: userImages, // Pass images from URL params for initial build context
 					});
 
 					const parser = createRepairingJSONParser();
@@ -564,6 +576,7 @@ export function useChat({
 						agentId: string;
 						behaviorType: BehaviorType;
 						projectType: ProjectType;
+						generationBackend?: GenerationBackend;
 						workflowStarted?: boolean;
 						template?: {
 							files: FileType[];
@@ -630,6 +643,11 @@ export function useChat({
 							result.projectType = obj.projectType;
 							logger.debug('Received projectType from server:', obj.projectType);
 						}
+						if (obj.generationBackend) {
+							result.generationBackend = obj.generationBackend;
+							setGenerationBackend(obj.generationBackend);
+							logger.debug('Received generationBackend from server:', obj.generationBackend);
+						}
 						if (obj.workflowStarted) {
 							result.workflowStarted = true;
 							logger.debug('Received workflow start acknowledgement from server');
@@ -648,9 +666,15 @@ export function useChat({
 						setIsGeneratingBlueprint(false);
 					} else {
 						setIsBootstrapping(false);
-						setIsGeneratingBlueprint(true);
 						updateStage('bootstrap', { status: 'completed' });
-						updateStage('blueprint', { status: 'active' });
+						if (result.generationBackend === 'codex') {
+							setIsGeneratingBlueprint(false);
+							updateStage('blueprint', { status: 'completed' });
+							updateStage('code', { status: 'active' });
+						} else {
+							setIsGeneratingBlueprint(true);
+							updateStage('blueprint', { status: 'active' });
+						}
 						sendMessage(
 							createAIMessage('workflow-started', 'The build is running durably now. You can leave this page and come back.', true),
 						);

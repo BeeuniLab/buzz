@@ -1,4 +1,4 @@
-import { getSandbox, Sandbox, parseSSEStream, LogEvent, ExecResult } from '@cloudflare/sandbox';
+import { getSandbox, Sandbox, parseSSEStream, LogEvent, ExecResult, type MountBucketOptions } from '@cloudflare/sandbox';
 
 import {
     BootstrapResponse,
@@ -1553,6 +1553,70 @@ export class SandboxSdkClient extends BaseSandboxService {
                     error: 'Instance error' 
                 })),
                 error: `Failed to execute commands: ${error instanceof Error ? error.message : 'Unknown error'}`
+            };
+        }
+    }
+
+    async setInstanceEnvVars(instanceId: string, envVars: Record<string, string>): Promise<{ success: boolean; error?: string }> {
+        try {
+            const session = await this.getInstanceSession(instanceId);
+            await session.setEnvVars(envVars);
+            this.logger.info('Environment variables injected into instance session', {
+                instanceId,
+                keys: Object.keys(envVars),
+            });
+            return { success: true };
+        } catch (error) {
+            this.logger.error('setInstanceEnvVars', error, { instanceId, keys: Object.keys(envVars) });
+            return {
+                success: false,
+                error: `Failed to set instance environment variables: ${error instanceof Error ? error.message : 'Unknown error'}`,
+            };
+        }
+    }
+
+    async mountBucket(
+        instanceId: string,
+        request: {
+            bucketName: string;
+            mountPath: string;
+            endpoint: string;
+            provider?: 'r2' | 's3' | 'gcs';
+            credentials: {
+                accessKeyId: string;
+                secretAccessKey: string;
+            };
+            readOnly?: boolean;
+            s3fsOptions?: string[];
+        }
+    ): Promise<{ success: boolean; error?: string; alreadyMounted?: boolean }> {
+        const { bucketName, mountPath, endpoint, provider, credentials, readOnly, s3fsOptions } = request;
+        try {
+            const check = await this.safeSandboxExec(
+                `mkdir -p ${shellQuote(mountPath)} && mountpoint -q ${shellQuote(mountPath)}`,
+                { timeout: 15_000 }
+            );
+            if (check.exitCode === 0) {
+                this.logger.info('Bucket mount path already mounted', { instanceId, bucketName, mountPath });
+                return { success: true, alreadyMounted: true };
+            }
+
+            const options: MountBucketOptions = {
+                endpoint,
+                credentials,
+                ...(provider ? { provider } : {}),
+                ...(readOnly !== undefined ? { readOnly } : {}),
+                ...(s3fsOptions ? { s3fsOptions } : {}),
+            };
+            await this.getSandbox().mountBucket(bucketName, mountPath, options);
+            this.logger.info('Bucket mounted into sandbox', { instanceId, bucketName, mountPath, endpoint, provider });
+            return { success: true };
+        } catch (error) {
+            const message = error instanceof Error ? error.message : 'Unknown error';
+            this.logger.error('mountBucket', error, { instanceId, bucketName, mountPath, endpoint, provider });
+            return {
+                success: false,
+                error: `Failed to mount bucket: ${message}`,
             };
         }
     }

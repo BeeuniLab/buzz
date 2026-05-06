@@ -3,7 +3,7 @@ import type { PhasicBlueprint, AgenticBlueprint, PhaseConceptType ,
     Blueprint,
 } from '../schemas';
 import type { InferenceMetadata } from '../inferutils/config.types';
-import { BehaviorType, Plan, ProjectType } from './types';
+import { BehaviorType, GenerationBackend, Plan, ProjectType } from './types';
 import type { InitialUserAttachment } from '../../types/image-attachment';
 
 export interface FileState extends FileOutputType {
@@ -48,6 +48,7 @@ export const MAX_PHASES = 10;
 export interface BaseProjectState {
     behaviorType: BehaviorType;
     projectType: ProjectType;
+    generationBackend?: GenerationBackend;
     
     // Identity
     projectName: string;

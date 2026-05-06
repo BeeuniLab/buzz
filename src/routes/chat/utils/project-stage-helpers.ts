@@ -1,3 +1,5 @@
+import type { GenerationBackend } from '@/api-types';
+
 export interface ProjectStage {
     id: 'bootstrap' | 'blueprint' | 'code';
     title: string;
@@ -5,19 +7,62 @@ export interface ProjectStage {
     metadata?: string;
 }
 
-export const initialStages: ProjectStage[] = [
-    {
-        id: 'bootstrap',
-        title: 'Getting your idea ready',
-        status: 'active',
+const STAGE_TITLES: Record<'native' | 'codex', Record<ProjectStage['id'], string>> = {
+    native: {
+        bootstrap: 'Getting your idea ready',
+        blueprint: 'Shaping the experience',
+        code: 'Making it playable',
     },
-    {
-        id: 'blueprint',
-        title: 'Shaping the experience',
-        status: 'pending',
+    codex: {
+        bootstrap: 'Getting your idea ready',
+        blueprint: 'Preparing the workspace',
+        code: 'Making it playable',
     },
-    { id: 'code', title: 'Making it playable', status: 'pending' },
-];
+};
+
+function getStageTitles(generationBackend?: GenerationBackend): Record<ProjectStage['id'], string> {
+    return generationBackend === 'codex' ? STAGE_TITLES.codex : STAGE_TITLES.native;
+}
+
+export function createInitialStages(generationBackend?: GenerationBackend): ProjectStage[] {
+    const titles = getStageTitles(generationBackend);
+
+    return [
+        {
+            id: 'bootstrap',
+            title: titles.bootstrap,
+            status: 'active',
+        },
+        {
+            id: 'blueprint',
+            title: titles.blueprint,
+            status: 'pending',
+        },
+        { id: 'code', title: titles.code, status: 'pending' },
+    ];
+}
+
+export const initialStages: ProjectStage[] = createInitialStages();
+
+export function syncStageTitles(
+    stages: ProjectStage[],
+    generationBackend?: GenerationBackend,
+): ProjectStage[] {
+    const titles = getStageTitles(generationBackend);
+    let changed = false;
+
+    const nextStages = stages.map((stage) => {
+        const nextTitle = titles[stage.id];
+        if (stage.title === nextTitle) {
+            return stage;
+        }
+
+        changed = true;
+        return { ...stage, title: nextTitle };
+    });
+
+    return changed ? nextStages : stages;
+}
 
 /**
  * Update a specific stage's status and metadata

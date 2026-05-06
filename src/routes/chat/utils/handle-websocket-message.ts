@@ -1,5 +1,5 @@
 import type { WebSocket } from 'partysocket';
-import type { WebSocketMessage, BlueprintType, ConversationMessage, AgentState, PhasicState, BehaviorType, ProjectType, TemplateDetails } from '@/api-types';
+import type { WebSocketMessage, BlueprintType, ConversationMessage, AgentState, PhasicState, BehaviorType, ProjectType, TemplateDetails, GenerationBackend } from '@/api-types';
 import { deduplicateMessages, isAssistantMessageDuplicate } from './deduplicate-messages';
 import { logger } from '@/utils/logger';
 import { getFileType } from '@/utils/string';
@@ -98,6 +98,7 @@ const hasMeaningfulBlueprint = (state: AgentState): boolean =>
 	Boolean(state.blueprint && Object.keys(state.blueprint).length > 0);
 
 const isPreparingInitialBlueprint = (state: AgentState): boolean =>
+	state.generationBackend !== 'codex' &&
 	isCreateProjectWorkflow(getFreshActiveWorkflow(state)) &&
 	!hasMeaningfulBlueprint(state) &&
 	!hasGeneratedFiles(state);
@@ -165,6 +166,7 @@ export interface HandleMessageDeps {
     setIsDebugging: React.Dispatch<React.SetStateAction<boolean>>;
     setBehaviorType: React.Dispatch<React.SetStateAction<BehaviorType>>;
     setInternalProjectType: React.Dispatch<React.SetStateAction<ProjectType>>;
+    setGenerationBackend: React.Dispatch<React.SetStateAction<GenerationBackend | undefined>>;
     setTemplateDetails: React.Dispatch<React.SetStateAction<TemplateDetails | null>>;
     onPresentationFileEvent?: (event: { type: 'file_generating' | 'file_chunk' | 'file_generated'; path: string; chunk?: string; contents?: string }) => void;
     clearDeploymentTimeout?: () => void;
@@ -273,6 +275,7 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
             setIsDebugging,
             setBehaviorType,
             setInternalProjectType,
+            setGenerationBackend,
             setTemplateDetails,
             isInitialStateRestored,
             blueprint,
@@ -338,8 +341,14 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
                         logger.debug('🔄 Restored projectType from backend:', restoredProjectType);
                     }
 
+                    if (state.generationBackend) {
+                        setGenerationBackend(state.generationBackend);
+                    }
+
                     if (hasMeaningfulBlueprint(state) && !blueprint) {
                         setBlueprint(state.blueprint);
+                        updateStage('blueprint', { status: 'completed' });
+                    } else if (state.generationBackend === 'codex') {
                         updateStage('blueprint', { status: 'completed' });
                     }
 
@@ -529,6 +538,9 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
                 if (state.projectType) {
                     setInternalProjectType(state.projectType);
                 }
+                if (state.generationBackend) {
+                    setGenerationBackend(state.generationBackend);
+                }
 
                 if (hasPlayableChangesSinceLastDeployment(state)) {
                     setIsRedeployReady(true);
@@ -548,7 +560,7 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
                     updateStage('bootstrap', { status: 'completed' });
                     updateStage('blueprint', { status: 'active' });
                     updateStage('code', { status: 'pending' });
-                } else if (hasMeaningfulBlueprint(state)) {
+                } else if (hasMeaningfulBlueprint(state) || state.generationBackend === 'codex') {
                     setIsGeneratingBlueprint(false);
                     updateStage('bootstrap', { status: 'completed' });
                     updateStage('blueprint', { status: 'completed' });

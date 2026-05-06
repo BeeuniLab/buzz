@@ -274,6 +274,34 @@ export abstract class BaseSandboxService {
      * Returns: { success: boolean, results: [...], message?: string, error?: string }
      */
     abstract executeCommands(instanceId: string, commands: string[], timeout?: number): Promise<ExecuteCommandsResponse>;
+
+    async setInstanceEnvVars(_instanceId: string, _envVars: Record<string, string>): Promise<{ success: boolean; error?: string }> {
+        return {
+            success: false,
+            error: 'This sandbox service does not support per-instance environment variable injection',
+        };
+    }
+
+    async mountBucket(
+        _instanceId: string,
+        _request: {
+            bucketName: string;
+            mountPath: string;
+            endpoint: string;
+            provider?: 'r2' | 's3' | 'gcs';
+            credentials: {
+                accessKeyId: string;
+                secretAccessKey: string;
+            };
+            readOnly?: boolean;
+            s3fsOptions?: string[];
+        }
+    ): Promise<{ success: boolean; error?: string; alreadyMounted?: boolean }> {
+        return {
+            success: false,
+            error: 'This sandbox service does not support bucket mounts',
+        };
+    }
  
     abstract updateProjectName(instanceId: string, projectName: string): Promise<boolean>;
   

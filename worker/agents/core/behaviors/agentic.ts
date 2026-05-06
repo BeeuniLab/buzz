@@ -57,6 +57,7 @@ export class AgenticCodingBehavior extends BaseCodingBehavior<AgenticState> impl
         await super.initialize(initArgs);
 
         const { query, hostname, inferenceContext, templateInfo, sessionId } = initArgs;
+        const isCodexBackend = this.state.generationBackend === 'codex';
 
         const packageJson = templateInfo?.templateDetails?.allFiles['package.json'];
 
@@ -121,7 +122,11 @@ export class AgenticCodingBehavior extends BaseCodingBehavior<AgenticState> impl
             );
             
             this.logger.info('Committed customized template files to git');
-            this.deployToSandbox();
+            if (!isCodexBackend) {
+                this.deployToSandbox();
+            } else {
+                this.logger.info('Skipping eager sandbox deploy for Codex backend');
+            }
         }
         this.logger.info(`Agent ${this.getAgentId()} session: ${this.state.sessionId} initialized successfully`);
         return this.state;

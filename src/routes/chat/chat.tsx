@@ -532,7 +532,7 @@ export default function Chat() {
 	]);
 
 	const isRunning = isServerTaskRunning || isSendLockActive;
-	const showResumeGeneration = isGenerationPaused && !isRunning && Boolean(blueprint);
+	const showResumeGeneration = isGenerationPaused && !isRunning;
 
 	useEffect(() => {
 		if (isServerTaskRunning && isSendLockActive) {
@@ -550,14 +550,14 @@ export default function Chat() {
 		return isBootstrapping || isGenerating || isGeneratingBlueprint || isThinking || isDebugging || isConversationProcessing;
 	}, [isBootstrapping, isGenerating, isGeneratingBlueprint, isThinking, isDebugging, isConversationProcessing]);
 
-	// Check if chat input should be disabled (before blueprint completion, or during debugging)
+	// Check if chat input should be disabled until build setup finishes, or while work is running
 	const isChatDisabled = useMemo(() => {
-		const blueprintStage = projectStages.find(
+		const setupStage = projectStages.find(
 			(stage) => stage.id === 'blueprint',
 		);
-		const blueprintNotCompleted = !blueprintStage || blueprintStage.status !== 'completed';
+		const setupNotCompleted = !setupStage || setupStage.status !== 'completed';
 
-		return blueprintNotCompleted || isRunning;
+		return setupNotCompleted || isRunning;
 	}, [projectStages, isRunning]);
 
 	const chatFormRef = useRef<HTMLFormElement>(null);
@@ -780,12 +780,12 @@ export default function Chat() {
 							{showResumeGeneration && (
 								<div className="mb-4 rounded-xl border border-orange-300/30 bg-orange-500/10 px-3 py-3 text-sm text-text-primary">
 									<div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-										<div>
-											<div className="font-medium">Build is paused</div>
-											<div className="text-xs text-text-tertiary">
-												This project is not running right now. Resume generation from the saved blueprint when you're ready.
+											<div>
+												<div className="font-medium">Build is paused</div>
+												<div className="text-xs text-text-tertiary">
+													This project is not running right now. Resume generation from the saved project state when you're ready.
+												</div>
 											</div>
-										</div>
 										<Button
 											type="button"
 											onClick={handleResumeGeneration}

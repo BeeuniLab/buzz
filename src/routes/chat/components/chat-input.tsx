@@ -97,7 +97,7 @@ export function ChatInput({
 			: isChatDisabled
 				? isRunning
 					? 'Task running... Stop or wait to continue'
-					: 'Please wait for blueprint completion...'
+					: 'Please wait for setup to finish...'
 				: isRunning
 					? 'Chat with AI while generating...'
 					: 'Chat with AI...';

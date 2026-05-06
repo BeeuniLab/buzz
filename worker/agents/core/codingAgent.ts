@@ -1,5 +1,5 @@
 import { Agent, AgentContext, ConnectionContext } from "agents";
-import { AgentInitArgs, AgentSummary, DeployOptions, DeployResult, ExportOptions, ExportResult, BehaviorType } from "./types";
+import { AgentInitArgs, AgentSummary, DeployOptions, DeployResult, ExportOptions, ExportResult, BehaviorType, GenerationBackend } from "./types";
 import { AgenticState, AgentState, BaseProjectState, CurrentDevState, FileState, MAX_PHASES, PhasicState, type ActiveWorkflowTask } from "./state";
 import { Blueprint } from "../schemas";
 import { BaseCodingBehavior } from "./behaviors/base";
@@ -9,6 +9,7 @@ import { getMimeType } from 'hono/utils/mime';
 import { normalizePath, isPathSafe } from '../../utils/pathUtils';
 import { FileManager } from '../services/implementations/FileManager';
 import { DeploymentManager } from '../services/implementations/DeploymentManager';
+import { CodexGenerationManager } from '../services/implementations/CodexGenerationManager';
 import { GitVersionControl } from '../git';
 import { StateManager } from '../services/implementations/StateManager';
 import { PhasicCodingBehavior } from './behaviors/phasic';
@@ -63,6 +64,11 @@ const stripBase64FromProcessedAttachment = (attachment: ProcessedImageAttachment
     return workflowAttachment;
 };
 
+const isProcessedWorkflowAttachment = (
+    attachment: ImageAttachment | ProcessedImageAttachment,
+): attachment is ProcessedImageAttachment =>
+    'r2Key' in attachment && typeof attachment.r2Key === 'string';
+
 const isWorkflowTerminalStatus = (status: string | undefined): boolean =>
     status === 'complete' || status === 'errored' || status === 'terminated';
 
@@ -87,6 +93,7 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
     // Services
     readonly fileManager: FileManager;
     readonly deploymentManager: DeploymentManager;
+    readonly codexGenerationManager: CodexGenerationManager<AgentState>;
     readonly git: GitVersionControl;
     
     // Redeclare as public to satisfy AgentInfrastructure interface
@@ -152,6 +159,15 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
                 env: this.env
             },
             10, // MAX_COMMANDS_HISTORY
+        );
+        this.codexGenerationManager = new CodexGenerationManager(
+            {
+                stateManager,
+                fileManager: this.fileManager,
+                getLogger: () => this.logger(),
+                env: this.env,
+            },
+            this.deploymentManager,
         );
     }
     private createObjective(projectType: ProjectType): ProjectObjective<BaseProjectState> {
@@ -320,6 +336,21 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
 
     private getWorkflowUserId(): string | undefined {
         return this.state.metadata?.userId;
+    }
+
+    private resolveGenerationBackend(): GenerationBackend {
+        if (this.state.generationBackend === 'codex' || this.state.generationBackend === 'native') {
+            return this.state.generationBackend;
+        }
+        return this.env.CODE_GENERATION_BACKEND === 'codex' ? 'codex' : 'native';
+    }
+
+    private buildCodexWorkflowQuery(kind: ExistingProjectWorkflowParams['kind'] | 'user_input'): string {
+        const originalRequest = this.state.query || 'Continue implementing the current project.';
+        if (kind === 'resume_generation') {
+            return `Resume implementation of this project from the current workspace state.\n\nOriginal request:\n${originalRequest}`;
+        }
+        return `Continue implementing this project from the current workspace state until the requested MVP is complete.\n\nOriginal request:\n${originalRequest}`;
     }
 
     private async acquireUserTaskSlot(workflowId: string, kind: ActiveWorkflowTask['kind']): Promise<void> {
@@ -572,6 +603,7 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
         hostname: string;
         behaviorType: BehaviorType;
         projectType: ProjectType;
+        generationBackend?: GenerationBackend;
         workflowId?: string;
         workflowKind?: ActiveWorkflowTask['kind'];
     }): Promise<void> {
@@ -582,6 +614,7 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
             ...this.state,
             behaviorType: args.behaviorType,
             projectType: args.projectType,
+            generationBackend: args.generationBackend ?? this.resolveGenerationBackend(),
             projectName: '',
             query: args.query,
             sessionId,
@@ -626,8 +659,18 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
         } as AgentInitArgs<AgentState>);
     }
 
-    async runGenerationFromWorkflow(reason: CodeGenerationWorkflowParams['kind'], workflowId?: string): Promise<void> {
+    async runGenerationFromWorkflow(
+        reason: ExistingProjectWorkflowParams['kind'] | 'create_project' | 'user_input',
+        workflowId?: string,
+    ): Promise<void> {
         this.throwIfDeleted('run generation workflow');
+        if (this.resolveGenerationBackend() === 'codex') {
+            const query = reason === 'create_project'
+                ? this.state.query
+                : this.buildCodexWorkflowQuery(reason);
+            await this.runCodexGenerationFromWorkflow(workflowId, query, reason);
+            return;
+        }
         this.setState({
             ...this.state,
             shouldBeGenerating: true,
@@ -654,6 +697,54 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
         }
     }
 
+    async runCodexGenerationFromWorkflow(
+        workflowId: string | undefined,
+        query: string,
+        kind: ActiveWorkflowTask['kind'] = 'create_project',
+    ): Promise<void> {
+        this.throwIfDeleted('run Codex generation workflow');
+        this.setState({
+            ...this.state,
+            shouldBeGenerating: true,
+            lastUserStopAt: undefined,
+        });
+        this.logger().info('Codex workflow generation started', { workflowId, kind });
+        if (workflowId) {
+            await this.updateWorkflowStatus({
+                workflowId,
+                kind,
+                status: 'running',
+                message: `Workflow ${kind} is running Codex in the background`,
+            });
+        }
+        await this.updateAppStatus('generating', `workflow_${kind}_codex_generation_started`);
+
+        const result = await this.codexGenerationManager.run({
+            workflowId: workflowId || this.createWorkflowId(kind),
+            kind,
+            query,
+        });
+
+        this.setState({
+            ...this.state,
+            mvpGenerated: true,
+            shouldBeGenerating: false,
+            lastUserStopAt: undefined,
+        } as AgentState);
+        this.broadcast(WebSocketMessageResponses.GENERATION_COMPLETE, {
+            message: `Codex generation completed with ${result.changedFiles.length} changed files.`,
+            instanceId: this.state.sessionId,
+        });
+        if (workflowId) {
+            await this.updateWorkflowStatus({
+                workflowId,
+                kind,
+                status: 'completed',
+                message: `Workflow ${kind} completed with Codex`,
+            });
+        }
+    }
+
     async startGenerationWorkflow(kind: ExistingProjectWorkflowParams['kind']): Promise<string | null> {
         this.throwIfDeleted('start generation workflow');
         if (this.behavior?.isCodeGenerating?.() || this.state.shouldBeGenerating || this.state.activeWorkflow) {
@@ -672,7 +763,7 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
         const workflow = this.getWorkflowBinding();
         if (!workflow) {
             this.logger().warn('Workflow binding missing; falling back to waitUntil generation', { kind });
-            const task = this.behavior.generateAllFiles()
+            const task = this.runGenerationFromWorkflow(kind, workflowId)
                 .finally(() => this.releaseUserTaskSlot(workflowId));
             this.trackBackgroundTask(kind, task);
             return null;
@@ -701,6 +792,7 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
                     agentId: this.getAgentId(),
                     behaviorType: this.state.behaviorType,
                     projectType: this.state.projectType,
+                    generationBackend: this.resolveGenerationBackend(),
                 },
             });
         } catch (error) {
@@ -735,7 +827,7 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
         const workflow = this.getWorkflowBinding();
         if (!workflow) {
             this.logger().warn('Workflow binding missing; falling back to direct user input handling');
-            const task = this.handleUserInput(userMessage, images)
+            const task = this.runUserInputFromWorkflow(userMessage, images, workflowId)
                 .finally(() => this.releaseUserTaskSlot(workflowId));
             this.trackBackgroundTask('user_input', task);
             return null;
@@ -769,6 +861,7 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
                 projectType: this.state.projectType,
                 message: userMessage,
                 images: workflowImages,
+                generationBackend: this.resolveGenerationBackend(),
             };
             await workflow.create({ id: workflowId, params });
         } catch (error) {
@@ -1242,6 +1335,7 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
                 ...this.state,
                 behaviorType: 'phasic' as BehaviorType,
                 projectType: 'app' as ProjectType,
+                generationBackend: this.resolveGenerationBackend(),
                 projectName,
                 query: args.description,
                 initialUserAttachments: [],
@@ -1552,6 +1646,23 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
                 message: 'Processing user message',
                 status: 'start',
             });
+
+            if (this.resolveGenerationBackend() === 'codex') {
+                const processedImages = images && images.length > 0
+                    ? (images.every(isProcessedWorkflowAttachment)
+                        ? images
+                        : await this.uploadWorkflowUserInputAssets(images as ImageAttachment[]))
+                    : undefined;
+                if (processedImages && processedImages.length > 0) {
+                    await this.syncAndCaptionUploadedAssets(processedImages);
+                }
+                await this.runCodexGenerationFromWorkflow(workflowId, userMessage, 'user_input');
+                this.broadcast(WebSocketMessageResponses.USER_SUGGESTIONS_PROCESSING, {
+                    message: 'User message processed',
+                    status: 'complete',
+                });
+                return;
+            }
 
             await this.behavior.handleUserInput(userMessage, images);
             if (!this.behavior.isCodeGenerating()) {

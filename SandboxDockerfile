@@ -38,6 +38,9 @@ RUN which bunx || ln -sf $(which bun) /usr/local/bin/bunx
 # Install tsc via bunx
 RUN bunx tsc --version
 
+# Install Codex CLI for optional background code generation.
+RUN npm install -g @openai/codex
+
 # Create symlinks for easier CLI usage
 RUN ln -sf /workspace/container/cli-tools.ts /usr/local/bin/monitor-cli
 

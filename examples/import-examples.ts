@@ -75,6 +75,11 @@ const TEXT_EXTENSIONS = new Set([
 	'.mjs', '.sass', '.scss', '.ts', '.tsx', '.txt', '.vert', '.yaml', '.yml',
 ]);
 
+const TEXT_FILE_PATHS = new Set([
+	'src/asset_map',
+	'src/config',
+]);
+
 const IGNORE_DIRS = new Set([
 	'.git',
 	'.vite',
@@ -273,6 +278,7 @@ async function walkFiles(dir: string, baseDir = dir): Promise<string[]> {
 
 function isTextProjectFile(relPath: string): boolean {
 	if (relPath.startsWith('public/')) return false;
+	if (TEXT_FILE_PATHS.has(relPath)) return true;
 	return TEXT_EXTENSIONS.has(extname(relPath).toLowerCase());
 }
 
