@@ -6,7 +6,7 @@ import {
 } from 'cloudflare:workers';
 import { NonRetryableError } from 'cloudflare:workflows';
 import { getAgentStub, getTemplateForQuery } from '../index';
-import type { BehaviorType, DeployOptions, GenerationBackend, ProjectType } from '../core/types';
+import type { DeployOptions, ProjectType } from '../core/types';
 import type { InferenceContext } from '../inferutils/config.types';
 import type { ProcessedImageAttachment } from '../../types/image-attachment';
 import { createLogger } from '../../logger';
@@ -107,7 +107,6 @@ function rethrowForWorkflowRetry(error: unknown): never {
 
 type BaseWorkflowParams = {
 	agentId: string;
-	behaviorType: BehaviorType;
 	projectType: ProjectType;
 };
 
@@ -121,14 +120,12 @@ export type CreateProjectWorkflowParams = BaseWorkflowParams & {
 	language?: string;
 	frameworks?: string[];
 	selectedTemplate?: string;
-	generationBackend?: GenerationBackend;
 	requestedProjectType: ProjectType | 'auto';
 	images?: ProcessedImageAttachment[];
 };
 
 export type ExistingProjectWorkflowParams = BaseWorkflowParams & {
 	kind: 'generate_all' | 'resume_generation';
-	generationBackend?: GenerationBackend;
 };
 
 export type DeployProjectWorkflowParams = BaseWorkflowParams & {
@@ -146,7 +143,6 @@ export type UserInputWorkflowParams = BaseWorkflowParams & {
 	kind: 'user_input';
 	message: string;
 	images?: ProcessedImageAttachment[];
-	generationBackend?: GenerationBackend;
 };
 
 export type CodeGenerationWorkflowParams =
@@ -228,7 +224,6 @@ export class CodeGenerationWorkflow extends WorkflowEntrypoint<Env, CodeGenerati
 			);
 
 			const agent = await getAgentStub(this.env, params.agentId, {
-				behaviorType: params.behaviorType,
 				projectType: templateInfo.projectType,
 			});
 
@@ -260,7 +255,6 @@ export class CodeGenerationWorkflow extends WorkflowEntrypoint<Env, CodeGenerati
 					'Syncing uploaded assets',
 				);
 				const agent = await getAgentStub(this.env, params.agentId, {
-					behaviorType: params.behaviorType,
 					projectType: selected.projectType,
 				});
 				await agent.syncAndCaptionUploadedAssets(params.images ?? [], params.inferenceContext);
@@ -277,7 +271,6 @@ export class CodeGenerationWorkflow extends WorkflowEntrypoint<Env, CodeGenerati
 					'Generating project files',
 				);
 				const agent = await getAgentStub(this.env, params.agentId, {
-					behaviorType: params.behaviorType,
 					projectType: selected.projectType,
 				});
 				await agent.runGenerationFromWorkflow('create_project', event.instanceId);
@@ -296,7 +289,6 @@ export class CodeGenerationWorkflow extends WorkflowEntrypoint<Env, CodeGenerati
 		await step.do(`run ${params.kind}`, LONG_STEP, async () => {
 			try {
 				const agent = await getAgentStub(this.env, params.agentId, {
-					behaviorType: params.behaviorType,
 					projectType: params.projectType,
 				});
 				await agent.runGenerationFromWorkflow(params.kind, event.instanceId);
@@ -315,7 +307,6 @@ export class CodeGenerationWorkflow extends WorkflowEntrypoint<Env, CodeGenerati
 		await step.do('process user input and continue generation', LONG_STEP, async () => {
 			try {
 				const agent = await getAgentStub(this.env, params.agentId, {
-					behaviorType: params.behaviorType,
 					projectType: params.projectType,
 				});
 				await agent.runUserInputFromWorkflow(params.message, params.images, event.instanceId);
@@ -333,7 +324,6 @@ export class CodeGenerationWorkflow extends WorkflowEntrypoint<Env, CodeGenerati
 	): Promise<void> {
 		const deployResult = await step.do('validate and deploy playable', LONG_STEP, async (): Promise<{ success: boolean; error?: string }> => {
 			const agent = await getAgentStub(this.env, params.agentId, {
-				behaviorType: params.behaviorType,
 				projectType: params.projectType,
 			});
 			const result = await (
@@ -360,7 +350,6 @@ export class CodeGenerationWorkflow extends WorkflowEntrypoint<Env, CodeGenerati
 	): Promise<void> {
 		await step.do('deploy preview sandbox', LONG_STEP, async () => {
 			const agent = await getAgentStub(this.env, params.agentId, {
-				behaviorType: params.behaviorType,
 				projectType: params.projectType,
 			});
 			await agent.runDeployPreviewFromWorkflow(
@@ -380,7 +369,6 @@ export class CodeGenerationWorkflow extends WorkflowEntrypoint<Env, CodeGenerati
 	): Promise<void> {
 		try {
 			const agent = await getAgentStub(this.env, params.agentId, {
-				behaviorType: params.behaviorType,
 				projectType: params.projectType,
 			});
 			await agent.updateWorkflowStatus({

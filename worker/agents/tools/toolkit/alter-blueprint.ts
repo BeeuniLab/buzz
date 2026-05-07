@@ -8,19 +8,7 @@ export function createAlterBlueprintTool(
 	agent: ICodingAgent,
 	logger: StructuredLogger
 ) {
-	const isAgentic = agent.getBehavior() === 'agentic';
-
-	const agenticPatchSchema = z.object({
-		title: z.string().optional(),
-		projectName: z.string().min(3).max(50).regex(/^[a-z0-9-_]+$/).optional(),
-		description: z.string().optional(),
-		detailedDescription: z.string().optional(),
-		colorPalette: z.array(z.string()).optional(),
-		frameworks: z.array(z.string()).optional(),
-		plan: z.array(z.string()).optional(),
-	});
-
-	const phasicPatchSchema = z.object({
+	const patchSchema = z.object({
 		title: z.string().optional(),
 		projectName: z.string().min(3).max(50).regex(/^[a-z0-9-_]+$/).optional(),
 		description: z.string().optional(),
@@ -33,9 +21,8 @@ export function createAlterBlueprintTool(
 		architecture: z.object({ dataFlow: z.string().optional() }).optional(),
 		pitfalls: z.array(z.string()).optional(),
 		implementationRoadmap: z.array(z.object({ phase: z.string(), description: z.string() })).optional(),
+		plan: z.array(z.string()).optional(),
 	});
-
-	const patchSchema = isAgentic ? agenticPatchSchema : phasicPatchSchema;
 
 	const patchType = type(
 		patchSchema,
@@ -44,9 +31,7 @@ export function createAlterBlueprintTool(
 
 	return tool({
 		name: 'alter_blueprint',
-		description: isAgentic
-			? 'Apply a patch to the agentic blueprint (title, description, colorPalette, frameworks, plan, projectName).'
-			: 'Apply a patch to the current phasic blueprint/spec when user intent changes (title, description, detailedDescription, colorPalette, frameworks, views, userFlow, architecture, dataFlow, pitfalls, implementationRoadmap, projectName). Use before queue_request for major direction changes.',
+		description: 'Apply a patch to the current project blueprint/spec when user intent changes.',
 		args: {
 			patch: patchType,
 		},

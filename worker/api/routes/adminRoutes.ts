@@ -128,7 +128,6 @@ export function setupAdminRoutes(app: Hono<AppEnv>): void {
 
         const agentId = body.agentId || generateId();
         const stub = await getAgentStub(c.env, agentId, {
-            behaviorType: 'phasic',
             projectType: 'app',
         });
 

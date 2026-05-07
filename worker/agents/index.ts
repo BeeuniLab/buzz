@@ -10,10 +10,9 @@ import { TemplateSelection } from './schemas';
 import type { ImageAttachment, ProcessedImageAttachment } from '../types/image-attachment';
 import { AgentState, CurrentDevState } from './core/state';
 import { CodeGeneratorAgent } from './core/codingAgent';
-import { BehaviorType, ProjectType } from './core/types';
+import { ProjectType } from './core/types';
 
 type AgentStubProps = {
-    behaviorType?: BehaviorType;
     projectType?: ProjectType;
     readOnlyMode?: boolean;
 };
@@ -56,14 +55,11 @@ export async function cloneAgent(env: Env, agentId: string) : Promise<{newAgentI
         projectUpdatesAccumulator: [],
         reviewingInitiated: false,
         mvpGenerated: false,
-        ...(originalState.behaviorType === 'phasic' ? {
-            generatedPhases: [],
-            currentDevState: CurrentDevState.IDLE,
-        } : {}),
+        generatedPhases: [],
+        currentDevState: CurrentDevState.IDLE,
     } as AgentState;
 
     const newAgent = await getAgentStub(env, newAgentId, {
-        behaviorType: originalState.behaviorType,
         projectType: originalState.projectType,
     });
 

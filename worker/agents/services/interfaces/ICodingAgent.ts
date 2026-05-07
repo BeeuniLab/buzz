@@ -3,15 +3,13 @@ import { BaseSandboxService } from "worker/services/sandbox/BaseSandboxService";
 import { ExecuteCommandsResponse, PreviewType, RuntimeError } from "worker/services/sandbox/sandboxTypes";
 import { StaticAnalysisResponse, TemplateFile } from "worker/types/project-types";
 import { ProcessedImageAttachment } from "worker/types/image-attachment";
-import { BehaviorType, DeepDebugResult, DeploymentTarget, ProjectType, QueueRequestOptions } from "worker/agents/core/types";
+import { DeepDebugResult, DeploymentTarget, ProjectType, QueueRequestOptions } from "worker/agents/core/types";
 import { RenderToolCall } from "worker/agents/operations/UserConversationProcessor";
 import { WebSocketMessageType, WebSocketMessageData } from "worker/api/websocketTypes";
 import { GitVersionControl } from "worker/agents/git/git";
 import { OperationOptions } from "worker/agents/operations/common";
 
 export interface ICodingAgent {
-    getBehavior(): BehaviorType;
-
     isMVPGenerated(): boolean;
 
     setMVPGenerated(): boolean;

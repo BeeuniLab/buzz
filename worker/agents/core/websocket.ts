@@ -20,13 +20,13 @@ export function handleWebSocketMessage(
         switch (parsedMessage.type) {
             case WebSocketMessageRequests.SESSION_INIT: {
                 // const credentials = parsedMessage.credentials as CredentialsPayload | undefined;
-                // agent.getBehavior().setRuntimeOverrides(credentialsToRuntimeOverrides(credentials));
+                // Runtime credential overrides are disabled for Codex background execution.
                 logger.info(`Received session init message from ${connection.id}, Disable for now`);
                 break;
             }
             case WebSocketMessageRequests.GENERATE_ALL:
                 // Check if generation is already active to avoid duplicate processes
-                if (agent.getBehavior().isCodeGenerating()) {
+                if (agent.isCodeGenerating()) {
                     logger.info('Generation already in progress, skipping duplicate request');
                     // sendToConnection(connection, WebSocketMessageResponses.GENERATION_STARTED, {
                     //     message: 'Code generation is already in progress'
@@ -62,10 +62,10 @@ export function handleWebSocketMessage(
                 
                 Promise.all([
                     agent.stopActiveWorkflow(),
-                    agent.getBehavior().stopCurrentTask(),
+                    agent.stopCurrentTask(),
                 ])
                     .then(([workflowTerminated, wasCancelled]) => {
-                        // Clear shouldBeGenerating after behavior state updates so the stopped marker is preserved.
+                        // Clear shouldBeGenerating after state updates so the stopped marker is preserved.
                         agent.setState({
                             ...agent.state,
                             shouldBeGenerating: false,
@@ -87,7 +87,7 @@ export function handleWebSocketMessage(
             case WebSocketMessageRequests.RESUME_GENERATION:
                 logger.info('Resuming code generation');
                 
-                if (!agent.getBehavior().isCodeGenerating()) {
+                if (!agent.isCodeGenerating()) {
                     sendToConnection(connection, WebSocketMessageResponses.GENERATION_RESUMED, {
                         message: 'Code generation resumed'
                     });
@@ -110,8 +110,8 @@ export function handleWebSocketMessage(
                 });
 
                 if (
-                    agent.getBehavior().isCodeGenerating() ||
-                    agent.getBehavior().isDeepDebugging() ||
+                    agent.isCodeGenerating() ||
+                    agent.isDeepDebugging() ||
                     agent.state.shouldBeGenerating ||
                     agent.state.activeWorkflow
                 ) {
@@ -156,7 +156,7 @@ export function handleWebSocketMessage(
             }
             case WebSocketMessageRequests.GET_MODEL_CONFIGS:
                 logger.info('Fetching model configurations');
-                agent.getBehavior().getModelConfigsInfo().then(configsInfo => {
+                agent.getModelConfigsInfo().then(configsInfo => {
                     sendToConnection(connection, WebSocketMessageResponses.MODEL_CONFIGS_INFO, {
                         message: 'Model configurations retrieved',
                         configs: configsInfo
@@ -179,7 +179,7 @@ export function handleWebSocketMessage(
             case WebSocketMessageRequests.GET_CONVERSATION_STATE:
                 try {
                     const state = agent.getConversationState();
-                    const debugState = agent.getBehavior().getDeepDebugSessionState();
+                    const debugState = agent.getDeepDebugSessionState();
                     logger.info('Conversation state retrieved', state);
                     sendToConnection(connection, WebSocketMessageResponses.CONVERSATION_STATE, { 
                         state,

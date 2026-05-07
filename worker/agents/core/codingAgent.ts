@@ -1,10 +1,9 @@
 import { Agent, AgentContext, ConnectionContext } from "agents";
-import { AgentInitArgs, AgentSummary, DeployOptions, DeployResult, ExportOptions, ExportResult, BehaviorType, GenerationBackend } from "./types";
-import { AgenticState, AgentState, BaseProjectState, CurrentDevState, FileState, MAX_PHASES, PhasicState, type ActiveWorkflowTask } from "./state";
-import { Blueprint } from "../schemas";
-import { BaseCodingBehavior } from "./behaviors/base";
+import { AgentInitArgs, AgentSummary, AllIssues, DeployOptions, DeployResult, ExportOptions, ExportResult, BehaviorType } from "./types";
+import { AgentState, BaseProjectState, CurrentDevState, FileState, MAX_PHASES, type ActiveWorkflowTask } from "./state";
+import { Blueprint, PhasicBlueprint } from "../schemas";
 import { createObjectLogger, StructuredLogger } from '../../logger';
-import { InferenceContext, InferenceMetadata } from "../inferutils/config.types";
+import { AgentActionKey, InferenceContext, InferenceMetadata, ModelConfig } from "../inferutils/config.types";
 import { getMimeType } from 'hono/utils/mime';
 import { normalizePath, isPathSafe } from '../../utils/pathUtils';
 import { FileManager } from '../services/implementations/FileManager';
@@ -12,15 +11,13 @@ import { DeploymentManager } from '../services/implementations/DeploymentManager
 import { CodexGenerationManager } from '../services/implementations/CodexGenerationManager';
 import { GitVersionControl } from '../git';
 import { StateManager } from '../services/implementations/StateManager';
-import { PhasicCodingBehavior } from './behaviors/phasic';
-import { AgenticCodingBehavior } from './behaviors/agentic';
 import { SqlExecutor } from '../git';
 import { AgentInfrastructure } from "./AgentCore";
 import { ProjectType } from './types';
 import { Connection } from 'agents';
 import { handleWebSocketMessage, handleWebSocketClose, broadcastToConnections, sendToConnection } from './websocket';
 import { WebSocketMessageData, WebSocketMessageType } from "worker/api/websocketTypes";
-import { TemplateDetails } from "worker/types/project-types";
+import { PreviewType, RuntimeError, StaticAnalysisResponse, TemplateDetails, TemplateFile } from "worker/types/project-types";
 import { WebSocketMessageResponses } from "../constants";
 import { AppService, ModelConfigService } from "worker/database";
 import { ConversationMessage, ConversationState } from "../inferutils/common";
@@ -33,7 +30,19 @@ import { PendingWsTicket, TicketConsumptionResult } from '../../types/auth-types
 import { WsTicketManager } from '../../utils/wsTicketManager';
 import { computeAgentAssetMapJson, parseAssetMapJson, uniqueAgentAssetRelativePath } from '../../utils/agentAssets';
 import { uploadImageAsAgentAsset } from '../../utils/images';
-import { generateProjectName } from '../utils/templateCustomizer';
+import { generateAssetMediaCaption } from '../../utils/assetMediaCaption';
+import { generatePortToken } from '../../utils/cryptoUtils';
+import { isDev } from '../../utils/envs';
+import { getPreviewDomain, getProtocolForHost } from '../../utils/urls';
+import { getTemplateDetails as fetchTemplateDetails, listTemplates } from '../../services/templates/templateCatalog';
+import { getTemplateImportantFiles } from '../../services/templates/utils';
+import { InMemoryAnalyzer } from '../../services/static-analysis';
+import { createScratchTemplateDetails } from '../utils/templates';
+import { customizeTemplateFiles, generateProjectName } from '../utils/templateCustomizer';
+import { toInitialUserAttachment } from '../../types/image-attachment';
+import { generateNanoId } from '../../utils/idGenerator';
+import { updatePackageJson } from '../utils/packageSyncer';
+import type { BaseSandboxService } from '../../services/sandbox/BaseSandboxService';
 import {
     UserTaskConcurrencyLimitError,
     UserTaskConcurrencyService,
@@ -47,9 +56,9 @@ import type {
 } from '../workflows/codeGenerationWorkflow';
 
 const DEFAULT_CONVERSATION_SESSION_ID = 'default';
+const LEGACY_STATE_BEHAVIOR_TYPE: BehaviorType = 'phasic';
 
 interface AgentBootstrapProps {
-    behaviorType?: BehaviorType;
     projectType?: ProjectType;
 }
 
@@ -72,19 +81,62 @@ const isProcessedWorkflowAttachment = (
 const isWorkflowTerminalStatus = (status: string | undefined): boolean =>
     status === 'complete' || status === 'errored' || status === 'terminated';
 
-const isBehaviorType = (value: unknown): value is BehaviorType =>
-    value === 'phasic' || value === 'agentic';
-
 const isProjectType = (value: unknown): value is ProjectType =>
     value === 'app' || value === 'workflow' || value === 'presentation' || value === 'general';
 
 const ACTIVE_WORKFLOW_STALE_MS = 30 * 60 * 1000;
 
+function mergeFrameworks(...groups: Array<string[] | undefined>): string[] {
+    return Array.from(new Set(groups.flatMap((group) => group ?? []).filter(Boolean)));
+}
+
+function buildCodexBlueprint(args: {
+    query: string;
+    projectName: string;
+    frameworks?: string[];
+    templateFrameworks?: string[];
+}): PhasicBlueprint {
+    const normalizedQuery = args.query.replace(/\s+/g, ' ').trim();
+    const title = normalizedQuery.length > 0 ? normalizedQuery : args.projectName;
+    const description = normalizedQuery || 'Build the requested project from the selected template.';
+
+    return {
+        title: title.length > 100 ? `${title.slice(0, 97)}...` : title,
+        projectName: args.projectName,
+        description,
+        colorPalette: [],
+        frameworks: mergeFrameworks(args.frameworks, args.templateFrameworks),
+        detailedDescription: description,
+        views: [],
+        userFlow: {
+            uiLayout: '',
+            uiDesign: '',
+            userJourney: '',
+        },
+        dataFlow: '',
+        architecture: {
+            dataFlow: '',
+        },
+        pitfalls: [],
+        implementationRoadmap: [],
+        initialPhase: {
+            name: 'implementation',
+            description: 'Implemented directly by Codex from the selected template and latest request.',
+            files: [],
+            lastPhase: false,
+        },
+    };
+}
+
 export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentInfrastructure<AgentState> {
     public _logger: StructuredLogger | undefined;
-    private behavior!: BaseCodingBehavior<AgentState>;
     private objective!: ProjectObjective<BaseProjectState>;
     private secretsClient: SecretsClient | null = null;
+    private templateDetailsCache: TemplateDetails | null = null;
+    private staticAnalysisCache: StaticAnalysisResponse | null = null;
+    private sandboxReadyPromise: Promise<void>;
+    private resolveSandboxReady!: () => void;
+    private userModelConfigs?: Record<AgentActionKey, ModelConfig>;
     protected static readonly PROJECT_NAME_PREFIX_MAX_LENGTH = 20;
     
     /** Ticket manager for WebSocket authentication */
@@ -135,6 +187,10 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
 
     constructor(ctx: AgentContext, env: Env) {
         super(ctx, env);
+        this.sandboxReadyPromise = new Promise(resolve => { this.resolveSandboxReady = resolve; });
+        if (this.state.sandboxInstanceId) {
+            this.resolveSandboxReady();
+        }
                 
         void this.sql`CREATE TABLE IF NOT EXISTS full_conversations (id TEXT PRIMARY KEY, messages TEXT)`;
         void this.sql`CREATE TABLE IF NOT EXISTS compact_conversations (id TEXT PRIMARY KEY, messages TEXT)`;
@@ -148,7 +204,7 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
         this.git = new GitVersionControl(this.sql.bind(this));
         this.fileManager = new FileManager(
             stateManager,
-            () => this.behavior?.getTemplateDetails?.() || null,
+            () => this.getTemplateDetails(),
             this.git
         );
         this.deploymentManager = new DeploymentManager(
@@ -189,15 +245,83 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
         // Infrastructure setup
         await this.gitInit();
 
-        // Let behavior handle all state initialization (blueprint, projectName, etc.)
-        await this.behavior.initialize({
+        await this.initializeCodexProjectState({
             ...initArgs,
-            sessionId // Pass generated session ID to behavior
+            sessionId
         });
         
         await this.saveToDatabase();
         
         return this.state;
+    }
+
+    private async initializeCodexProjectState(initArgs: AgentInitArgs<AgentState>): Promise<void> {
+        const templateDetails = initArgs.templateInfo?.templateDetails;
+        if (!templateDetails) {
+            throw new Error('Codex initialization requires templateInfo.templateDetails');
+        }
+
+        this.templateDetailsCache = templateDetails;
+
+        const { query, frameworks, hostname, inferenceContext, sessionId } = initArgs;
+        const projectName = generateProjectName(
+            query || templateDetails.name || 'project',
+            generateNanoId(),
+            CodeGeneratorAgent.PROJECT_NAME_PREFIX_MAX_LENGTH,
+        );
+        const blueprint = buildCodexBlueprint({
+            query,
+            projectName,
+            frameworks,
+            templateFrameworks: templateDetails.frameworks,
+        });
+
+        this.setState({
+            ...this.state,
+            behaviorType: LEGACY_STATE_BEHAVIOR_TYPE,
+            projectType: templateDetails.projectType ?? this.state.projectType,
+            generationBackend: 'codex',
+            projectName,
+            query,
+            initialUserAttachments: (initArgs.images ?? []).map(toInitialUserAttachment),
+            templateName: templateDetails.name,
+            sandboxInstanceId: undefined,
+            commandsHistory: [],
+            lastPackageJson: templateDetails.allFiles['package.json'],
+            sessionId: sessionId!,
+            hostname,
+            metadata: inferenceContext.metadata,
+            blueprint,
+            generatedPhases: [],
+            currentDevState: CurrentDevState.IDLE,
+            phasesCounter: MAX_PHASES,
+        } as AgentState);
+
+        const customizedFiles = customizeTemplateFiles(
+            templateDetails.allFiles,
+            {
+                projectName,
+                commandsHistory: [],
+            },
+        );
+
+        const filesToSave = Object.entries(customizedFiles).map(([filePath, content]) => ({
+            filePath,
+            fileContents: content,
+            filePurpose: 'Project configuration file',
+        }));
+
+        await this.fileManager.saveGeneratedFiles(
+            filesToSave,
+            'Initialize project configuration files',
+            true,
+        );
+
+        this.logger().info('Initialized Codex project state', {
+            projectName,
+            templateName: templateDetails.name,
+            projectType: this.state.projectType,
+        });
     }
     
     async isInitialized() {
@@ -219,21 +343,18 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
 
         this.logger().info('Bootstrapping CodeGeneratorAgent', { props });
         const agentProps = props as AgentBootstrapProps;
-        const behaviorCandidate = agentProps?.behaviorType ?? this.state.behaviorType;
         const projectTypeCandidate = agentProps?.projectType ?? this.state.projectType;
-        const behaviorType = isBehaviorType(behaviorCandidate) ? behaviorCandidate : 'phasic';
         const projectType = isProjectType(projectTypeCandidate) ? projectTypeCandidate : 'app';
 
-        if (behaviorType === 'phasic') {
-            this.behavior = new PhasicCodingBehavior(this as AgentInfrastructure<PhasicState>, projectType);
-        } else {
-            this.behavior = new AgenticCodingBehavior(this as AgentInfrastructure<AgenticState>, projectType);
-        }
+        this.setState({
+            ...this.state,
+            behaviorType: LEGACY_STATE_BEHAVIOR_TYPE,
+            generationBackend: 'codex',
+            projectType,
+        } as AgentState);
         
         // Create objective based on project type
         this.objective = this.createObjective(projectType);
-
-        this.behavior.onStart(props);
 
         // Ignore if agent not initialized
         if (!this.state.query) {
@@ -241,9 +362,6 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
             return;
         }
 
-        // Ensure state is migrated for any previous versions
-        this.behavior.migrateStateIfNeeded();
-        
         // Check if this is a read-only operation
         const readOnlyMode = props?.readOnlyMode === true;
         
@@ -260,13 +378,13 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
         // Just in case
         await this.gitInit();
         
-        await this.behavior.ensureTemplateDetails();
+        await this.ensureTemplateDetails();
         this.logger().info(`Agent ${this.getAgentId()} session: ${this.state.sessionId} onStart processed successfully`);
 
         // Load the latest user configs
         const modelConfigService = new ModelConfigService(this.env);
         const userConfigsRecord = await modelConfigService.getUserModelConfigs(this.state.metadata.userId);
-        this.behavior.setUserModelConfigs(userConfigsRecord);
+        this.userModelConfigs = userConfigsRecord;
         this.logger().info(`Agent ${this.getAgentId()} session: ${this.state.sessionId} onStart: User configs loaded successfully`, {userConfigsRecord});
     }
     
@@ -275,9 +393,9 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
         let previewUrl = '';
         let templateDetails: TemplateDetails | null = null;
         try {
-            templateDetails = this.behavior.getTemplateDetails();
+            templateDetails = this.getTemplateDetails();
             if (templateDetails.renderMode === 'browser') {
-                previewUrl = this.behavior.getBrowserPreviewURL();
+                previewUrl = this.getBrowserPreviewURL();
             }
         } catch (error) {
             this.logger().info('Template details not ready during websocket connect', {
@@ -298,7 +416,7 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
             agentId,
             userId,
             projectType: this.state.projectType,
-            behaviorType: this.state.behaviorType
+            generationBackend: 'codex',
         });
         if (sessionId) {
             this._logger.setField('sessionId', sessionId);
@@ -325,6 +443,361 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
         return this.ctx.getWebSockets();
     }
 
+    getSandboxServiceClient(): BaseSandboxService {
+        return this.deploymentManager.getClient();
+    }
+
+    private getInferenceContext(): InferenceContext {
+        return {
+            metadata: this.state.metadata,
+            enableFastSmartCodeFix: false,
+            enableRealtimeCodeFix: false,
+            userModelConfigs: this.userModelConfigs,
+        };
+    }
+
+    async ensureTemplateDetails(): Promise<TemplateDetails | null> {
+        if (!this.templateDetailsCache) {
+            if (this.state.templateName === 'scratch') {
+                this.logger().info('Using scratch template details');
+                this.templateDetailsCache = createScratchTemplateDetails();
+                return this.templateDetailsCache;
+            }
+
+            if (!this.state.templateName) {
+                return null;
+            }
+
+            this.logger().info(`Loading template details for: ${this.state.templateName}`);
+            const results = await fetchTemplateDetails(this.env.TEMPLATES_BUCKET, this.state.templateName);
+            if (!results.success || !results.templateDetails) {
+                throw new Error(`Failed to get template details for: ${this.state.templateName}`);
+            }
+
+            const templateDetails = results.templateDetails;
+            const customizedFiles = customizeTemplateFiles(
+                templateDetails.allFiles,
+                {
+                    projectName: this.state.projectName,
+                    commandsHistory: this.state.commandsHistory ?? [],
+                },
+            );
+
+            this.templateDetailsCache = {
+                ...templateDetails,
+                allFiles: {
+                    ...templateDetails.allFiles,
+                    ...customizedFiles,
+                },
+            };
+            this.logger().info('Template details loaded and customized');
+
+            if (templateDetails.renderMode === 'browser') {
+                await this.deployToSandbox();
+            }
+        }
+
+        return this.templateDetailsCache;
+    }
+
+    getTemplateDetails(): TemplateDetails {
+        if (!this.templateDetailsCache) {
+            if (this.state.templateName === 'scratch') {
+                this.templateDetailsCache = createScratchTemplateDetails();
+                return this.templateDetailsCache;
+            }
+            void this.ensureTemplateDetails();
+            throw new Error('Template details not loaded. Call ensureTemplateDetails() first.');
+        }
+        return this.templateDetailsCache;
+    }
+
+    private isPreviewable(): boolean {
+        return this.fileManager.fileExists('package.json')
+            && (this.fileManager.fileExists('wrangler.jsonc') || this.fileManager.fileExists('wrangler.toml'));
+    }
+
+    private async waitForSandboxReady(timeoutMs: number = 5000): Promise<boolean> {
+        const ready = await Promise.race([
+            this.sandboxReadyPromise.then(() => true),
+            new Promise<false>(resolve => setTimeout(() => resolve(false), timeoutMs)),
+        ]);
+        if (!ready) {
+            this.logger().warn(`Sandbox not ready after ${timeoutMs}ms`);
+        }
+        return ready;
+    }
+
+    private emptyStaticAnalysisResponse(error?: string): StaticAnalysisResponse {
+        return {
+            success: false,
+            lint: { issues: [] },
+            typecheck: { issues: [] },
+            ...(error ? { error } : {}),
+        };
+    }
+
+    private async ensureSandboxForStaticAnalysis(): Promise<boolean> {
+        if (this.state.sandboxInstanceId) return true;
+        if (!this.isPreviewable()) {
+            this.logger().warn('Skipping sandbox static analysis because project is not previewable');
+            return false;
+        }
+
+        this.logger().info('No sandbox instance available for static analysis; deploying preview first');
+        const preview = await this.deployToSandbox(
+            [],
+            false,
+            'chore: prepare sandbox for static analysis',
+            false,
+        );
+
+        return Boolean(this.state.sandboxInstanceId || preview?.runId);
+    }
+
+    private getOrCreateFileServingToken(): string {
+        const existing = this.state.fileServingToken?.token;
+        if (!existing || /[^a-z0-9]/.test(existing)) {
+            const token = generatePortToken();
+            this.setState({
+                ...this.state,
+                fileServingToken: {
+                    token,
+                    createdAt: Date.now(),
+                },
+            } as AgentState);
+        }
+        return this.state.fileServingToken!.token;
+    }
+
+    getBrowserPreviewURL(): string {
+        const token = this.getOrCreateFileServingToken();
+        const agentId = this.getAgentId();
+        const previewDomain = isDev(this.env) ? 'localhost:5173' : getPreviewDomain(this.env);
+        return `${getProtocolForHost(previewDomain)}://b-${agentId}-${token}.${previewDomain}`;
+    }
+
+    async deployToSandbox(
+        files: FileState[] = [],
+        redeploy = false,
+        commitMessage?: string,
+        clearLogs = false,
+    ): Promise<PreviewType | null> {
+        if (!this.isPreviewable()) {
+            throw new Error('Project is not previewable');
+        }
+
+        const templateDetails = this.getTemplateDetails();
+        this.logger().info('[AGENT] Deploying to sandbox', {
+            files: files.length,
+            redeploy,
+            commitMessage,
+            renderMode: templateDetails.renderMode,
+            template: {
+                name: templateDetails.name,
+                importantFiles: templateDetails.importantFiles?.length ?? 0,
+                dontTouchFiles: templateDetails.dontTouchFiles?.length ?? 0,
+                redactedFiles: templateDetails.redactedFiles?.length ?? 0,
+                allFilesCount: Object.keys(templateDetails.allFiles ?? {}).length,
+            },
+        });
+
+        if (templateDetails.renderMode === 'browser') {
+            this.broadcast(WebSocketMessageResponses.DEPLOYMENT_STARTED, {});
+            const result: PreviewType = {
+                previewURL: this.getBrowserPreviewURL(),
+            };
+            this.broadcast(WebSocketMessageResponses.DEPLOYMENT_COMPLETED, result);
+            return result;
+        }
+
+        this.staticAnalysisCache = null;
+        const result = await this.deploymentManager.deployToSandbox(
+            files,
+            redeploy,
+            commitMessage,
+            clearLogs,
+            {
+                onStarted: (data) => {
+                    this.broadcast(WebSocketMessageResponses.DEPLOYMENT_STARTED, data);
+                },
+                onCompleted: (data) => {
+                    this.broadcast(WebSocketMessageResponses.DEPLOYMENT_COMPLETED, data);
+                },
+                onError: (data) => {
+                    this.broadcast(WebSocketMessageResponses.DEPLOYMENT_FAILED, data);
+                },
+                onAfterSetupCommands: async () => {
+                    await this.syncPackageJsonFromSandbox();
+                },
+            },
+        );
+
+        this.resolveSandboxReady();
+        return result;
+    }
+
+    async fetchRuntimeErrors(clear = true, shouldWait = true): Promise<RuntimeError[]> {
+        if (shouldWait) {
+            await this.deploymentManager.waitForPreview();
+        }
+
+        try {
+            const errors = await this.deploymentManager.fetchRuntimeErrors(clear);
+            if (errors.length > 0) {
+                this.broadcast(WebSocketMessageResponses.RUNTIME_ERROR_FOUND, {
+                    errors,
+                    message: 'Runtime errors found',
+                    count: errors.length,
+                });
+            }
+            return errors;
+        } catch (error) {
+            this.logger().error('Exception fetching runtime errors:', error);
+            void this.deployToSandbox();
+            const message = '<runtime errors not available at the moment as preview is not deployed>';
+            return [{ message, timestamp: new Date().toISOString(), level: 0, rawOutput: message }];
+        }
+    }
+
+    async runStaticAnalysisCode(files?: string[]): Promise<StaticAnalysisResponse> {
+        try {
+            if (!files && this.staticAnalysisCache) {
+                return this.staticAnalysisCache;
+            }
+
+            const templateDetails = this.getTemplateDetails();
+            const analysisResponse = templateDetails.renderMode === 'browser'
+                ? await this.runInMemoryAnalysis(files)
+                : await (async () => {
+                    const hasSandbox = await this.ensureSandboxForStaticAnalysis();
+                    return hasSandbox
+                        ? this.deploymentManager.runStaticAnalysis(files)
+                        : this.emptyStaticAnalysisResponse('Sandbox unavailable for static analysis');
+                })();
+
+            if (!files) {
+                this.staticAnalysisCache = analysisResponse;
+            }
+
+            this.broadcast(WebSocketMessageResponses.STATIC_ANALYSIS_RESULTS, {
+                lint: { issues: analysisResponse.lint.issues, summary: analysisResponse.lint.summary },
+                typecheck: { issues: analysisResponse.typecheck.issues, summary: analysisResponse.typecheck.summary },
+            });
+
+            return analysisResponse;
+        } catch (error) {
+            this.broadcastError('Failed to lint code', error);
+            return this.emptyStaticAnalysisResponse(error instanceof Error ? error.message : String(error));
+        }
+    }
+
+    private async runInMemoryAnalysis(filePaths?: string[]): Promise<StaticAnalysisResponse> {
+        const allFiles = this.fileManager.getAllFiles();
+        const filePathSet = filePaths ? new Set(filePaths) : null;
+        const filesToAnalyze = filePathSet
+            ? allFiles.filter((f) => filePathSet.has(f.filePath))
+            : allFiles;
+
+        const analyzer = new InMemoryAnalyzer();
+        return analyzer.analyze(filesToAnalyze.map((f) => ({
+            path: f.filePath,
+            content: f.fileContents,
+        })));
+    }
+
+    async fetchAllIssues(resetIssues = false): Promise<AllIssues> {
+        const templateDetails = this.getTemplateDetails();
+        if (templateDetails.renderMode === 'browser') {
+            const staticAnalysis = await this.runStaticAnalysisCode();
+            this.logger().info('Fetched issues for browser-rendered project', { staticAnalysis });
+            return { runtimeErrors: [], staticAnalysis };
+        }
+
+        if (!await this.waitForSandboxReady()) {
+            return {
+                runtimeErrors: [],
+                staticAnalysis: this.emptyStaticAnalysisResponse('Sandbox not ready'),
+            };
+        }
+
+        const [runtimeErrors, staticAnalysis] = await Promise.all([
+            this.fetchRuntimeErrors(resetIssues),
+            this.runStaticAnalysisCode(),
+        ]);
+        this.logger().info('Fetched all issues', { runtimeErrors, staticAnalysis });
+        return { runtimeErrors, staticAnalysis };
+    }
+
+    async readFiles(paths: string[]): Promise<{ files: { path: string; content: string }[] }> {
+        const results: { path: string; content: string }[] = [];
+        const notFoundInFileManager: string[] = [];
+
+        for (const path of paths) {
+            const file = this.fileManager.getFile(path);
+            if (file) {
+                results.push({ path, content: file.fileContents });
+            } else {
+                notFoundInFileManager.push(path);
+            }
+        }
+
+        if (notFoundInFileManager.length > 0 && this.state.sandboxInstanceId) {
+            const resp = await this.getSandboxServiceClient().getFiles(
+                this.state.sandboxInstanceId,
+                notFoundInFileManager,
+            );
+            if (resp.success) {
+                results.push(...resp.files.map(f => ({
+                    path: f.filePath,
+                    content: f.fileContents,
+                })));
+            }
+        }
+
+        return { files: results };
+    }
+
+    private async syncPackageJsonFromSandbox(): Promise<void> {
+        try {
+            this.logger().info('Fetching current package.json from sandbox');
+            const results = await this.readFiles(['package.json']);
+            if (!results.files.length) {
+                this.logger().warn('Failed to fetch package.json from sandbox', { results });
+                return;
+            }
+
+            const packageJsonContent = results.files[0].content;
+            const { updated, packageJson } = updatePackageJson(this.state.lastPackageJson, packageJsonContent);
+            if (!updated) {
+                this.logger().info('package.json has not changed, skipping sync');
+                return;
+            }
+
+            this.setState({
+                ...this.state,
+                lastPackageJson: packageJson,
+            } as AgentState);
+
+            const fileState = await this.fileManager.saveGeneratedFile(
+                {
+                    filePath: 'package.json',
+                    fileContents: packageJson,
+                    filePurpose: 'Project dependencies and configuration',
+                },
+                'chore: sync package.json dependencies from sandbox',
+                true,
+            );
+
+            this.broadcast(WebSocketMessageResponses.FILE_GENERATED, {
+                message: 'Synced package.json from sandbox',
+                file: fileState,
+            });
+        } catch (error) {
+            this.logger().error('Failed to sync package.json from sandbox', error);
+        }
+    }
+
     private getWorkflowBinding(): Workflow<CodeGenerationWorkflowParams> | null {
         return (this.env as WorkflowBindingEnv).CODE_GENERATION_WORKFLOW ?? null;
     }
@@ -336,13 +809,6 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
 
     private getWorkflowUserId(): string | undefined {
         return this.state.metadata?.userId;
-    }
-
-    private resolveGenerationBackend(): GenerationBackend {
-        if (this.state.generationBackend === 'codex' || this.state.generationBackend === 'native') {
-            return this.state.generationBackend;
-        }
-        return this.env.CODE_GENERATION_BACKEND === 'codex' ? 'codex' : 'native';
     }
 
     private buildCodexWorkflowQuery(kind: ExistingProjectWorkflowParams['kind'] | 'user_input'): string {
@@ -554,7 +1020,7 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
     async deleteProject(reason = 'app_deleted'): Promise<{ workflowTerminated: boolean; taskStopped: boolean }> {
         const [workflowResult, taskResult] = await Promise.allSettled([
             this.stopActiveWorkflow(reason),
-            this.behavior?.stopCurrentTask?.() ?? Promise.resolve(false),
+            this.stopCurrentTask(),
         ]);
 
         const workflowTerminated = workflowResult.status === 'fulfilled' ? workflowResult.value : false;
@@ -601,9 +1067,7 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
         userId: string;
         query: string;
         hostname: string;
-        behaviorType: BehaviorType;
         projectType: ProjectType;
-        generationBackend?: GenerationBackend;
         workflowId?: string;
         workflowKind?: ActiveWorkflowTask['kind'];
     }): Promise<void> {
@@ -612,9 +1076,9 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
         this.initLogger(args.agentId, args.userId, sessionId);
         this.setState({
             ...this.state,
-            behaviorType: args.behaviorType,
+            behaviorType: LEGACY_STATE_BEHAVIOR_TYPE,
             projectType: args.projectType,
-            generationBackend: args.generationBackend ?? this.resolveGenerationBackend(),
+            generationBackend: 'codex',
             projectName: '',
             query: args.query,
             sessionId,
@@ -664,37 +1128,10 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
         workflowId?: string,
     ): Promise<void> {
         this.throwIfDeleted('run generation workflow');
-        if (this.resolveGenerationBackend() === 'codex') {
-            const query = reason === 'create_project'
-                ? this.state.query
-                : this.buildCodexWorkflowQuery(reason);
-            await this.runCodexGenerationFromWorkflow(workflowId, query, reason);
-            return;
-        }
-        this.setState({
-            ...this.state,
-            shouldBeGenerating: true,
-            lastUserStopAt: undefined,
-        });
-        this.logger().info('Workflow generation started', { reason });
-        if (workflowId) {
-            await this.updateWorkflowStatus({
-                workflowId,
-                kind: reason,
-                status: 'running',
-                message: `Workflow ${reason} is generating files`,
-            });
-        }
-        await this.updateAppStatus('generating', `workflow_${reason}_started`);
-        await this.behavior.generateAllFiles();
-        if (workflowId) {
-            await this.updateWorkflowStatus({
-                workflowId,
-                kind: reason,
-                status: 'completed',
-                message: `Workflow ${reason} completed`,
-            });
-        }
+        const query = reason === 'create_project'
+            ? this.state.query
+            : this.buildCodexWorkflowQuery(reason);
+        await this.runCodexGenerationFromWorkflow(workflowId, query, reason);
     }
 
     async runCodexGenerationFromWorkflow(
@@ -747,10 +1184,10 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
 
     async startGenerationWorkflow(kind: ExistingProjectWorkflowParams['kind']): Promise<string | null> {
         this.throwIfDeleted('start generation workflow');
-        if (this.behavior?.isCodeGenerating?.() || this.state.shouldBeGenerating || this.state.activeWorkflow) {
+        if (this.isCodeGenerating() || this.state.shouldBeGenerating || this.state.activeWorkflow) {
             this.logger().info('Generation workflow already active or queued, skipping duplicate', {
                 kind,
-                isCodeGenerating: this.behavior?.isCodeGenerating?.(),
+                isCodeGenerating: this.isCodeGenerating(),
                 shouldBeGenerating: this.state.shouldBeGenerating,
                 activeWorkflow: this.state.activeWorkflow,
             });
@@ -790,9 +1227,7 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
                 params: {
                     kind,
                     agentId: this.getAgentId(),
-                    behaviorType: this.state.behaviorType,
                     projectType: this.state.projectType,
-                    generationBackend: this.resolveGenerationBackend(),
                 },
             });
         } catch (error) {
@@ -857,11 +1292,9 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
             const params: UserInputWorkflowParams = {
                 kind: 'user_input',
                 agentId: this.getAgentId(),
-                behaviorType: this.state.behaviorType,
                 projectType: this.state.projectType,
                 message: userMessage,
                 images: workflowImages,
-                generationBackend: this.resolveGenerationBackend(),
             };
             await workflow.create({ id: workflowId, params });
         } catch (error) {
@@ -887,9 +1320,9 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
         return Boolean(
             hasBlockingWorkflow ||
             this.state.shouldBeGenerating ||
-            this.behavior?.isCodeGenerating?.() ||
-            this.behavior?.isConversationProcessing?.() ||
-            this.behavior?.isDeepDebugging?.()
+            this.isCodeGenerating() ||
+            this.isConversationProcessing() ||
+            this.isDeepDebugging()
         );
     }
 
@@ -945,7 +1378,7 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
             this.logger().warn('Workflow binding missing; falling back to direct operational task', { kind: params.kind });
             const task = params.kind === 'deploy_project'
                 ? this.deployProject(params.options)
-                : this.behavior.deployPreview(params.clearLogs ?? true, params.forceRedeploy ?? false);
+                : this.deployPreview(params.clearLogs ?? true, params.forceRedeploy ?? false);
             this.trackBackgroundTask(params.kind, task.finally(() => this.releaseUserTaskSlot(workflowId)));
             return null;
         }
@@ -991,7 +1424,6 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
             {
                 kind: 'deploy_project',
                 agentId: this.getAgentId(),
-                behaviorType: this.state.behaviorType,
                 projectType: this.state.projectType,
                 options,
             },
@@ -1004,7 +1436,6 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
             {
                 kind: 'deploy_preview',
                 agentId: this.getAgentId(),
-                behaviorType: this.state.behaviorType,
                 projectType: this.state.projectType,
                 clearLogs,
                 forceRedeploy,
@@ -1065,12 +1496,54 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
     getObjective(): ProjectObjective<BaseProjectState> {
         return this.objective;
     }
-    
-    /**
-     * Get the behavior (defines how code is generated)
-     */
-    getBehavior(): BaseCodingBehavior<AgentState> {
-        return this.behavior;
+
+    isCodeGenerating(): boolean {
+        const workflow = this.state.activeWorkflow;
+        return Boolean(
+            this.state.shouldBeGenerating &&
+            !this.state.lastUserStopAt &&
+            workflow?.status !== 'failed',
+        );
+    }
+
+    isConversationProcessing(): boolean {
+        return this.state.activeWorkflow?.kind === 'user_input' && this.isCodeGenerating();
+    }
+
+    isDeepDebugging(): boolean {
+        return false;
+    }
+
+    getDeepDebugSessionState(): { conversationId: string } | null {
+        return null;
+    }
+
+    hasActivePersistedAppTask(): boolean {
+        const activeTask = this.state.activeAppTask;
+        if (!activeTask) return false;
+        return Date.now() - activeTask.startedAt < ACTIVE_WORKFLOW_STALE_MS;
+    }
+
+    async stopCurrentTask(): Promise<boolean> {
+        const hadActiveTask = Boolean(
+            this.state.activeAppTask ||
+            this.state.activeWorkflow ||
+            this.state.shouldBeGenerating,
+        );
+        this.setState({
+            ...this.state,
+            activeAppTask: undefined,
+            activeWorkflow: undefined,
+            shouldBeGenerating: false,
+            lastUserStopAt: Date.now(),
+        } as AgentState);
+        await this.updateAppStatus('completed', 'user_stopped_task');
+        return hadActiveTask;
+    }
+
+    getModelConfigsInfo() {
+        const modelService = new ModelConfigService(this.env);
+        return modelService.getModelConfigsInfo(this.state.metadata.userId);
     }
 
     async syncAndCaptionUploadedAssets(
@@ -1078,15 +1551,52 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
         inferenceContext?: InferenceContext,
     ): Promise<void> {
         this.throwIfDeleted('sync uploaded assets');
-        return this.behavior.syncAndCaptionUploadedAssets(uploaded, inferenceContext);
+        if (uploaded.length === 0) return;
+
+        await this.syncProjectAssetMapFromR2();
+
+        const agentId = this.getAgentId();
+        const prefix = `assets/${agentId}/`;
+        const descriptions: Record<string, string> = {};
+        const fallbackDescription = (att: ProcessedImageAttachment, rel: string): string => {
+            const filename = att.filename || rel.split('/').pop() || rel;
+            const kind = att.mimeType.split('/')[0] || 'media';
+            return `User-uploaded ${kind} asset "${filename}" (${att.mimeType}).`;
+        };
+
+        for (const att of uploaded) {
+            if (!att.r2Key.startsWith(prefix)) continue;
+            const rel = att.r2Key.slice(prefix.length);
+            try {
+                const text = await generateAssetMediaCaption(
+                    this.env,
+                    inferenceContext ?? this.getInferenceContext(),
+                    att,
+                );
+                descriptions[rel] = text ?? fallbackDescription(att, rel);
+            } catch (err) {
+                this.logger().warn('Asset media caption failed', {
+                    rel,
+                    error: err instanceof Error ? err.message : String(err),
+                });
+                descriptions[rel] = fallbackDescription(att, rel);
+            }
+        }
+
+        if (Object.keys(descriptions).length > 0) {
+            await this.mergeAssetMapDescriptions(descriptions);
+        }
     }
 
     async getFullState(): Promise<AgentState> {
-        return await this.behavior.getFullState();
+        return this.state;
     }
 
     async getSummary(): Promise<AgentSummary> {
-        return this.behavior.getSummary();
+        return {
+            query: this.state.query,
+            generatedCode: this.fileManager.getGeneratedFiles(),
+        };
     }
 
     async getDesiredAppStatus(): Promise<'generating' | 'completed'> {
@@ -1094,10 +1604,6 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
             return 'completed';
         }
 
-        const isGenerating = this.behavior?.isCodeGenerating() ?? false;
-        const isDebugging = this.behavior?.isDeepDebugging() ?? false;
-        const isConversationProcessing = this.behavior?.isConversationProcessing() ?? false;
-        const hasActivePersistedTask = this.behavior?.hasActivePersistedAppTask() ?? false;
         const workflowUpdatedAt = this.state.activeWorkflow?.updatedAt ?? this.state.activeWorkflow?.startedAt;
         const hasFreshActiveWorkflow = Boolean(
             this.state.activeWorkflow &&
@@ -1110,10 +1616,10 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
         const hasQueuedGenerationIntent = this.state.shouldBeGenerating && !hasCompletedPlayable;
 
         if (
-            isGenerating ||
-            isDebugging ||
-            isConversationProcessing ||
-            hasActivePersistedTask ||
+            this.isCodeGenerating() ||
+            this.isDeepDebugging() ||
+            this.isConversationProcessing() ||
+            this.hasActivePersistedAppTask() ||
             hasFreshActiveWorkflow ||
             hasQueuedGenerationIntent
         ) {
@@ -1125,9 +1631,9 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
 
     async getPreviewUrlCache(): Promise<string> {
         try {
-            await this.behavior.ensureTemplateDetails();
-            if (this.behavior.getTemplateDetails().renderMode === 'browser') {
-                return this.behavior.getBrowserPreviewURL();
+            await this.ensureTemplateDetails();
+            if (this.getTemplateDetails().renderMode === 'browser') {
+                return this.getBrowserPreviewURL();
             }
         } catch (error) {
             this.logger().warn('Unable to resolve preview URL cache', error);
@@ -1140,7 +1646,14 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
         clearLogs: boolean = true,
         forceRedeploy: boolean = false
     ): Promise<string> {
-        return this.behavior.deployPreview(clearLogs, forceRedeploy);
+        return this.deployToSandbox([], forceRedeploy, undefined, clearLogs)
+            .then((response) => {
+                if (response?.previewURL) {
+                    this.broadcast(WebSocketMessageResponses.PREVIEW_FORCE_REFRESH, {});
+                    return response.previewURL;
+                }
+                return response?.tunnelURL ?? '';
+            });
     }
 
     async deployProject(options?: DeployOptions): Promise<DeployResult> {
@@ -1161,13 +1674,13 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
         }
 
         try {
-            const templateDetails = this.behavior.getTemplateDetails();
+            const templateDetails = this.getTemplateDetails();
             if (templateDetails.renderMode !== 'browser' && !this.state.sandboxInstanceId) {
                 this.logger().info('Preparing preview sandbox before playable update quality gate');
-                await this.behavior.deployPreview(true);
+                await this.deployPreview(true);
             }
 
-            const issues = await this.behavior.fetchAllIssues(true);
+            const issues = await this.fetchAllIssues(true);
             const runtimeErrorCount = issues.runtimeErrors.length;
             const typecheckErrorCount = issues.staticAnalysis.typecheck.issues.length;
             const lintErrorCount = issues.staticAnalysis.lint.issues.filter(
@@ -1258,7 +1771,7 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
             message: 'Preview workflow is deploying the sandbox',
         });
 
-        const previewUrl = await this.behavior.deployPreview(clearLogs, forceRedeploy);
+        const previewUrl = await this.deployPreview(clearLogs, forceRedeploy);
         if (!previewUrl) {
             throw new Error('Preview deployment did not return a preview URL');
         }
@@ -1268,8 +1781,45 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
         return this.objective.export(options);
     }
 
-    importTemplate(templateName: string): Promise<{ templateName: string; filesImported: number }> {
-        return this.behavior.importTemplate(templateName);
+    async importTemplate(templateName: string): Promise<{ templateName: string; filesImported: number; files: TemplateFile[] }> {
+        this.logger().info(`Importing template into project: ${templateName}`);
+
+        if (this.state.templateName !== templateName) {
+            const catalogResponse = await listTemplates(this.env.TEMPLATES_BUCKET);
+            const catalogInfo = catalogResponse.success
+                ? catalogResponse.templates.find(t => t.name === templateName)
+                : null;
+
+            this.setState({
+                ...this.state,
+                templateName,
+                ...(catalogInfo?.projectType ? { projectType: catalogInfo.projectType } : {}),
+            } as AgentState);
+            this.templateDetailsCache = null;
+        }
+
+        const templateDetails = await this.ensureTemplateDetails();
+        if (!templateDetails) {
+            throw new Error(`Failed to get template details for: ${templateName}`);
+        }
+
+        this.setState({
+            ...this.state,
+            lastPackageJson: templateDetails.allFiles['package.json'] || this.state.lastPackageJson,
+        } as AgentState);
+
+        const importantFiles = getTemplateImportantFiles(templateDetails);
+        await this.deployToSandbox();
+
+        this.broadcast(WebSocketMessageResponses.TEMPLATE_UPDATED, {
+            templateDetails,
+        });
+
+        return {
+            templateName: templateDetails.name,
+            filesImported: Object.keys(templateDetails.allFiles).length,
+            files: importantFiles,
+        };
     }
     
     protected async saveToDatabase() {
@@ -1333,9 +1883,9 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
             // Set minimal state directly (skip LLM generation)
             this.setState({
                 ...this.state,
-                behaviorType: 'phasic' as BehaviorType,
+                behaviorType: LEGACY_STATE_BEHAVIOR_TYPE,
                 projectType: 'app' as ProjectType,
-                generationBackend: this.resolveGenerationBackend(),
+                generationBackend: 'codex',
                 projectName,
                 query: args.description,
                 initialUserAttachments: [],
@@ -1647,61 +2197,20 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
                 status: 'start',
             });
 
-            if (this.resolveGenerationBackend() === 'codex') {
-                const processedImages = images && images.length > 0
-                    ? (images.every(isProcessedWorkflowAttachment)
-                        ? images
-                        : await this.uploadWorkflowUserInputAssets(images as ImageAttachment[]))
-                    : undefined;
-                if (processedImages && processedImages.length > 0) {
-                    await this.syncAndCaptionUploadedAssets(processedImages);
-                }
-                await this.runCodexGenerationFromWorkflow(workflowId, userMessage, 'user_input');
-                this.broadcast(WebSocketMessageResponses.USER_SUGGESTIONS_PROCESSING, {
-                    message: 'User message processed',
-                    status: 'complete',
-                });
-                return;
+            const processedImages = images && images.length > 0
+                ? (images.every(isProcessedWorkflowAttachment)
+                    ? images
+                    : await this.uploadWorkflowUserInputAssets(images as ImageAttachment[]))
+                : undefined;
+            if (processedImages && processedImages.length > 0) {
+                await this.syncAndCaptionUploadedAssets(processedImages);
             }
-
-            await this.behavior.handleUserInput(userMessage, images);
-            if (!this.behavior.isCodeGenerating()) {
-                // If idle, start generation process
-                this.logger().info('User input during IDLE state, starting generation');
-                let generationFailed = false;
-                let generationError: unknown;
-                await this.runGenerationFromWorkflow('user_input', workflowId).catch(error => {
-                    generationFailed = true;
-                    generationError = error;
-                    this.logger().error('Error starting generation from user input:', error);
-                    this.broadcast(WebSocketMessageResponses.USER_SUGGESTIONS_PROCESSING, {
-                        message: 'User message processing failed',
-                        status: 'error',
-                    });
-                });
-                if (generationError) {
-                    throw generationError;
-                }
-                if (!generationFailed) {
-                    this.broadcast(WebSocketMessageResponses.USER_SUGGESTIONS_PROCESSING, {
-                        message: 'User message processed',
-                        status: 'complete',
-                    });
-                }
-            } else {
-                this.broadcast(WebSocketMessageResponses.USER_SUGGESTIONS_PROCESSING, {
-                    message: 'User message processed',
-                    status: 'complete',
-                });
-                if (workflowId) {
-                    await this.updateWorkflowStatus({
-                        workflowId,
-                        kind: 'user_input',
-                        status: 'completed',
-                        message: 'User input workflow completed',
-                    });
-                }
-            }
+            await this.runCodexGenerationFromWorkflow(workflowId, userMessage, 'user_input');
+            this.broadcast(WebSocketMessageResponses.USER_SUGGESTIONS_PROCESSING, {
+                message: 'User message processed',
+                status: 'complete',
+            });
+            return;
 
         } catch (error) {
             this.broadcast(WebSocketMessageResponses.USER_SUGGESTIONS_PROCESSING, {
@@ -1813,9 +2322,9 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
             await this.gitInit();
             
             // Ensure template details are available
-            await this.behavior.ensureTemplateDetails();
+            await this.ensureTemplateDetails();
 
-            const templateDetails = this.behavior.getTemplateDetails();
+            const templateDetails = this.getTemplateDetails();
             
             return {
                 gitObjects,

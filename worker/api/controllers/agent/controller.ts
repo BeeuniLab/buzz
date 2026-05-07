@@ -1,7 +1,7 @@
 import { WebSocketMessageResponses } from '../../../agents/constants';
 import { BaseController } from '../baseController';
 import { generateId } from '../../../utils/idGenerator';
-import { BehaviorType, GenerationBackend, ProjectType } from '../../../agents/core/types';
+import { ProjectType } from '../../../agents/core/types';
 import { getAgentStub } from '../../../agents';
 import {
     AgentConnectionData,
@@ -34,26 +34,12 @@ const defaultCodeGenArgs: Partial<CodeGenArgs> = {
     selectedTemplate: 'auto',
 };
 
-const resolveBehaviorType = (body: CodeGenArgs): BehaviorType => {
-    if (body.behaviorType) return body.behaviorType;
-    const pt = body.projectType;
-    if (pt === 'presentation' || pt === 'workflow' || pt === 'general') return 'agentic';
-    // default (including 'app' and when projectType omitted)
-    return 'phasic';
-};
-
 const resolveProjectType = (body: CodeGenArgs): ProjectType | 'auto' => {
     return body.projectType || 'auto';
 };
 
 const normalizeProjectType = (projectType: ProjectType | 'auto'): ProjectType =>
     projectType === 'auto' ? 'app' : projectType;
-
-const resolveGenerationBackend = (body: CodeGenArgs, env: Env): GenerationBackend => {
-    if (body.generationBackend === 'codex') return 'codex';
-    const configured = (env as unknown as { CODE_GENERATION_BACKEND?: string }).CODE_GENERATION_BACKEND;
-    return configured === 'codex' ? 'codex' : 'native';
-};
 
 const buildPendingAppTitle = (query: string): string => {
     const normalized = query.replace(/\s+/g, ' ').trim();
@@ -123,8 +109,7 @@ export class CodingAgentController extends BaseController {
             const workflowId = `create-${agentId}`;
             const modelConfigService = new ModelConfigService(env);
             const projectType = resolveProjectType(body);
-            const behaviorType = resolveBehaviorType(body);
-            const generationBackend = resolveGenerationBackend(body, env);
+            const generationBackend = 'codex' as const;
             const appService = new AppService(env);
             const appTitle = buildPendingAppTitle(query);
 
@@ -159,7 +144,7 @@ export class CodingAgentController extends BaseController {
             });
             pendingAppForCleanup = { agentId, userId: user.id };
 
-            this.logger.info(`Resolved behaviorType: ${behaviorType}, projectType: ${projectType}, generationBackend: ${generationBackend} for agent ${agentId}`);
+            this.logger.info(`Resolved projectType: ${projectType}, generationBackend: ${generationBackend} for agent ${agentId}`);
                                 
             // Fetch all user model configs, api keys and agent instance at once
             const userConfigsRecord = await modelConfigService.getUserModelConfigs(user.id);
@@ -208,7 +193,6 @@ export class CodingAgentController extends BaseController {
 
             const workflowProjectType = normalizeProjectType(projectType);
             const agentInstance = await getAgentStub(env, agentId, {
-                behaviorType,
                 projectType: workflowProjectType,
             });
 
@@ -217,9 +201,7 @@ export class CodingAgentController extends BaseController {
                 userId: user.id,
                 query,
                 hostname,
-                behaviorType,
                 projectType: workflowProjectType,
-                generationBackend,
                 workflowId,
                 workflowKind: 'create_project',
             });
@@ -236,7 +218,6 @@ export class CodingAgentController extends BaseController {
                 params: {
                     kind: 'create_project',
                     agentId,
-                    behaviorType,
                     projectType: workflowProjectType,
                     requestedProjectType: projectType,
                     query,
@@ -246,7 +227,6 @@ export class CodingAgentController extends BaseController {
                     inferenceContext,
                     images: workflowImages,
                     selectedTemplate: body.selectedTemplate,
-                    generationBackend,
                 },
             });
 
@@ -255,7 +235,6 @@ export class CodingAgentController extends BaseController {
                 agentId,
                 websocketUrl,
                 httpStatusUrl,
-                behaviorType,
                 projectType: workflowProjectType,
                 workflowStarted: true,
                 workflowId,
