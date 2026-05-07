@@ -72,7 +72,7 @@ const DEFAULTS = {
 
 const TEXT_EXTENSIONS = new Set([
 	'.cjs', '.css', '.frag', '.glsl', '.html', '.js', '.json', '.jsx', '.md',
-	'.mjs', '.sass', '.scss', '.ts', '.tsx', '.txt', '.vert', '.yaml', '.yml',
+	'.jsonc', '.mjs', '.sass', '.scss', '.ts', '.tsx', '.txt', '.vert', '.yaml', '.yml',
 ]);
 
 const TEXT_FILE_PATHS = new Set([
@@ -120,11 +120,11 @@ function createWorkerIndexJs(): string {
 `;
 }
 
-function createWranglerJsonc(projectName: string): string {
+function createWranglerJsonc(projectName: string, main = 'worker/index.js'): string {
 	return JSON.stringify({
 		$schema: 'node_modules/wrangler/config-schema.json',
 		name: projectName,
-		main: 'worker/index.js',
+		main,
 		compatibility_date: '2025-04-24',
 		assets: {
 			directory: 'dist',
@@ -435,8 +435,9 @@ function patchPackageJson(raw: string): string {
 }
 
 function patchViteConfig(raw: string): string {
-	if (raw.includes('allowedHosts') || raw.includes('strictPort')) {
-		return raw;
+	let patched = raw;
+	if (patched.includes('cloudflare(') && !patched.includes('inspectorPort')) {
+		patched = patched.replace(/cloudflare\(\s*\)/g, 'cloudflare({ inspectorPort: false })');
 	}
 
 	const serverBlock = [
@@ -447,15 +448,29 @@ function patchViteConfig(raw: string): string {
 		'  },',
 	].join('\n');
 
-	if (/export\s+default\s+defineConfig\(\s*\{/.test(raw)) {
-		return raw.replace(/export\s+default\s+defineConfig\(\s*\{/, match => `${match}\n${serverBlock}`);
+	if (/server\s*:\s*\{/.test(patched)) {
+		let next = patched;
+		if (!next.includes('strictPort')) {
+			next = next.replace(/server\s*:\s*\{/, match => `${match}\n\t\t\tstrictPort: true,`);
+		}
+		if (!next.includes('allowedHosts')) {
+			next = next.replace(/server\s*:\s*\{/, match => `${match}\n\t\t\tallowedHosts: true,`);
+		}
+		if (!next.includes('host:') && !next.includes('host :')) {
+			next = next.replace(/server\s*:\s*\{/, match => `${match}\n\t\t\thost: '0.0.0.0',`);
+		}
+		return next;
 	}
 
-	if (/export\s+default\s+\{/.test(raw)) {
-		return raw.replace(/export\s+default\s+\{/, match => `${match}\n${serverBlock}`);
+	if (/export\s+default\s+defineConfig\(\s*\{/.test(patched)) {
+		return patched.replace(/export\s+default\s+defineConfig\(\s*\{/, match => `${match}\n${serverBlock}`);
 	}
 
-	return raw;
+	if (/export\s+default\s+\{/.test(patched)) {
+		return patched.replace(/export\s+default\s+\{/, match => `${match}\n${serverBlock}`);
+	}
+
+	return patched;
 }
 
 function ensureSandboxPreviewFiles(files: Record<string, string>, slug: string): void {
@@ -469,12 +484,13 @@ function ensureSandboxPreviewFiles(files: Record<string, string>, slug: string):
 		}
 	}
 
-	if (!files['wrangler.jsonc'] && !files['wrangler.toml']) {
-		files['wrangler.jsonc'] = createWranglerJsonc(toWranglerName(slug));
-	}
-
 	if (!files['worker/index.js'] && !files['worker/index.ts']) {
 		files['worker/index.js'] = createWorkerIndexJs();
+	}
+
+	if (!files['wrangler.jsonc'] && !files['wrangler.toml']) {
+		const workerMain = files['worker/index.ts'] ? 'worker/index.ts' : 'worker/index.js';
+		files['wrangler.jsonc'] = createWranglerJsonc(toWranglerName(slug), workerMain);
 	}
 }
 
