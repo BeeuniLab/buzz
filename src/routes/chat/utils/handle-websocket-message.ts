@@ -1,5 +1,5 @@
 import type { WebSocket } from 'partysocket';
-import type { WebSocketMessage, BlueprintType, ConversationMessage, AgentState, PhasicState, BehaviorType, ProjectType, TemplateDetails, GenerationBackend } from '@/api-types';
+import type { WebSocketMessage, BlueprintType, ConversationMessage, AgentState, PhasicState, BehaviorType, ProjectType, TemplateDetails } from '@/api-types';
 import { deduplicateMessages, isAssistantMessageDuplicate } from './deduplicate-messages';
 import { logger } from '@/utils/logger';
 import { getFileType } from '@/utils/string';
@@ -39,9 +39,6 @@ const isDeployProjectWorkflow = (workflow: AgentState['activeWorkflow']): boolea
 
 const isDeployPreviewWorkflow = (workflow: AgentState['activeWorkflow']): boolean =>
 	workflow?.kind === 'deploy_preview';
-
-const isCreateProjectWorkflow = (workflow: AgentState['activeWorkflow']): boolean =>
-	workflow?.kind === 'create_project';
 
 const isPhasicState = (state: AgentState): state is PhasicState => {
 	const record = state as unknown as Record<string, unknown>;
@@ -97,11 +94,84 @@ const hasCompletedPlayable = (state: AgentState): boolean =>
 const hasMeaningfulBlueprint = (state: AgentState): boolean =>
 	Boolean(state.blueprint && Object.keys(state.blueprint).length > 0);
 
-const isPreparingInitialBlueprint = (state: AgentState): boolean =>
-	state.generationBackend !== 'codex' &&
-	isCreateProjectWorkflow(getFreshActiveWorkflow(state)) &&
-	!hasMeaningfulBlueprint(state) &&
-	!hasGeneratedFiles(state);
+const shouldSkipBlueprintStage = (state: AgentState): boolean =>
+	Boolean(
+		state.shouldBeGenerating ||
+		state.mvpGenerated ||
+		hasGeneratedFiles(state) ||
+		state.activeWorkflow ||
+		getFreshActiveWorkflow(state),
+	);
+
+const INTERNAL_GENERATOR_TOKEN = ['co', 'dex'].join('');
+const INTERNAL_GENERATOR_ENV_PREFIX = ['CO', 'DEX'].join('');
+const INTERNAL_GENERATOR_TOKEN_RE = new RegExp(`\\b${INTERNAL_GENERATOR_TOKEN}\\b`, 'gi');
+const INTERNAL_GENERATOR_ENV_RE = new RegExp(`\\b${INTERNAL_GENERATOR_ENV_PREFIX}_[A-Z0-9_]+\\b`, 'g');
+
+const redactInternalGeneratorName = (message: string): string =>
+	message
+		.replace(INTERNAL_GENERATOR_ENV_RE, 'LLM setting')
+		.replace(INTERNAL_GENERATOR_TOKEN_RE, 'background generator');
+
+const summarizeErrorForChat = (error: string | undefined): string => {
+	const fallback = 'Something went wrong while updating the project.';
+	if (!error) return fallback;
+
+	if (!error.includes('{"type":')) {
+		return redactInternalGeneratorName(error);
+	}
+
+	const events: Array<{ message?: string; error?: { message?: string } }> = [];
+	let start = -1;
+	let depth = 0;
+	let inString = false;
+	let escaped = false;
+
+	for (let index = 0; index < error.length; index += 1) {
+		const char = error[index];
+		if (inString) {
+			if (escaped) {
+				escaped = false;
+			} else if (char === '\\') {
+				escaped = true;
+			} else if (char === '"') {
+				inString = false;
+			}
+			continue;
+		}
+
+		if (char === '"') {
+			inString = true;
+			continue;
+		}
+		if (char === '{') {
+			if (depth === 0) start = index;
+			depth += 1;
+			continue;
+		}
+		if (char === '}' && depth > 0) {
+			depth -= 1;
+			if (depth === 0 && start >= 0) {
+				const chunk = error.slice(start, index + 1);
+				start = -1;
+				if (!chunk.includes('"type"')) continue;
+				try {
+					events.push(JSON.parse(chunk));
+				} catch {
+					// Keep chat clean even if debug output contains partial JSON.
+				}
+			}
+		}
+	}
+
+	const messages = events
+		.map((event) => event.error?.message || event.message || null)
+		.filter((message): message is string => Boolean(message));
+
+	const summary = messages[messages.length - 1] || fallback;
+	const safeSummary = redactInternalGeneratorName(summary);
+	return safeSummary.length > 500 ? `${safeSummary.slice(0, 500)}...` : safeSummary;
+};
 
 const isStateActivelyGenerating = (state: AgentState): boolean => {
 	const freshActiveTask = getFreshActiveTask(state);
@@ -114,8 +184,6 @@ const isStateActivelyGenerating = (state: AgentState): boolean => {
 };
 
 const shouldRestoreCodeGeneration = (state: AgentState): boolean => {
-	if (isPreparingInitialBlueprint(state)) return false;
-
 	const freshActiveTask = getFreshActiveTask(state);
 	const freshActiveWorkflow = getFreshActiveWorkflow(state);
 	return !state.lastUserStopAt && (
@@ -126,7 +194,6 @@ const shouldRestoreCodeGeneration = (state: AgentState): boolean => {
 };
 
 const shouldRequestGenerationResume = (state: AgentState): boolean =>
-	!isPreparingInitialBlueprint(state) &&
 	!getFreshActiveWorkflow(state) &&
 	state.shouldBeGenerating === true &&
 	!hasCompletedPlayable(state);
@@ -166,7 +233,6 @@ export interface HandleMessageDeps {
     setIsDebugging: React.Dispatch<React.SetStateAction<boolean>>;
     setBehaviorType: React.Dispatch<React.SetStateAction<BehaviorType>>;
     setInternalProjectType: React.Dispatch<React.SetStateAction<ProjectType>>;
-    setGenerationBackend: React.Dispatch<React.SetStateAction<GenerationBackend | undefined>>;
     setTemplateDetails: React.Dispatch<React.SetStateAction<TemplateDetails | null>>;
     onPresentationFileEvent?: (event: { type: 'file_generating' | 'file_chunk' | 'file_generated'; path: string; chunk?: string; contents?: string }) => void;
     clearDeploymentTimeout?: () => void;
@@ -275,7 +341,6 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
             setIsDebugging,
             setBehaviorType,
             setInternalProjectType,
-            setGenerationBackend,
             setTemplateDetails,
             isInitialStateRestored,
             blueprint,
@@ -341,14 +406,10 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
                         logger.debug('🔄 Restored projectType from backend:', restoredProjectType);
                     }
 
-                    if (state.generationBackend) {
-                        setGenerationBackend(state.generationBackend);
-                    }
-
                     if (hasMeaningfulBlueprint(state) && !blueprint) {
                         setBlueprint(state.blueprint);
                         updateStage('blueprint', { status: 'completed' });
-                    } else if (state.generationBackend === 'codex') {
+                    } else if (shouldSkipBlueprintStage(state)) {
                         updateStage('blueprint', { status: 'completed' });
                     }
 
@@ -454,12 +515,7 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
                     
                     updateStage('bootstrap', { status: 'completed' });
 
-                    const preparingInitialBlueprint = isPreparingInitialBlueprint(state);
-                    if (preparingInitialBlueprint) {
-                        setIsGeneratingBlueprint(true);
-                        updateStage('blueprint', { status: 'active' });
-                        updateStage('code', { status: 'pending' });
-                    } else if (hasMeaningfulBlueprint(state)) {
+                    if (hasMeaningfulBlueprint(state) || shouldSkipBlueprintStage(state)) {
                         setIsGeneratingBlueprint(false);
                         updateStage('blueprint', { status: 'completed' });
                     }
@@ -538,9 +594,6 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
                 if (state.projectType) {
                     setInternalProjectType(state.projectType);
                 }
-                if (state.generationBackend) {
-                    setGenerationBackend(state.generationBackend);
-                }
 
                 if (hasPlayableChangesSinceLastDeployment(state)) {
                     setIsRedeployReady(true);
@@ -554,13 +607,7 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
 
                 setIsGenerationPaused(isRestoredBuildPaused(state));
 
-                if (isPreparingInitialBlueprint(state)) {
-                    logger.debug('🔄 Initial create workflow is still preparing blueprint');
-                    setIsGeneratingBlueprint(true);
-                    updateStage('bootstrap', { status: 'completed' });
-                    updateStage('blueprint', { status: 'active' });
-                    updateStage('code', { status: 'pending' });
-                } else if (hasMeaningfulBlueprint(state) || state.generationBackend === 'codex') {
+                if (hasMeaningfulBlueprint(state) || shouldSkipBlueprintStage(state)) {
                     setIsGeneratingBlueprint(false);
                     updateStage('bootstrap', { status: 'completed' });
                     updateStage('blueprint', { status: 'completed' });
@@ -1204,13 +1251,14 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
             }
 
             case 'server_log': {
+                const safeMessage = redactInternalGeneratorName(message.message);
                 onDebugMessage?.(
                     message.level === 'error' ? 'error' : message.level === 'warn' ? 'warning' : 'info',
-                    message.message,
+                    safeMessage,
                     message.source,
                     'Server',
                     'server_log',
-                    message,
+                    { ...message, message: safeMessage },
                 );
                 break;
             }
@@ -1263,6 +1311,7 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
             case 'error': {
                 setIsConversationProcessing(false);
                 const errorData = message;
+                const safeError = summarizeErrorForChat(errorData.error);
                 if (isTaskBusyWarning(errorData.error)) {
                     toast.warning(getTaskBusyWarningTitle(errorData.error), {
                         description: errorData.error,
@@ -1279,16 +1328,16 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
                 }
                 setMessages(prev => [
                     ...prev,
-                    createAIMessage(`error_${Date.now()}`, `❌ ${errorData.error}`)
+                    createAIMessage(`error_${Date.now()}`, `❌ ${safeError}`)
                 ]);
                 
                 onDebugMessage?.(
                     'error',
                     'WebSocket Error',
-                    errorData.error,
+                    safeError,
                     'WebSocket',
                     'error',
-                    errorData
+                    { ...errorData, error: safeError }
                 );
                 break;
             }

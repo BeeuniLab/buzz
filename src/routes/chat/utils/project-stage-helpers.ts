@@ -1,5 +1,3 @@
-import type { GenerationBackend } from '@/api-types';
-
 export interface ProjectStage {
     id: 'bootstrap' | 'blueprint' | 'code';
     title: string;
@@ -7,62 +5,29 @@ export interface ProjectStage {
     metadata?: string;
 }
 
-const STAGE_TITLES: Record<'native' | 'codex', Record<ProjectStage['id'], string>> = {
-    native: {
-        bootstrap: 'Getting your idea ready',
-        blueprint: 'Shaping the experience',
-        code: 'Making it playable',
-    },
-    codex: {
-        bootstrap: 'Getting your idea ready',
-        blueprint: 'Preparing the workspace',
-        code: 'Making it playable',
-    },
+const STAGE_TITLES: Record<ProjectStage['id'], string> = {
+    bootstrap: 'Getting your idea ready',
+    blueprint: 'Preparing the workspace',
+    code: 'Making it playable',
 };
 
-function getStageTitles(generationBackend?: GenerationBackend): Record<ProjectStage['id'], string> {
-    return generationBackend === 'codex' ? STAGE_TITLES.codex : STAGE_TITLES.native;
-}
-
-export function createInitialStages(generationBackend?: GenerationBackend): ProjectStage[] {
-    const titles = getStageTitles(generationBackend);
-
+export function createInitialStages(): ProjectStage[] {
     return [
         {
             id: 'bootstrap',
-            title: titles.bootstrap,
+            title: STAGE_TITLES.bootstrap,
             status: 'active',
         },
         {
             id: 'blueprint',
-            title: titles.blueprint,
+            title: STAGE_TITLES.blueprint,
             status: 'pending',
         },
-        { id: 'code', title: titles.code, status: 'pending' },
+        { id: 'code', title: STAGE_TITLES.code, status: 'pending' },
     ];
 }
 
 export const initialStages: ProjectStage[] = createInitialStages();
-
-export function syncStageTitles(
-    stages: ProjectStage[],
-    generationBackend?: GenerationBackend,
-): ProjectStage[] {
-    const titles = getStageTitles(generationBackend);
-    let changed = false;
-
-    const nextStages = stages.map((stage) => {
-        const nextTitle = titles[stage.id];
-        if (stage.title === nextTitle) {
-            return stage;
-        }
-
-        changed = true;
-        return { ...stage, title: nextTitle };
-    });
-
-    return changed ? nextStages : stages;
-}
 
 /**
  * Update a specific stage's status and metadata

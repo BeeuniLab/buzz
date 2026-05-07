@@ -10,6 +10,7 @@ const DEFAULT_CODEX_MODEL_PROVIDER = 'crs';
 const CODEX_WORK_DIR = '.buzz/codex';
 const CODEX_HOME_PATH = '.buzz/codex-home';
 const CODEX_CONFIG_PATH = `${CODEX_HOME_PATH}/config.toml`;
+const CODEX_AUTH_PATH = `${CODEX_HOME_PATH}/auth.json`;
 const CHANGED_FILES_PATH = `${CODEX_WORK_DIR}/changed-files.txt`;
 const DELETED_FILES_PATH = `${CODEX_WORK_DIR}/deleted-files.txt`;
 const PROMPT_PATH = `${CODEX_WORK_DIR}/prompt.md`;
@@ -52,7 +53,6 @@ export interface CodexGenerationRequest {
 export interface CodexGenerationResult {
 	changedFiles: FileOutputType[];
 	deletedFiles: string[];
-	output: string;
 }
 
 function shellQuote(value: string): string {
@@ -102,7 +102,7 @@ function resolveCodexRuntime(env: Env, instanceId: string, requestedModel?: stri
 	}
 
 	if (!apiKey) {
-		throw new Error('Codex backend requires CODEX_OPENAI_API_KEY, OPENAI_API_KEY, LLM_PROXY_API_KEY, or LLM_PROXY_FALLBACK_API_KEY');
+		throw new Error('Background generator requires an LLM API key');
 	}
 
 	const baseUrl = explicitBaseUrl || defaultBaseUrl;
@@ -140,12 +140,12 @@ function resolveCodexSessionPersistence(env: Env, agentId: string): CodexSession
 		return null;
 	}
 	if (!bucketName || !accessKeyId || !secretAccessKey) {
-		throw new Error('Codex R2 session persistence requires CODEX_STATE_R2_BUCKET_NAME, CODEX_STATE_R2_ACCESS_KEY_ID, and CODEX_STATE_R2_SECRET_ACCESS_KEY');
+		throw new Error('Background session persistence is missing the R2 bucket or credentials');
 	}
 
 	const endpoint = explicitEndpoint || (accountId ? `https://${accountId}.r2.cloudflarestorage.com` : undefined);
 	if (!endpoint) {
-		throw new Error('Codex R2 session persistence requires CODEX_STATE_R2_ENDPOINT or CLOUDFLARE_ACCOUNT_ID');
+		throw new Error('Background session persistence is missing the R2 endpoint or Cloudflare account id');
 	}
 
 	const safeAgentId = safePathSegment(agentId);
@@ -179,6 +179,94 @@ function readReturnedFile(files: Array<{ filePath: string; fileContents: string 
 	return files.find((file) => file.filePath === path)?.fileContents ?? '';
 }
 
+function parseCodexJsonlOutput(output: string): Array<Record<string, unknown>> {
+	const events: Array<Record<string, unknown>> = [];
+	let start = -1;
+	let depth = 0;
+	let inString = false;
+	let escaped = false;
+
+	for (let index = 0; index < output.length; index += 1) {
+		const char = output[index];
+		if (inString) {
+			if (escaped) {
+				escaped = false;
+			} else if (char === '\\') {
+				escaped = true;
+			} else if (char === '"') {
+				inString = false;
+			}
+			continue;
+		}
+
+		if (char === '"') {
+			inString = true;
+			continue;
+		}
+		if (char === '{') {
+			if (depth === 0) start = index;
+			depth += 1;
+			continue;
+		}
+		if (char === '}' && depth > 0) {
+			depth -= 1;
+			if (depth === 0 && start >= 0) {
+				const chunk = output.slice(start, index + 1);
+				start = -1;
+				try {
+					const parsed = JSON.parse(chunk);
+					if (parsed && typeof parsed === 'object') {
+						events.push(parsed as Record<string, unknown>);
+					}
+				} catch {
+					// Ignore non-Codex JSON fragments in command output.
+				}
+			}
+		}
+	}
+
+	if (events.length > 0) {
+		return events;
+	}
+
+	return output
+		.split('\n')
+		.map((line) => line.trim())
+		.filter(Boolean)
+		.map((line) => {
+			try {
+				const parsed = JSON.parse(line);
+				return parsed && typeof parsed === 'object' ? parsed as Record<string, unknown> : null;
+			} catch {
+				return null;
+			}
+		})
+		.filter((event): event is Record<string, unknown> => event !== null);
+}
+
+function getCodexEventErrorMessage(event: Record<string, unknown>): string | null {
+	if (event.type === 'turn.failed') {
+		const error = event.error;
+		if (error && typeof error === 'object' && 'message' in error) {
+			const message = (error as { message?: unknown }).message;
+			return typeof message === 'string' && message.trim() ? message.trim() : null;
+		}
+	}
+
+	const message = event.message;
+	return typeof message === 'string' && message.trim() ? message.trim() : null;
+}
+
+function summarizeCodexFailure(output: string, fallback: string): string {
+	const events = parseCodexJsonlOutput(output);
+	const messages = events
+		.map(getCodexEventErrorMessage)
+		.filter((message): message is string => Boolean(message));
+	const lastMessage = messages[messages.length - 1] || fallback || 'unknown error';
+	const concise = lastMessage.replace(/\s+/g, ' ').trim();
+	return concise.length > 1000 ? `${concise.slice(0, 1000)}...` : concise;
+}
+
 export class CodexGenerationManager<TState extends BaseProjectState = BaseProjectState> extends BaseAgentService<TState> {
 	constructor(
 		options: ServiceOptions<TState>,
@@ -199,12 +287,12 @@ export class CodexGenerationManager<TState extends BaseProjectState = BaseProjec
 		const preview = await this.deploymentManager.deployToSandbox(
 			[],
 			false,
-			'chore: prepare workspace for codex',
+			'chore: prepare workspace for background generator',
 			false,
 		);
 		const instanceId = this.getState().sandboxInstanceId || preview?.runId;
 		if (!instanceId) {
-			throw new Error('Codex backend could not prepare a sandbox instance');
+			throw new Error('Background generator could not prepare a sandbox instance');
 		}
 
 		const client = this.deploymentManager.getClient();
@@ -213,9 +301,10 @@ export class CodexGenerationManager<TState extends BaseProjectState = BaseProjec
 		await this.prepareCodexHome(client, instanceId, runtime);
 		await this.prepareCodexEnvironment(client, instanceId, runtime);
 		await this.writeCodexConfig(client, instanceId, runtime);
+		await this.writeCodexAuth(client, instanceId, runtime);
 		await this.writePrompt(client, instanceId, this.buildPrompt(request));
 
-		const output = await this.runCodexExec(client, instanceId, request, runtime);
+		await this.runCodexExec(client, instanceId, request, runtime);
 		const changedPaths = await this.collectChangedPaths(client, instanceId);
 		const deletedPaths = await this.collectDeletedPaths(client, instanceId);
 
@@ -245,7 +334,7 @@ export class CodexGenerationManager<TState extends BaseProjectState = BaseProjec
 			this.fileManager.deleteFiles(deletedPaths);
 		}
 
-		return { changedFiles, deletedFiles: deletedPaths, output };
+		return { changedFiles, deletedFiles: deletedPaths };
 	}
 
 	private async prepareCodexHome(client: BaseSandboxService, instanceId: string, runtime: CodexRuntime): Promise<void> {
@@ -262,7 +351,7 @@ export class CodexGenerationManager<TState extends BaseProjectState = BaseProjec
 				credentials: persistence.credentials,
 			});
 			if (!mount.success) {
-				throw new Error(mount.error || 'Failed to mount Codex R2 session bucket');
+				throw new Error(mount.error || 'Failed to mount background session bucket');
 			}
 
 			command = [
@@ -277,14 +366,14 @@ export class CodexGenerationManager<TState extends BaseProjectState = BaseProjec
 		const result = await client.executeCommands(instanceId, [command], 60_000);
 		const setup = result.results[0];
 		if (!result.success || !setup?.success) {
-			throw new Error(`Failed to prepare Codex home: ${setup?.error || result.error || 'unknown error'}`);
+			throw new Error(`Failed to prepare background generator state: ${setup?.error || result.error || 'unknown error'}`);
 		}
 	}
 
 	private async prepareCodexEnvironment(client: BaseSandboxService, instanceId: string, runtime: CodexRuntime): Promise<void> {
 		const result = await client.setInstanceEnvVars(instanceId, runtime.envVars);
 		if (!result.success) {
-			throw new Error(result.error || 'Sandbox service does not support Codex environment injection');
+			throw new Error(result.error || 'Sandbox service does not support background generator environment injection');
 		}
 	}
 
@@ -296,7 +385,32 @@ export class CodexGenerationManager<TState extends BaseProjectState = BaseProjec
 			},
 		]);
 		if (!result.success) {
-			throw new Error(`Failed to write Codex config: ${result.error || 'unknown error'}`);
+			throw new Error(`Failed to write background generator config: ${result.error || 'unknown error'}`);
+		}
+	}
+
+	private async writeCodexAuth(client: BaseSandboxService, instanceId: string, runtime: CodexRuntime): Promise<void> {
+		const result = await client.writeFiles(instanceId, [
+			{
+				filePath: CODEX_AUTH_PATH,
+				fileContents: `${JSON.stringify({
+					auth_mode: 'apikey',
+					OPENAI_API_KEY: runtime.envVars.OPENAI_API_KEY,
+				}, null, 2)}\n`,
+			},
+		]);
+		if (!result.success) {
+			throw new Error(`Failed to write background generator auth: ${result.error || 'unknown error'}`);
+		}
+
+		const chmod = await client.executeCommands(
+			instanceId,
+			[`chmod 700 ${shellQuote(CODEX_HOME_PATH)} && chmod 600 ${shellQuote(CODEX_AUTH_PATH)}`],
+			60_000,
+		);
+		const chmodRun = chmod.results[0];
+		if (!chmod.success || !chmodRun?.success) {
+			throw new Error(`Failed to secure background generator auth: ${chmodRun?.error || chmod.error || 'unknown error'}`);
 		}
 	}
 
@@ -311,7 +425,7 @@ export class CodexGenerationManager<TState extends BaseProjectState = BaseProjec
 		const result = await client.executeCommands(instanceId, [command], 60_000);
 		const baseline = result.results[0];
 		if (!result.success || !baseline?.success) {
-			throw new Error(`Failed to create Codex git baseline: ${baseline?.error || result.error || 'unknown error'}`);
+			throw new Error(`Failed to create background generator git baseline: ${baseline?.error || result.error || 'unknown error'}`);
 		}
 	}
 
@@ -323,7 +437,7 @@ export class CodexGenerationManager<TState extends BaseProjectState = BaseProjec
 			},
 		]);
 		if (!result.success) {
-			throw new Error(`Failed to write Codex prompt: ${result.error || 'unknown error'}`);
+			throw new Error(`Failed to write background generator prompt: ${result.error || 'unknown error'}`);
 		}
 	}
 
@@ -332,7 +446,7 @@ export class CodexGenerationManager<TState extends BaseProjectState = BaseProjec
 		instanceId: string,
 		request: CodexGenerationRequest,
 		runtime: CodexRuntime,
-	): Promise<string> {
+	): Promise<void> {
 		const model = runtime.model;
 		const modelArg = model ? ` --model ${shellQuote(model)}` : '';
 		const timeoutMs = request.timeoutMs
@@ -354,11 +468,9 @@ export class CodexGenerationManager<TState extends BaseProjectState = BaseProjec
 			|| codexRun?.error
 			|| '';
 		if (!result.success || !codexRun?.success) {
-			const details = output.length > 4000 ? `${output.slice(0, 4000)}...` : output;
-			throw new Error(`Codex exec failed: ${codexRun?.error || result.error || details || 'unknown error'}`);
+			const summary = summarizeCodexFailure(output, codexRun?.error || result.error || 'unknown error');
+			throw new Error(`Background project update failed: ${summary}`);
 		}
-
-		return output;
 	}
 
 	private async readOptionalFile(client: BaseSandboxService, instanceId: string, path: string): Promise<string> {
@@ -376,12 +488,12 @@ export class CodexGenerationManager<TState extends BaseProjectState = BaseProjec
 		const result = await client.executeCommands(instanceId, [command], 60_000);
 		const collect = result.results[0];
 		if (!result.success || !collect?.success) {
-			throw new Error(`Failed to collect Codex file changes: ${collect?.error || result.error || 'unknown error'}`);
+			throw new Error(`Failed to collect background file changes: ${collect?.error || result.error || 'unknown error'}`);
 		}
 
 		const filesResult = await client.getFiles(instanceId, [CHANGED_FILES_PATH]);
 		if (!filesResult.success) {
-			throw new Error(`Failed to read Codex changed file list: ${filesResult.error || 'unknown error'}`);
+			throw new Error(`Failed to read background changed file list: ${filesResult.error || 'unknown error'}`);
 		}
 
 		return parsePathList(readReturnedFile(filesResult.files, CHANGED_FILES_PATH));
@@ -404,19 +516,18 @@ export class CodexGenerationManager<TState extends BaseProjectState = BaseProjec
 
 		const filesResult = await client.getFiles(instanceId, changedPaths);
 		if (!filesResult.success) {
-			throw new Error(`Failed to read Codex changed files: ${filesResult.error || 'unknown error'}`);
+			throw new Error(`Failed to read background changed files: ${filesResult.error || 'unknown error'}`);
 		}
 
 		return filesResult.files.map((file) => ({
 			filePath: file.filePath,
 			fileContents: file.fileContents,
-			filePurpose: 'Generated or modified by Codex background generation',
+			filePurpose: 'Generated or modified by background generation',
 		}));
 	}
 
 	private buildPrompt(request: CodexGenerationRequest): string {
 		const state = this.getState();
-		const blueprint = JSON.stringify(state.blueprint ?? {}, null, 2);
 		const originalRequest = state.query || request.query;
 		const modeInstruction = request.kind === 'create_project'
 			? 'Create the first working version of this project from the template.'
@@ -437,9 +548,6 @@ export class CodexGenerationManager<TState extends BaseProjectState = BaseProjec
 			'',
 			'Original project brief:',
 			originalRequest,
-			'',
-			'Current blueprint/context:',
-			blueprint,
 			'',
 			'Latest request:',
 			request.query,

@@ -121,7 +121,7 @@ function buildCodexBlueprint(args: {
         implementationRoadmap: [],
         initialPhase: {
             name: 'implementation',
-            description: 'Implemented directly by Codex from the selected template and latest request.',
+            description: 'Implemented directly from the selected template and latest request.',
             files: [],
             lastPhase: false,
         },
@@ -258,7 +258,7 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
     private async initializeCodexProjectState(initArgs: AgentInitArgs<AgentState>): Promise<void> {
         const templateDetails = initArgs.templateInfo?.templateDetails;
         if (!templateDetails) {
-            throw new Error('Codex initialization requires templateInfo.templateDetails');
+            throw new Error('Project initialization requires templateInfo.templateDetails');
         }
 
         this.templateDetailsCache = templateDetails;
@@ -280,7 +280,6 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
             ...this.state,
             behaviorType: LEGACY_STATE_BEHAVIOR_TYPE,
             projectType: templateDetails.projectType ?? this.state.projectType,
-            generationBackend: 'codex',
             projectName,
             query,
             initialUserAttachments: (initArgs.images ?? []).map(toInitialUserAttachment),
@@ -346,10 +345,11 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
         const projectTypeCandidate = agentProps?.projectType ?? this.state.projectType;
         const projectType = isProjectType(projectTypeCandidate) ? projectTypeCandidate : 'app';
 
+        const stateWithoutGenerationBackend = { ...this.state };
+        delete stateWithoutGenerationBackend.generationBackend;
         this.setState({
-            ...this.state,
+            ...stateWithoutGenerationBackend,
             behaviorType: LEGACY_STATE_BEHAVIOR_TYPE,
-            generationBackend: 'codex',
             projectType,
         } as AgentState);
         
@@ -416,7 +416,6 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
             agentId,
             userId,
             projectType: this.state.projectType,
-            generationBackend: 'codex',
         });
         if (sessionId) {
             this._logger.setField('sessionId', sessionId);
@@ -1078,7 +1077,6 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
             ...this.state,
             behaviorType: LEGACY_STATE_BEHAVIOR_TYPE,
             projectType: args.projectType,
-            generationBackend: 'codex',
             projectName: '',
             query: args.query,
             sessionId,
@@ -1139,22 +1137,22 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
         query: string,
         kind: ActiveWorkflowTask['kind'] = 'create_project',
     ): Promise<void> {
-        this.throwIfDeleted('run Codex generation workflow');
+        this.throwIfDeleted('run generation workflow');
         this.setState({
             ...this.state,
             shouldBeGenerating: true,
             lastUserStopAt: undefined,
         });
-        this.logger().info('Codex workflow generation started', { workflowId, kind });
+        this.logger().info('Background workflow generation started', { workflowId, kind });
         if (workflowId) {
             await this.updateWorkflowStatus({
                 workflowId,
                 kind,
                 status: 'running',
-                message: `Workflow ${kind} is running Codex in the background`,
+                message: `Workflow ${kind} is running in the background`,
             });
         }
-        await this.updateAppStatus('generating', `workflow_${kind}_codex_generation_started`);
+        await this.updateAppStatus('generating', `workflow_${kind}_generation_started`);
 
         const result = await this.codexGenerationManager.run({
             workflowId: workflowId || this.createWorkflowId(kind),
@@ -1169,7 +1167,7 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
             lastUserStopAt: undefined,
         } as AgentState);
         this.broadcast(WebSocketMessageResponses.GENERATION_COMPLETE, {
-            message: `Codex generation completed with ${result.changedFiles.length} changed files.`,
+            message: `Project update completed with ${result.changedFiles.length} changed files.`,
             instanceId: this.state.sessionId,
         });
         if (workflowId) {
@@ -1177,7 +1175,7 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
                 workflowId,
                 kind,
                 status: 'completed',
-                message: `Workflow ${kind} completed with Codex`,
+                message: `Workflow ${kind} completed`,
             });
         }
     }
@@ -1885,7 +1883,6 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
                 ...this.state,
                 behaviorType: LEGACY_STATE_BEHAVIOR_TYPE,
                 projectType: 'app' as ProjectType,
-                generationBackend: 'codex',
                 projectName,
                 query: args.description,
                 initialUserAttachments: [],

@@ -109,7 +109,6 @@ export class CodingAgentController extends BaseController {
             const workflowId = `create-${agentId}`;
             const modelConfigService = new ModelConfigService(env);
             const projectType = resolveProjectType(body);
-            const generationBackend = 'codex' as const;
             const appService = new AppService(env);
             const appTitle = buildPendingAppTitle(query);
 
@@ -144,7 +143,7 @@ export class CodingAgentController extends BaseController {
             });
             pendingAppForCleanup = { agentId, userId: user.id };
 
-            this.logger.info(`Resolved projectType: ${projectType}, generationBackend: ${generationBackend} for agent ${agentId}`);
+            this.logger.info(`Resolved projectType: ${projectType} for agent ${agentId}`);
                                 
             // Fetch all user model configs, api keys and agent instance at once
             const userConfigsRecord = await modelConfigService.getUserModelConfigs(user.id);
@@ -238,7 +237,6 @@ export class CodingAgentController extends BaseController {
                 projectType: workflowProjectType,
                 workflowStarted: true,
                 workflowId,
-                generationBackend,
             };
 
             this.logger.info(`Agent ${agentId} workflow launched successfully`, { workflowId });

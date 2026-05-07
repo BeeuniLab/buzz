@@ -10,7 +10,6 @@ import {
 	type ImageAttachment,
 	type ProjectType,
 	type BehaviorType,
-	type GenerationBackend,
 	type FileType,
 	type TemplateDetails,
 	getBehaviorTypeForProject,
@@ -29,7 +28,6 @@ import { isConversationalMessage, addOrUpdateMessage, createUserMessage, handleR
 import { sendWebSocketMessage } from '../utils/websocket-helpers';
 import {
 	createInitialStages,
-	syncStageTitles,
 	updateStage as updateStageHelper,
 } from '../utils/project-stage-helpers';
 import type { ProjectStage } from '../utils/project-stage-helpers';
@@ -110,7 +108,6 @@ export function useChat({
 	);
 	const [behaviorType, setBehaviorType] = useState<BehaviorType>(getInitialBehaviorType());
 	const [internalProjectType, setInternalProjectType] = useState<ProjectType>(projectType);
-	const [generationBackend, setGenerationBackend] = useState<GenerationBackend>();
 	const [templateDetails, setTemplateDetails] = useState<TemplateDetails | null>(null);
 
 	const [websocket, setWebsocket] = useState<WebSocket>();
@@ -173,10 +170,6 @@ export function useChat({
 		updateStage('bootstrap', { status: 'completed' });
 	}, [updateStage]);
 
-	useEffect(() => {
-		setProjectStages((prev) => syncStageTitles(prev, generationBackend));
-	}, [generationBackend]);
-
 	const clearEdit = useCallback(() => {
 		setEdit(undefined);
 	}, []);
@@ -217,7 +210,6 @@ export function useChat({
 		);
 		setBehaviorType(getInitialBehaviorType());
 		setInternalProjectType(projectType);
-		setGenerationBackend(undefined);
 		setTemplateDetails(null);
 		setIsGeneratingBlueprint(false);
 		setIsBootstrapping(nextRouteChatId === 'new');
@@ -309,7 +301,6 @@ export function useChat({
 			setIsDebugging,
 			setBehaviorType,
 			setInternalProjectType,
-			setGenerationBackend,
 			setTemplateDetails,
 			// Current state
 			isInitialStateRestored,
@@ -576,7 +567,6 @@ export function useChat({
 						agentId: string;
 						behaviorType: BehaviorType;
 						projectType: ProjectType;
-						generationBackend?: GenerationBackend;
 						workflowStarted?: boolean;
 						template?: {
 							files: FileType[];
@@ -643,11 +633,6 @@ export function useChat({
 							result.projectType = obj.projectType;
 							logger.debug('Received projectType from server:', obj.projectType);
 						}
-						if (obj.generationBackend) {
-							result.generationBackend = obj.generationBackend;
-							setGenerationBackend(obj.generationBackend);
-							logger.debug('Received generationBackend from server:', obj.generationBackend);
-						}
 						if (obj.workflowStarted) {
 							result.workflowStarted = true;
 							logger.debug('Received workflow start acknowledgement from server');
@@ -667,7 +652,7 @@ export function useChat({
 					} else {
 						setIsBootstrapping(false);
 						updateStage('bootstrap', { status: 'completed' });
-						if (result.generationBackend === 'codex') {
+						if (result.workflowStarted) {
 							setIsGeneratingBlueprint(false);
 							updateStage('blueprint', { status: 'completed' });
 							updateStage('code', { status: 'active' });

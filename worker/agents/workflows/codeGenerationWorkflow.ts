@@ -47,8 +47,9 @@ const RETRYABLE_ERROR_PATTERNS = [
 ];
 
 const NON_RETRYABLE_ERROR_PATTERNS = [
-	'codex backend requires',
-	'sandbox service does not support codex environment injection',
+	'background generator requires',
+	'background session persistence is missing',
+	'sandbox service does not support background generator environment injection',
 	'invalid api key',
 	'incorrect api key',
 	'authentication failed',
@@ -211,7 +212,7 @@ export class CodeGenerationWorkflow extends WorkflowEntrypoint<Env, CodeGenerati
 				params,
 				event.instanceId,
 				'running',
-				'Selecting template and generating blueprint',
+				'Selecting template and initializing project',
 			);
 			const templateInfo = await getTemplateForQuery(
 				this.env,
