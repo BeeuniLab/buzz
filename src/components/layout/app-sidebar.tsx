@@ -724,6 +724,17 @@ export function AppSidebar() {
 							</svg>
 						</a>
 						<a
+							href="https://www.tiktok.com/@buzzplayapp?_r=1&_t=ZS-969QUnSvwJw"
+							target="_blank"
+							rel="noopener noreferrer"
+							className="p-1.5 rounded-md text-text-tertiary hover:text-text-primary hover:bg-bg-1/50 transition-colors"
+							title="TikTok"
+						>
+							<svg className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor">
+								<path d="M19.59 6.69a4.83 4.83 0 01-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 01-5.2 1.74 2.89 2.89 0 012.31-4.64c.3 0 .6.05.88.14V9.4a6.3 6.3 0 00-.88-.05A6.34 6.34 0 003.14 15.69a6.34 6.34 0 0010.86 4.45 6.34 6.34 0 001.82-4.47v-6.94a8.16 8.16 0 004.77 1.53V6.69z" />
+							</svg>
+						</a>
+						<a
 							href="https://www.threads.com/@buzzplayapp"
 							target="_blank"
 							rel="noopener noreferrer"
