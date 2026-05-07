@@ -48,6 +48,11 @@ import { buildUserWorkerUrl, getPreviewDomain, isUsableTunnelUrl, normalizeDeplo
 import { isDev } from 'worker/utils/envs'
 import { FileTreeBuilder } from './fileTreeBuilder';
 import { DeploymentTarget } from 'worker/agents/core/types';
+import {
+    getWorkerModuleAssetsPath,
+    getWorkerModuleRelativePath,
+    getWorkerScriptCandidates,
+} from './deploymentPaths';
 // Export the Sandbox class in your Worker
 export { Sandbox as UserAppSandboxService } from "@cloudflare/sandbox";
 
@@ -72,15 +77,6 @@ const PREVIEW_PORT = 8001;
 
 function shellQuote(value: string): string {
     return `'${value.replace(/'/g, `'\\''`)}'`;
-}
-
-function normalizeWorkspacePath(instanceId: string, filePath: string): string {
-    const normalized = filePath.replace(/^\.?\//, '').replace(/\/+/g, '/');
-    return `/workspace/${instanceId}/${normalized}`;
-}
-
-function isJavaScriptWorkerEntry(filePath: string | undefined): boolean {
-    return Boolean(filePath && /\.(mjs|js)$/i.test(filePath));
 }
 
 /**
@@ -1881,9 +1877,8 @@ export class SandboxSdkClient extends BaseSandboxService {
             // Process them the same way as assets but as strings for the Map
             let additionalModules: Map<string, string> | undefined;
             try {
-                const workerAssetsPath = `${instanceId}/dist/assets`;
-                const shouldProcessWorkerModules = workerScript.path.endsWith('/dist/index.js');
-                const workerAssetsResult = shouldProcessWorkerModules
+                const workerAssetsPath = getWorkerModuleAssetsPath(instanceId, workerScript.path);
+                const workerAssetsResult = workerAssetsPath
                     ? await this.safeSandboxExec(`test -d ${workerAssetsPath} && echo "exists" || echo "missing"`)
                     : { exitCode: 0, stdout: 'missing' };
                 const hasWorkerAssets = workerAssetsResult.exitCode === 0 && workerAssetsResult.stdout.trim() === "exists";
@@ -1900,7 +1895,7 @@ export class SandboxSdkClient extends BaseSandboxService {
                             additionalModules = new Map<string, string>();
                             
                             for (const fullPath of modulePaths) {
-                                const relativePath = fullPath.replace(`${instanceId}/dist/`, '');
+                                const relativePath = getWorkerModuleRelativePath(workerAssetsPath!, fullPath);
                                 
                                 try {
                                     const buffer = await this.readFileAsBase64Buffer(fullPath);
@@ -2024,28 +2019,28 @@ export class SandboxSdkClient extends BaseSandboxService {
         config: WranglerConfig,
         session: ExecutionSession,
     ): Promise<{ content: string; path: string }> {
-        const candidates = [
-            ...(isJavaScriptWorkerEntry(config.main)
-                ? [normalizeWorkspacePath(instanceId, config.main)]
-                : []),
-            `/workspace/${instanceId}/dist/index.js`,
-            ...(config.main && !isJavaScriptWorkerEntry(config.main)
-                ? [normalizeWorkspacePath(instanceId, config.main)]
-                : []),
-        ];
-
-        const attempted = [...new Set(candidates)];
+        const attempted = getWorkerScriptCandidates(instanceId, config);
+        const errors: string[] = [];
         for (const candidate of attempted) {
-            const workerFile = await session.readFile(candidate);
-            if (workerFile.success) {
-                return {
-                    content: workerFile.content,
-                    path: candidate,
-                };
+            try {
+                const workerFile = await session.readFile(candidate);
+                if (workerFile.success) {
+                    return {
+                        content: workerFile.content,
+                        path: candidate,
+                    };
+                }
+                errors.push(`${candidate}: read returned unsuccessful result`);
+            } catch (error) {
+                errors.push(`${candidate}: ${error instanceof Error ? error.message : String(error)}`);
+                this.logger.info('Worker script candidate not available', { candidate });
             }
         }
 
-        throw new Error(`Worker script not found. Tried: ${attempted.map(path => path.replace(`/workspace/${instanceId}/`, '')).join(', ')}. Please build the project first.`);
+        throw new Error(
+            `Worker script not found. Tried: ${attempted.map(path => path.replace(`/workspace/${instanceId}/`, '')).join(', ')}. ` +
+            `Wrangler build may not have produced a deployable Worker bundle. Details: ${errors.map(error => error.replace(`/workspace/${instanceId}/`, '')).join('; ')}`
+        );
     }
 
     private async resolveStaticAssetsPath(instanceId: string, config: WranglerConfig): Promise<string | undefined> {
