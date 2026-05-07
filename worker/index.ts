@@ -9,6 +9,7 @@ import { proxyToAiGateway } from './services/aigateway-proxy/controller';
 import { isOriginAllowed } from './config/security';
 import { proxyToSandbox } from './services/sandbox/request-handler';
 import { getAgentStub } from './agents';
+import { rewriteAssetResponseForSeo } from './utils/seo';
 
 // Durable Object and Service exports
 export { UserAppSandboxService } from './services/sandbox/sandboxSdkClient';
@@ -174,7 +175,8 @@ const worker = {
 
 			// Serve static assets for all non-API routes from the ASSETS binding.
 			if (!pathname.startsWith('/api/')) {
-				return env.ASSETS.fetch(request);
+				const assetResponse = await env.ASSETS.fetch(request);
+				return rewriteAssetResponseForSeo(request, assetResponse, env.CUSTOM_DOMAIN);
 			}
 			// AI Gateway proxy for generated apps
 			if (pathname.startsWith('/api/proxy/openai')) {
