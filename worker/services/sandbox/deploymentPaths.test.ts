@@ -20,6 +20,7 @@ describe('deployment path helpers', () => {
 
 		expect(candidates).toEqual([
 			'/workspace/instance-1/dist/sample-app/index.js',
+			'/workspace/instance-1/dist/sample_app/index.js',
 			'/workspace/instance-1/dist/index.js',
 			'/workspace/instance-1/dist/_worker.js/index.js',
 		]);
@@ -32,6 +33,7 @@ describe('deployment path helpers', () => {
 
 		expect(candidates).toEqual([
 			'/workspace/instance-1/dist/sample-app/index.js',
+			'/workspace/instance-1/dist/sample_app/index.js',
 			'/workspace/instance-1/dist/index.js',
 			'/workspace/instance-1/dist/_worker.js/index.js',
 			'/workspace/instance-1/worker/host.js',

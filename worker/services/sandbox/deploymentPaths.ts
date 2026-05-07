@@ -13,7 +13,7 @@ export function isJavaScriptWorkerEntry(filePath: string | undefined): boolean {
 function normalizeCloudflareOutputName(name: string | undefined): string | undefined {
 	if (!name) return undefined;
 	const normalized = name
-		.replace(/[^A-Za-z0-9_-]+/g, '_')
+		.replace(/[^A-Za-z0-9]+/g, '_')
 		.replace(/_+/g, '_')
 		.replace(/^_+|_+$/g, '');
 	return normalized || undefined;
