@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Ticket, Loader2 } from 'lucide-react';
+import { X, Ticket, Loader2, ExternalLink } from 'lucide-react';
 import { apiClient } from '@/lib/api-client';
 import { useAuth } from '@/contexts/auth-context';
 import { toast } from 'sonner';
@@ -13,6 +13,7 @@ interface InviteCodeContextType {
 }
 
 const InviteCodeContext = createContext<InviteCodeContextType | undefined>(undefined);
+const DISCORD_INVITE_URL = 'https://discord.gg/bYdVPGqEsf';
 
 export function useInviteCodeModal() {
 	const context = useContext(InviteCodeContext);
@@ -124,6 +125,15 @@ export function InviteCodeProvider({ children }: { children: React.ReactNode }) 
 									{loading ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
 									{loading ? 'Verifying...' : 'Verify'}
 								</button>
+								<a
+									href={DISCORD_INVITE_URL}
+									target="_blank"
+									rel="noopener noreferrer"
+									className="flex items-center justify-center gap-1.5 text-sm font-medium text-text-secondary hover:text-text-primary transition-colors"
+								>
+									Apply for an invite code
+									<ExternalLink className="h-3.5 w-3.5" />
+								</a>
 							</div>
 						</div>
 					</motion.div>

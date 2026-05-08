@@ -745,7 +745,7 @@ export function AppSidebar() {
 							<Instagram className="h-4 w-4" />
 						</a>
 						<a
-							href="https://discord.gg/sGvn2hA5Nw"
+							href="https://discord.gg/bYdVPGqEsf"
 							target="_blank"
 							rel="noopener noreferrer"
 							className="p-1.5 rounded-md text-text-tertiary hover:text-text-primary hover:bg-bg-1/50 transition-colors"
