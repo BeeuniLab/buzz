@@ -36,6 +36,7 @@ declare namespace Cloudflare {
         CODEX_MODEL_PROVIDER: string;
         CODEX_MODEL_REASONING_EFFORT: string;
         CODEX_EXEC_TIMEOUT_MS: string;
+        CODEX_PROXY_ATTEMPTS: string;
         CODEX_STATE_R2_BUCKET_NAME: string;
         CODEX_STATE_R2_ACCESS_KEY_ID: string;
         CODEX_STATE_R2_SECRET_ACCESS_KEY: string;

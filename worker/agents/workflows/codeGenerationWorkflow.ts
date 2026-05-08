@@ -47,6 +47,7 @@ const RETRYABLE_ERROR_PATTERNS = [
 ];
 
 const NON_RETRYABLE_ERROR_PATTERNS = [
+	'background agent encountered an issue',
 	'background generator requires',
 	'background session persistence is missing',
 	'sandbox service does not support background generator environment injection',

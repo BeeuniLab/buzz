@@ -1,12 +1,14 @@
 import { FileOutputType } from '../../schemas';
 import { type ActiveWorkflowTask, BaseProjectState } from '../../core/state';
 import { BaseSandboxService } from '../../../services/sandbox/BaseSandboxService';
+import type { WriteFilesResponse } from '../../../services/sandbox/sandboxTypes';
 import { DeploymentManager } from './DeploymentManager';
 import { BaseAgentService } from './BaseAgentService';
 import { ServiceOptions } from '../interfaces/IServiceOptions';
 
 const DEFAULT_CODEX_TIMEOUT_MS = 25 * 60 * 1000;
 const DEFAULT_CODEX_MODEL_PROVIDER = 'crs';
+const DEFAULT_PROXY_ATTEMPTS = 3;
 const CODEX_WORK_DIR = '.buzz/codex';
 const CODEX_HOME_PATH = '.buzz/codex-home';
 const CODEX_CONFIG_PATH = `${CODEX_HOME_PATH}/config.toml`;
@@ -29,6 +31,18 @@ type CodexRuntime = {
 	modelProvider: string;
 	baseUrl?: string;
 	reasoningEffort?: string;
+	source: 'primary' | 'fallback';
+};
+
+type CodexProvider = {
+	apiKey: string;
+	baseUrl?: string;
+	source: CodexRuntime['source'];
+};
+
+type CodexRuntimePlan = {
+	primary: CodexRuntime;
+	fallback?: CodexRuntime;
 };
 
 type CodexSessionPersistence = {
@@ -80,45 +94,70 @@ function workspacePath(instanceId: string, relativePath: string): string {
 	return `/workspace/${instanceId}/${relativePath}`;
 }
 
-function resolveCodexRuntime(env: Env, instanceId: string, requestedModel?: string): CodexRuntime {
+function buildCodexRuntime(env: Env, instanceId: string, requestedModel: string | undefined, provider: CodexProvider): CodexRuntime {
+	const codexHome = workspacePath(instanceId, CODEX_HOME_PATH);
+	const reasoningEffort = envString(env, 'CODEX_MODEL_REASONING_EFFORT');
+	return {
+		envVars: {
+			OPENAI_API_KEY: provider.apiKey,
+			CODEX_HOME: codexHome,
+			...(provider.baseUrl ? { OPENAI_BASE_URL: provider.baseUrl } : {}),
+		},
+		codexHome,
+		model: requestedModel || envString(env, 'CODEX_MODEL'),
+		modelProvider: safePathSegment(envString(env, 'CODEX_MODEL_PROVIDER') || DEFAULT_CODEX_MODEL_PROVIDER),
+		...(provider.baseUrl ? { baseUrl: provider.baseUrl } : {}),
+		...(reasoningEffort ? { reasoningEffort } : {}),
+		source: provider.source,
+	};
+}
+
+function sameCodexProvider(a: CodexProvider | undefined, b: CodexProvider | undefined): boolean {
+	return Boolean(a && b && a.apiKey === b.apiKey && a.baseUrl === b.baseUrl);
+}
+
+function resolveCodexRuntimePlan(env: Env, instanceId: string, requestedModel?: string): CodexRuntimePlan {
 	const explicitKey = envString(env, 'CODEX_OPENAI_API_KEY');
 	const openAiKey = envString(env, 'OPENAI_API_KEY');
 	const proxyKey = envString(env, 'LLM_PROXY_API_KEY');
 	const fallbackProxyKey = envString(env, 'LLM_PROXY_FALLBACK_API_KEY');
 	const explicitBaseUrl = envString(env, 'CODEX_OPENAI_BASE_URL');
-	let apiKey: string | undefined;
-	let defaultBaseUrl: string | undefined;
+	const proxyUrl = envString(env, 'LLM_PROXY_URL');
+	const fallbackProxyUrl = envString(env, 'LLM_PROXY_FALLBACK_URL');
+	let primaryProvider: CodexProvider | undefined;
+	let fallbackProvider: CodexProvider | undefined;
 
 	if (explicitKey) {
-		apiKey = explicitKey;
+		primaryProvider = { apiKey: explicitKey, ...(explicitBaseUrl ? { baseUrl: explicitBaseUrl } : {}), source: 'primary' };
 	} else if (openAiKey) {
-		apiKey = openAiKey;
+		primaryProvider = { apiKey: openAiKey, ...(explicitBaseUrl ? { baseUrl: explicitBaseUrl } : {}), source: 'primary' };
 	} else if (proxyKey) {
-		apiKey = proxyKey;
-		defaultBaseUrl = envString(env, 'LLM_PROXY_URL');
+		primaryProvider = { apiKey: proxyKey, ...(proxyUrl ? { baseUrl: proxyUrl } : {}), source: 'primary' };
+		if (fallbackProxyKey && fallbackProxyUrl) {
+			fallbackProvider = { apiKey: fallbackProxyKey, baseUrl: fallbackProxyUrl, source: 'fallback' };
+		}
 	} else if (fallbackProxyKey) {
-		apiKey = fallbackProxyKey;
-		defaultBaseUrl = envString(env, 'LLM_PROXY_FALLBACK_URL') || envString(env, 'LLM_PROXY_URL');
+		primaryProvider = {
+			apiKey: fallbackProxyKey,
+			...(fallbackProxyUrl || proxyUrl ? { baseUrl: fallbackProxyUrl || proxyUrl } : {}),
+			source: 'primary',
+		};
 	}
 
-	if (!apiKey) {
+	if (!primaryProvider) {
 		throw new Error('Background generator requires an LLM API key');
 	}
 
-	const baseUrl = explicitBaseUrl || defaultBaseUrl;
-	const codexHome = workspacePath(instanceId, CODEX_HOME_PATH);
-	const reasoningEffort = envString(env, 'CODEX_MODEL_REASONING_EFFORT');
+	const primary = buildCodexRuntime(env, instanceId, requestedModel, primaryProvider);
+	const fallback = sameCodexProvider(primaryProvider, fallbackProvider)
+		? undefined
+		: fallbackProvider
+		? buildCodexRuntime(env, instanceId, requestedModel, fallbackProvider)
+		: undefined;
+
 	return {
-		envVars: {
-			OPENAI_API_KEY: apiKey,
-			CODEX_HOME: codexHome,
-			...(baseUrl ? { OPENAI_BASE_URL: baseUrl } : {}),
-		},
-		codexHome,
-		model: requestedModel || envString(env, 'CODEX_MODEL'),
-		modelProvider: safePathSegment(envString(env, 'CODEX_MODEL_PROVIDER') || DEFAULT_CODEX_MODEL_PROVIDER),
-		...(baseUrl ? { baseUrl } : {}),
-		...(reasoningEffort ? { reasoningEffort } : {}),
+		primary,
+		...(fallback ? { fallback } : {}),
 	};
 }
 
@@ -177,6 +216,13 @@ function parsePathList(content: string): string[] {
 
 function readReturnedFile(files: Array<{ filePath: string; fileContents: string }>, path: string): string {
 	return files.find((file) => file.filePath === path)?.fileContents ?? '';
+}
+
+function assertWriteSucceeded(result: WriteFilesResponse, filePath: string, label: string): void {
+	const fileResult = result.results.find((entry) => entry.file === filePath || entry.file.endsWith(`/${filePath}`));
+	if (!result.success || fileResult?.success === false) {
+		throw new Error(`Failed to write ${label}: ${fileResult?.error || result.error || 'unknown error'}`);
+	}
 }
 
 function parseCodexJsonlOutput(output: string): Array<Record<string, unknown>> {
@@ -267,6 +313,62 @@ function summarizeCodexFailure(output: string, fallback: string): string {
 	return concise.length > 1000 ? `${concise.slice(0, 1000)}...` : concise;
 }
 
+const RETRYABLE_HTTP_STATUS_CODES = new Set([408, 409, 425, 429, 500, 502, 503, 504]);
+const NON_RETRYABLE_HTTP_STATUS_CODES = new Set([400, 401, 403, 404, 422]);
+
+const RETRYABLE_ERROR_PATTERNS = [
+	'rate limit',
+	'too many requests',
+	'timed out',
+	'timeout',
+	'temporarily unavailable',
+	'service unavailable',
+	'bad gateway',
+	'gateway timeout',
+	'internal server error',
+	'overloaded',
+	'connection reset',
+	'connection refused',
+	'network error',
+	'socket hang up',
+	'econnreset',
+	'etimedout',
+	'ehostunreach',
+	'enetunreach',
+];
+
+function getErrorMessage(error: unknown): string {
+	return error instanceof Error ? error.message : String(error);
+}
+
+function extractHttpStatusCode(message: string): number | null {
+	const match = message.match(
+		/(?:status(?:[_ ]?code)?|http(?: response)?)["'\s:=]+(\d{3})\b/i,
+	);
+	return match ? Number(match[1]) : null;
+}
+
+function includesAny(message: string, patterns: string[]): boolean {
+	return patterns.some((pattern) => message.includes(pattern));
+}
+
+function isRetryableCodexFailure(error: unknown): boolean {
+	const message = getErrorMessage(error);
+	const normalized = message.toLowerCase();
+	const statusCode = extractHttpStatusCode(message);
+
+	if (statusCode !== null) {
+		if (RETRYABLE_HTTP_STATUS_CODES.has(statusCode)) return true;
+		if (NON_RETRYABLE_HTTP_STATUS_CODES.has(statusCode)) return false;
+	}
+
+	return includesAny(normalized, RETRYABLE_ERROR_PATTERNS);
+}
+
+function genericAgentFailureMessage(): string {
+	return 'Background agent encountered an issue. Please try again later.';
+}
+
 export class CodexGenerationManager<TState extends BaseProjectState = BaseProjectState> extends BaseAgentService<TState> {
 	constructor(
 		options: ServiceOptions<TState>,
@@ -296,15 +398,12 @@ export class CodexGenerationManager<TState extends BaseProjectState = BaseProjec
 		}
 
 		const client = this.deploymentManager.getClient();
-		const runtime = resolveCodexRuntime(this.env, instanceId, request.model);
+		const runtimePlan = resolveCodexRuntimePlan(this.env, instanceId, request.model);
 		await this.createGitBaseline(client, instanceId);
-		await this.prepareCodexHome(client, instanceId, runtime);
-		await this.prepareCodexEnvironment(client, instanceId, runtime);
-		await this.writeCodexConfig(client, instanceId, runtime);
-		await this.writeCodexAuth(client, instanceId, runtime);
+		await this.prepareCodexHome(client, instanceId, runtimePlan.primary);
 		await this.writePrompt(client, instanceId, this.buildPrompt(request));
 
-		await this.runCodexExec(client, instanceId, request, runtime);
+		await this.runCodexExecWithFailover(client, instanceId, request, runtimePlan);
 		const changedPaths = await this.collectChangedPaths(client, instanceId);
 		const deletedPaths = await this.collectDeletedPaths(client, instanceId);
 
@@ -384,9 +483,7 @@ export class CodexGenerationManager<TState extends BaseProjectState = BaseProjec
 				fileContents: this.buildCodexConfig(runtime),
 			},
 		]);
-		if (!result.success) {
-			throw new Error(`Failed to write background generator config: ${result.error || 'unknown error'}`);
-		}
+		assertWriteSucceeded(result, CODEX_CONFIG_PATH, 'background generator config');
 	}
 
 	private async writeCodexAuth(client: BaseSandboxService, instanceId: string, runtime: CodexRuntime): Promise<void> {
@@ -399,9 +496,7 @@ export class CodexGenerationManager<TState extends BaseProjectState = BaseProjec
 				}, null, 2)}\n`,
 			},
 		]);
-		if (!result.success) {
-			throw new Error(`Failed to write background generator auth: ${result.error || 'unknown error'}`);
-		}
+		assertWriteSucceeded(result, CODEX_AUTH_PATH, 'background generator auth');
 
 		const chmod = await client.executeCommands(
 			instanceId,
@@ -436,12 +531,82 @@ export class CodexGenerationManager<TState extends BaseProjectState = BaseProjec
 				fileContents: prompt,
 			},
 		]);
-		if (!result.success) {
-			throw new Error(`Failed to write background generator prompt: ${result.error || 'unknown error'}`);
-		}
+		assertWriteSucceeded(result, PROMPT_PATH, 'background generator prompt');
 	}
 
-	private async runCodexExec(
+	private getProviderAttemptLimit(): number {
+		const configured = Number(envString(this.env, 'CODEX_PROXY_ATTEMPTS') || DEFAULT_PROXY_ATTEMPTS);
+		return Number.isFinite(configured) && configured > 0 ? Math.floor(configured) : DEFAULT_PROXY_ATTEMPTS;
+	}
+
+	private async runCodexExecWithFailover(
+		client: BaseSandboxService,
+		instanceId: string,
+		request: CodexGenerationRequest,
+		runtimePlan: CodexRuntimePlan,
+	): Promise<void> {
+		const logger = this.getLog();
+		const runtimes = [runtimePlan.primary, runtimePlan.fallback].filter((runtime): runtime is CodexRuntime => Boolean(runtime));
+		const maxAttempts = this.getProviderAttemptLimit();
+		let lastError: unknown;
+
+		for (let providerIndex = 0; providerIndex < runtimes.length; providerIndex += 1) {
+			const runtime = runtimes[providerIndex];
+			const hasNextProvider = providerIndex < runtimes.length - 1;
+
+			await this.prepareCodexEnvironment(client, instanceId, runtime);
+			await this.writeCodexConfig(client, instanceId, runtime);
+			await this.writeCodexAuth(client, instanceId, runtime);
+
+			for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+				try {
+					await this.runCodexExecOnce(client, instanceId, request, runtime);
+					if (runtime.source === 'fallback' || attempt > 1) {
+						logger.info('Background generator completed after retry path', {
+							workflowId: request.workflowId,
+							provider: runtime.source,
+							attempt,
+						});
+					}
+					return;
+				} catch (error) {
+					lastError = error;
+					const retryable = isRetryableCodexFailure(error);
+					const willRetryProvider = retryable && attempt < maxAttempts;
+					const willSwitchProvider = retryable && !willRetryProvider && hasNextProvider;
+					logger.warn('Background generator attempt failed', {
+						workflowId: request.workflowId,
+						provider: runtime.source,
+						attempt,
+						maxAttempts,
+						retryable,
+						willRetryProvider,
+						willSwitchProvider,
+						error: getErrorMessage(error),
+					});
+
+					if (willRetryProvider) {
+						continue;
+					}
+					if (willSwitchProvider) {
+						break;
+					}
+					if (runtime.source === 'fallback' || retryable) {
+						throw new Error(genericAgentFailureMessage());
+					}
+					throw error instanceof Error ? error : new Error(getErrorMessage(error));
+				}
+			}
+		}
+
+		logger.warn('Background generator providers exhausted', {
+			workflowId: request.workflowId,
+			error: lastError ? getErrorMessage(lastError) : undefined,
+		});
+		throw new Error(genericAgentFailureMessage());
+	}
+
+	private async runCodexExecOnce(
 		client: BaseSandboxService,
 		instanceId: string,
 		request: CodexGenerationRequest,
