@@ -1,5 +1,33 @@
 import type { ChatMessage } from './message-helpers';
 
+const REVIEW_PROMPT_VISIBLE_TEXT = 'There might be some bugs in the app. Do you want me to try to fix them?';
+
+function stripSystemContext(content: string): string {
+    return content.replace(/<system_context>[\s\S]*?<\/system_context>\n?/gi, '').trim();
+}
+
+function collapseRepeatedReviewPrompt(content: string): string {
+    const visibleContent = stripSystemContext(content);
+    const paragraphs = visibleContent
+        .split(/\n{2,}/)
+        .map((part) => part.trim())
+        .filter(Boolean);
+
+    if (paragraphs.length > 1 && paragraphs.every((part) => part === REVIEW_PROMPT_VISIBLE_TEXT)) {
+        return REVIEW_PROMPT_VISIBLE_TEXT;
+    }
+
+    return content;
+}
+
+function normalizeAssistantContentForDedup(content: string): string {
+    const visibleContent = stripSystemContext(content);
+    if (visibleContent === REVIEW_PROMPT_VISIBLE_TEXT) {
+        return REVIEW_PROMPT_VISIBLE_TEXT;
+    }
+    return visibleContent;
+}
+
 /**
  * Deduplicates consecutive assistant messages with identical content.
  * 
@@ -26,16 +54,19 @@ export function deduplicateMessages(messages: readonly ChatMessage[]): ChatMessa
             result.push(msg);
             continue;
         }
+
+        const content = collapseRepeatedReviewPrompt(msg.content);
+        const normalizedContent = normalizeAssistantContentForDedup(content);
         
         // For assistant messages, check against last assistant content
-        if (lastAssistantContent !== null && msg.content === lastAssistantContent) {
+        if (lastAssistantContent !== null && normalizedContent === lastAssistantContent) {
             // Skip this duplicate
             continue;
         }
         
         // Not a duplicate - keep it and update last content
-        result.push(msg);
-        lastAssistantContent = msg.content;
+        result.push(content === msg.content ? msg : { ...msg, content });
+        lastAssistantContent = normalizedContent;
     }
     
     return result;
@@ -54,9 +85,10 @@ export function isAssistantMessageDuplicate(
     newContent: string
 ): boolean {
     // Find the last assistant message
+    const normalizedNewContent = normalizeAssistantContentForDedup(newContent);
     for (let i = messages.length - 1; i >= 0; i--) {
         if (messages[i].role === 'assistant') {
-            return messages[i].content === newContent;
+            return normalizeAssistantContentForDedup(messages[i].content) === normalizedNewContent;
         }
     }
     return false; // No previous assistant message found

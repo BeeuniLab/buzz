@@ -29,6 +29,7 @@ import { ICodingAgent } from '../../services/interfaces/ICodingAgent';
 import { SimpleCodeGenerationOperation } from '../../operations/SimpleCodeGeneration';
 import { StateMigration } from '../stateMigration';
 import { runPreDeploySafetyGate } from '../../utils/preDeploySafetyGate';
+import { hasPendingReviewPrompt, REVIEW_PROMPT_CONTENT } from './reviewPrompt';
 
 interface PhasicOperations extends BaseCodingOperations {
     generateNextPhase: PhaseGenerationOperation;
@@ -481,9 +482,14 @@ export class PhasicCodingBehavior extends BaseCodingBehavior<PhasicState> implem
         const issues = await this.fetchAllIssues(false);
         if (issues.runtimeErrors.length > 0 || issues.staticAnalysis.typecheck.issues.length > 0) {
             this.logger.info("Reviewing stage - issues found, prompting user to review and cleanup");
+            const conversationState = this.infrastructure.getConversationState();
+            if (hasPendingReviewPrompt(conversationState.runningHistory)) {
+                this.logger.info("Review prompt already pending, skipping duplicate");
+                return CurrentDevState.IDLE;
+            }
             const message : ConversationMessage = {
                 role: "assistant",
-                content: `<system_context>If the user responds with yes, launch the 'deep_debug' tool with the prompt to fix all the issues in the app</system_context>\nThere might be some bugs in the app. Do you want me to try to fix them?`,
+                content: REVIEW_PROMPT_CONTENT,
                 conversationId: IdGenerator.generateConversationId(),
             }
             // Store the message in the conversation history so user's response can trigger the deep debug tool
