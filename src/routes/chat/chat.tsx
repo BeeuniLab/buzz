@@ -54,15 +54,6 @@ const isPhasicBlueprint = (blueprint?: BlueprintType | null): blueprint is Phasi
 
 type CanvasView = 'editor' | 'preview' | 'docs' | 'blueprint' | 'presentation' | 'assets';
 
-function hasImageAttachment(attachments?: ChatAttachmentPreview[] | ImageAttachment[]): boolean {
-	return Boolean(attachments?.some((attachment) => {
-		if ('category' in attachment) {
-			return attachment.category === 'images';
-		}
-		return attachment.mimeType.startsWith('image/');
-	}));
-}
-
 function normalizeCanvasView(view: CanvasView): Exclude<CanvasView, 'docs' | 'editor' | 'blueprint'> {
 	return view === 'docs' || view === 'editor' || view === 'blueprint' ? 'preview' : view;
 }
@@ -81,7 +72,6 @@ function parsePendingMedia(raw: string | null): ImageAttachment[] | undefined {
 
 export default function Chat() {
 	const { chatId: urlChatId } = useParams();
-	const initialRouteWasNewRef = useRef(urlChatId === 'new' || !urlChatId);
 
 	const [searchParams] = useSearchParams();
 	const location = useLocation();
@@ -662,21 +652,6 @@ export default function Chat() {
 		return [completedPhases, totalPhases];
 	}, [phaseTimeline, blueprint, projectStages]);
 
-	const runtimeEstimate = useMemo(() => {
-		const hasImageGuidedRequest = hasImageAttachment(userImages)
-			|| hasImageAttachment(initialPromptAttachments)
-			|| messages.some(message => message.role === 'user' && hasImageAttachment(message.attachments));
-
-		if (!hasImageGuidedRequest) return undefined;
-
-		const isExistingPlayable = !initialRouteWasNewRef.current
-			|| Boolean(hasStablePlayable || cloudflareDeploymentUrl || app?.cloudflareUrl);
-
-		return isExistingPlayable
-			? 'Image-guided updates usually take 2-4 min.'
-			: 'Image-guided playables usually take 6-9 min.';
-	}, [app?.cloudflareUrl, cloudflareDeploymentUrl, hasStablePlayable, initialPromptAttachments, messages, userImages]);
-
 	if (import.meta.env.DEV) {
 		logger.debug({
 			messages,
@@ -838,7 +813,6 @@ export default function Chat() {
 									isDebugging={isDebugging}
 									isGenerating={isGenerating}
 									isThinking={isThinking}
-									runtimeEstimate={runtimeEstimate}
 								/>
 							)}
 

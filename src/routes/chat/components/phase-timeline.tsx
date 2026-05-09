@@ -170,7 +170,6 @@ interface PhaseTimelineProps {
 	// Activity state
 	isGenerating?: boolean;
 	isThinking?: boolean;
-	runtimeEstimate?: string;
 }
 
 export function PhaseTimeline({
@@ -185,8 +184,7 @@ export function PhaseTimeline({
 	staticIssueCount = 0,
 	isDebugging = false,
 	isGenerating = false,
-	isThinking = false,
-	runtimeEstimate
+	isThinking = false
 }: PhaseTimelineProps) {
 	const lastPhaseRef = useRef<HTMLDivElement>(null);
 	const hasStepProgress = phaseTimeline.length > 0 || total > 1;
@@ -272,17 +270,6 @@ export function PhaseTimeline({
 									</motion.span>
 								)}
 								</div>
-
-								{stage.id === 'code' && runtimeEstimate && stage.status !== 'completed' && (
-									<motion.div
-										initial={{ opacity: 0, y: -2 }}
-										animate={{ opacity: 1, y: 0 }}
-										transition={commonTransitions.premiumShort}
-										className="text-xs text-text-tertiary -mt-1"
-									>
-										{runtimeEstimate}
-									</motion.div>
-								)}
 
 								{/* Detailed Phase Timeline for code stage */}
 								{stage.id === 'code' && (
