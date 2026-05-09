@@ -72,6 +72,7 @@ function parsePendingMedia(raw: string | null): ImageAttachment[] | undefined {
 
 export default function Chat() {
 	const { chatId: urlChatId } = useParams();
+	const initialRouteWasNewRef = useRef(urlChatId === 'new' || !urlChatId);
 
 	const [searchParams] = useSearchParams();
 	const location = useLocation();
@@ -652,6 +653,17 @@ export default function Chat() {
 		return [completedPhases, totalPhases];
 	}, [phaseTimeline, blueprint, projectStages]);
 
+	const taskRuntimeEstimate = useMemo(() => {
+		const userMessageCount = messages.filter(message => message.role === 'user').length;
+		const isExistingPlayable = !initialRouteWasNewRef.current
+			|| userMessageCount > 1
+			|| Boolean(hasStablePlayable || cloudflareDeploymentUrl || app?.cloudflareUrl);
+
+		return isExistingPlayable
+			? 'Estimated update time: 2-4 min.'
+			: 'Estimated run time: 6-12 min.';
+	}, [app?.cloudflareUrl, cloudflareDeploymentUrl, hasStablePlayable, messages]);
+
 	if (import.meta.env.DEV) {
 		logger.debug({
 			messages,
@@ -813,6 +825,7 @@ export default function Chat() {
 									isDebugging={isDebugging}
 									isGenerating={isGenerating}
 									isThinking={isThinking}
+									taskRuntimeEstimate={taskRuntimeEstimate}
 								/>
 							)}
 
