@@ -126,6 +126,7 @@ interface MainContentPanelProps {
 	isDeployingPlayable: boolean;
 	hasStablePlayable: boolean;
 	isRedeployReady: boolean;
+	canUpdatePlayable: boolean;
 	deploymentError?: string;
 	onUpdatePlayable?: () => void;
 
@@ -162,6 +163,7 @@ export function MainContentPanel(props: MainContentPanelProps) {
 		isDeployingPlayable,
 		hasStablePlayable,
 		isRedeployReady,
+		canUpdatePlayable,
 		deploymentError,
 		onUpdatePlayable,
 		behaviorType,
@@ -209,7 +211,7 @@ export function MainContentPanel(props: MainContentPanelProps) {
 		const previewTitle = blueprint?.title ?? featureDefinition?.name ?? 'Preview';
 		const isPreviewLoading = isGenerating || isGeneratingBlueprint || isPreviewDeploying;
 
-		if (!previewUrl) {
+		if (isPreviewLoading || !previewUrl) {
 			return renderViewWithHeader(
 				<div className="flex w-full min-w-0 items-center gap-2">
 					<span
@@ -315,13 +317,10 @@ export function MainContentPanel(props: MainContentPanelProps) {
 				previewRef={previewRef}
 			/>
 		);
-		const canUpdatePlayable = Boolean(
+		const canUpdateCurrentPreview = Boolean(
 			onUpdatePlayable &&
-			previewAvailable &&
 			previewUrl &&
-			!isGenerating &&
-			!isGeneratingBlueprint &&
-			!isPreviewDeploying,
+			canUpdatePlayable,
 		);
 		const headerActions = (
 			<div className="flex min-w-0 items-center gap-1.5">
@@ -330,7 +329,7 @@ export function MainContentPanel(props: MainContentPanelProps) {
 						isDeploying={isDeployingPlayable}
 						hasStablePlayable={hasStablePlayable}
 						isUpdateAvailable={isRedeployReady || !hasStablePlayable}
-						canUpdate={canUpdatePlayable}
+						canUpdate={canUpdateCurrentPreview}
 						deploymentError={deploymentError}
 						onUpdate={onUpdatePlayable}
 					/>

@@ -10,6 +10,8 @@ import type { PreviewType } from '../../../types/project-types';
 const DEFAULT_CODEX_TIMEOUT_MS = 25 * 60 * 1000;
 const DEFAULT_CODEX_MODEL_PROVIDER = 'crs';
 const DEFAULT_PROXY_ATTEMPTS = 3;
+const DEFAULT_CODEX_RECOVERY_PREFIX = 'codex-recovery';
+const CODEX_RECOVERY_SNAPSHOT_VERSION = 1;
 const CODEX_WORK_DIR = '.buzz/codex';
 const CODEX_HOME_PATH = '.buzz/codex-home';
 const CODEX_CONFIG_PATH = `${CODEX_HOME_PATH}/config.toml`;
@@ -61,6 +63,7 @@ export interface CodexGenerationRequest {
 	kind: ActiveWorkflowTask['kind'];
 	query: string;
 	workflowId: string;
+	recoveryWorkflowId?: string;
 	model?: string;
 	timeoutMs?: number;
 }
@@ -71,6 +74,19 @@ export interface CodexGenerationResult {
 	preview: PreviewType | null;
 	madeChanges: boolean;
 }
+
+type CodexRecoverySnapshot = {
+	version: typeof CODEX_RECOVERY_SNAPSHOT_VERSION;
+	agentId: string;
+	workflowId: string;
+	kind: ActiveWorkflowTask['kind'];
+	createdAt: number;
+	templateName?: string;
+	projectType?: string;
+	changedFiles: FileOutputType[];
+	deletedFiles: string[];
+	madeChanges: boolean;
+};
 
 function shellQuote(value: string): string {
 	return `'${value.replace(/'/g, `'\\''`)}'`;
@@ -219,6 +235,14 @@ function parsePathList(content: string): string[] {
 
 function readReturnedFile(files: Array<{ filePath: string; fileContents: string }>, path: string): string {
 	return files.find((file) => file.filePath === path)?.fileContents ?? '';
+}
+
+function isFileOutput(value: unknown): value is FileOutputType {
+	if (!value || typeof value !== 'object') return false;
+	const record = value as Record<string, unknown>;
+	return typeof record.filePath === 'string'
+		&& typeof record.fileContents === 'string'
+		&& typeof record.filePurpose === 'string';
 }
 
 function assertWriteSucceeded(result: WriteFilesResponse, filePath: string, label: string): void {
@@ -401,6 +425,22 @@ export class CodexGenerationManager<TState extends BaseProjectState = BaseProjec
 		}
 
 		const client = this.deploymentManager.getClient();
+		const recoveredSnapshot = await this.loadRecoverySnapshot(request);
+		if (recoveredSnapshot) {
+			logger.info('Applying recovered background generator snapshot', {
+				workflowId: request.workflowId,
+				recoveryWorkflowId: request.recoveryWorkflowId,
+				snapshotWorkflowId: recoveredSnapshot.workflowId,
+				changedCount: recoveredSnapshot.changedFiles.length,
+				deletedCount: recoveredSnapshot.deletedFiles.length,
+			});
+			return this.applyGeneratedChanges(
+				recoveredSnapshot.changedFiles,
+				recoveredSnapshot.deletedFiles,
+				deployedPreview,
+			);
+		}
+
 		const runtimePlan = resolveCodexRuntimePlan(this.env, instanceId, request.model);
 		await this.createGitBaseline(client, instanceId);
 		await this.prepareCodexHome(client, instanceId, runtimePlan.primary);
@@ -426,6 +466,15 @@ export class CodexGenerationManager<TState extends BaseProjectState = BaseProjec
 		}
 
 		const changedFiles = await this.readChangedFiles(client, instanceId, changedPaths);
+		await this.persistRecoverySnapshot(request, changedFiles, deletedPaths);
+		return this.applyGeneratedChanges(changedFiles, deletedPaths, deployedPreview);
+	}
+
+	private async applyGeneratedChanges(
+		changedFiles: FileOutputType[],
+		deletedPaths: string[],
+		deployedPreview: PreviewType | null,
+	): Promise<CodexGenerationResult> {
 		if (changedFiles.length > 0) {
 			await this.fileManager.saveGeneratedFiles(
 				changedFiles,
@@ -443,7 +492,133 @@ export class CodexGenerationManager<TState extends BaseProjectState = BaseProjec
 			this.fileManager.deleteFiles(deletedPaths);
 		}
 
-		return { changedFiles, deletedFiles: deletedPaths, preview: deployedPreview, madeChanges };
+		return {
+			changedFiles,
+			deletedFiles: deletedPaths,
+			preview: deployedPreview,
+			madeChanges: changedFiles.length > 0 || deletedPaths.length > 0,
+		};
+	}
+
+	private getRecoveryBucket(): R2Bucket | null {
+		return (this.env as unknown as { TEMPLATES_BUCKET?: R2Bucket }).TEMPLATES_BUCKET ?? null;
+	}
+
+	private getRecoveryPrefix(): string {
+		return trimSlashes(envString(this.env, 'CODEX_RECOVERY_R2_PREFIX') || DEFAULT_CODEX_RECOVERY_PREFIX);
+	}
+
+	private getRecoverySnapshotKey(workflowId: string): string {
+		return `${this.getRecoveryPrefix()}/${safePathSegment(this.getAgentId())}/${safePathSegment(workflowId)}.json`;
+	}
+
+	private getRecoveryWorkflowIds(request: CodexGenerationRequest): string[] {
+		return [...new Set([request.recoveryWorkflowId, request.workflowId].filter((id): id is string => Boolean(id)))];
+	}
+
+	private isValidRecoverySnapshot(
+		value: unknown,
+		request: CodexGenerationRequest,
+		allowedWorkflowIds: Set<string>,
+	): value is CodexRecoverySnapshot {
+		if (!value || typeof value !== 'object') return false;
+		const snapshot = value as Record<string, unknown>;
+		if (snapshot.version !== CODEX_RECOVERY_SNAPSHOT_VERSION) return false;
+		if (snapshot.agentId !== this.getAgentId()) return false;
+		if (snapshot.kind !== request.kind) return false;
+		if (typeof snapshot.workflowId !== 'string' || !allowedWorkflowIds.has(snapshot.workflowId)) return false;
+		if (!Array.isArray(snapshot.changedFiles) || !snapshot.changedFiles.every(isFileOutput)) return false;
+		if (!Array.isArray(snapshot.deletedFiles) || !snapshot.deletedFiles.every((path) => typeof path === 'string')) return false;
+		return typeof snapshot.madeChanges === 'boolean';
+	}
+
+	private async loadRecoverySnapshot(request: CodexGenerationRequest): Promise<CodexRecoverySnapshot | null> {
+		const bucket = this.getRecoveryBucket();
+		if (!bucket) return null;
+
+		const workflowIds = this.getRecoveryWorkflowIds(request);
+		if (workflowIds.length === 0) return null;
+
+		const allowedWorkflowIds = new Set(workflowIds);
+		for (const workflowId of workflowIds) {
+			const key = this.getRecoverySnapshotKey(workflowId);
+			try {
+				const object = await bucket.get(key);
+				if (!object) continue;
+				const parsed = JSON.parse(await object.text()) as unknown;
+				if (!this.isValidRecoverySnapshot(parsed, request, allowedWorkflowIds)) {
+					this.getLog().warn('Ignoring invalid background generator recovery snapshot', {
+						workflowId: request.workflowId,
+						recoveryWorkflowId: request.recoveryWorkflowId,
+						key,
+					});
+					continue;
+				}
+				this.getLog().info('Loaded background generator recovery snapshot', {
+					workflowId: request.workflowId,
+					recoveryWorkflowId: request.recoveryWorkflowId,
+					snapshotWorkflowId: parsed.workflowId,
+					key,
+				});
+				return parsed;
+			} catch (error) {
+				this.getLog().warn('Failed to load background generator recovery snapshot', {
+					workflowId: request.workflowId,
+					recoveryWorkflowId: request.recoveryWorkflowId,
+					key,
+					error: getErrorMessage(error),
+				});
+			}
+		}
+
+		return null;
+	}
+
+	private async persistRecoverySnapshot(
+		request: CodexGenerationRequest,
+		changedFiles: FileOutputType[],
+		deletedFiles: string[],
+	): Promise<void> {
+		const bucket = this.getRecoveryBucket();
+		if (!bucket) return;
+
+		const state = this.getState();
+		const snapshot: CodexRecoverySnapshot = {
+			version: CODEX_RECOVERY_SNAPSHOT_VERSION,
+			agentId: this.getAgentId(),
+			workflowId: request.workflowId,
+			kind: request.kind,
+			createdAt: Date.now(),
+			templateName: state.templateName,
+			projectType: state.projectType,
+			changedFiles,
+			deletedFiles,
+			madeChanges: changedFiles.length > 0 || deletedFiles.length > 0,
+		};
+		const key = this.getRecoverySnapshotKey(request.workflowId);
+
+		try {
+			await bucket.put(key, JSON.stringify(snapshot), {
+				httpMetadata: { contentType: 'application/json' },
+				customMetadata: {
+					agentId: this.getAgentId(),
+					workflowId: request.workflowId,
+					kind: request.kind,
+				},
+			});
+			this.getLog().info('Persisted background generator recovery snapshot', {
+				workflowId: request.workflowId,
+				key,
+				changedCount: changedFiles.length,
+				deletedCount: deletedFiles.length,
+			});
+		} catch (error) {
+			this.getLog().warn('Failed to persist background generator recovery snapshot', {
+				workflowId: request.workflowId,
+				key,
+				error: getErrorMessage(error),
+			});
+		}
 	}
 
 	private async prepareCodexHome(client: BaseSandboxService, instanceId: string, runtime: CodexRuntime): Promise<void> {

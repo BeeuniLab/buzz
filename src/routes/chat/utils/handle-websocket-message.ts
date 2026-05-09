@@ -118,10 +118,26 @@ const BACKGROUND_UPDATE_RUNNING_MESSAGE = 'Working on your project...';
 const BACKGROUND_UPDATE_RESTORED_MESSAGE = 'Still working on your project...';
 const BACKGROUND_UPDATE_COMPLETE_MESSAGE = 'Project is ready.';
 const BACKGROUND_UPDATE_FAILED_MESSAGE = 'The project agent ran into a problem. Please try again.';
+const LEGACY_GENERIC_BUG_PROMPT = 'there might be some bugs in the app. do you want me to try to fix them?';
+const LEGACY_GENERIC_BUG_PROMPT_RE = /^there might be some bugs in the app\.?\s+do you want me to try to fix them\??$/i;
 const RETRY_LAST_FAILED_WORKFLOW_ACTION: ChatMessage['action'] = {
 	type: 'retry_last_failed_workflow',
 	label: 'Retry',
 };
+
+const normalizeAssistantContent = (content: string | undefined): string =>
+	(content ?? '').replace(/\s+/g, ' ').trim();
+
+const shouldHideLegacyAssistantPrompt = (content: string | undefined): boolean =>
+	LEGACY_GENERIC_BUG_PROMPT_RE.test(normalizeAssistantContent(content));
+
+const shouldHoldLegacyAssistantStream = (content: string | undefined): boolean => {
+	const normalized = normalizeAssistantContent(content).toLowerCase();
+	return normalized.length > 0 && LEGACY_GENERIC_BUG_PROMPT.startsWith(normalized);
+};
+
+const filterHiddenAssistantPrompts = (messages: readonly ChatMessage[]): ChatMessage[] =>
+	messages.filter((message) => message.role !== 'assistant' || !shouldHideLegacyAssistantPrompt(message.content));
 
 const isBackgroundUpdateMessage = (message: ChatMessage): boolean =>
 	message.role === 'assistant' &&
@@ -825,10 +841,14 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
                         });
                         currentAssistant = null;
                     } else if (msg.role === 'assistant') {
-                        const content = msg.conversationId.startsWith('archive-') 
-                            ? 'previous history was compacted' 
+                        const content = msg.conversationId.startsWith('archive-')
+                            ? 'previous history was compacted'
                             : (text || '');
-                        
+                        if (shouldHideLegacyAssistantPrompt(content)) {
+                            currentAssistant = null;
+                            continue;
+                        }
+
                         const hasToolCalls = msg.tool_calls && msg.tool_calls.length > 0;
                         
                         // Merge all consecutive assistant messages into one bubble
@@ -922,7 +942,7 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
                 if (messagesToRestore.length > 0) {
                     // Deduplicate assistant messages with identical content (even if separated by tool messages)
                     const deduplicated = attachRetryActionToLatestFailure(
-                        deduplicateMessages(messagesToRestore),
+                        deduplicateMessages(filterHiddenAssistantPrompts(messagesToRestore)),
                         agentState,
                     );
                     
@@ -1375,16 +1395,33 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
 
                 if (message.tool) {
                     const tool = message.tool;
-                    setMessages(prev => appendToolEvent(prev, conversationId, { 
-                        name: tool.name, 
+                    setMessages(prev => appendToolEvent(prev, conversationId, {
+                        name: tool.name,
                         status: tool.status,
-                        result: tool.result 
+                        result: tool.result
                     }));
                     break;
                 }
 
+                if (!message.isStreaming && shouldHideLegacyAssistantPrompt(message.message)) {
+                    setMessages(prev => prev.filter((item) => item.conversationId !== conversationId));
+                    break;
+                }
+
                 if (message.isStreaming) {
-                    setMessages(prev => handleStreamingMessage(prev, conversationId, isArchive ? placeholder : message.message, false));
+                    const chunk = isArchive ? placeholder : message.message;
+                    setMessages(prev => {
+                        const existing = prev.find(
+                            item => item.role === 'assistant' && item.conversationId === conversationId,
+                        );
+                        const nextContent = `${existing?.content ?? ''}${chunk}`;
+                        if (shouldHoldLegacyAssistantStream(nextContent)) {
+                            return prev.filter(item => item.conversationId !== conversationId);
+                        }
+                        return filterHiddenAssistantPrompts(
+                            handleStreamingMessage(prev, conversationId, chunk, false),
+                        );
+                    });
                     break;
                 }
 

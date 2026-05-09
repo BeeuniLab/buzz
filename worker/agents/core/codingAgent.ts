@@ -1229,18 +1229,20 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
     async runGenerationFromWorkflow(
         reason: ExistingProjectWorkflowParams['kind'] | 'create_project' | 'user_input',
         workflowId?: string,
+        recoveryWorkflowId?: string,
     ): Promise<void> {
         this.throwIfDeleted('run generation workflow');
         const query = reason === 'create_project'
             ? this.state.query
             : this.buildCodexWorkflowQuery(reason);
-        await this.runCodexGenerationFromWorkflow(workflowId, query, reason);
+        await this.runCodexGenerationFromWorkflow(workflowId, query, reason, { recoveryWorkflowId });
     }
 
     async runCodexGenerationFromWorkflow(
         workflowId: string | undefined,
         query: string,
         kind: ActiveWorkflowTask['kind'] = 'create_project',
+        options: { recoveryWorkflowId?: string } = {},
     ): Promise<void> {
         this.throwIfDeleted('run generation workflow');
         const effectiveWorkflowId = workflowId || this.createWorkflowId(kind);
@@ -1248,9 +1250,14 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
         const retryableWorkflow = isRetryableWorkflowKind(kind)
             ? this.normalizeRetryableWorkflowIntent(
                 existingRetryableWorkflow?.workflowId === effectiveWorkflowId && existingRetryableWorkflow.kind === kind
-                    ? { ...existingRetryableWorkflow, query }
+                    ? {
+                        ...existingRetryableWorkflow,
+                        query,
+                        recoveryWorkflowId: options.recoveryWorkflowId ?? existingRetryableWorkflow.recoveryWorkflowId,
+                    }
                     : {
                         workflowId: effectiveWorkflowId,
+                        recoveryWorkflowId: options.recoveryWorkflowId,
                         kind,
                         query,
                         hostname: this.state.hostname,
@@ -1288,6 +1295,7 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
             workflowId: effectiveWorkflowId,
             kind,
             query,
+            recoveryWorkflowId: options.recoveryWorkflowId,
         });
         const assistantMessage = this.buildGenerationCompleteMessage(kind, result.changedFiles.length);
 
@@ -1342,7 +1350,7 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
         }
     }
 
-    async startGenerationWorkflow(kind: ExistingProjectWorkflowParams['kind']): Promise<string | null> {
+    async startGenerationWorkflow(kind: ExistingProjectWorkflowParams['kind'], retryFrom?: LastFailedWorkflow): Promise<string | null> {
         this.throwIfDeleted('start generation workflow');
         if (this.isCodeGenerating() || this.state.shouldBeGenerating || this.state.activeWorkflow) {
             this.logger().info('Generation workflow already active or queued, skipping duplicate', {
@@ -1357,9 +1365,11 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
         const workflowId = this.createWorkflowId(kind);
         await this.acquireUserTaskSlot(workflowId, kind);
         const retryableWorkflow = this.normalizeRetryableWorkflowIntent({
+            ...retryFrom,
             workflowId,
+            recoveryWorkflowId: retryFrom?.workflowId ?? retryFrom?.recoveryWorkflowId,
             kind,
-            query: this.buildCodexWorkflowQuery(kind),
+            query: retryFrom?.query ?? this.buildCodexWorkflowQuery(kind),
             hostname: this.state.hostname,
             requestedProjectType: this.state.projectType,
         });
@@ -1367,7 +1377,7 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
         const workflow = this.getWorkflowBinding();
         if (!workflow) {
             this.logger().warn('Workflow binding missing; falling back to waitUntil generation', { kind });
-            const task = this.runGenerationFromWorkflow(kind, workflowId)
+            const task = this.runGenerationFromWorkflow(kind, workflowId, retryableWorkflow.recoveryWorkflowId)
                 .finally(() => this.releaseUserTaskSlot(workflowId));
             this.trackBackgroundTask(kind, task);
             return null;
@@ -1397,6 +1407,7 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
                     kind,
                     agentId: this.getAgentId(),
                     projectType: this.state.projectType,
+                    recoveryWorkflowId: retryableWorkflow.recoveryWorkflowId,
                 },
             });
         } catch (error) {
@@ -1441,7 +1452,7 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
     async startUserInputWorkflow(
         userMessage: string,
         images?: Array<ImageAttachment | ProcessedImageAttachment>,
-        options: { skipUserMessageRecord?: boolean } = {},
+        options: { skipUserMessageRecord?: boolean; recoveryWorkflowId?: string } = {},
     ): Promise<string | null> {
         this.throwIfDeleted('start user input workflow');
         if (this.state.activeWorkflow) {
@@ -1455,6 +1466,7 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
         await this.acquireUserTaskSlot(workflowId, 'user_input');
         const retryableWorkflow = this.normalizeRetryableWorkflowIntent({
             workflowId,
+            recoveryWorkflowId: options.recoveryWorkflowId,
             kind: 'user_input',
             query: userMessage,
             hostname: this.state.hostname,
@@ -1466,6 +1478,7 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
             this.logger().warn('Workflow binding missing; falling back to direct user input handling');
             const task = this.runUserInputFromWorkflow(userMessage, images, workflowId, {
                 skipUserMessageRecord: options.skipUserMessageRecord,
+                recoveryWorkflowId: retryableWorkflow.recoveryWorkflowId,
             })
                 .finally(() => this.releaseUserTaskSlot(workflowId));
             this.trackBackgroundTask('user_input', task);
@@ -1518,6 +1531,7 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
                 projectType: this.state.projectType,
                 message: userMessage,
                 images: workflowImages,
+                recoveryWorkflowId: retryableWorkflow.recoveryWorkflowId,
             };
             await workflow.create({ id: workflowId, params });
         } catch (error) {
@@ -1570,6 +1584,7 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
         const retryableWorkflow = this.normalizeRetryableWorkflowIntent({
             ...intent,
             workflowId,
+            recoveryWorkflowId: intent.workflowId ?? intent.recoveryWorkflowId,
             kind: 'create_project',
             query: intent.query || this.state.query,
             hostname: intent.hostname || this.state.hostname,
@@ -1588,6 +1603,7 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
             inferenceContext,
             images: retryableWorkflow.images,
             selectedTemplate: retryableWorkflow.selectedTemplate,
+            recoveryWorkflowId: retryableWorkflow.recoveryWorkflowId,
         };
 
         this.setState({
@@ -1651,12 +1667,13 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
         if (failed.kind === 'user_input') {
             return this.startUserInputWorkflow(failed.query, failed.images, {
                 skipUserMessageRecord: true,
+                recoveryWorkflowId: failed.workflowId ?? failed.recoveryWorkflowId,
             });
         }
         if (failed.kind === 'create_project') {
             return this.startCreateProjectRetryWorkflow(failed);
         }
-        return this.startGenerationWorkflow(failed.kind);
+        return this.startGenerationWorkflow(failed.kind, failed);
     }
 
     private isBusyForOperationalWorkflow(): boolean {
@@ -2594,7 +2611,7 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
         userMessage: string,
         images?: Array<ImageAttachment | ProcessedImageAttachment>,
         workflowId?: string,
-        options: { skipUserMessageRecord?: boolean } = {},
+        options: { skipUserMessageRecord?: boolean; recoveryWorkflowId?: string } = {},
     ): Promise<void> {
         this.throwIfDeleted('run user input workflow');
         const effectiveWorkflowId = workflowId || this.createWorkflowId('user_input');
@@ -2638,6 +2655,7 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
                 lastFailedWorkflow: undefined,
                 lastRetryableWorkflow: this.normalizeRetryableWorkflowIntent({
                     workflowId: effectiveWorkflowId,
+                    recoveryWorkflowId: options.recoveryWorkflowId,
                     kind: 'user_input',
                     query: userMessage,
                     hostname: this.state.hostname,
@@ -2645,7 +2663,9 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
                     images: processedImages,
                 }),
             } as AgentState);
-            await this.runCodexGenerationFromWorkflow(workflowId, userMessage, 'user_input');
+            await this.runCodexGenerationFromWorkflow(workflowId, userMessage, 'user_input', {
+                recoveryWorkflowId: options.recoveryWorkflowId,
+            });
             this.broadcast(WebSocketMessageResponses.USER_SUGGESTIONS_PROCESSING, {
                 message: 'User message processed',
                 status: 'complete',

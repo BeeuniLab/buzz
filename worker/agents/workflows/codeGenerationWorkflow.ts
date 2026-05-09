@@ -110,6 +110,7 @@ function rethrowForWorkflowRetry(error: unknown): never {
 type BaseWorkflowParams = {
 	agentId: string;
 	projectType: ProjectType;
+	recoveryWorkflowId?: string;
 };
 
 type WorkflowInferenceContext = Omit<InferenceContext, 'abortSignal'>;
@@ -275,7 +276,7 @@ export class CodeGenerationWorkflow extends WorkflowEntrypoint<Env, CodeGenerati
 				const agent = await getAgentStub(this.env, params.agentId, {
 					projectType: selected.projectType,
 				});
-				await agent.runGenerationFromWorkflow('create_project', event.instanceId);
+				await agent.runGenerationFromWorkflow('create_project', event.instanceId, params.recoveryWorkflowId);
 				return { generated: true };
 			} catch (error) {
 				rethrowForWorkflowRetry(error);
@@ -293,7 +294,7 @@ export class CodeGenerationWorkflow extends WorkflowEntrypoint<Env, CodeGenerati
 				const agent = await getAgentStub(this.env, params.agentId, {
 					projectType: params.projectType,
 				});
-				await agent.runGenerationFromWorkflow(params.kind, event.instanceId);
+				await agent.runGenerationFromWorkflow(params.kind, event.instanceId, params.recoveryWorkflowId);
 				return { generated: true, workflowInstanceId: event.instanceId };
 			} catch (error) {
 				rethrowForWorkflowRetry(error);
@@ -311,7 +312,9 @@ export class CodeGenerationWorkflow extends WorkflowEntrypoint<Env, CodeGenerati
 				const agent = await getAgentStub(this.env, params.agentId, {
 					projectType: params.projectType,
 				});
-				await agent.runUserInputFromWorkflow(params.message, params.images, event.instanceId);
+				await agent.runUserInputFromWorkflow(params.message, params.images, event.instanceId, {
+					recoveryWorkflowId: params.recoveryWorkflowId,
+				});
 				return { processed: true, workflowInstanceId: event.instanceId };
 			} catch (error) {
 				rethrowForWorkflowRetry(error);

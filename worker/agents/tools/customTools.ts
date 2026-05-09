@@ -1,6 +1,6 @@
 import type { ToolDefinition } from './types';
 import { StructuredLogger } from '../../logger';
-import { RenderToolCall } from '../operations/UserConversationProcessor';
+import type { RenderToolCall } from '../operations/toolRenderer';
 import { toolWebSearchDefinition } from './toolkit/web-search';
 import { toolFeedbackDefinition } from './toolkit/feedback';
 import { createQueueRequestTool } from './toolkit/queue-request';

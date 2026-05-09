@@ -12,7 +12,7 @@ import { LoopDetector } from "../inferutils/loopDetection";
 import { wrapToolsWithLoopDetection } from "../assistants/utils";
 import { CompletionConfig, InferResponseString, InferError } from "../inferutils/core";
 import { CompletionDetector } from "../inferutils/completionDetection";
-import { RenderToolCall } from "./UserConversationProcessor";
+import type { RenderToolCall } from "./toolRenderer";
 
 export function getSystemPromptWithProjectContext(
     systemPrompt: string,

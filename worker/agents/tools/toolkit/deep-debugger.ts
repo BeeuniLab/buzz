@@ -1,7 +1,7 @@
 import { tool, t, type Type, type } from '../types';
 import { StructuredLogger } from '../../../logger';
 import { ICodingAgent } from 'worker/agents/services/interfaces/ICodingAgent';
-import { RenderToolCall } from 'worker/agents/operations/UserConversationProcessor';
+import type { RenderToolCall } from 'worker/agents/operations/toolRenderer';
 import { z } from 'zod';
 
 export function createDeepDebuggerTool(

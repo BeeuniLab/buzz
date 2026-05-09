@@ -210,9 +210,9 @@ export function PhaseTimeline({
 					
 					return (
 						<>
-				{/* Project Stages */}
-				{projectStages.map((stage, index) => (
-					<div key={stage.id} className="flex relative w-full gap-2 pb-2.5">
+					{/* Project Stages */}
+					{projectStages.map((stage, index) => (
+						<div key={stage.id} className="flex relative w-full gap-2 pb-2.5">
 						<AnimatedStatusIndicator status={stage.status} />
 
 						<div className="flex flex-col gap-2 flex-1">
@@ -226,18 +226,18 @@ export function PhaseTimeline({
 									{stage.title}
 								</span>
 
-								{/* Progress for code stage */}
-								{stage.id === 'code' && stage.status !== 'pending' && (
-									<motion.div
-										initial={{ x: -120 }}
-										animate={{ x: 0 }}
-									>
-										<span className="text-zinc-300 mx-1">&bull;</span>
-										<span className="text-text-tertiary">
-											{progress}/{total} steps
-										</span>
-									</motion.div>
-								)}
+									{/* Progress for code stage */}
+									{stage.id === 'code' && stage.status !== 'pending' && (
+										<motion.div
+											initial={{ x: -120 }}
+											animate={{ x: 0 }}
+										>
+											<span className="text-zinc-300 mx-1">&bull;</span>
+											<span className="text-text-tertiary">
+												{stage.status === 'completed' ? total : progress}/{total} steps
+											</span>
+										</motion.div>
+									)}
 
 								{/* Subtle inline issue indicator for completed code stage */}
 								{stage.id === 'code' && stage.status === 'completed' && (runtimeErrorCount > 0 || staticIssueCount > 0) && (

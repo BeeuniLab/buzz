@@ -132,6 +132,7 @@ export default function Chat() {
 		files,
 		isGeneratingBlueprint,
 		isBootstrapping,
+		isInitialStateRestored,
 		totalFiles,
 		websocket,
 		sendUserMessage,
@@ -396,9 +397,12 @@ export default function Chat() {
 	const previewAvailable = useMemo(() => {
 		return !!previewUrl || files.length > 0;
 	}, [files.length, previewUrl]);
+	const isProjectInteractionReady = Boolean(isInitialStateRestored && !appLoading);
 	const canUpdatePlayable = Boolean(
 		chatId &&
+		isProjectInteractionReady &&
 		previewAvailable &&
+		previewUrl &&
 		!isBootstrapping &&
 		!isThinking &&
 		!isGenerating &&
@@ -894,6 +898,7 @@ export default function Chat() {
 								isDeployingPlayable={isDeploying}
 								hasStablePlayable={hasStablePlayable}
 								isRedeployReady={playableUpdateAvailable}
+								canUpdatePlayable={canUpdatePlayable}
 								deploymentError={deploymentError}
 								onUpdatePlayable={handleUpdatePlayable}
 								behaviorType={behaviorType}

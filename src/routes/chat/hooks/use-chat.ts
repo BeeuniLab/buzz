@@ -871,6 +871,7 @@ export function useChat({
 		previewUrl,
 		isGeneratingBlueprint,
 		isBootstrapping,
+		isInitialStateRestored,
 		totalFiles,
 		websocket,
 		sendUserMessage,

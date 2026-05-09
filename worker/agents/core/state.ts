@@ -33,6 +33,7 @@ export type RetryableWorkflowKind = Extract<ActiveWorkflowTask['kind'], 'create_
 
 export interface RetryableWorkflowIntent {
     workflowId?: string;
+    recoveryWorkflowId?: string;
     kind: RetryableWorkflowKind;
     query: string;
     hostname?: string;
