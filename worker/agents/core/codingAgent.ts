@@ -1235,14 +1235,19 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
         const query = reason === 'create_project'
             ? this.state.query
             : this.buildCodexWorkflowQuery(reason);
-        await this.runCodexGenerationFromWorkflow(workflowId, query, reason, { recoveryWorkflowId });
+        await this.runCodexGenerationFromWorkflow(workflowId, query, reason, {
+            recoveryWorkflowId,
+            uploadedAssets: reason === 'create_project'
+                ? this.state.lastRetryableWorkflow?.images
+                : undefined,
+        });
     }
 
     async runCodexGenerationFromWorkflow(
         workflowId: string | undefined,
         query: string,
         kind: ActiveWorkflowTask['kind'] = 'create_project',
-        options: { recoveryWorkflowId?: string } = {},
+        options: { recoveryWorkflowId?: string; uploadedAssets?: ProcessedImageAttachment[] } = {},
     ): Promise<void> {
         this.throwIfDeleted('run generation workflow');
         const effectiveWorkflowId = workflowId || this.createWorkflowId(kind);
@@ -1296,6 +1301,7 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
             kind,
             query,
             recoveryWorkflowId: options.recoveryWorkflowId,
+            uploadedAssets: options.uploadedAssets,
         });
         const assistantMessage = this.buildGenerationCompleteMessage(kind, result.changedFiles.length);
 
@@ -2666,6 +2672,7 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
             } as AgentState);
             await this.runCodexGenerationFromWorkflow(workflowId, userMessage, 'user_input', {
                 recoveryWorkflowId: options.recoveryWorkflowId,
+                uploadedAssets: processedImages,
             });
             this.broadcast(WebSocketMessageResponses.USER_SUGGESTIONS_PROCESSING, {
                 message: 'User message processed',

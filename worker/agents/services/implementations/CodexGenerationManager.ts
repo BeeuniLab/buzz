@@ -6,6 +6,8 @@ import { DeploymentManager } from './DeploymentManager';
 import { BaseAgentService } from './BaseAgentService';
 import { ServiceOptions } from '../interfaces/IServiceOptions';
 import type { PreviewType } from '../../../types/project-types';
+import type { ProcessedImageAttachment } from '../../../types/image-attachment';
+import { formatUploadedAssetContext } from '../../utils/assetContext';
 
 const DEFAULT_CODEX_TIMEOUT_MS = 25 * 60 * 1000;
 const DEFAULT_CODEX_MODEL_PROVIDER = 'crs';
@@ -64,6 +66,7 @@ export interface CodexGenerationRequest {
 	query: string;
 	workflowId: string;
 	recoveryWorkflowId?: string;
+	uploadedAssets?: ProcessedImageAttachment[];
 	model?: string;
 	timeoutMs?: number;
 }
@@ -884,9 +887,14 @@ export class CodexGenerationManager<TState extends BaseProjectState = BaseProjec
 		const modeInstruction = request.kind === 'create_project'
 			? 'Create the first working version of this project from the template.'
 			: 'Modify and continue the existing project in place based on the latest request.';
+		const latestUploadedAssetContext = formatUploadedAssetContext(request.uploadedAssets, {
+			title: 'LATEST_UPLOADED_MEDIA',
+			includeRules: false,
+		});
 		return [
 			'You are running inside a Buzzplay project workspace.',
 			'Implement the requested project by editing files directly in this repository.',
+			'Follow the project AGENTS.md instructions for BuzzPlay content direction, Phaser usage, assets, touch controls, and preview constraints.',
 			'Do not commit changes. Leave the final filesystem state ready for Buzzplay to collect with git diff.',
 			'Respect the existing template, framework, and file structure. Do not edit files under .buzz, .codex, .git, .wrangler, node_modules, dist, or build.',
 			'Do not modify files listed in .donttouch_files.json if that file exists.',
@@ -904,6 +912,7 @@ export class CodexGenerationManager<TState extends BaseProjectState = BaseProjec
 			'',
 			'Latest request:',
 			request.query,
+			latestUploadedAssetContext ? `\n${latestUploadedAssetContext}` : '',
 		].join('\n');
 	}
 

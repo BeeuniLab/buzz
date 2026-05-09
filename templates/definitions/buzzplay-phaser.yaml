@@ -11,4 +11,4 @@ inherit_dependencies: true
 package_patches:
   name: "buzzplay-phaser"
   dependencies:
-    phaser: "3.90.0"
+    phaser: "4.1.0"
