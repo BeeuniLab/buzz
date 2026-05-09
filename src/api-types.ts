@@ -153,6 +153,7 @@ export type {
 export type {
   WebSocketMessage,
   WebSocketMessageData,
+  ConversationAction,
   CodeFixEdits,
   ModelConfigsInfoMessage,
   AgentDisplayConfig,

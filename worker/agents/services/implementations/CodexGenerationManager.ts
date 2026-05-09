@@ -5,6 +5,7 @@ import type { WriteFilesResponse } from '../../../services/sandbox/sandboxTypes'
 import { DeploymentManager } from './DeploymentManager';
 import { BaseAgentService } from './BaseAgentService';
 import { ServiceOptions } from '../interfaces/IServiceOptions';
+import type { PreviewType } from '../../../types/project-types';
 
 const DEFAULT_CODEX_TIMEOUT_MS = 25 * 60 * 1000;
 const DEFAULT_CODEX_MODEL_PROVIDER = 'crs';
@@ -67,6 +68,8 @@ export interface CodexGenerationRequest {
 export interface CodexGenerationResult {
 	changedFiles: FileOutputType[];
 	deletedFiles: string[];
+	preview: PreviewType | null;
+	madeChanges: boolean;
 }
 
 function shellQuote(value: string): string {
@@ -386,13 +389,13 @@ export class CodexGenerationManager<TState extends BaseProjectState = BaseProjec
 			projectType: state.projectType,
 		});
 
-		const preview = await this.deploymentManager.deployToSandbox(
+		let deployedPreview = await this.deploymentManager.deployToSandbox(
 			[],
 			false,
 			'chore: prepare workspace for background generator',
 			false,
 		);
-		const instanceId = this.getState().sandboxInstanceId || preview?.runId;
+		const instanceId = this.getState().sandboxInstanceId || deployedPreview?.runId;
 		if (!instanceId) {
 			throw new Error('Background generator could not prepare a sandbox instance');
 		}
@@ -406,6 +409,7 @@ export class CodexGenerationManager<TState extends BaseProjectState = BaseProjec
 		await this.runCodexExecWithFailover(client, instanceId, request, runtimePlan);
 		const changedPaths = await this.collectChangedPaths(client, instanceId);
 		const deletedPaths = await this.collectDeletedPaths(client, instanceId);
+		const madeChanges = changedPaths.length > 0 || deletedPaths.length > 0;
 
 		logger.info('Codex changed files collected', {
 			workflowId: request.workflowId,
@@ -414,6 +418,12 @@ export class CodexGenerationManager<TState extends BaseProjectState = BaseProjec
 			changedPaths,
 			deletedPaths,
 		});
+		if (!madeChanges) {
+			logger.info('Background project agent completed without project file changes', {
+				workflowId: request.workflowId,
+				kind: request.kind,
+			});
+		}
 
 		const changedFiles = await this.readChangedFiles(client, instanceId, changedPaths);
 		if (changedFiles.length > 0) {
@@ -421,19 +431,19 @@ export class CodexGenerationManager<TState extends BaseProjectState = BaseProjec
 				changedFiles,
 				'feat: apply Codex generated changes',
 			);
-			await this.deploymentManager.deployToSandbox(
+			deployedPreview = await this.deploymentManager.deployToSandbox(
 				changedFiles,
 				false,
 				'feat: apply Codex generated changes',
 				false,
-			);
+			) ?? deployedPreview;
 		}
 
 		if (deletedPaths.length > 0) {
 			this.fileManager.deleteFiles(deletedPaths);
 		}
 
-		return { changedFiles, deletedFiles: deletedPaths };
+		return { changedFiles, deletedFiles: deletedPaths, preview: deployedPreview, madeChanges };
 	}
 
 	private async prepareCodexHome(client: BaseSandboxService, instanceId: string, runtime: CodexRuntime): Promise<void> {
@@ -514,6 +524,8 @@ export class CodexGenerationManager<TState extends BaseProjectState = BaseProjec
 			'git init',
 			'git config user.email "buzzplay-codex@buzzplay.app"',
 			'git config user.name "Buzzplay Codex"',
+			'mkdir -p .git/info',
+			`printf '\\n.buzz/\\n.codex/\\n.wrangler/\\nnode_modules/\\ndist/\\nbuild/\\n' >> .git/info/exclude`,
 			'git add -A',
 			'(git diff --cached --quiet || git commit -m "chore: baseline before codex")',
 		].join(' && ');
@@ -647,8 +659,8 @@ export class CodexGenerationManager<TState extends BaseProjectState = BaseProjec
 	private async collectChangedPaths(client: BaseSandboxService, instanceId: string): Promise<string[]> {
 		const command = [
 			`mkdir -p ${shellQuote(CODEX_WORK_DIR)}`,
-			`(({ git diff --name-only --diff-filter=ACMRTUXB; git ls-files --others --exclude-standard; } | grep -v '^\\.buzz/' | grep -v '^\\.codex/' | sort -u > ${shellQuote(CHANGED_FILES_PATH)}) || true)`,
-			`((git diff --name-only --diff-filter=D | grep -v '^\\.buzz/' | grep -v '^\\.codex/' | sort -u > ${shellQuote(DELETED_FILES_PATH)}) || true)`,
+			`(({ git diff --name-only --diff-filter=ACMRTUXB; git ls-files --others --exclude-standard; } | grep -v '^\\.buzz/' | grep -v '^\\.codex/' | grep -v '^\\.wrangler/' | grep -v '^node_modules/' | grep -v '^dist/' | grep -v '^build/' | sort -u > ${shellQuote(CHANGED_FILES_PATH)}) || true)`,
+			`((git diff --name-only --diff-filter=D | grep -v '^\\.buzz/' | grep -v '^\\.codex/' | grep -v '^\\.wrangler/' | grep -v '^node_modules/' | grep -v '^dist/' | grep -v '^build/' | sort -u > ${shellQuote(DELETED_FILES_PATH)}) || true)`,
 		].join(' && ');
 		const result = await client.executeCommands(instanceId, [command], 60_000);
 		const collect = result.results[0];

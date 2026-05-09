@@ -16,9 +16,10 @@ import {
 	Box,
 	Type,
 	Paperclip,
+	RefreshCcw,
 } from 'lucide-react';
 import type { ToolEvent } from '../utils/message-helpers';
-import type { ConversationMessage } from '@/api-types';
+import type { ConversationAction, ConversationMessage } from '@/api-types';
 import { useState, useEffect, useRef } from 'react';
 import { DebugSessionBubble } from './debug-session-bubble';
 import type { ChatAttachmentPreview } from '../utils/chat-attachments';
@@ -606,10 +607,16 @@ export function AIMessage({
 	message,
 	isThinking,
 	toolEvents = [],
+	action,
+	onAction,
+	actionDisabled,
 }: {
 	message: string;
 	isThinking?: boolean;
 	toolEvents?: ToolEvent[];
+	action?: ConversationAction;
+	onAction?: (action: ConversationAction) => void;
+	actionDisabled?: boolean;
 }) {
 	const sanitizedMessage = sanitizeMessageForDisplay(message);
 	
@@ -707,6 +714,23 @@ export function AIMessage({
 							<ToolStatusIndicator key={`${ev.name}-${ev.timestamp}`} event={ev} />
 						))}
 					</div>
+				)}
+
+				{action && (
+					<button
+						type="button"
+						onClick={() => onAction?.(action)}
+						disabled={actionDisabled}
+						className={clsx(
+							'mt-1 inline-flex h-8 w-fit items-center gap-1.5 rounded-md border border-border-primary bg-bg-2 px-2.5 text-xs font-medium text-text-primary transition-colors',
+							actionDisabled
+								? 'cursor-not-allowed opacity-50'
+								: 'hover:border-accent/60 hover:bg-bg-1',
+						)}
+					>
+						<RefreshCcw className="size-3.5" />
+						{action.label}
+					</button>
 				)}
 			</div>
 		</div>

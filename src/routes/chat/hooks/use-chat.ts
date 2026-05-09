@@ -797,6 +797,17 @@ export function useChat({
 		sendWebSocketMessage(websocket, 'resume_generation');
 	}, [websocket]);
 
+	const handleRetryLastFailedWorkflow = useCallback(() => {
+		if (!sendWebSocketMessage(websocket, 'retry_last_failed_workflow')) {
+			toast.error('Project agent is not connected', {
+				description: 'Refresh the page and try again.',
+			});
+			return;
+		}
+		setIsGenerating(true);
+		setIsGenerationPaused(false);
+	}, [websocket]);
+
 	const handleDeployToCloudflare = useCallback(async (instanceId: string) => {
 		try {
 			// Send deployment command via WebSocket instead of HTTP request
@@ -879,6 +890,7 @@ export function useChat({
 		isConversationProcessing,
 		handleStopGeneration,
 		handleResumeGeneration,
+		handleRetryLastFailedWorkflow,
 		handleDeployToCloudflare,
 		// Preview refresh control
 		shouldRefreshPreview,

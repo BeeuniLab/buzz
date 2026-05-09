@@ -20,6 +20,7 @@ import {
 	SUPPORTED_CHAT_MEDIA_MIME_TYPES,
 	type ProjectType,
 	type FileType,
+	type ConversationAction,
 } from '@/api-types';
 import { featureRegistry } from '@/features';
 import { useFileContentStream } from './hooks/use-file-content-stream';
@@ -150,6 +151,7 @@ export default function Chat() {
 		isConversationProcessing,
 		handleStopGeneration,
 		handleResumeGeneration,
+		handleRetryLastFailedWorkflow,
 		handleDeployToCloudflare,
 		// Preview refresh control
 		shouldRefreshPreview,
@@ -330,6 +332,12 @@ export default function Chat() {
 		sendWebSocketMessage(websocket, 'clear_conversation');
 		setIsResetDialogOpen(false);
 	}, [websocket]);
+
+	const handleMessageAction = useCallback((action: ConversationAction) => {
+		if (action.type === 'retry_last_failed_workflow') {
+			handleRetryLastFailedWorkflow();
+		}
+	}, [handleRetryLastFailedWorkflow]);
 
 	const generatingCount = useMemo(
 		() =>
@@ -607,7 +615,7 @@ export default function Chat() {
 
 		if (codeStageCompleted) {
 			const completedTotal = Math.max(actualPhaseCount, 1);
-			return [Math.min(completedPhases, completedTotal), completedTotal];
+			return [completedTotal, completedTotal];
 		}
 
 		// Get predicted phase count from blueprint, fallback to current phase count
@@ -701,6 +709,9 @@ export default function Chat() {
 									message={mainMessage.content}
 									isThinking={mainMessage.ui?.isThinking}
 									toolEvents={mainMessage.ui?.toolEvents}
+									action={mainMessage.action}
+									onAction={handleMessageAction}
+									actionDisabled={isRunning}
 								/>
 								{chatId && (
 									<div className="absolute right-1 top-1">
@@ -740,6 +751,9 @@ export default function Chat() {
 											message={message.content}
 											isThinking={true}
 											toolEvents={message.ui?.toolEvents}
+											action={message.action}
+											onAction={handleMessageAction}
+											actionDisabled={isRunning}
 										/>
 									</div>
 								))}
@@ -808,6 +822,9 @@ export default function Chat() {
 												message={message.content}
 												isThinking={message.ui?.isThinking}
 												toolEvents={message.ui?.toolEvents}
+												action={message.action}
+												onAction={handleMessageAction}
+												actionDisabled={isRunning}
 											/>
 										);
 									}

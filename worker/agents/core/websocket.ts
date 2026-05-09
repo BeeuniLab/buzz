@@ -101,6 +101,13 @@ export function handleWebSocketMessage(
                     // });
                 }
                 break;
+            case WebSocketMessageRequests.RETRY_LAST_FAILED_WORKFLOW:
+                logger.info('Retrying last failed workflow');
+                agent.retryLastFailedWorkflow().catch((error: unknown) => {
+                    logger.error('Error retrying last failed workflow:', error);
+                    sendError(connection, `Error retrying project task: ${error instanceof Error ? error.message : String(error)}`);
+                });
+                break;
             case WebSocketMessageRequests.USER_SUGGESTION: {
                 // Handle user suggestion for conversational AI
                 logger.info('Received user suggestion', {
@@ -183,6 +190,7 @@ export function handleWebSocketMessage(
                     logger.info('Conversation state retrieved', state);
                     sendToConnection(connection, WebSocketMessageResponses.CONVERSATION_STATE, { 
                         state,
+                        agentState: agent.state,
                         deepDebugSession: debugState
                     });
                 } catch (error) {

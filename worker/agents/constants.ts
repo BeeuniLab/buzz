@@ -85,6 +85,7 @@ export const WebSocketMessageRequests = {
     PREVIEW_FAILED: 'preview_failed',
     STOP_GENERATION: 'stop_generation',
     RESUME_GENERATION: 'resume_generation',
+    RETRY_LAST_FAILED_WORKFLOW: 'retry_last_failed_workflow',
     
     // Conversational AI requests
     USER_SUGGESTION: 'user_suggestion',

@@ -31,6 +31,7 @@ type TemplateUpdatedMessage = {
 type ConversationStateMessage = {
     type: 'conversation_state';
     state: ConversationState;
+    agentState?: AgentState;
     deepDebugSession?: { conversationId: string } | null;
 };
 
@@ -43,6 +44,7 @@ type GenerationStartedMessage = {
 	type: 'generation_started';
 	message: string;
 	totalFiles: number;
+	workflowKind?: string;
 };
 
 type FileGeneratingMessage = {
@@ -258,6 +260,11 @@ type UserSuggestionsProcessingMessage = {
 	suggestions?: string[];
 };
 
+export type ConversationAction = {
+	type: 'retry_last_failed_workflow';
+	label: string;
+};
+
 type ConversationResponseMessage = {
 	type: 'conversation_response';
 	message: string;
@@ -265,6 +272,7 @@ type ConversationResponseMessage = {
 	enhancedRequest?: string;
 	pendingInputsCount?: number;
 	isStreaming?: boolean;
+	action?: ConversationAction;
 	tool?: {
 		name: string;
 		status: 'start' | 'success' | 'error';

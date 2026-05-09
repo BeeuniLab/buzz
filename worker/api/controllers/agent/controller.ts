@@ -203,6 +203,11 @@ export class CodingAgentController extends BaseController {
                 projectType: workflowProjectType,
                 workflowId,
                 workflowKind: 'create_project',
+                language: body.language || defaultCodeGenArgs.language,
+                frameworks: body.frameworks || defaultCodeGenArgs.frameworks,
+                selectedTemplate: body.selectedTemplate,
+                requestedProjectType: projectType,
+                images: workflowImages,
             });
 
             const workflow = (env as Env & {

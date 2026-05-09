@@ -113,6 +113,137 @@ const redactInternalGeneratorName = (message: string): string =>
 		.replace(INTERNAL_GENERATOR_ENV_RE, 'LLM setting')
 		.replace(INTERNAL_GENERATOR_TOKEN_RE, 'background generator');
 
+const BACKGROUND_UPDATE_MESSAGE_PREFIX = 'background-update-';
+const BACKGROUND_UPDATE_RUNNING_MESSAGE = 'Working on your project...';
+const BACKGROUND_UPDATE_RESTORED_MESSAGE = 'Still working on your project...';
+const BACKGROUND_UPDATE_COMPLETE_MESSAGE = 'Project is ready.';
+const BACKGROUND_UPDATE_FAILED_MESSAGE = 'The project agent ran into a problem. Please try again.';
+const RETRY_LAST_FAILED_WORKFLOW_ACTION: ChatMessage['action'] = {
+	type: 'retry_last_failed_workflow',
+	label: 'Retry',
+};
+
+const isBackgroundUpdateMessage = (message: ChatMessage): boolean =>
+	message.role === 'assistant' &&
+	message.conversationId.startsWith(BACKGROUND_UPDATE_MESSAGE_PREFIX);
+
+const isActiveBackgroundUpdateMessage = (message: ChatMessage): boolean =>
+	isBackgroundUpdateMessage(message) &&
+	message.ui?.isThinking === true;
+
+const appendBackgroundUpdateMessage = (
+	messages: ChatMessage[],
+	content = BACKGROUND_UPDATE_RUNNING_MESSAGE,
+): ChatMessage[] => {
+	if (messages.some(isActiveBackgroundUpdateMessage)) return messages;
+	return [
+		...messages,
+		createAIMessage(`${BACKGROUND_UPDATE_MESSAGE_PREFIX}${Date.now()}`, content, true),
+	];
+};
+
+const finishBackgroundUpdateMessage = (
+	messages: ChatMessage[],
+	content: string,
+): ChatMessage[] => {
+	let didUpdate = false;
+	const next = [...messages];
+
+	for (let index = next.length - 1; index >= 0; index -= 1) {
+		const message = next[index];
+		if (!isActiveBackgroundUpdateMessage(message)) continue;
+
+		next[index] = {
+			...message,
+			content,
+			ui: {
+				...message.ui,
+				isThinking: false,
+			},
+		};
+		didUpdate = true;
+		break;
+	}
+
+	return didUpdate ? next : messages;
+};
+
+const replaceLatestBackgroundUpdateMessage = (
+	messages: ChatMessage[],
+	content: string,
+): ChatMessage[] => {
+	const next = [...messages];
+	for (let index = next.length - 1; index >= 0; index -= 1) {
+		const message = next[index];
+		if (!isBackgroundUpdateMessage(message)) continue;
+
+		next[index] = {
+			...message,
+			content,
+			ui: {
+				...message.ui,
+				isThinking: false,
+			},
+		};
+		return next;
+	}
+	return messages;
+};
+
+const removeActiveBackgroundUpdateMessage = (messages: ChatMessage[]): ChatMessage[] => {
+	let index = -1;
+	for (let i = messages.length - 1; i >= 0; i -= 1) {
+		if (isActiveBackgroundUpdateMessage(messages[i])) {
+			index = i;
+			break;
+		}
+	}
+	if (index < 0) return messages;
+
+	const next = [...messages];
+	next.splice(index, 1);
+	return next;
+};
+
+const finishOrAppendGenerationCompleteMessage = (messages: ChatMessage[]): ChatMessage[] => {
+	const finished = finishBackgroundUpdateMessage(messages, BACKGROUND_UPDATE_COMPLETE_MESSAGE);
+	if (finished !== messages) return finished;
+	if (isAssistantMessageDuplicate(messages, BACKGROUND_UPDATE_COMPLETE_MESSAGE)) return messages;
+	return [
+		...messages,
+		createAIMessage(`generation-complete-${Date.now()}`, BACKGROUND_UPDATE_COMPLETE_MESSAGE),
+	];
+};
+
+const isRetryableProjectFailureMessage = (content: string): boolean =>
+	content.startsWith('The project agent ');
+
+const attachRetryActionToLatestFailure = (
+	messages: ChatMessage[],
+	agentState?: AgentState,
+): ChatMessage[] => {
+	if (!agentState?.lastFailedWorkflow || getFreshActiveWorkflow(agentState)) {
+		return messages;
+	}
+
+	for (let index = messages.length - 1; index >= 0; index -= 1) {
+		const message = messages[index];
+		if (
+			message.role === 'assistant' &&
+			(message.conversationId.endsWith('-failed') || isRetryableProjectFailureMessage(message.content))
+		) {
+			return messages.map((item, itemIndex) => itemIndex === index
+				? { ...item, action: RETRY_LAST_FAILED_WORKFLOW_ACTION }
+				: item);
+		}
+	}
+
+	return [
+		...messages,
+		createAIMessage('retry-available', BACKGROUND_UPDATE_FAILED_MESSAGE, false, RETRY_LAST_FAILED_WORKFLOW_ACTION),
+	];
+};
+
 const summarizeErrorForChat = (error: string | undefined): string => {
 	const fallback = 'Something went wrong while updating the project.';
 	if (!error) return fallback;
@@ -179,7 +310,9 @@ const isStateActivelyGenerating = (state: AgentState): boolean => {
 	return !state.lastUserStopAt && (
 		(state.shouldBeGenerating === true && !hasCompletedPlayable(state)) ||
 		Boolean(freshActiveTask) ||
-		Boolean(freshActiveWorkflow)
+		isGenerationWorkflow(freshActiveWorkflow) ||
+		isDeployProjectWorkflow(freshActiveWorkflow) ||
+		isDeployPreviewWorkflow(freshActiveWorkflow)
 	);
 };
 
@@ -202,7 +335,7 @@ const getRestoredAppStatus = (state: AgentState): 'generating' | 'completed' =>
 	isStateActivelyGenerating(state) ? 'generating' : 'completed';
 
 const isRestoredBuildPaused = (state: AgentState): boolean =>
-	!isStateActivelyGenerating(state) && !state.mvpGenerated;
+	!state.lastFailedWorkflow && !isStateActivelyGenerating(state) && !state.mvpGenerated;
 
 export interface HandleMessageDeps {
     // State setters
@@ -558,11 +691,16 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
                         logger.debug('🔄 Reconnected with active generation intent, restoring generation UI');
                         setIsGenerating(true); 
                         updateStage('code', { status: 'active' });
+                        const activeWorkflow = getFreshActiveWorkflow(state);
+                        if (activeWorkflow?.kind === 'user_input') {
+                            setIsConversationProcessing(true);
+                            setMessages(prev => appendBackgroundUpdateMessage(prev, BACKGROUND_UPDATE_RESTORED_MESSAGE));
+                        }
                         if (shouldRequestGenerationResume(state)) {
                             sendWebSocketMessage(websocket, 'generate_all');
                         }
-                    }
-                }
+	                    }
+	                }
                 break;
             }
             case 'template_updated': {
@@ -631,6 +769,17 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
                 }
 
                 const freshActiveWorkflow = getFreshActiveWorkflow(state);
+                if (isGenerationWorkflow(freshActiveWorkflow)) {
+                    setIsGenerating(true);
+                    if (freshActiveWorkflow?.kind === 'user_input') {
+                        setIsConversationProcessing(true);
+                        setMessages(prev => appendBackgroundUpdateMessage(prev, BACKGROUND_UPDATE_RESTORED_MESSAGE));
+                    }
+                } else if (!isStateActivelyGenerating(state)) {
+                    setIsGenerating(false);
+                    setIsConversationProcessing(false);
+                }
+
                 if (isDeployProjectWorkflow(freshActiveWorkflow)) {
                     setIsDeploying(true);
                     setDeploymentError('');
@@ -649,7 +798,7 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
 
             case 'conversation_state': {
                 if (message.type !== 'conversation_state') break;
-                const { state, deepDebugSession } = message;
+                const { state, agentState, deepDebugSession } = message;
                 const history: ReadonlyArray<ConversationMessage> = state?.runningHistory ?? [];
                 logger.debug('Received conversation_state with messages:', history.length, 'deepDebugSession:', deepDebugSession);
 
@@ -765,11 +914,19 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
                     }
                 }
 
-                if (restoredMessages.length > 0) {
+                const fallbackMessages = restoredMessages.length === 0 && agentState?.mvpGenerated && !getFreshActiveWorkflow(agentState)
+                    ? [createAIMessage('generation-complete-restored', BACKGROUND_UPDATE_COMPLETE_MESSAGE)]
+                    : [];
+                const messagesToRestore = restoredMessages.length > 0 ? restoredMessages : fallbackMessages;
+
+                if (messagesToRestore.length > 0) {
                     // Deduplicate assistant messages with identical content (even if separated by tool messages)
-                    const deduplicated = deduplicateMessages(restoredMessages);
+                    const deduplicated = attachRetryActionToLatestFailure(
+                        deduplicateMessages(messagesToRestore),
+                        agentState,
+                    );
                     
-                    logger.debug('Merging conversation_state with', deduplicated.length, 'messages (', restoredMessages.length - deduplicated.length, 'duplicates removed)');
+                    logger.debug('Merging conversation_state with', deduplicated.length, 'messages (', messagesToRestore.length - deduplicated.length, 'duplicates removed)');
                     setMessages(prev => {
                         const restoredWithPreservedAttachments = preserveExistingUserAttachments(deduplicated, prev);
                         const hasFetching = prev.some(m => m.role === 'assistant' && m.conversationId === 'fetching-chat');
@@ -832,11 +989,15 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
 
             case 'generation_started': {
                 setIsGeneratingBlueprint(false);
+                setIsThinking(false);
                 updateStage('bootstrap', { status: 'completed' });
                 updateStage('blueprint', { status: 'completed' });
                 updateStage('code', { status: 'active' });
                 setTotalFiles(message.totalFiles);
                 setIsGenerating(true);
+                if (message.workflowKind && message.workflowKind !== 'create_project') {
+                    setMessages(prev => appendBackgroundUpdateMessage(prev));
+                }
                 if (deps.urlChatId) {
                     appEvents.emitAppUpdated(deps.urlChatId, { status: 'generating' });
                 }
@@ -853,6 +1014,10 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
                 setIsPhaseProgressActive(false);
                 setIsThinking(false);
                 setIsGenerating(false);
+                setMessages(prev => finishOrAppendGenerationCompleteMessage(prev));
+                if (message.previewURL) {
+                    setPreviewUrl(message.previewURL);
+                }
                 if (deps.urlChatId) {
                     appEvents.emitAppUpdated(deps.urlChatId, { status: 'completed' });
                 }
@@ -1082,6 +1247,7 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
                 // Reset phase indicators
                 setIsPhaseProgressActive(false);
                 setIsThinking(false);
+                setMessages(prev => finishBackgroundUpdateMessage(prev, 'Update paused.'));
                 
                 // Mark any active phases as cancelled (not completed, since they were interrupted)
                 setPhaseTimeline((prev) => 
@@ -1188,7 +1354,6 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
                 if (message.isStreaming || message.tool) {
                     setIsConversationProcessing(true);
                 }
-
                 // Use concrete conversationId when available; otherwise use placeholder id
                 let conversationId = message.conversationId ?? 'conversation_response';
 
@@ -1224,24 +1389,51 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
                 }
 
                 setMessages(prev => {
-                    const idx = prev.findIndex(m => m.role === 'assistant' && m.conversationId === conversationId);
-                    if (idx !== -1) return prev.map((m, i) => i === idx ? { ...m, content: (isArchive ? placeholder : message.message) } : m);
-                    
+                    const withoutActiveStatus = !message.isStreaming && !message.tool
+                        ? removeActiveBackgroundUpdateMessage(prev)
+                        : prev;
+                    const idx = withoutActiveStatus.findIndex(m => m.role === 'assistant' && m.conversationId === conversationId);
+                    if (idx !== -1) {
+                        return withoutActiveStatus.map((m, i) => i === idx
+                            ? { ...m, content: (isArchive ? placeholder : message.message), action: message.action }
+                            : m);
+                    }
+
                     // Deduplicate: Don't add if last assistant message has identical content
                     const newContent = isArchive ? placeholder : message.message;
-                    if (isAssistantMessageDuplicate(prev, newContent)) {
+                    if (isAssistantMessageDuplicate(withoutActiveStatus, newContent)) {
                         logger.debug('Skipping duplicate assistant message');
-                        return prev; // Skip duplicate
+                        return withoutActiveStatus; // Skip duplicate
                     }
-                    
-                    return [...prev, createAIMessage(conversationId, newContent)];
+
+                    return [...withoutActiveStatus, createAIMessage(conversationId, newContent, false, message.action)];
                 });
                 break;
             }
 
-            case 'user_suggestions_processing': {
-                const isProcessing = message.status !== 'complete' && message.status !== 'error';
-                setIsConversationProcessing(isProcessing);
+	            case 'user_suggestions_processing': {
+	                const isProcessing = message.status !== 'complete' && message.status !== 'error';
+	                setIsConversationProcessing(isProcessing);
+	                setIsThinking(isProcessing);
+	                if (isProcessing) {
+	                    setIsGenerating(true);
+	                    setIsGenerationPaused(false);
+	                    updateStage('bootstrap', { status: 'completed' });
+                    updateStage('blueprint', { status: 'completed' });
+                    updateStage('code', { status: 'active' });
+                    setMessages(prev => appendBackgroundUpdateMessage(prev));
+                } else {
+                    if (message.status === 'error') {
+                        setIsGenerating(false);
+                        updateStage('code', { status: 'error' });
+                    }
+                    setMessages(prev => finishBackgroundUpdateMessage(
+                        prev,
+                        message.status === 'error'
+                            ? BACKGROUND_UPDATE_FAILED_MESSAGE
+                            : BACKGROUND_UPDATE_COMPLETE_MESSAGE,
+                    ));
+                }
                 if (deps.urlChatId) {
                     appEvents.emitAppUpdated(deps.urlChatId, {
                         status: isProcessing ? 'generating' : 'completed',
@@ -1310,6 +1502,8 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
 
             case 'error': {
                 setIsConversationProcessing(false);
+                setIsThinking(false);
+                setIsGenerating(false);
                 const errorData = message;
                 const safeError = summarizeErrorForChat(errorData.error);
                 if (isTaskBusyWarning(errorData.error)) {
@@ -1326,10 +1520,23 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
                     );
                     break;
                 }
-                setMessages(prev => [
-                    ...prev,
-                    createAIMessage(`error_${Date.now()}`, `❌ ${safeError}`)
-                ]);
+                setMessages(prev => {
+                    const withoutActiveStatus = replaceLatestBackgroundUpdateMessage(prev, BACKGROUND_UPDATE_FAILED_MESSAGE);
+                    if (isRetryableProjectFailureMessage(safeError)) {
+                        if (withoutActiveStatus.some(item => item.action?.type === 'retry_last_failed_workflow')) {
+                            return withoutActiveStatus;
+                        }
+                        return [
+                            ...withoutActiveStatus,
+                            createAIMessage(`error_${Date.now()}`, safeError, false, RETRY_LAST_FAILED_WORKFLOW_ACTION),
+                        ];
+                    }
+
+                    return [
+                        ...withoutActiveStatus,
+                        createAIMessage(`error_${Date.now()}`, `❌ ${safeError}`)
+                    ];
+                });
                 
                 onDebugMessage?.(
                     'error',
@@ -1344,12 +1551,19 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
 
             case 'rate_limit_error': {
                 setIsConversationProcessing(false);
+                setIsThinking(false);
+                setIsGenerating(false);
                 const errorData = message.error;
                 const rateLimitMessage = handleRateLimitError(
                     errorData.details,
                     onDebugMessage
-                );
-                setMessages(prev => [...prev, rateLimitMessage]);
+	                );
+	                setMessages(prev => {
+	                    return [
+	                        ...replaceLatestBackgroundUpdateMessage(prev, BACKGROUND_UPDATE_FAILED_MESSAGE),
+	                        rateLimitMessage,
+                    ];
+                });
                 
                 break;
             }
