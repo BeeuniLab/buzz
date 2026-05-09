@@ -890,6 +890,7 @@ export class CodexGenerationManager<TState extends BaseProjectState = BaseProjec
 			'Do not commit changes. Leave the final filesystem state ready for Buzzplay to collect with git diff.',
 			'Respect the existing template, framework, and file structure. Do not edit files under .buzz, .codex, .git, .wrangler, node_modules, dist, or build.',
 			'Do not modify files listed in .donttouch_files.json if that file exists.',
+			'Uploaded user media, if any, is listed in src/asset_map. Use those asset entries directly; inspect image URLs when needed, and use descriptions for audio or video assets when present.',
 			'Prefer focused, working code over broad rewrites. Run lightweight checks only when useful.',
 			'',
 			`Workflow kind: ${request.kind}`,

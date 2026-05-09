@@ -2,7 +2,7 @@ import { Connection } from 'agents';
 import { createLogger } from '../../logger';
 import { WebSocketMessageRequests, WebSocketMessageResponses } from '../constants';
 import { WebSocketMessage, WebSocketMessageData, WebSocketMessageType } from '../../api/websocketTypes';
-import { MAX_CHAT_MEDIA_PER_MESSAGE, MAX_IMAGE_SIZE_BYTES } from '../../types/image-attachment';
+import { MAX_IMAGE_SIZE_BYTES, validateChatMediaAttachments } from '../../types/image-attachment';
 // import { credentialsToRuntimeOverrides, type CredentialsPayload } from '../inferutils/config.types';
 import type { CodeGeneratorAgent } from './codingAgent';
 
@@ -135,18 +135,14 @@ export function handleWebSocketMessage(
                     return;
                 }
                 
-                // Validate image count and size
+                // Validate attachment type, per-category count, and size.
                 if (parsedMessage.images && parsedMessage.images.length > 0) {
-                    if (parsedMessage.images.length > MAX_CHAT_MEDIA_PER_MESSAGE) {
-                        sendError(connection, `Maximum ${MAX_CHAT_MEDIA_PER_MESSAGE} attachments allowed per message. Received ${parsedMessage.images.length}.`);
+                    const attachmentError = validateChatMediaAttachments(parsedMessage.images, {
+                        maxSizeBytes: MAX_IMAGE_SIZE_BYTES,
+                    });
+                    if (attachmentError) {
+                        sendError(connection, attachmentError);
                         return;
-                    }
-                    
-                    for (const image of parsedMessage.images) {
-                        if (image.size > MAX_IMAGE_SIZE_BYTES) {
-                            sendError(connection, `Attachment "${image.filename}" exceeds maximum size of ${MAX_IMAGE_SIZE_BYTES / (1024 * 1024)}MB`);
-                            return;
-                        }
                     }
                 }
                 

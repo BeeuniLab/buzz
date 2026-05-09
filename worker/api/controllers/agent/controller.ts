@@ -20,7 +20,11 @@ import { createLogger } from '../../../logger';
 import { getPreviewDomain } from 'worker/utils/urls';
 import { uploadImageAsAgentAsset } from 'worker/utils/images';
 import { uniqueAgentAssetRelativePath } from 'worker/utils/agentAssets';
-import { ProcessedImageAttachment } from 'worker/types/image-attachment';
+import {
+    MAX_IMAGE_SIZE_BYTES,
+    ProcessedImageAttachment,
+    validateChatMediaAttachments,
+} from 'worker/types/image-attachment';
 import { hasTicketParam } from '../../../middleware/auth/ticketAuth';
 import type { CodeGenerationWorkflowParams } from '../../../agents/workflows/codeGenerationWorkflow';
 import {
@@ -91,6 +95,14 @@ export class CodingAgentController extends BaseController {
                     ),
                     413,
                 );
+            }
+            if (body.images && body.images.length > 0) {
+                const attachmentError = validateChatMediaAttachments(body.images, {
+                    maxSizeBytes: MAX_IMAGE_SIZE_BYTES,
+                });
+                if (attachmentError) {
+                    return CodingAgentController.createErrorResponse(attachmentError, 400);
+                }
             }
             // Check if user is authenticated (required for app creation)
             const user = context.user!;

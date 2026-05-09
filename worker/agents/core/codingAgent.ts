@@ -1935,6 +1935,7 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
 
         for (const att of uploaded) {
             if (!att.r2Key.startsWith(prefix)) continue;
+            if (att.mimeType.startsWith('image/')) continue;
             const rel = att.r2Key.slice(prefix.length);
             try {
                 const text = await generateAssetMediaCaption(

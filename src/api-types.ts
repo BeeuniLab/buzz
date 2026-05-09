@@ -250,7 +250,12 @@ export {
 	isSupportedChatMediaType,
 	MAX_IMAGE_SIZE_BYTES,
 	MAX_IMAGES_PER_MESSAGE,
+	MAX_AUDIO_PER_MESSAGE,
+	MAX_VIDEO_PER_MESSAGE,
 	MAX_CHAT_MEDIA_PER_MESSAGE,
+	describeChatMediaLimits,
+	getChatMediaKind,
+	validateChatMediaAttachments,
 	SUPPORTED_IMAGE_MIME_TYPES,
 	SUPPORTED_CHAT_MEDIA_MIME_TYPES,
 } from 'worker/types/image-attachment';

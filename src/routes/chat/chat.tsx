@@ -6,7 +6,7 @@ import {
 	useState,
 	type FormEvent,
 } from 'react';
-import { useParams, useSearchParams, useNavigate } from 'react-router';
+import { useParams, useSearchParams, useNavigate, useLocation } from 'react-router';
 import { AnimatePresence, motion } from 'framer-motion';
 import { LoaderCircle, MoreHorizontal, RotateCcw, MessageSquare, Eye } from 'lucide-react';
 import clsx from 'clsx';
@@ -18,6 +18,7 @@ import {
 	type BlueprintType,
 	type PhasicBlueprint,
 	SUPPORTED_CHAT_MEDIA_MIME_TYPES,
+	type ImageAttachment,
 	type ProjectType,
 	type FileType,
 	type ConversationAction,
@@ -57,24 +58,44 @@ function normalizeCanvasView(view: CanvasView): Exclude<CanvasView, 'docs' | 'ed
 	return view === 'docs' || view === 'editor' || view === 'blueprint' ? 'preview' : view;
 }
 
+function parsePendingMedia(raw: string | null): ImageAttachment[] | undefined {
+	if (!raw) return undefined;
+
+	try {
+		const parsed = JSON.parse(raw) as unknown;
+		return Array.isArray(parsed) ? parsed as ImageAttachment[] : undefined;
+	} catch (error) {
+		console.error('Failed to parse pending media:', error);
+		return undefined;
+	}
+}
+
 export default function Chat() {
 	const { chatId: urlChatId } = useParams();
 
 	const [searchParams] = useSearchParams();
+	const location = useLocation();
 	const userQuery = searchParams.get('query');
 	const urlProjectType = searchParams.get('projectType') || 'app';
+	const routeStateImages = (location.state as { images?: ImageAttachment[] } | null)?.images;
 
-	// Extract images from URL params if present
+	// Extract attachments from router state, sessionStorage, or legacy URL params.
 	const userImages = useMemo(() => {
-		const imagesParam = searchParams.get('images');
-		if (!imagesParam) return undefined;
-		try {
-			return JSON.parse(decodeURIComponent(imagesParam));
-		} catch (error) {
-			console.error('Failed to parse images from URL:', error);
-			return undefined;
+		if (routeStateImages && routeStateImages.length > 0) {
+			return routeStateImages;
 		}
-	}, [searchParams]);
+
+		const mediaKey = searchParams.get('mediaKey');
+		if (mediaKey && typeof window !== 'undefined') {
+			const pendingMedia = parsePendingMedia(window.sessionStorage.getItem(mediaKey));
+			if (pendingMedia && pendingMedia.length > 0) {
+				return pendingMedia;
+			}
+		}
+
+		const imagesParam = searchParams.get('images');
+		return parsePendingMedia(imagesParam);
+	}, [routeStateImages, searchParams]);
 
 	// Load existing app data if chatId is provided
 	const { app, loading: appLoading, refetch: refetchApp } = useApp(urlChatId);

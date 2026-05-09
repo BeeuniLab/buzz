@@ -9,6 +9,7 @@ import {
 	MAX_CHAT_MEDIA_PER_MESSAGE,
 	SUPPORTED_IMAGE_MIME_TYPES,
 	SUPPORTED_CHAT_MEDIA_MIME_TYPES,
+	validateChatMediaAttachments,
 } from '@/api-types';
 
 export type ChatUploadMode = 'images-only' | 'chat-media';
@@ -132,8 +133,32 @@ export function useImageUpload(options: UseImageUploadOptions = {}): UseImageUpl
 			setIsProcessing(true);
 
 			try {
-				if (images.length + files.length > maxCount) {
-					const errorMsg = `Maximum ${maxCount} file(s) allowed per message.`;
+				if (maxFiles && images.length + files.length > maxFiles) {
+					const errorMsg = `Maximum ${maxFiles} file(s) allowed per message.`;
+					toast.error(errorMsg);
+					onError?.(errorMsg);
+					return;
+				}
+
+				if (mode === 'chat-media') {
+					const limitError = validateChatMediaAttachments(
+						[
+							...images,
+							...files.map((file) => ({
+								filename: file.name,
+								mimeType: file.type,
+								size: file.size,
+							})),
+						],
+						{ maxSizeBytes },
+					);
+					if (limitError) {
+						toast.error(limitError);
+						onError?.(limitError);
+						return;
+					}
+				} else if (images.length + files.length > maxCount) {
+					const errorMsg = `Maximum ${maxCount} image(s) allowed per message.`;
 					toast.error(errorMsg);
 					onError?.(errorMsg);
 					return;
@@ -151,7 +176,7 @@ export function useImageUpload(options: UseImageUploadOptions = {}): UseImageUpl
 				setIsProcessing(false);
 			}
 		},
-		[images.length, maxCount, processFile, onError],
+		[images, maxCount, maxFiles, maxSizeBytes, mode, processFile, onError],
 	);
 
 	const removeImage = useCallback((id: string) => {
