@@ -22,7 +22,7 @@ export function createInitSuitableTemplateTool(
 ) {
 	return tool({
 		name: 'init_suitable_template',
-		description: 'Analyze user requirements and automatically select + import the most suitable template from library. Uses AI to match requirements against available templates. Returns selection with reasoning and imported files. For interactive projects (app/presentation/workflow) only. Call this BEFORE generate_blueprint.',
+		description: 'Select and import the default suitable template from the library using local project-type rules. Returns selection with reasoning and imported files. For interactive projects (app/presentation/workflow) only.',
 		args: {
 			query: type(z.string(), () => ({
 				files: { mode: 'write', paths: [] },
@@ -33,7 +33,7 @@ export function createInitSuitableTemplateTool(
 				const projectType = agent.getProjectType();
 				const operationOptions = agent.getOperationOptions();
 
-				logger.info('Analyzing template suitability and importing', {
+				logger.info('Selecting template and importing', {
 					projectType,
 					queryLength: query.length
 				});
