@@ -187,6 +187,10 @@ export function PhaseTimeline({
 	isThinking = false
 }: PhaseTimelineProps) {
 	const lastPhaseRef = useRef<HTMLDivElement>(null);
+	const hasStepProgress = phaseTimeline.length > 0 || total > 1;
+	const codeStage = projectStages.find(stage => stage.id === 'code');
+	const showFileSummary = phaseTimeline.length === 0 && files.length > 0 && codeStage?.status !== 'pending';
+	const isCreatingPlayable = codeStage?.status === 'active' || isGenerating || isThinking || isPreviewDeploying || files.some(f => f.isGenerating);
 
 	// Auto-scroll to bottom when new phases are added or thinking indicator appears
 	useEffect(() => {
@@ -227,7 +231,7 @@ export function PhaseTimeline({
 								</span>
 
 									{/* Progress for code stage */}
-									{stage.id === 'code' && stage.status !== 'pending' && (
+									{stage.id === 'code' && stage.status !== 'pending' && hasStepProgress && (
 										<motion.div
 											initial={{ x: -120 }}
 											animate={{ x: 0 }}
@@ -330,17 +334,19 @@ export function PhaseTimeline({
 											<div className="relative z-10" ref={lastPhaseRef}>
 												<ThinkingIndicator visible={isThinkingNext} />
 											</div>
-										)}
+											)}
 
-										{/* File count summary for agentic mode (no phase timeline) */}
-										{phaseTimeline.length === 0 && files.length > 0 && (
-											<div className="text-xs text-text-tertiary px-2 py-1">
-												{files.filter(f => f.isGenerating).length > 0
-													? 'Creating your playable...'
-													: 'Playable content created'
-												}
-											</div>
-										)}
+											{/* File count summary for agentic mode (no phase timeline) */}
+											{showFileSummary && (
+												<div className="text-xs text-text-tertiary px-2 py-1">
+													{codeStage?.status === 'error'
+														? 'Playable version was not completed'
+														: isCreatingPlayable
+															? 'Creating your playable...'
+															: 'Playable content created'
+													}
+												</div>
+											)}
 									</div>
 								)}
 

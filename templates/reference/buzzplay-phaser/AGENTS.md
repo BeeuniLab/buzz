@@ -17,13 +17,17 @@
 - Reference the Phaser API before using unfamiliar classes, methods, config fields, physics APIs, or plugin APIs: https://docs.phaser.io/api-documentation/api-documentation
 - Use the local `skills/` directory as the first reference for Phaser 4 subsystems. Read the relevant `skills/<topic>/SKILL.md` before implementing unfamiliar scene, input, loader, physics, animation, particle, camera, tween, scale, text, audio, or migration behavior.
 - For v3-style examples or older snippets, check `skills/v3-to-v4-migration/SKILL.md` before copying APIs into this project.
+- This Vite/ESM template does not expose a browser global `Phaser`. Type-only `Phaser.*` annotations may compile, but any runtime use of `Phaser.*` must be backed by an import. Prefer named imports such as `import { Math as PhaserMath, Utils } from 'phaser'` and call `PhaserMath.Vector2` or `Utils.Array.GetRandom`. If a `skills/` example uses `Phaser.*`, translate it to explicit imports before using it in source files.
 - Put game behavior in Phaser scenes under `src/game/scenes/`. Keep React as a fullscreen host in `src/App.tsx`.
 - Use scene lifecycle methods intentionally: `preload`, `create`, `update`, and scene transitions such as `this.scene.start("Game")`.
 - Prefer Phaser systems for gameplay: `this.add`, `this.physics.add`, `this.input`, `this.tweens`, `this.time`, `this.cameras`, `this.scale`, and `this.sound`.
+- For dynamic grid/tile visuals, prefer a `Graphics` layer that is cleared and redrawn each frame or create shapes at their final size. Avoid repeatedly calling `setSize()` on cached `Rectangle`/`Shape` game objects during layout or update; in Phaser 4.1 this mutates internal geometry and can fail if the shape has been recycled or destroyed. Use `setDisplaySize()` for visual scaling, or destroy and recreate shape objects when the cell size changes.
+- Phaser 4 removed or changed several common Phaser 3 patterns: do not use `setTintFill()`; use `setTint(color).setTintMode(TintModes.FILL)` with an explicit `TintModes` import. `this.add.particles(...)` returns a `ParticleEmitter` directly; do not use old `createEmitter()` manager-style snippets.
 - Keep TypeScript strict-safe. Avoid `any`, type game state, guard optional objects, and let `tsc --noEmit` reveal invalid Phaser API usage.
 - Use Arcade Physics for simple movement/collision games unless another physics mode is already configured and necessary.
 - Do not invent Phaser APIs. If uncertain, use APIs already present in the template or verify the official docs.
 - Clean up timers/listeners/tweens when changing scenes if they are not scene-scoped.
+- Do not bypass Phaser with direct DOM layout, raw canvas drawing, or global `window` listeners for gameplay. Use `this.scale`, scene input, cameras, and scene events so the game survives iframe resize, scene restart, and React remounts.
 
 ## Gameplay
 
@@ -65,8 +69,10 @@
 - Treat asset_map keys such as `images/name.png` as lookup keys, not guaranteed local filesystem paths.
 - Use helpers from `src/playable-assets.ts` to find images/audio/video.
 - For image assets, load URLs in a scene `preload()` with `this.load.image("key", asset.url)`.
+- Do not assume a texture key exists just because a file exists in `public/assets` or `src/asset_map`. Load it before creating sprites/images, and keep a simple shape fallback for optional media.
 - Static bundled files live in `public/assets` and are referenced as `assets/name.png`.
 - Always provide a shape/color fallback when an asset is missing or fails to load.
+- Browsers lock WebAudio until a user gesture. Do not autoplay required sounds on scene start; start or resume important audio from tap/key input, and keep gameplay understandable when audio is unavailable.
 
 ## Game Recipe Hints
 

@@ -654,8 +654,8 @@ export function useChat({
 						updateStage('bootstrap', { status: 'completed' });
 						if (result.workflowStarted) {
 							setIsGeneratingBlueprint(false);
-							updateStage('blueprint', { status: 'completed' });
-							updateStage('code', { status: 'active' });
+							updateStage('blueprint', { status: 'active' });
+							updateStage('code', { status: 'pending' });
 						} else {
 							setIsGeneratingBlueprint(true);
 							updateStage('blueprint', { status: 'active' });

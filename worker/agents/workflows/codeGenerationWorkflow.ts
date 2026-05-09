@@ -50,6 +50,7 @@ const NON_RETRYABLE_ERROR_PATTERNS = [
 	'background agent encountered an issue',
 	'background generator requires',
 	'background session persistence is missing',
+	'could not finish creating the playable version',
 	'sandbox service does not support background generator environment injection',
 	'invalid api key',
 	'incorrect api key',
@@ -271,7 +272,7 @@ export class CodeGenerationWorkflow extends WorkflowEntrypoint<Env, CodeGenerati
 					params,
 					event.instanceId,
 					'running',
-					'Generating project files',
+					'Preparing the workspace',
 				);
 				const agent = await getAgentStub(this.env, params.agentId, {
 					projectType: selected.projectType,

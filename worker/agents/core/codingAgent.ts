@@ -1283,17 +1283,10 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
                 workflowId,
                 kind,
                 status: 'running',
-                message: `Workflow ${kind} is running in the background`,
+                message: 'Preparing the workspace',
             });
         }
         await this.updateAppStatus('generating', `workflow_${kind}_generation_started`);
-        this.broadcast(WebSocketMessageResponses.GENERATION_STARTED, {
-            message: kind === 'user_input'
-                ? 'Updating the playable project'
-                : 'Creating the playable project',
-            totalFiles: 1,
-            workflowKind: kind,
-        });
 
         const responseConversationId = this.workflowConversationId(effectiveWorkflowId, 'complete');
         const result = await this.codexGenerationManager.run({
@@ -1302,8 +1295,43 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
             query,
             recoveryWorkflowId: options.recoveryWorkflowId,
             uploadedAssets: options.uploadedAssets,
+            onExecutionStarted: async () => {
+                await this.updateWorkflowStatus({
+                    workflowId: effectiveWorkflowId,
+                    kind,
+                    status: 'running',
+                    message: 'Making it playable',
+                });
+                this.broadcast(WebSocketMessageResponses.GENERATION_STARTED, {
+                    message: kind === 'user_input'
+                        ? 'Updating the playable project'
+                        : 'Creating the playable project',
+                    totalFiles: 1,
+                    workflowKind: kind,
+                });
+            },
         });
-        const assistantMessage = this.buildGenerationCompleteMessage(kind, result.changedFiles.length);
+        if (!result.madeChanges && kind === 'create_project') {
+            const errorMessage = result.noChangeReason
+                ? `The project agent could not finish creating the playable version this time. ${result.noChangeReason}`
+                : 'The project agent could not finish creating the playable version this time. No project changes were applied.';
+            this.logger().warn('Create project workflow completed with no project changes', {
+                workflowId: effectiveWorkflowId,
+                kind,
+                noChangeReason: result.noChangeReason,
+            });
+            if (!this.getWorkflowBinding()) {
+                await this.updateWorkflowStatus({
+                    workflowId: effectiveWorkflowId,
+                    kind,
+                    status: 'failed',
+                    message: errorMessage,
+                });
+            }
+            throw new Error(errorMessage);
+        }
+        const totalChangedFiles = result.changedFiles.length + result.deletedFiles.length;
+        const assistantMessage = this.buildGenerationCompleteMessage(kind, totalChangedFiles);
 
         this.setState({
             ...this.state,
@@ -1341,7 +1369,7 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
         }
         if (result.madeChanges) {
             this.broadcast(WebSocketMessageResponses.GENERATION_COMPLETE, {
-                message: `Project update completed with ${result.changedFiles.length} changed files.`,
+                message: `Project update completed with ${totalChangedFiles} changed files.`,
                 instanceId: this.state.sessionId,
                 previewURL: result.preview?.previewURL,
             });
@@ -2567,14 +2595,14 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
         if (changedCount > 0) {
             return 'Done, I updated the playable project.';
         }
-        return 'I finished checking the request, but there were no project file changes.';
+        return 'I checked the project and did not make any project changes this time.';
     }
 
     private buildGenerationFailureMessage(errorMessage: string | undefined): string {
         if (errorMessage?.startsWith('The project agent ')) {
             return errorMessage;
         }
-        return 'The project agent ran into a problem. Please try again in a moment.';
+        return 'The project agent ran into a problem before finishing.';
     }
 
     private recordWorkflowAssistantMessage(

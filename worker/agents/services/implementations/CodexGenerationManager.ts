@@ -22,6 +22,7 @@ const CHANGED_FILES_PATH = `${CODEX_WORK_DIR}/changed-files.txt`;
 const DELETED_FILES_PATH = `${CODEX_WORK_DIR}/deleted-files.txt`;
 const PROMPT_PATH = `${CODEX_WORK_DIR}/prompt.md`;
 const OUTPUT_PATH = `${CODEX_WORK_DIR}/output.jsonl`;
+const CODEX_EXTERNAL_SANDBOX_FLAG = '--dangerously-bypass-approvals-and-sandbox';
 
 type CodexEnv = {
 	OPENAI_API_KEY: string;
@@ -69,6 +70,7 @@ export interface CodexGenerationRequest {
 	uploadedAssets?: ProcessedImageAttachment[];
 	model?: string;
 	timeoutMs?: number;
+	onExecutionStarted?: () => void | Promise<void>;
 }
 
 export interface CodexGenerationResult {
@@ -76,6 +78,7 @@ export interface CodexGenerationResult {
 	deletedFiles: string[];
 	preview: PreviewType | null;
 	madeChanges: boolean;
+	noChangeReason?: string;
 }
 
 type CodexRecoverySnapshot = {
@@ -343,6 +346,19 @@ function summarizeCodexFailure(output: string, fallback: string): string {
 	return concise.length > 1000 ? `${concise.slice(0, 1000)}...` : concise;
 }
 
+function summarizeCodexNoChangeReason(output: string): string | undefined {
+	const normalized = output.toLowerCase();
+	if (
+		normalized.includes('bwrap:')
+		|| normalized.includes('no permissions to create a new namespace')
+		|| normalized.includes('fs sandbox helper failed')
+	) {
+		return 'Its internal command sandbox could not start inside the app container, so it could not inspect or edit project files.';
+	}
+
+	return undefined;
+}
+
 const RETRYABLE_HTTP_STATUS_CODES = new Set([408, 409, 425, 429, 500, 502, 503, 504]);
 const NON_RETRYABLE_HTTP_STATUS_CODES = new Set([400, 401, 403, 404, 422]);
 
@@ -396,7 +412,7 @@ function isRetryableCodexFailure(error: unknown): boolean {
 }
 
 function genericAgentFailureMessage(): string {
-	return 'Background agent encountered an issue. Please try again later.';
+	return 'Background agent encountered an issue before finishing.';
 }
 
 export class CodexGenerationManager<TState extends BaseProjectState = BaseProjectState> extends BaseAgentService<TState> {
@@ -449,6 +465,7 @@ export class CodexGenerationManager<TState extends BaseProjectState = BaseProjec
 		await this.prepareCodexHome(client, instanceId, runtimePlan.primary);
 		await this.writePrompt(client, instanceId, this.buildPrompt(request));
 
+		await request.onExecutionStarted?.();
 		await this.runCodexExecWithFailover(client, instanceId, request, runtimePlan);
 		const changedPaths = await this.collectChangedPaths(client, instanceId);
 		const deletedPaths = await this.collectDeletedPaths(client, instanceId);
@@ -469,26 +486,36 @@ export class CodexGenerationManager<TState extends BaseProjectState = BaseProjec
 		}
 
 		const changedFiles = await this.readChangedFiles(client, instanceId, changedPaths);
-		await this.persistRecoverySnapshot(request, changedFiles, deletedPaths);
-		return this.applyGeneratedChanges(changedFiles, deletedPaths, deployedPreview);
+		const noChangeReason = madeChanges
+			? undefined
+			: summarizeCodexNoChangeReason(await this.readOptionalFile(client, instanceId, OUTPUT_PATH));
+		if (madeChanges) {
+			await this.persistRecoverySnapshot(request, changedFiles, deletedPaths);
+		}
+		return this.applyGeneratedChanges(changedFiles, deletedPaths, deployedPreview, noChangeReason);
 	}
 
 	private async applyGeneratedChanges(
 		changedFiles: FileOutputType[],
 		deletedPaths: string[],
 		deployedPreview: PreviewType | null,
+		noChangeReason?: string,
 	): Promise<CodexGenerationResult> {
 		if (changedFiles.length > 0) {
 			await this.fileManager.saveGeneratedFiles(
 				changedFiles,
 				'feat: apply Codex generated changes',
 			);
-			deployedPreview = await this.deploymentManager.deployToSandbox(
+			const nextPreview = await this.deploymentManager.deployToSandbox(
 				changedFiles,
 				false,
 				'feat: apply Codex generated changes',
 				false,
-			) ?? deployedPreview;
+			);
+			if (!nextPreview) {
+				throw new Error('The project agent updated the project but could not deploy the playable version this time.');
+			}
+			deployedPreview = nextPreview;
 		}
 
 		if (deletedPaths.length > 0) {
@@ -500,6 +527,7 @@ export class CodexGenerationManager<TState extends BaseProjectState = BaseProjec
 			deletedFiles: deletedPaths,
 			preview: deployedPreview,
 			madeChanges: changedFiles.length > 0 || deletedPaths.length > 0,
+			...(noChangeReason ? { noChangeReason } : {}),
 		};
 	}
 
@@ -553,6 +581,15 @@ export class CodexGenerationManager<TState extends BaseProjectState = BaseProjec
 					this.getLog().warn('Ignoring invalid background generator recovery snapshot', {
 						workflowId: request.workflowId,
 						recoveryWorkflowId: request.recoveryWorkflowId,
+						key,
+					});
+					continue;
+				}
+				if (!parsed.madeChanges) {
+					this.getLog().info('Ignoring empty background generator recovery snapshot', {
+						workflowId: request.workflowId,
+						recoveryWorkflowId: request.recoveryWorkflowId,
+						snapshotWorkflowId: parsed.workflowId,
 						key,
 					});
 					continue;
@@ -809,8 +846,8 @@ export class CodexGenerationManager<TState extends BaseProjectState = BaseProjec
 		const sessionsPath = `${runtime.codexHome}/sessions`;
 		const codexHomePrefix = `CODEX_HOME=${shellQuote(runtime.codexHome)}`;
 		const hasSessionFiles = `find ${shellQuote(sessionsPath)} -type f -name '*.jsonl' -print -quit | grep -q .`;
-		const resumeCommand = `${codexHomePrefix} codex exec resume --last --all --json --skip-git-repo-check${modelArg} - < ${shellQuote(PROMPT_PATH)}`;
-		const newCommand = `${codexHomePrefix} codex exec --json --sandbox workspace-write --skip-git-repo-check${modelArg} - < ${shellQuote(PROMPT_PATH)}`;
+		const resumeCommand = `${codexHomePrefix} codex exec resume --last --all --json ${CODEX_EXTERNAL_SANDBOX_FLAG} --skip-git-repo-check${modelArg} - < ${shellQuote(PROMPT_PATH)}`;
+		const newCommand = `${codexHomePrefix} codex exec --json ${CODEX_EXTERNAL_SANDBOX_FLAG} --skip-git-repo-check${modelArg} - < ${shellQuote(PROMPT_PATH)}`;
 		const command = [
 			`mkdir -p ${shellQuote(CODEX_WORK_DIR)}`,
 			`if ${hasSessionFiles}; then ${resumeCommand}; else ${newCommand}; fi > ${shellQuote(OUTPUT_PATH)} 2>&1`,
