@@ -1,5 +1,5 @@
 import { type FormEvent, type RefObject } from 'react';
-import { SendHorizontal, X } from 'lucide-react';
+import { CircleStop, SendHorizontal } from 'lucide-react';
 import { ImageAttachmentPreview } from '@/components/image-attachment-preview';
 import { AttachmentPickerDropdown } from '@/components/attachment-picker-dropdown';
 import { type ImageAttachment } from '@/api-types';
@@ -106,17 +106,17 @@ export function ChatInput({
 		<form
 			ref={chatFormRef}
 			onSubmit={onSubmit}
-			className="shrink-0 p-4 pb-1 md:pb-5 bg-transparent"
+			className="shrink-0 px-4 pb-1 pt-3 md:pb-5 bg-transparent"
 			{...chatDragHandlers}
 		>
-			<div className="relative">
+			<div className="relative rounded-[22px] border border-text-primary/10 bg-bg-2/95 shadow-[0_16px_40px_rgba(0,0,0,0.08)] transition-colors focus-within:border-text-primary/25">
 				{isChatDragging && (
-					<div className="absolute inset-0 flex items-center justify-center bg-accent/10 backdrop-blur-sm rounded-xl z-50 pointer-events-none">
+					<div className="absolute inset-0 flex items-center justify-center bg-accent/10 backdrop-blur-sm rounded-[22px] z-50 pointer-events-none">
 						<p className="text-accent font-medium">Drop images, audio, or video here</p>
 					</div>
 				)}
 				{images.length > 0 && (
-					<div className="mb-2">
+					<div className="px-3 pt-3">
 						<ImageAttachmentPreview
 							images={images}
 							onRemove={onRemoveImage}
@@ -130,13 +130,13 @@ export function ChatInput({
 						handleTextChange(e.target.value);
 						const ta = e.currentTarget;
 						ta.style.height = 'auto';
-						ta.style.height = Math.min(ta.scrollHeight, 120) + 'px';
+						ta.style.height = Math.min(ta.scrollHeight, 144) + 'px';
 					}}
 					onKeyDown={handleKeyDown}
 					disabled={isChatDisabled}
 					placeholder={placeholder}
 					rows={2}
-					className="w-full bg-bg-2 border border-text-primary/10 rounded-xl px-3 pr-20 py-2 text-sm outline-none focus:border-white/20 drop-shadow-2xl text-text-primary placeholder:text-text-primary/50! disabled:opacity-50 disabled:cursor-not-allowed resize-none overflow-y-auto no-scrollbar min-h-[80px] md:min-h-[36px] max-h-[120px]"
+					className="w-full bg-transparent border-0 rounded-[22px] px-4 pb-4 pt-4 pr-[7.25rem] text-sm leading-6 outline-none text-text-primary placeholder:text-text-tertiary disabled:opacity-100 disabled:cursor-not-allowed resize-none overflow-y-auto no-scrollbar min-h-[72px] md:min-h-[64px] max-h-[144px]"
 					style={{
 						height: 'auto',
 						minHeight: undefined
@@ -145,20 +145,20 @@ export function ChatInput({
 						if (textarea) {
 							// Auto-resize textarea based on content
 							textarea.style.height = 'auto';
-							textarea.style.height = Math.min(textarea.scrollHeight, 120) + 'px';
+							textarea.style.height = Math.min(textarea.scrollHeight, 144) + 'px';
 						}
 					}}
 				/>
-				<div className="absolute right-1.5 bottom-2.5 flex items-center gap-1">
+				<div className="absolute right-3 bottom-3 flex items-center gap-1.5">
 					{canStopCurrentTask && (
 						<button
 							type="button"
 							onClick={handleStopGeneration}
-							className="p-1.5 rounded-md hover:bg-red-500/10 text-text-tertiary hover:text-red-500 transition-all duration-200 group relative"
+							className="group relative grid size-8 place-items-center rounded-full text-red-500 transition-all duration-200 hover:bg-red-500/10"
 							aria-label="Stop generation"
 							title="Stop generation"
 						>
-							<X className="size-4" strokeWidth={2} />
+							<CircleStop className="size-5" strokeWidth={2.1} />
 							<span className="absolute -top-8 right-0 px-2 py-1 bg-bg-1 border border-border-primary rounded text-xs text-text-secondary whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
 								Stop
 							</span>
@@ -170,15 +170,17 @@ export function ChatInput({
 						}}
 						disabled={attachDisabled}
 						inputsDisabled={isChatDisabled}
+						showChevron={false}
+						triggerClassName="grid size-8 place-items-center rounded-full text-text-secondary transition-colors hover:bg-bg-3 hover:text-text-primary disabled:cursor-not-allowed disabled:opacity-45"
 					/>
 					<button
 						type="submit"
 						disabled={(!newMessage.trim() && images.length === 0) || isChatDisabled}
-						className="group/send grid size-7 place-items-center rounded-md border border-text-primary bg-accent text-text-primary shadow-neo-sm transition-all duration-200 hover:-translate-y-0.5 hover:bg-neo-yellow hover:shadow-neo disabled:translate-y-0 disabled:cursor-not-allowed disabled:border-text-primary/10 disabled:bg-bg-3/70 disabled:text-text-primary/30 disabled:shadow-none"
+						className="group/send grid size-8 place-items-center rounded-full border border-text-primary bg-accent text-text-primary shadow-neo-sm transition-all duration-200 hover:-translate-y-0.5 hover:bg-neo-yellow hover:shadow-neo disabled:translate-y-0 disabled:cursor-not-allowed disabled:border-text-primary/10 disabled:bg-bg-3/70 disabled:text-text-primary/30 disabled:shadow-none"
 						aria-label="Send message"
 						title="Send message"
 					>
-						<SendHorizontal className="size-3.5 transition-transform duration-200 group-hover/send:translate-x-0.5" strokeWidth={2.4} />
+						<SendHorizontal className="size-4 transition-transform duration-200 group-hover/send:translate-x-0.5" strokeWidth={2.4} />
 					</button>
 				</div>
 			</div>

@@ -24,14 +24,14 @@ export function ConfirmDeleteDialog({
   open,
   onOpenChange,
   onConfirm,
-  title = "Delete App",
+  title = "Delete app?",
   description,
   isLoading = false,
   appTitle
 }: ConfirmDeleteDialogProps) {
   const defaultDescription = appTitle 
-    ? `Are you sure you want to delete "${appTitle}"? This action cannot be undone and all associated data will be permanently removed.`
-    : 'Are you sure you want to delete this app? This action cannot be undone and all associated data will be permanently removed.';
+    ? `"${appTitle}" will be permanently removed.`
+    : 'This app will be permanently removed.';
 
   const handleConfirm = async (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -73,7 +73,7 @@ export function ConfirmDeleteDialog({
             ) : (
               <>
                 <Trash2 className="h-4 w-4 mr-2" />
-                Delete App
+                Delete
               </>
             )}
           </AlertDialogAction>

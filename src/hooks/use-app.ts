@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { apiClient } from '@/lib/api-client';
 import type { AppDetailsData } from '@/api-types';
+import { appEvents, type AppEvent } from '@/lib/app-events';
 
 export function useApp(appId: string | undefined) {
   // Always declare hooks in the same order to satisfy React Rules of Hooks
@@ -34,6 +35,15 @@ export function useApp(appId: string | undefined) {
   useEffect(() => {
     void fetchApp();
   }, [fetchApp]);
+
+  useEffect(() => {
+    if (!appId || appId === 'new') return;
+
+    return appEvents.on('app-updated', (event: AppEvent) => {
+      if (event.type !== 'app-updated' || event.appId !== appId || !event.data) return;
+      setApp(prev => prev ? { ...prev, ...event.data } : prev);
+    });
+  }, [appId]);
 
   return { app, loading, error, refetch: fetchApp };
 }

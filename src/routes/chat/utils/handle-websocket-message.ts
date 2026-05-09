@@ -540,6 +540,13 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
                 }));
                 break;
             }
+            case 'app_title_updated': {
+                const appId = message.agentId || deps.urlChatId;
+                if (appId && appId !== 'new') {
+                    appEvents.emitAppUpdated(appId, { title: message.title });
+                }
+                break;
+            }
             case 'agent_connected': {
                 const { state, templateDetails, previewUrl } = message;
                 if (!isInitialStateRestored) {

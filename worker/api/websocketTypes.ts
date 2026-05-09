@@ -293,6 +293,12 @@ type ProjectNameUpdatedMessage = {
 	projectName: string;
 };
 
+type AppTitleUpdatedMessage = {
+	type: 'app_title_updated';
+	agentId: string;
+	title: string;
+};
+
 type BlueprintUpdatedMessage = {
 	type: 'blueprint_updated';
 	message: string;
@@ -543,6 +549,7 @@ export type WebSocketMessage =
 	| ConversationResponseMessage
 	| ConversationClearedMessage
     | ProjectNameUpdatedMessage
+	| AppTitleUpdatedMessage
     | BlueprintUpdatedMessage
     | BlueprintChunkMessage
     | DeterministicCodeFixStartedMessage

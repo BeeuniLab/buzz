@@ -660,7 +660,7 @@ export default function Chat() {
 			|| Boolean(hasStablePlayable || cloudflareDeploymentUrl || app?.cloudflareUrl);
 
 		return isExistingPlayable
-			? 'Estimated update time: 2-4 min.'
+			? 'Estimated update time: 4-8 min.'
 			: 'Estimated run time: 6-12 min.';
 	}, [app?.cloudflareUrl, cloudflareDeploymentUrl, hasStablePlayable, messages]);
 
@@ -833,9 +833,9 @@ export default function Chat() {
 								<div className="mb-4 rounded-xl border border-orange-300/30 bg-orange-500/10 px-3 py-3 text-sm text-text-primary">
 									<div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
 											<div>
-												<div className="font-medium">Build is paused</div>
+												<div className="font-medium">Build paused</div>
 												<div className="text-xs text-text-tertiary">
-													This project is not running right now. Resume generation from the saved project state when you're ready.
+													Resume when you're ready.
 												</div>
 											</div>
 										<Button
@@ -843,7 +843,7 @@ export default function Chat() {
 											onClick={handleResumeGeneration}
 											className="h-8 shrink-0 bg-accent text-text-primary hover:bg-neo-yellow"
 										>
-											Resume build
+											Resume
 										</Button>
 									</div>
 								</div>
