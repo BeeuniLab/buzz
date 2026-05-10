@@ -60,20 +60,10 @@ export function handleWebSocketMessage(
             case WebSocketMessageRequests.STOP_GENERATION: {
                 logger.info('User requested to stop generation');
                 
-                Promise.all([
-                    agent.stopActiveWorkflow(),
-                    agent.stopCurrentTask(),
-                ])
-                    .then(([workflowTerminated, wasCancelled]) => {
-                        // Clear shouldBeGenerating after state updates so the stopped marker is preserved.
-                        agent.setState({
-                            ...agent.state,
-                            shouldBeGenerating: false,
-                            activeWorkflow: undefined,
-                        });
-
+                agent.stopGenerationFromUser()
+                    .then(({ workflowTerminated, taskStopped }) => {
                         sendToConnection(connection, WebSocketMessageResponses.GENERATION_STOPPED, {
-                            message: workflowTerminated || wasCancelled
+                            message: workflowTerminated || taskStopped
                                 ? 'Task stopped successfully'
                                 : 'No active task to cancel'
                         });

@@ -1329,6 +1329,77 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
         return terminated;
     }
 
+    async stopGenerationFromUser(reason = 'user_stopped_generation'): Promise<{ workflowTerminated: boolean; taskStopped: boolean }> {
+        const activeWorkflow = this.state.activeWorkflow;
+        const hadActiveTask = Boolean(
+            this.state.activeAppTask ||
+            activeWorkflow ||
+            this.state.shouldBeGenerating,
+        );
+        const stoppedAt = Date.now();
+
+        this.setState({
+            ...this.state,
+            activeAppTask: undefined,
+            activeWorkflow: undefined,
+            shouldBeGenerating: false,
+            lastUserStopAt: stoppedAt,
+        } as AgentState);
+
+        if (activeWorkflow?.id) {
+            await this.releaseUserTaskSlot(activeWorkflow.id);
+        }
+        if (!this.state.sandboxInstanceId) {
+            await this.releaseGlobalSandboxCapacity();
+        }
+        await this.updateAppStatus('completed', reason);
+
+        let workflowTerminated = false;
+        let status: string | undefined;
+        const workflow = this.getWorkflowBinding();
+        if (activeWorkflow?.id && workflow) {
+            try {
+                const instance = await workflow.get(activeWorkflow.id);
+                try {
+                    status = (await instance.status()).status;
+                } catch (statusError) {
+                    this.logger().warn('Unable to fetch workflow status before terminate', {
+                        workflowId: activeWorkflow.id,
+                        error: statusError instanceof Error ? statusError.message : String(statusError),
+                    });
+                }
+
+                if (!isWorkflowTerminalStatus(status)) {
+                    await instance.terminate();
+                    workflowTerminated = true;
+                }
+            } catch (error) {
+                this.logger().warn('Failed to terminate active workflow after stop intent was recorded', {
+                    reason,
+                    workflowId: activeWorkflow.id,
+                    kind: activeWorkflow.kind,
+                    error: error instanceof Error ? error.message : String(error),
+                });
+            }
+        } else if (activeWorkflow?.id && !workflow) {
+            this.logger().warn('Workflow binding missing while stopping generation', {
+                reason,
+                activeWorkflow,
+            });
+        }
+
+        this.logger().info('User stop generation handled', {
+            reason,
+            workflowId: activeWorkflow?.id,
+            kind: activeWorkflow?.kind,
+            previousStatus: status,
+            workflowTerminated,
+            taskStopped: hadActiveTask,
+        });
+
+        return { workflowTerminated, taskStopped: hadActiveTask };
+    }
+
     async deleteProject(reason = 'app_deleted'): Promise<{ workflowTerminated: boolean; taskStopped: boolean }> {
         const [workflowResult, taskResult] = await Promise.allSettled([
             this.stopActiveWorkflow(reason),
