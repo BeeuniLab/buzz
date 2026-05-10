@@ -184,6 +184,7 @@ export const apps = sqliteTable('apps', {
     // App Metadata
     isArchived: integer('is_archived', { mode: 'boolean' }).default(false),
     isFeatured: integer('is_featured', { mode: 'boolean' }).default(false), // Featured by admins
+    hiddenFromBrowse: integer('hidden_from_browse', { mode: 'boolean' }).default(false), // Hide from default feed/discover while keeping search visibility
     
     // Versioning (for future support)
     version: integer('version').default(1),
@@ -207,6 +208,7 @@ export const apps = sqliteTable('apps', {
     searchIdx: index('apps_search_idx').on(table.title, table.description),
     frameworkStatusIdx: index('apps_framework_status_idx').on(table.framework, table.status),
     visibilityStatusIdx: index('apps_visibility_status_idx').on(table.visibility, table.status),
+    hiddenFromBrowseIdx: index('apps_hidden_from_browse_idx').on(table.hiddenFromBrowse),
     createdAtIdx: index('apps_created_at_idx').on(table.createdAt),
     updatedAtIdx: index('apps_updated_at_idx').on(table.updatedAt),
 }));

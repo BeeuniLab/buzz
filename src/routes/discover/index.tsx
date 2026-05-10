@@ -12,14 +12,6 @@ import type { AppWithUserAndStats } from '@/api-types';
 
 const CATEGORIES = [
 	'All',
-	'Action',
-	'Puzzle',
-	'Strategy',
-	'RPG',
-	'Simulation',
-	'Sports',
-	'Creative',
-	'Education',
 ];
 
 export default function DiscoverPage() {
@@ -77,6 +69,7 @@ export default function DiscoverPage() {
 		defaultSort: 'recent',
 		defaultPeriod: 'all',
 		limit: 20,
+		includeHiddenFromBrowse: manualSearchQuery.trim().length > 0,
 	});
 
 	const handleCategoryChange = (cat: string) => {

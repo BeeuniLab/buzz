@@ -150,6 +150,7 @@ interface PublicAppsParams extends PaginationParams {
 	authorId?: string;
 	seed?: number;
 	excludeIds?: string[];
+	includeHiddenFromBrowse?: boolean;
 }
 
 /**
@@ -514,6 +515,7 @@ class ApiClient {
 		if (params?.authorId) queryParams.set('authorId', params.authorId);
 		if (params?.seed) queryParams.set('seed', params.seed.toString());
 		if (params?.excludeIds && params.excludeIds.length > 0) queryParams.set('excludeIds', params.excludeIds.join(','));
+		if (params?.includeHiddenFromBrowse) queryParams.set('includeHiddenFromBrowse', 'true');
 
 		const endpoint = `/api/apps/public${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
 		return this.request<PublicAppsData>(endpoint);

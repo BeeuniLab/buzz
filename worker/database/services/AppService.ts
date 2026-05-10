@@ -123,11 +123,18 @@ export class AppService extends BaseService {
             userId,
             authorId,
             seed,
-            excludeIds
+            excludeIds,
+            includeHiddenFromBrowse = false
         } = options;
 
         try {
-            const whereConditions = this.buildPublicAppConditions(framework, search, authorId, excludeIds);
+            const whereConditions = this.buildPublicAppConditions(
+                framework,
+                search,
+                authorId,
+                excludeIds,
+                includeHiddenFromBrowse
+            );
             const whereClause = this.buildWhereConditions(whereConditions);
             const readDb = this.getReadDb('fast');
             
@@ -282,7 +289,8 @@ export class AppService extends BaseService {
         framework?: string,
         search?: string,
         authorId?: string,
-        excludeIds?: string[]
+        excludeIds?: string[],
+        includeHiddenFromBrowse = false
     ): WhereCondition[] {
         const whereConditions: WhereCondition[] = [
             // Only show public apps or apps from anonymous users
@@ -298,6 +306,13 @@ export class AppService extends BaseService {
             ...this.buildCommonAppFilters(framework),
             this.buildPublicSearchFilter(search),
         ];
+
+        if (!includeHiddenFromBrowse && !authorId) {
+            whereConditions.push(or(
+                eq(schema.apps.hiddenFromBrowse, false),
+                isNull(schema.apps.hiddenFromBrowse)
+            ));
+        }
 
         if (authorId) {
             whereConditions.push(eq(schema.apps.userId, authorId));

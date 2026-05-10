@@ -13,6 +13,7 @@ interface UsePaginatedAppsOptions {
   defaultFramework?: string;
   defaultVisibility?: string;
   includeVisibility?: boolean;
+  includeHiddenFromBrowse?: boolean;
   limit?: number;
   autoFetch?: boolean;
 }
@@ -115,6 +116,7 @@ export function usePaginatedApps(options: UsePaginatedAppsOptions): UsePaginated
         framework: filters.filterFramework === 'all' ? undefined : filters.filterFramework,
         search: filters.searchQuery || undefined,
         visibility: (options.includeVisibility && filters.filterVisibility !== 'all') ? filters.filterVisibility : undefined,
+        includeHiddenFromBrowse: options.includeHiddenFromBrowse || undefined,
       };
 
       const cleanParams = Object.fromEntries(
@@ -157,7 +159,7 @@ export function usePaginatedApps(options: UsePaginatedAppsOptions): UsePaginated
       setLoading(false);
       setLoadingMore(false);
     }
-  }, [options.type, options.includeVisibility, limit]);
+  }, [options.type, options.includeVisibility, options.includeHiddenFromBrowse, limit]);
 
   // Wrapper that uses current state
   const fetchApps = useCallback(async (append = false, targetPage?: number) => {

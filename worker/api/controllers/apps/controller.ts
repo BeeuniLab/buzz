@@ -189,6 +189,7 @@ export class AppController extends BaseController {
             const seed = seedParam ? parseInt(seedParam, 10) : undefined;
             const excludeParam = url.searchParams.get('excludeIds');
             const excludeIds = excludeParam ? excludeParam.split(',').filter(Boolean) : undefined;
+            const includeHiddenFromBrowse = url.searchParams.get('includeHiddenFromBrowse') === 'true' && Boolean(search?.trim());
 
             const user = await AppController.getOptionalUser(request, env);
             const userId = user?.id;
@@ -207,7 +208,8 @@ export class AppController extends BaseController {
                 userId,
                 authorId,
                 seed,
-                excludeIds
+                excludeIds,
+                includeHiddenFromBrowse
             });
 
             const playableApps = (await Promise.all(result.data.map(async app => {

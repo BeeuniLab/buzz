@@ -74,6 +74,7 @@ export function AppsDataProvider({ children }: AppsDataProviderProps) {
       githubRepositoryVisibility: null,
       isArchived: false,
       isFeatured: false,
+      hiddenFromBrowse: false,
       version: 1,
       parentAppId: null,
       screenshotUrl: null,

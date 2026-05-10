@@ -114,6 +114,7 @@ export interface PublicAppQueryOptions extends BaseAppQueryOptions {
     authorId?: string; // Filter by app author
     seed?: number; // Random seed for stable feed ordering
     excludeIds?: string[]; // App IDs to exclude from results
+    includeHiddenFromBrowse?: boolean; // Include apps hidden from default browse/feed results, typically for search
 }
 
 /**
