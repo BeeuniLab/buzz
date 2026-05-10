@@ -16,6 +16,10 @@ declare namespace Cloudflare {
         CLOUDFLARE_AI_GATEWAY_TOKEN: string;
         SERPAPI_KEY: string;
         AI_PROXY_JWT_SECRET: string;
+        VITE_CLERK_PUBLISHABLE_KEY: string;
+        CLERK_SECRET_KEY: string;
+        CLERK_JWT_ISSUER: string;
+        CLERK_JWKS_URL: string;
         ENTROPY_KEY: string;
         CUSTOM_PREVIEW_DOMAIN: string;
         ALLOCATION_STRATEGY: string;

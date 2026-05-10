@@ -1,9 +1,11 @@
 /**
  * Enhanced Auth Context
- * Provides OAuth + Email/Password authentication with backward compatibility
+ * Provides Clerk Google sign-in plus local email/password fallback.
  */
 
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
+import { useAuth as useClerkAuth } from '@clerk/clerk-react';
+import { useSignIn as useClerkSignIn } from '@clerk/clerk-react';
 import { useNavigate } from 'react-router';
 import { apiClient, ApiError } from '@/lib/api-client';
 import { useSentryUser } from '@/hooks/useSentryUser';
@@ -20,14 +22,13 @@ interface AuthContextType {
   // Auth provider configuration
   authProviders: {
     google: boolean;
-    github: boolean;
     email: boolean;
   } | null;
-  hasOAuth: boolean;
+  clerkEnabled: boolean;
+  hasThirdPartyAuth: boolean;
   requiresEmailAuth: boolean;
   
-  // OAuth login method with redirect support
-  login: (provider: 'google' | 'github', redirectUrl?: string) => void;
+  loginWithGoogle: (redirectUrl?: string) => void;
   
   // Email/password login method
   loginWithEmail: (credentials: { email: string; password: string }) => Promise<void>;
@@ -47,15 +48,42 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 // Token refresh interval - refresh every 10 minutes
 const TOKEN_REFRESH_INTERVAL = 60 * 60 * 1000; // 1 hour (check less frequently since tokens last 24h)
+const CLERK_ENABLED = !!import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
+type ClerkAuthState = ReturnType<typeof useClerkAuth>;
+type ClerkSignInState = ReturnType<typeof useClerkSignIn>;
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
+  if (CLERK_ENABLED) {
+    return <ClerkAwareAuthProvider>{children}</ClerkAwareAuthProvider>;
+  }
+
+  return <AuthProviderInner clerk={null} clerkSignIn={null}>{children}</AuthProviderInner>;
+}
+
+function ClerkAwareAuthProvider({ children }: { children: React.ReactNode }) {
+  const clerk = useClerkAuth();
+  const clerkSignIn = useClerkSignIn();
+
+  return <AuthProviderInner clerk={clerk} clerkSignIn={clerkSignIn}>{children}</AuthProviderInner>;
+}
+
+function AuthProviderInner({
+  children,
+  clerk,
+  clerkSignIn,
+}: {
+  children: React.ReactNode;
+  clerk: ClerkAuthState | null;
+  clerkSignIn: ClerkSignInState | null;
+}) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [token, setToken] = useState<string | null>(null);
   const [session, setSession] = useState<AuthSession | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [authProviders, setAuthProviders] = useState<{ google: boolean; github: boolean; email: boolean; } | null>(null);
-  const [hasOAuth, setHasOAuth] = useState<boolean>(false);
+  const [authProviders, setAuthProviders] = useState<{ google: boolean; email: boolean; } | null>(null);
+  const [clerkEnabled, setClerkEnabled] = useState<boolean>(CLERK_ENABLED);
+  const [hasThirdPartyAuth, setHasThirdPartyAuth] = useState<boolean>(false);
   const [requiresEmailAuth, setRequiresEmailAuth] = useState<boolean>(true);
   const navigate = useNavigate();
   
@@ -100,14 +128,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const response = await apiClient.getAuthProviders();
       if (response.success && response.data) {
         setAuthProviders(response.data.providers);
-        setHasOAuth(response.data.hasOAuth);
+        setClerkEnabled(CLERK_ENABLED && response.data.clerk?.enabled === true);
+        setHasThirdPartyAuth(response.data.hasThirdPartyAuth);
         setRequiresEmailAuth(response.data.requiresEmailAuth);
       }
     } catch (error) {
       console.warn('Failed to fetch auth providers:', error);
       // Fallback to defaults
-      setAuthProviders({ google: false, github: false, email: true });
-      setHasOAuth(false);
+      setAuthProviders({ google: false, email: true });
+      setClerkEnabled(false);
+      setHasThirdPartyAuth(false);
       setRequiresEmailAuth(true);
     }
   }, []);
@@ -136,6 +166,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     }, TOKEN_REFRESH_INTERVAL);
   }, []);
+
+  const applySessionResponse = useCallback((data: {
+    user: AuthUser;
+    sessionId: string;
+    expiresAt: Date | string | null;
+  }) => {
+    setUser({ ...data.user, isAnonymous: false } as AuthUser);
+    setToken(null);
+    setSession({
+      userId: data.user.id,
+      email: data.user.email,
+      sessionId: data.sessionId,
+      expiresAt: data.expiresAt ? new Date(data.expiresAt) : null,
+    });
+    setupTokenRefresh();
+  }, [setupTokenRefresh]);
 
   // Check authentication status
   const checkAuth = useCallback(async () => {
@@ -186,19 +232,67 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     initAuth();
   }, [fetchAuthProviders, checkAuth]);
 
-  // OAuth login method with redirect support
-  const login = useCallback((provider: 'google' | 'github', redirectUrl?: string) => {
+  useEffect(() => {
+    if (!clerkEnabled || !clerk?.isLoaded || !clerk.isSignedIn || user) {
+      return;
+    }
+
+    let cancelled = false;
+
+    const syncClerkUser = async () => {
+      setError(null);
+      setIsLoading(true);
+
+      try {
+        const clerkToken = await clerk.getToken();
+        if (!clerkToken) {
+          throw new Error('Missing Clerk session token');
+        }
+
+        const response = await apiClient.syncClerkSession(clerkToken);
+        if (!cancelled && response.success && response.data) {
+          applySessionResponse(response.data);
+          const intendedUrl = getIntendedUrl();
+          clearIntendedUrl();
+          if (intendedUrl) {
+            navigate(intendedUrl);
+          }
+        }
+      } catch (error) {
+        console.error('Clerk sync error:', error);
+        if (!cancelled) {
+          setError(error instanceof ApiError ? error.message : 'Unable to complete sign in. Please try again.');
+        }
+      } finally {
+        if (!cancelled) {
+          setIsLoading(false);
+        }
+      }
+    };
+
+    syncClerkUser();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [applySessionResponse, clearIntendedUrl, clerk, clerkEnabled, getIntendedUrl, navigate, user]);
+
+  const loginWithGoogle = useCallback((redirectUrl?: string) => {
     // Store intended redirect URL if provided, otherwise use current location
     const intendedUrl = redirectUrl || window.location.pathname + window.location.search;
     setIntendedUrl(intendedUrl);
-    
-    // Build OAuth URL with redirect parameter
-    const oauthUrl = new URL(`/api/auth/oauth/${provider}`, window.location.origin);
-    oauthUrl.searchParams.set('redirect_url', intendedUrl);
-    
-    // Redirect to OAuth provider
-    window.location.href = oauthUrl.toString();
-  }, [setIntendedUrl]);
+
+    if (clerkEnabled && clerkSignIn?.isLoaded) {
+      clerkSignIn.signIn.authenticateWithRedirect({
+        strategy: 'oauth_google',
+        redirectUrl: '/sso-callback',
+        redirectUrlComplete: intendedUrl,
+      });
+      return;
+    }
+
+    setError('Google sign in is not configured yet.');
+  }, [clerkEnabled, clerkSignIn, setIntendedUrl]);
 
   // Email/password login
   const loginWithEmail = useCallback(async (credentials: { email: string; password: string }) => {
@@ -209,15 +303,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const response = await apiClient.loginWithEmail(credentials);
 
       if (response.success && response.data) {
-        setUser({ ...response.data.user, isAnonymous: false } as AuthUser);
-        setToken(null); // Using cookies for authentication
-        setSession({
-          userId: response.data.user.id,
-          email: response.data.user.email,
-          sessionId: response.data.sessionId,
-          expiresAt: response.data.expiresAt,
-        });
-        setupTokenRefresh();
+        applySessionResponse(response.data);
         
         // Navigate to intended URL or default to home
         const intendedUrl = getIntendedUrl();
@@ -236,7 +322,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } finally {
       setIsLoading(false);
     }
-  }, [navigate, setupTokenRefresh, getIntendedUrl, clearIntendedUrl]);
+  }, [applySessionResponse, navigate, getIntendedUrl, clearIntendedUrl]);
 
   // Register new user
   const register = useCallback(async (data: { email: string; password: string; name?: string }) => {
@@ -247,15 +333,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const response = await apiClient.register(data);
 
       if (response.success && response.data) {
-        setUser({ ...response.data.user, isAnonymous: false } as AuthUser);
-        setToken(null); // Using cookies for authentication
-        setSession({
-          userId: response.data.user.id,
-          email: response.data.user.email,
-          sessionId: response.data.sessionId,
-          expiresAt: response.data.expiresAt,
-        });
-        setupTokenRefresh();
+        applySessionResponse(response.data);
         
         // Navigate to intended URL or default to home
         const intendedUrl = getIntendedUrl();
@@ -273,12 +351,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } finally {
       setIsLoading(false);
     }
-  }, [navigate, setupTokenRefresh, getIntendedUrl, clearIntendedUrl]);
+  }, [applySessionResponse, navigate, getIntendedUrl, clearIntendedUrl]);
 
   // Logout
   const logout = useCallback(async () => {
     try {
       await apiClient.logout();
+      if (clerkEnabled && clerk?.isLoaded && clerk.isSignedIn) {
+        await clerk.signOut();
+      }
     } catch (error) {
       console.error('Logout error:', error);
     } finally {
@@ -287,7 +368,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
       window.location.href = '/';
     }
-  }, []);
+  }, [clerk, clerkEnabled]);
 
   // Refresh user profile
   const refreshUser = useCallback(async () => {
@@ -300,17 +381,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setError(null);
   }, []);
 
+  const clerkLoading = clerkEnabled && clerk?.isLoaded === false;
+  const clerkSessionPending = clerkEnabled && clerk?.isLoaded === true && clerk.isSignedIn && !user && !error;
+
   const value: AuthContextType = {
     user,
     token,
     session,
     isAuthenticated: !!user,
-    isLoading,
+    isLoading: isLoading || clerkLoading || clerkSessionPending,
     error,
     authProviders,
-    hasOAuth,
+    clerkEnabled,
+    hasThirdPartyAuth,
     requiresEmailAuth,
-    login, // OAuth method with redirect support
+    loginWithGoogle,
     loginWithEmail, // Email/password method
     register,
     logout,

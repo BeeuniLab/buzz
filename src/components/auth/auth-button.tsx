@@ -1,6 +1,6 @@
 /**
  * Enhanced Auth Button
- * Provides OAuth + Email/Password authentication with enhanced UI
+ * Provides Clerk Google + email/password authentication with enhanced UI
  */
 
 import { useState } from 'react';
@@ -32,7 +32,6 @@ export function AuthButton({ className }: AuthButtonProps) {
 		isAuthenticated,
 		isLoading,
 		error,
-		login, // OAuth method
 		loginWithEmail,
 		register,
 		logout,
@@ -62,20 +61,11 @@ export function AuthButton({ className }: AuthButtonProps) {
 				<LoginModal
 					isOpen={showLoginModal}
 					onClose={() => setShowLoginModal(false)}
-					onLogin={(provider) => {
-						// For backward compatibility with original login interface
-						login(provider);
-						setShowLoginModal(false);
-					}}
 					onEmailLogin={async (credentials) => {
 						await loginWithEmail(credentials);
 						if (!error) {
 							setShowLoginModal(false);
 						}
-					}}
-					onOAuthLogin={(provider) => {
-						login(provider);
-						setShowLoginModal(false);
 					}}
 					onRegister={async (data) => {
 						await register(data);

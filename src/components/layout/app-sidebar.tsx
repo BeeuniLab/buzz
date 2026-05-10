@@ -603,7 +603,7 @@ function BuildSidebar({
 }
 
 export function AppSidebar() {
-	const { user, login, loginWithEmail, register, logout, error: authError, clearError } = useAuth();
+	const { user, loginWithEmail, register, logout, error: authError, clearError } = useAuth();
 	const navigate = useNavigate();
 	const [searchQuery, setSearchQuery] = React.useState('');
 	const [expandedGroups, setExpandedGroups] = React.useState<string[]>([
@@ -830,17 +830,9 @@ export function AppSidebar() {
 			<LoginModal
 				isOpen={showLoginModal}
 				onClose={() => setShowLoginModal(false)}
-				onLogin={(provider) => {
-					login(provider);
-					setShowLoginModal(false);
-				}}
 				onEmailLogin={async (credentials) => {
 					await loginWithEmail(credentials);
 					if (!authError) setShowLoginModal(false);
-				}}
-				onOAuthLogin={(provider) => {
-					login(provider);
-					setShowLoginModal(false);
 				}}
 				onRegister={async (data) => {
 					await register(data);

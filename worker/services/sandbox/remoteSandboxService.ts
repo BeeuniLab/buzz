@@ -25,16 +25,12 @@ import {
     DeploymentResultSchema,
     ShutdownResponseSchema,
     StaticAnalysisResponseSchema,
-    GitHubPushRequest,
-    GitHubPushResponse,
-    GitHubPushResponseSchema,
     InstanceCreationRequest,
 } from './sandboxTypes';
 import { BaseSandboxService } from "./BaseSandboxService";
 import { DeploymentTarget } from 'worker/agents/core/types';
 import { env } from 'cloudflare:workers'
 import z from 'zod';
-import { FileOutputType } from 'worker/agents/schemas';
 
 export async function runnerFetch(url: string, method: 'GET' | 'POST' | 'DELETE', headers: Headers, body: string | undefined) {
     // Use direct fetch for runner service communication
@@ -208,13 +204,6 @@ export class RemoteSandboxServiceClient extends BaseSandboxService{
         return this.makeRequest(`/instances/${instanceId}`, 'DELETE', ShutdownResponseSchema);
     }
     
-    /**
-     * Push instance files to existing GitHub repository
-     */
-    async pushToGitHub(instanceId: string, request: GitHubPushRequest, files: FileOutputType[]): Promise<GitHubPushResponse> {
-        return this.makeRequest(`/instances/${instanceId}/github/push`, 'POST', GitHubPushResponseSchema, { request, files });
-    }
-
     /**
      * Initialize the client (no-op for remote client)
      */

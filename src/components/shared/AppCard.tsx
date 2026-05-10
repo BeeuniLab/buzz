@@ -627,8 +627,6 @@ export const AppCard = React.memo<AppCardProps>(
 								</div>
 							)}
 
-						{/* GitHub Repository Badge - moved to app info section, removed from screenshot overlay */}
-
 						{/* Actions Dropdown - positioned in top-right on hover */}
 						{showActions && (
 							<div className="absolute top-2 right-2">
@@ -661,7 +659,7 @@ export const AppCard = React.memo<AppCardProps>(
 
 					<div className="flex items-start justify-between gap-2 p-2 pb-1">
 						<div className="flex-1 min-w-0">
-							{/* Enhanced Adaptive Metadata with GitHub integration */}
+							{/* Enhanced adaptive metadata */}
 							<div className="transition-all duration-200 ease-out ">
 								<div className="flex items-center gap-3">
 									<div className="flex-1">

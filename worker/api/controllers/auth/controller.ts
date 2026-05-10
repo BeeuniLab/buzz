@@ -9,8 +9,7 @@ import { ApiKeyService } from '../../../database/services/ApiKeyService';
 import { generateApiKey, sha256Hash } from '../../../utils/cryptoUtils';
 import { 
     loginSchema, 
-    registerSchema, 
-    oauthProviderSchema
+    registerSchema
 } from './authSchemas';
 import { SecurityError } from 'shared/types/errors';
 import {
@@ -32,10 +31,10 @@ import { createLogger } from '../../../logger';
 export class AuthController extends BaseController {
     static logger = createLogger('AuthController');
     /**
-     * Check if OAuth providers are configured
+     * Check if Clerk sign-in is configured.
      */
-    static hasOAuthProviders(env: Env): boolean {
-        return !!env.GOOGLE_CLIENT_ID && !!env.GOOGLE_CLIENT_SECRET;
+    static hasClerkAuth(env: Env): boolean {
+        return !!env.CLERK_SECRET_KEY && !!env.VITE_CLERK_PUBLISHABLE_KEY;
     }
     
     /**
@@ -44,10 +43,10 @@ export class AuthController extends BaseController {
      */
     static async register(request: Request, env: Env, _ctx: ExecutionContext, _routeContext: RouteContext): Promise<Response> {
         try {
-            // Check if OAuth providers are configured - if yes, block email/password registration
-            if (AuthController.hasOAuthProviders(env)) {
+            // Clerk is the production auth provider; local email auth remains a fallback when Clerk is absent.
+            if (AuthController.hasClerkAuth(env)) {
                 return AuthController.createErrorResponse(
-                    'Email/password registration is not available when OAuth providers are configured. Please use OAuth login instead.',
+                    'Email/password registration is not available when Clerk sign-in is configured. Please use Google sign-in instead.',
                     403
                 );
             }
@@ -99,10 +98,10 @@ export class AuthController extends BaseController {
      */
     static async login(request: Request, env: Env, _ctx: ExecutionContext, _routeContext: RouteContext): Promise<Response> {
         try {
-            // Check if OAuth providers are configured - if yes, block email/password login
-            if (AuthController.hasOAuthProviders(env)) {
+            // Clerk is the production auth provider; local email auth remains a fallback when Clerk is absent.
+            if (AuthController.hasClerkAuth(env)) {
                 return AuthController.createErrorResponse(
-                    'Email/password login is not available when OAuth providers are configured. Please use OAuth login instead.',
+                    'Email/password login is not available when Clerk sign-in is configured. Please use Google sign-in instead.',
                     403
                 );
             }
@@ -334,88 +333,43 @@ export class AuthController extends BaseController {
     }
 
     /**
-     * Initiate OAuth flow
-     * GET /api/auth/oauth/:provider
+     * Sync an authenticated Clerk user into the local Buzz user/session model.
+     * POST /api/auth/clerk/sync
      */
-    static async initiateOAuth(request: Request, env: Env, _ctx: ExecutionContext, routeContext: RouteContext): Promise<Response> {
+    static async syncClerkUser(request: Request, env: Env, _ctx: ExecutionContext, _routeContext: RouteContext): Promise<Response> {
         try {
-            const validatedProvider = oauthProviderSchema.parse(routeContext.pathParams.provider);
-            
-            // Get intended redirect URL from query parameter
-            const intendedRedirectUrl = routeContext.queryParams.get('redirect_url') || undefined;
-            
+            const authHeader = request.headers.get('Authorization')?.trim();
+            const clerkToken = authHeader?.toLowerCase().startsWith('bearer ')
+                ? authHeader.slice('bearer '.length).trim()
+                : '';
+
+            if (!clerkToken) {
+                return AuthController.createErrorResponse('Missing Clerk session token', 401);
+            }
+
             const authService = new AuthService(env);
-            const authUrl = await authService.getOAuthAuthorizationUrl(
-                validatedProvider,
-                request,
-                intendedRedirectUrl
+            const result = await authService.loginWithClerk(clerkToken, request);
+
+            const response = AuthController.createSuccessResponse(
+                formatAuthResponse(result.user, result.sessionId, result.expiresAt)
             );
-            
-            return Response.redirect(authUrl, 302);
+
+            setSecureAuthCookies(response, {
+                accessToken: result.accessToken,
+                accessTokenExpiry: SessionService.config.sessionTTL
+            });
+
+            if (CsrfService.defaults.rotateOnAuth) {
+                CsrfService.rotateToken(response);
+            }
+
+            return response;
         } catch (error) {
-            this.logger.error('OAuth initiation failed', error);
-            
             if (error instanceof SecurityError) {
                 return AuthController.createErrorResponse(error.message, error.statusCode);
             }
-            
-            return AuthController.handleError(error, 'initiate OAuth');
-        }
-    }
-    
-    /**
-     * Handle OAuth callback
-     * GET /api/auth/callback/:provider
-     */
-    static async handleOAuthCallback(request: Request, env: Env, _ctx: ExecutionContext, routeContext: RouteContext): Promise<Response> {
-        try {
-            const validatedProvider = oauthProviderSchema.parse(routeContext.pathParams.provider);
-            
-            const code = routeContext.queryParams.get('code');
-            const state = routeContext.queryParams.get('state');
-            const error = routeContext.queryParams.get('error');
-            
-            if (error) {
-                this.logger.error('OAuth provider returned error', { provider: validatedProvider, error });
-                const baseUrl = new URL(request.url).origin;
-                return Response.redirect(`${baseUrl}/?error=oauth_failed`, 302);
-            }
-            
-            if (!code || !state) {
-                const baseUrl = new URL(request.url).origin;
-                return Response.redirect(`${baseUrl}/?error=missing_params`, 302);
-            }
-            
-            const authService = new AuthService(env);
-            const result = await authService.handleOAuthCallback(
-                validatedProvider,
-                code,
-                state,
-                request
-            );
-            
-            const baseUrl = new URL(request.url).origin;
-            
-            // Use stored redirect URL or default to home page
-            const redirectLocation = result.redirectUrl || `${baseUrl}/`;
-            
-            // Create redirect response with secure auth cookies
-            const response = new Response(null, {
-                status: 302,
-                headers: {
-                    'Location': redirectLocation
-                }
-            });
-            
-            setSecureAuthCookies(response, {
-                accessToken: result.accessToken,
-            });
-            
-            return response;
-        } catch (error) {
-            this.logger.error('OAuth callback failed', error);
-            const baseUrl = new URL(request.url).origin;
-            return Response.redirect(`${baseUrl}/?error=auth_failed`, 302);
+
+            return AuthController.handleError(error, 'sync Clerk user');
         }
     }
 
@@ -805,8 +759,7 @@ export class AuthController extends BaseController {
     ): Promise<Response> {
         try {
             const providers = {
-                google: !!env.GOOGLE_CLIENT_ID && !!env.GOOGLE_CLIENT_SECRET,
-                github: false,
+                google: AuthController.hasClerkAuth(env),
                 email: true
             };
             
@@ -815,8 +768,12 @@ export class AuthController extends BaseController {
             
             const response = AuthController.createSuccessResponse({
                 providers,
-                hasOAuth: providers.google,
+                hasThirdPartyAuth: providers.google,
                 requiresEmailAuth: !providers.google,
+                clerk: {
+                    enabled: AuthController.hasClerkAuth(env),
+                    google: AuthController.hasClerkAuth(env)
+                },
                 csrfToken,
                 csrfExpiresIn: Math.floor(CsrfService.defaults.tokenTTL / 1000)
             });

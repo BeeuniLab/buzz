@@ -36,7 +36,7 @@ function shouldReleaseSandboxCapacityForReason(reason: string): boolean {
 
 /**
  * Manages deployment operations for sandbox instances
- * Handles instance creation, file deployment, analysis, and GitHub/Cloudflare export
+ * Handles instance creation, file deployment, analysis, and Cloudflare preview deployment
  * Also manages sessionId and health check intervals
  */
 export class DeploymentManager extends BaseAgentService<BaseProjectState> implements IDeploymentManager {

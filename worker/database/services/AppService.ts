@@ -382,21 +382,6 @@ export class AppService extends BaseService {
     }
 
     /**
-     * Update app with GitHub repository URL and visibility
-     */
-    async updateGitHubRepository(
-        appId: string,
-        repositoryUrl: string,
-        repositoryVisibility: 'public' | 'private'
-    ): Promise<boolean> {
-        return this.updateApp(appId, {
-            githubRepositoryUrl: repositoryUrl,
-            githubRepositoryVisibility: repositoryVisibility
-        });
-    }
-
-
-    /**
      * Get user apps with favorite status
      * Optimized to fetch favorites separately to avoid subquery memory issues
      */
@@ -486,8 +471,6 @@ export class AppService extends BaseService {
                 sessionToken: _sessionToken,
                 originalPrompt: _originalPrompt,
                 finalPrompt: _finalPrompt,
-                githubRepositoryUrl: _githubRepositoryUrl,
-                githubRepositoryVisibility: _githubRepositoryVisibility,
                 ...safeApp
             } = app;
 
@@ -497,8 +480,6 @@ export class AppService extends BaseService {
                 sessionToken: null,
                 originalPrompt: '',
                 finalPrompt: null,
-                githubRepositoryUrl: null,
-                githubRepositoryVisibility: null,
                 isFavorite: true as const,
                 updatedAtFormatted: formatRelativeTime(app.updatedAt)
             };

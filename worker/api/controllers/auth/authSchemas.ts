@@ -28,18 +28,6 @@ export const registerSchema = z.object({
 export type RegisterRequest = z.infer<typeof registerSchema>;
 
 /**
- * OAuth callback schema
- */
-export const oauthCallbackSchema = z.object({
-  code: z.string().min(1, 'Authorization code is required'),
-  state: z.string().min(1, 'State is required'),
-  error: z.string().optional(),
-  error_description: z.string().optional()
-});
-
-export type OAuthCallbackRequest = z.infer<typeof oauthCallbackSchema>;
-
-/**
  * Change password schema
  */
 export const changePasswordSchema = z.object({
@@ -84,10 +72,3 @@ export const verifyEmailSchema = z.object({
 });
 
 export type VerifyEmailRequest = z.infer<typeof verifyEmailSchema>;
-
-/**
- * OAuth provider schema
- */
-export const oauthProviderSchema = z.enum(['google']);
-
-export type OAuthProviderParam = z.infer<typeof oauthProviderSchema>;

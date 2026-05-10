@@ -70,8 +70,6 @@ export function AppsDataProvider({ children }: AppsDataProviderProps) {
       visibility: 'private',
       status: 'generating',
       deploymentId: null,
-      githubRepositoryUrl: null,
-      githubRepositoryVisibility: null,
       isArchived: false,
       isFeatured: false,
       hiddenFromBrowse: false,

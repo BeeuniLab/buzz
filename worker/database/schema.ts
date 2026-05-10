@@ -11,7 +11,7 @@ const PROVIDER_OVERRIDE_VALUES = ['cloudflare', 'direct'] as const;
 
 /**
  * Users table - Core user identity and profile information
- * Supports OAuth providers and user preferences
+ * Supports Clerk-backed sign-in and local email fallback.
  */
 export const users = sqliteTable('users', {
     id: text('id').primaryKey(),
@@ -21,9 +21,10 @@ export const users = sqliteTable('users', {
     avatarUrl: text('avatar_url'),
     bio: text('bio'),
     
-    // OAuth and Authentication
-    provider: text('provider').notNull(), // 'github', 'google', 'email'
+    // Authentication
+    provider: text('provider').notNull(), // 'clerk', 'email'
     providerId: text('provider_id').notNull(),
+    clerkUserId: text('clerk_user_id'),
     emailVerified: integer('email_verified', { mode: 'boolean' }).default(false),
     passwordHash: text('password_hash'), // Only for provider: 'email'
     
@@ -51,6 +52,7 @@ export const users = sqliteTable('users', {
 }, (table) => ({
     emailIdx: index('users_email_idx').on(table.email),
     providerIdx: uniqueIndex('users_provider_unique_idx').on(table.provider, table.providerId),
+    clerkUserIdIdx: uniqueIndex('users_clerk_user_id_idx').on(table.clerkUserId),
     usernameIdx: index('users_username_idx').on(table.username),
     failedLoginAttemptsIdx: index('users_failed_login_attempts_idx').on(table.failedLoginAttempts),
     lockedUntilIdx: index('users_locked_until_idx').on(table.lockedUntil),
@@ -176,10 +178,6 @@ export const apps = sqliteTable('apps', {
     
     // Deployment Information
     deploymentId: text('deployment_id'), // Deployment ID (extracted from deployment URL)
-    
-    // GitHub Repository Integration
-    githubRepositoryUrl: text('github_repository_url'), // GitHub repository URL
-    githubRepositoryVisibility: text('github_repository_visibility', { enum: ['public', 'private'] }), // Repository visibility
     
     // App Metadata
     isArchived: integer('is_archived', { mode: 'boolean' }).default(false),
@@ -361,7 +359,7 @@ export const appViews = sqliteTable('app_views', {
 // ========================================
 
 /**
- * OAuthStates table - Manage OAuth flow states securely
+ * Legacy OAuthStates table - kept for migration compatibility.
  */
 export const oauthStates = sqliteTable('oauth_states', {
     id: text('id').primaryKey(),

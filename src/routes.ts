@@ -12,6 +12,7 @@ import DiscoverPage from './routes/discover';
 import FeedPage from './routes/feed';
 import Inbox from './routes/inbox';
 import LegalPage from './routes/legal';
+import SsoCallback from './routes/sso-callback';
 import { ProtectedRoute } from './routes/protected-route';
 
 const routes = [
@@ -34,6 +35,10 @@ const routes = [
 			{
 				path: 'legal',
 				Component: LegalPage,
+			},
+			{
+				path: 'sso-callback',
+				Component: SsoCallback,
 			},
 			{
 				path: 'inbox',

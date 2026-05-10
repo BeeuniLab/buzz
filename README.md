@@ -15,7 +15,6 @@ Every project runs as a self-contained single-page experience in a portrait canv
 - **Interactive Chat** — Iterate on your creation through conversation
 - **Rich Host API** — `window.lib` provides save/load, leaderboards, asset helpers out of the box
 - **One-Click Deploy** — Publish directly from the editor
-- **GitHub Export** — Push your code to a repository
 
 ### Tech Stack
 
@@ -158,23 +157,16 @@ CUSTOM_DOMAIN="buzzplay.app"
 CUSTOM_PREVIEW_DOMAIN="preview.buzzplay.app"
 ```
 
-### OAuth Setup (Optional)
+### Clerk Auth Setup (Optional)
 
-**Google OAuth:**
-1. [Google Cloud Console](https://console.cloud.google.com) → Create OAuth 2.0 Client ID
-2. Authorized origins: `https://your-domain`
-3. Redirect URI: `https://your-domain/api/auth/callback/google`
-4. Set `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET`
+Clerk handles user sign-in. Enable Google in the Clerk dashboard, then set:
 
-**GitHub OAuth:**
-1. GitHub → Settings → Developer settings → OAuth Apps → New
-2. Callback URL: `https://your-domain/api/auth/callback/github`
-3. Set `GITHUB_CLIENT_ID` and `GITHUB_CLIENT_SECRET`
-
-**GitHub Export OAuth:**
-1. Create a separate OAuth app for code export
-2. Callback URL: `https://your-domain/api/github-exporter/callback`
-3. Set `GITHUB_EXPORTER_CLIENT_ID` and `GITHUB_EXPORTER_CLIENT_SECRET`
+```bash
+VITE_CLERK_PUBLISHABLE_KEY="..."
+CLERK_SECRET_KEY="..."
+CLERK_JWT_ISSUER="..."
+CLERK_JWKS_URL="..."
+```
 
 ## Deployment
 

@@ -341,8 +341,4 @@ export abstract class BaseSandboxService {
      */
     abstract deployToCloudflareWorkers(instanceId: string, target?: DeploymentTarget): Promise<DeploymentResult>;
   
-    // ==========================================
-    // GITHUB INTEGRATION (Required)
-    // ==========================================
-
 }

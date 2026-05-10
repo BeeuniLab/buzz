@@ -2,12 +2,7 @@
  * Authentication Type Definitions
  */
 
-import type { ApiKey, AuthAttempt as SchemaAuthAttempt, AuditLog, OAuthState } from '../database/schema';
-
-/**
- * OAuth provider types
- */
-export type OAuthProvider = 'google' | 'github';
+import type { ApiKey, AuthAttempt as SchemaAuthAttempt, AuditLog } from '../database/schema';
 
 /**
  * Authenticated user for middleware and session context
@@ -72,41 +67,6 @@ export interface AuthResult extends AuthUserSession {
 	isNewUser?: boolean;
 	requiresEmailVerification?: boolean;
 	redirectUrl?: string;
-};
-
-/**
- * OAuth provider user information
- */
-export interface OAuthUserInfo {
-	id: string;
-	email: string;
-	name?: string;
-	picture?: string;
-	emailVerified?: boolean;
-	locale?: string;
-
-	// Provider-specific data
-	providerData?: Record<string, unknown>;
-}
-
-/**
- * OAuth tokens from provider
- */
-export interface OAuthTokens {
-	accessToken: string;
-	refreshToken?: string;
-	idToken?: string;
-	tokenType: string;
-	expiresIn?: number;
-	scope?: string;
-}
-
-/**
- * OAuth state for secure authentication flow
- * Uses OAuthState schema with typed provider
- */
-export type OAuthStateData = Omit<OAuthState, 'provider'> & {
-	provider: OAuthProvider;
 };
 
 /**

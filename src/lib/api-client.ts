@@ -51,7 +51,6 @@ import type{
 	ProfileResponseData,
 	AuthProvidersResponseData,
 	CsrfTokenResponseData,
-	OAuthProvider,
 	CodeGenArgs,
 	AgentPreviewResponse,
 	PlatformStatusData,
@@ -294,6 +293,7 @@ class ApiClient {
 		if (endpoint === '/api/auth/profile') return false;
 		if (endpoint === '/api/auth/providers') return false;
 		if (endpoint === '/api/auth/sessions') return false;
+		if (endpoint === '/api/auth/clerk/sync') return false;
 		// Preview deployment is public for public apps
 		if (endpoint.includes('/preview')) return false;
 
@@ -1145,6 +1145,16 @@ class ApiClient {
 		});
 	}
 
+	async syncClerkSession(clerkToken: string): Promise<ApiResponse<LoginResponseData>> {
+		return this.request<LoginResponseData>('/api/auth/clerk/sync', {
+			method: 'POST',
+			headers: {
+				Authorization: `Bearer ${clerkToken}`,
+			},
+			body: {},
+		});
+	}
+
 	/**
 	 * Verify email with OTP
 	 */
@@ -1208,22 +1218,6 @@ class ApiClient {
 	 */
 	async getAuthProviders(): Promise<ApiResponse<AuthProvidersResponseData>> {
 		return this.request<AuthProvidersResponseData>('/api/auth/providers');
-	}
-
-	/**
-	 * Initiate OAuth flow (redirects to provider)
-	 */
-	initiateOAuth(provider: OAuthProvider, redirectUrl?: string): void {
-		const oauthUrl = new URL(
-			`/api/auth/oauth/${provider}`,
-			window.location.origin,
-		);
-		if (redirectUrl) {
-			oauthUrl.searchParams.set('redirect_url', redirectUrl);
-		}
-
-		// Redirect to OAuth provider
-		window.location.href = oauthUrl.toString();
 	}
 
 	// ========================================

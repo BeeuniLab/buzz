@@ -1,28 +1,22 @@
 /**
  * Main Authentication Service
- * Orchestrates all auth operations including login, registration, and OAuth
+ * Orchestrates auth operations including local email auth and Clerk identity sync
  */
 
 import * as schema from '../schema';
-import { eq, and, sql, or, lt, isNull } from 'drizzle-orm';
+import { eq, and, sql, isNull } from 'drizzle-orm';
+import { createRemoteJWKSet, jwtVerify } from 'jose';
 import { JWTUtils } from '../../utils/jwtUtils';
-import { generateSecureToken } from '../../utils/cryptoUtils';
 import { SessionService } from './SessionService';
 import { PasswordService } from '../../utils/passwordService';
-import { GoogleOAuthProvider } from '../../services/oauth/google';
-import { GitHubOAuthProvider } from '../../services/oauth/github';
-import { BaseOAuthProvider } from '../../services/oauth/base';
 import { 
     SecurityError, 
     SecurityErrorType 
 } from 'shared/types/errors';
-import { AuthResult, AuthUserSession, OAuthUserInfo } from '../../types/auth-types';
+import { AuthResult, AuthUserSession } from '../../types/auth-types';
 import { generateId } from '../../utils/idGenerator';
-import {
-    AuthUser, 
-    OAuthProvider
-} from '../../types/auth-types';
-import { mapUserResponse, validateRedirectUrl } from '../../utils/authUtils';
+import { AuthUser } from '../../types/auth-types';
+import { mapUserResponse } from '../../utils/authUtils';
 import { createLogger } from '../../logger';
 import { validateEmail, validatePassword } from '../../utils/validationUtils';
 import { extractRequestMetadata } from '../../utils/authUtils';
@@ -47,6 +41,33 @@ const LEGACY_PROVIDER_AVATAR_PREFIXES = [
     'https://lh3.googleusercontent.com/',
 ];
 
+const clerkJwksCache = new Map<string, ReturnType<typeof createRemoteJWKSet>>();
+
+interface ClerkEmailAddress {
+    id: string;
+    email_address?: string;
+    verification?: {
+        status?: string;
+    };
+}
+
+interface ClerkApiUser {
+    id: string;
+    username?: string | null;
+    first_name?: string | null;
+    last_name?: string | null;
+    image_url?: string | null;
+    primary_email_address_id?: string | null;
+    email_addresses?: ClerkEmailAddress[];
+}
+
+interface ClerkUserProfile {
+    clerkUserId: string;
+    email: string;
+    displayName: string;
+    emailVerified: boolean;
+}
+
 function getRandomDiceBearStyle(): typeof DICEBEAR_AVATAR_STYLES[number] {
     const values = new Uint32Array(1);
     crypto.getRandomValues(values);
@@ -68,6 +89,15 @@ function shouldAssignDiceBearAvatar(avatarUrl?: string | null): boolean {
     }
 
     return LEGACY_PROVIDER_AVATAR_PREFIXES.some((prefix) => avatarUrl.startsWith(prefix));
+}
+
+function getCachedClerkJwks(jwksUrl: string) {
+    let jwks = clerkJwksCache.get(jwksUrl);
+    if (!jwks) {
+        jwks = createRemoteJWKSet(new URL(jwksUrl));
+        clerkJwksCache.set(jwksUrl, jwks);
+    }
+    return jwks;
 }
 
 /**
@@ -318,224 +348,184 @@ export class AuthService extends BaseService {
         }
     }
 
-    async getOauthProvider(provider: OAuthProvider, request: Request): Promise<BaseOAuthProvider> {
-        const url = new URL(request.url).origin;
-        
-        switch (provider) {
-            case 'google':
-                return GoogleOAuthProvider.create(this.env, url);
-            case 'github':
-                return GitHubOAuthProvider.create(this.env, url);
-            default:
-                throw new SecurityError(
-                    SecurityErrorType.INVALID_INPUT,
-                    `OAuth provider ${provider} not configured`,
-                    400
-                );
-        }
-    }
-    
     /**
-     * Get OAuth authorization URL
+     * Verify a Clerk session token, map it to a local user, and create the
+     * existing Buzz session so downstream APIs keep using local user IDs.
      */
-    async getOAuthAuthorizationUrl(
-        provider: OAuthProvider,
-        request: Request,
-        intendedRedirectUrl?: string
-    ): Promise<string> {
-        const oauthProvider = await this.getOauthProvider(provider, request);
-        if (!oauthProvider) {
-            throw new SecurityError(
-                SecurityErrorType.INVALID_INPUT,
-                `OAuth provider ${provider} not configured`,
-                400
-            );
-        }
-        
-        // Clean up expired OAuth states first
-        await this.cleanupExpiredOAuthStates();
-        
-        // Validate and sanitize intended redirect URL
-        let validatedRedirectUrl: string | null = null;
-        if (intendedRedirectUrl) {
-            validatedRedirectUrl = validateRedirectUrl(intendedRedirectUrl, request);
-        }
-        
-        // Generate state for CSRF protection
-        const state = generateSecureToken();
-        
-        // Generate PKCE code verifier
-        const codeVerifier = BaseOAuthProvider.generateCodeVerifier();
-        
-        // Store OAuth state with intended redirect URL
-        await this.database.insert(schema.oauthStates).values({
-            id: generateId(),
-            state,
-            provider,
-            codeVerifier,
-            redirectUri: validatedRedirectUrl || oauthProvider['redirectUri'],
-            createdAt: new Date(),
-            expiresAt: new Date(Date.now() + 600000), // 10 minutes
-            isUsed: false,
-            scopes: [],
-            userId: null,
-            nonce: null
-        });
-        
-        // Get authorization URL
-        const authUrl = await oauthProvider.getAuthorizationUrl(state, codeVerifier);
-        
-        logger.info('OAuth authorization initiated', { provider });
-        
-        return authUrl;
-    }
-    
-    /**
-     * Clean up expired OAuth states
-     */
-    private async cleanupExpiredOAuthStates(): Promise<void> {
+    async loginWithClerk(clerkToken: string, request: Request): Promise<AuthResult> {
+        let profile: ClerkUserProfile | null = null;
+
         try {
-            const now = new Date();
-            await this.database
-                .delete(schema.oauthStates)
-                .where(
-                    or(
-                        lt(schema.oauthStates.expiresAt, now),
-                        eq(schema.oauthStates.isUsed, true)
-                    )
-                );
-            
-            logger.debug('Cleaned up expired OAuth states');
-        } catch (error) {
-            logger.error('Error cleaning up OAuth states', error);
-        }
-    }
-    
-    /**
-     * Handle OAuth callback
-     */
-    async handleOAuthCallback(
-        provider: OAuthProvider,
-        code: string,
-        state: string,
-        request: Request
-    ): Promise<AuthResult> {
-        try {
-            const oauthProvider = await this.getOauthProvider(provider, request);
-            if (!oauthProvider) {
-                throw new SecurityError(
-                    SecurityErrorType.INVALID_INPUT,
-                    `OAuth provider ${provider} not configured`,
-                    400
-                );
-            }
-            
-            // Verify state
-            const now = new Date();
-            const oauthState = await this.database
-                .select()
-                .from(schema.oauthStates)
-                .where(
-                    and(
-                        eq(schema.oauthStates.state, state),
-                        eq(schema.oauthStates.provider, provider),
-                        eq(schema.oauthStates.isUsed, false)
-                    )
-                )
-                .get();
-            
-            if (!oauthState || new Date(oauthState.expiresAt) < now) {
-                throw new SecurityError(
-                    SecurityErrorType.CSRF_VIOLATION,
-                    'Invalid or expired OAuth state',
-                    400
-                );
-            }
-            
-            // Mark state as used
-            await this.database
-                .update(schema.oauthStates)
-                .set({ isUsed: true })
-                .where(eq(schema.oauthStates.id, oauthState.id));
-            
-            // Exchange code for tokens
-            const tokens = await oauthProvider.exchangeCodeForTokens(
-                code,
-                oauthState.codeVerifier || undefined
-            );
-            
-            // Get user info
-            const oauthUserInfo = await oauthProvider.getUserInfo(tokens.accessToken);
-            
-            // Find or create user
-            const user = await this.findOrCreateOAuthUser(provider, oauthUserInfo);
-            
-            // Create session
-            const { accessToken: sessionAccessToken, session } = await this.sessionService.createSession(
+            profile = await this.getClerkUserProfile(clerkToken);
+            const user = await this.findOrCreateClerkUser(profile);
+
+            const { accessToken, session } = await this.sessionService.createSession(
                 user.id,
                 request
             );
-            
-            // Log auth attempt
-            await this.logAuthAttempt(user.email, `oauth_${provider}`, true, request);
-            
-            logger.info('OAuth login successful', { userId: user.id, provider });
-            
+
+            await this.logAuthAttempt(profile.email, 'oauth_google', true, request);
+            logger.info('Clerk login successful', {
+                userId: user.id,
+                clerkUserId: profile.clerkUserId,
+            });
+
             return {
                 user: mapUserResponse(user),
-                accessToken: sessionAccessToken,
+                accessToken,
                 sessionId: session.sessionId,
                 expiresAt: session.expiresAt,
-                redirectUrl: oauthState.redirectUri || undefined
             };
         } catch (error) {
-            await this.logAuthAttempt('', `oauth_${provider}`, false, request);
-            
+            await this.logAuthAttempt(profile?.email || '', 'oauth_google', false, request);
+
             if (error instanceof SecurityError) {
                 throw error;
             }
-            
-            logger.error('OAuth callback error', error);
+
+            logger.error('Clerk login error', error);
             throw new SecurityError(
                 SecurityErrorType.UNAUTHORIZED,
-                'OAuth authentication failed',
+                'Clerk authentication failed',
                 500
             );
         }
     }
-    
-    /**
-     * Find or create OAuth user
-     */
-    private async findOrCreateOAuthUser(
-        provider: OAuthProvider,
-        oauthUserInfo: OAuthUserInfo
-    ): Promise<schema.User> {
-        // Check if user exists with this email
+
+    private async getClerkUserProfile(clerkToken: string): Promise<ClerkUserProfile> {
+        if (!this.env.CLERK_SECRET_KEY) {
+            throw new SecurityError(
+                SecurityErrorType.INVALID_INPUT,
+                'Clerk is not configured',
+                503
+            );
+        }
+
+        const payload = await this.verifyClerkToken(clerkToken);
+        const clerkUserId = typeof payload.sub === 'string' ? payload.sub : '';
+        if (!clerkUserId) {
+            throw new SecurityError(
+                SecurityErrorType.INVALID_TOKEN,
+                'Invalid Clerk session',
+                401
+            );
+        }
+
+        const response = await fetch(
+            `https://api.clerk.com/v1/users/${encodeURIComponent(clerkUserId)}`,
+            {
+                headers: {
+                    Authorization: `Bearer ${this.env.CLERK_SECRET_KEY}`,
+                    Accept: 'application/json',
+                },
+            }
+        );
+
+        if (!response.ok) {
+            logger.warn('Failed to fetch Clerk user', {
+                clerkUserId,
+                status: response.status,
+            });
+            throw new SecurityError(
+                SecurityErrorType.UNAUTHORIZED,
+                'Unable to verify Clerk user',
+                401
+            );
+        }
+
+        const clerkUser = await response.json() as ClerkApiUser;
+        const primaryEmail =
+            clerkUser.email_addresses?.find((email) => email.id === clerkUser.primary_email_address_id) ||
+            clerkUser.email_addresses?.[0];
+        const email = primaryEmail?.email_address?.trim().toLowerCase();
+
+        if (!email) {
+            throw new SecurityError(
+                SecurityErrorType.INVALID_INPUT,
+                'Clerk account has no email address',
+                400
+            );
+        }
+
+        const nameParts = [clerkUser.first_name, clerkUser.last_name]
+            .map((part) => part?.trim())
+            .filter(Boolean);
+        const displayName =
+            nameParts.join(' ') ||
+            clerkUser.username?.trim() ||
+            email.split('@')[0];
+
+        return {
+            clerkUserId,
+            email,
+            displayName,
+            emailVerified: primaryEmail?.verification?.status === 'verified',
+        };
+    }
+
+    private async verifyClerkToken(clerkToken: string) {
+        const issuer = this.env.CLERK_JWT_ISSUER?.trim();
+        const jwksUrl =
+            this.env.CLERK_JWKS_URL?.trim() ||
+            (issuer ? `${issuer.replace(/\/$/, '')}/.well-known/jwks.json` : '');
+
+        if (!jwksUrl) {
+            throw new SecurityError(
+                SecurityErrorType.INVALID_INPUT,
+                'Clerk JWKS URL is not configured',
+                503
+            );
+        }
+
+        try {
+            const { payload } = await jwtVerify(clerkToken, getCachedClerkJwks(jwksUrl), {
+                issuer: issuer || undefined,
+            });
+            return payload;
+        } catch (error) {
+            logger.warn('Invalid Clerk session token', {
+                errorMessage: error instanceof Error ? error.message : String(error),
+            });
+            throw new SecurityError(
+                SecurityErrorType.INVALID_TOKEN,
+                'Invalid Clerk session',
+                401
+            );
+        }
+    }
+
+    private async findOrCreateClerkUser(profile: ClerkUserProfile): Promise<schema.User> {
         let user = await this.database
             .select()
             .from(schema.users)
-            .where(eq(schema.users.email, oauthUserInfo.email.toLowerCase()))
+            .where(eq(schema.users.clerkUserId, profile.clerkUserId))
             .get();
-        
+
         if (!user) {
-            // Create new user
+            user = await this.database
+                .select()
+                .from(schema.users)
+                .where(eq(schema.users.email, profile.email))
+                .get();
+        }
+
+        if (!user) {
             const userId = generateId();
             const now = new Date();
-            const email = oauthUserInfo.email.toLowerCase();
-            
+
             await this.database.insert(schema.users).values({
                 id: userId,
-                email,
-                displayName: oauthUserInfo.name || oauthUserInfo.email.split('@')[0],
-                avatarUrl: getDiceBearAvatarUrl(`${userId}:${email}`),
-                emailVerified: oauthUserInfo.emailVerified || false,
-                provider: provider,
-                providerId: oauthUserInfo.id,
+                email: profile.email,
+                displayName: profile.displayName,
+                avatarUrl: getDiceBearAvatarUrl(`${userId}:${profile.email}`),
+                emailVerified: profile.emailVerified,
+                provider: 'clerk',
+                providerId: profile.clerkUserId,
+                clerkUserId: profile.clerkUserId,
                 createdAt: now,
-                updatedAt: now
+                updatedAt: now,
             });
-            
+
             user = await this.database
                 .select()
                 .from(schema.users)
@@ -545,28 +535,27 @@ export class AuthService extends BaseService {
             const avatarUrl = shouldAssignDiceBearAvatar(user.avatarUrl)
                 ? getDiceBearAvatarUrl(`${user.id}:${user.email}`)
                 : user.avatarUrl;
-            
-            // Always update OAuth info and user data on login
+
             await this.database
                 .update(schema.users)
                 .set({
-                    displayName: oauthUserInfo.name || user.displayName,
+                    displayName: profile.displayName || user.displayName,
                     avatarUrl,
-                    provider: provider,
-                    providerId: oauthUserInfo.id,
-                    emailVerified: oauthUserInfo.emailVerified || user.emailVerified,
-                    updatedAt: new Date()
+                    provider: 'clerk',
+                    providerId: profile.clerkUserId,
+                    clerkUserId: profile.clerkUserId,
+                    emailVerified: profile.emailVerified || user.emailVerified,
+                    updatedAt: new Date(),
                 })
                 .where(eq(schema.users.id, user.id));
-            
-            // Refresh user data after updates
+
             user = await this.database
                 .select()
                 .from(schema.users)
                 .where(eq(schema.users.id, user.id))
                 .get();
         }
-        
+
         return user!;
     }
     

@@ -21,9 +21,10 @@ export function setupAuthRoutes(app: Hono<AppEnv>): void {
     authRouter.post('/login', setAuthLevel(AuthConfig.public), adaptController(AuthController, AuthController.login));
     authRouter.post('/verify-email', setAuthLevel(AuthConfig.public), adaptController(AuthController, AuthController.verifyEmail));
     authRouter.post('/resend-verification', setAuthLevel(AuthConfig.public), adaptController(AuthController, AuthController.resendVerificationOtp));
+    authRouter.post('/clerk/sync', setAuthLevel(AuthConfig.public), adaptController(AuthController, AuthController.syncClerkUser));
     authRouter.get('/check', setAuthLevel(AuthConfig.public), adaptController(AuthController, AuthController.checkAuth));
     
-    // Protected routes (require authentication) - must come before dynamic OAuth routes
+    // Protected routes
     authRouter.get('/profile', setAuthLevel(AuthConfig.public), adaptController(AuthController, AuthController.getProfile));
     authRouter.put('/profile', setAuthLevel(AuthConfig.authenticated), adaptController(AuthController, AuthController.updateProfile));
     authRouter.post('/logout', setAuthLevel(AuthConfig.authenticated), adaptController(AuthController, AuthController.logout));
@@ -40,10 +41,6 @@ export function setupAuthRoutes(app: Hono<AppEnv>): void {
 
     // SDK: exchange API key for short-lived access token
     authRouter.post('/exchange-api-key', setAuthLevel(AuthConfig.public), adaptController(AuthController, AuthController.exchangeApiKey));
-    
-    // OAuth routes (under /oauth path to avoid conflicts)
-    authRouter.get('/oauth/:provider', setAuthLevel(AuthConfig.public), adaptController(AuthController, AuthController.initiateOAuth));
-    authRouter.get('/callback/:provider', setAuthLevel(AuthConfig.public), adaptController(AuthController, AuthController.handleOAuthCallback));
     
     // Mount the auth router under /api/auth
     app.route('/api/auth', authRouter);

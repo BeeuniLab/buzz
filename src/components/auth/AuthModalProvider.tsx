@@ -34,21 +34,21 @@ export function AuthModalProvider({ children }: AuthModalProviderProps) {
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [modalContext, setModalContext] = useState<string | undefined>();
   const [pendingAction, setPendingAction] = useState<(() => void) | undefined>();
-  const [intendedUrl, setIntendedUrlState] = useState<string | undefined>();
-  const { login, loginWithEmail, register, error, clearError, isAuthenticated, isLoading } = useAuth();
+  const { setIntendedUrl, loginWithEmail, register, error, clearError, isAuthenticated, isLoading } = useAuth();
 
   const showAuthModal = useCallback((context?: string, onSuccess?: () => void, intendedUrl?: string) => {
     setModalContext(context);
     setPendingAction(onSuccess ? () => onSuccess : undefined);
-    setIntendedUrlState(intendedUrl);
+    if (intendedUrl) {
+      setIntendedUrl(intendedUrl);
+    }
     setIsAuthModalOpen(true);
-  }, []);
+  }, [setIntendedUrl]);
 
   const hideAuthModal = useCallback(() => {
     setIsAuthModalOpen(false);
     setModalContext(undefined);
     setPendingAction(undefined);
-    setIntendedUrlState(undefined);
     clearError();
   }, [clearError]);
 
@@ -65,20 +65,14 @@ export function AuthModalProvider({ children }: AuthModalProviderProps) {
     }
   }, [isAuthenticated, pendingAction, isAuthModalOpen, hideAuthModal]);
 
-  const handleLogin = useCallback((provider: 'google' | 'github', redirectUrl?: string) => {
-    // Use the intended URL if available, otherwise use the provided redirect URL
-    const finalRedirectUrl = intendedUrl || redirectUrl;
-    login(provider, finalRedirectUrl);
-  }, [login, intendedUrl]);
-
   // Set up global auth modal trigger for API client
   useEffect(() => {
     setGlobalAuthModalTrigger(showAuthModal);
   }, [showAuthModal]);
 
   // Auto-show login modal for unauthenticated users on private entry points only.
-  // Uses a ref to track the resolved auth state and a brief delay to avoid
-  // flashing on OAuth redirects where the cookie is set but profile hasn't loaded
+  // Uses a ref to track the resolved auth state and avoid flashing while
+  // Clerk/local auth state settles.
   const authResolvedRef = React.useRef(false);
   const suppressAutoAuthModal =
     pathname === '/' ||
@@ -112,8 +106,6 @@ export function AuthModalProvider({ children }: AuthModalProviderProps) {
       <LoginModal
         isOpen={isAuthModalOpen}
         onClose={hideAuthModal}
-        onLogin={login} // Fallback for backward compatibility
-        onOAuthLogin={handleLogin}
         onEmailLogin={loginWithEmail}
         onRegister={register}
         error={error}

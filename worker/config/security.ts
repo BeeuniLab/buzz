@@ -160,6 +160,8 @@ export function getSecureHeadersConfig(env: Env): SecureHeadersConfig {
                 "'self'",
                 // Allow inline scripts with nonce (Hono will add nonce automatically)
                 "'strict-dynamic'",
+                "https://*.clerk.accounts.dev",
+                "https://*.clerk.com",
                 // Development only - for hot reload
                 ...(isDevelopment ? ["'unsafe-eval'"] : [])
             ],
@@ -178,7 +180,6 @@ export function getSecureHeadersConfig(env: Env): SecureHeadersConfig {
                 "data:",
                 "blob:",
                 "https://api.dicebear.com", // Generated user avatars
-                "https://avatars.githubusercontent.com", // GitHub avatars
                 "https://lh3.googleusercontent.com", // Google avatars
                 "https://*.cloudflare.com" // Cloudflare assets
             ],
@@ -189,10 +190,15 @@ export function getSecureHeadersConfig(env: Env): SecureHeadersConfig {
                 "wss://localhost:*",
                 `wss://${env.CUSTOM_DOMAIN || '*'}`,
                 // API endpoints
-                "https://api.github.com",
-                "https://api.cloudflare.com"
+                "https://api.cloudflare.com",
+                "https://api.clerk.com",
+                "https://*.clerk.accounts.dev",
+                "https://*.clerk.com"
             ],
-            frameSrc: ["'none'"],
+            frameSrc: [
+                "https://*.clerk.accounts.dev",
+                "https://*.clerk.com"
+            ],
             objectSrc: ["'none'"],
             mediaSrc: ["'self'"],
             workerSrc: ["'self'", "blob:"],

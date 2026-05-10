@@ -265,8 +265,7 @@ export type {
   AuthSession, 
   ApiKeyInfo, 
   AuthResult, 
-  AuthUser,
-  OAuthProvider 
+  AuthUser
 } from 'worker/types/auth-types';
 export type { 
   SessionResponse 
@@ -288,11 +287,14 @@ export type ProfileResponseData = {
 export interface AuthProvidersResponseData {
   providers: {
     google: boolean;
-    github: boolean;
     email: boolean;
   };
-  hasOAuth: boolean;
+  hasThirdPartyAuth: boolean;
   requiresEmailAuth: boolean;
+  clerk?: {
+    enabled: boolean;
+    google: boolean;
+  };
   csrfToken?: string;
   csrfExpiresIn?: number;
 }

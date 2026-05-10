@@ -1,4 +1,5 @@
 import { createRoot } from 'react-dom/client';
+import { ClerkProvider } from '@clerk/clerk-react';
 import { createBrowserRouter } from 'react-router';
 import { RouterProvider } from 'react-router/dom';
 import { initSentry } from './utils/sentry';
@@ -22,6 +23,20 @@ const router = createBrowserRouter(routes, {
 	hydrationData: window.__staticRouterHydrationData,
 });
 
+const app = <RouterProvider router={router} />;
+const clerkPublishableKey = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
+
 createRoot(document.getElementById('root')!).render(
-  <RouterProvider router={router} />
+  clerkPublishableKey
+    ? (
+      <ClerkProvider
+        publishableKey={clerkPublishableKey}
+        signInFallbackRedirectUrl="/"
+        signUpFallbackRedirectUrl="/"
+        afterSignOutUrl="/"
+      >
+        {app}
+      </ClerkProvider>
+    )
+    : app
 );

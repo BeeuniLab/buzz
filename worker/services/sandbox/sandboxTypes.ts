@@ -441,32 +441,3 @@ export const WebhookPayloadSchema = z.object({
     event: WebhookEventSchema,
 })
 export type WebhookPayload = z.infer<typeof WebhookPayloadSchema>
-/**
- * GitHub integration types for exporting generated applications
- */
-
-// Common fields for GitHub operations
-interface GitHubUserInfo {
-    token: string;
-    email: string;
-    username: string;
-    isPrivate: boolean;
-}
-
-// Request for pushing to existing repository (low-level push)
-export interface GitHubPushRequest extends GitHubUserInfo {
-    cloneUrl: string;
-    repositoryHtmlUrl: string;
-}
-
-export const GitHubPushResponseSchema = z.object({
-    success: z.boolean(),
-    commitSha: z.string().optional(),
-    error: z.string().optional(),
-    details: z.object({
-        operation: z.string().optional(),
-        exitCode: z.number().optional(),
-        stderr: z.string().optional(),
-    }).optional(),
-})
-export type GitHubPushResponse = z.infer<typeof GitHubPushResponseSchema>

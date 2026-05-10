@@ -30,7 +30,7 @@ import { ConfirmDeleteDialog } from '@/components/shared/ConfirmDeleteDialog';
 // Use proper types from API types
 type AppDetails = AppDetailsData;
 
-// Define supported actions for OAuth redirect
+// Define supported actions for sign-in redirects
 type PendingAction = 'favorite' | 'bookmark' | 'star' | 'fork' | 'remix';
 
 // Supported actions constant for validation
@@ -209,7 +209,7 @@ export default function AppView() {
 	// 	[createAuthenticatedHandler],
 	// );
 
-	// Handle pending actions after OAuth redirect
+	// Handle pending actions after sign-in redirect
 	const executePendingAction = useCallback(
 		async (action: PendingAction) => {
 			if (!app) return;
@@ -244,7 +244,7 @@ export default function AppView() {
 		[actionConfigs, app],
 	);
 
-	// Effect to handle pending actions after OAuth redirect
+	// Effect to handle pending actions after sign-in redirect
 	useEffect(() => {
 		if (!user || !app || loading) return;
 

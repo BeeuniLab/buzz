@@ -160,22 +160,6 @@ export function getTemplatesData(): SecretTemplate[] {
 			required: false,
 			category: 'byok',
 		},
-
-		// Development Tools
-		{
-			id: 'GITHUB_TOKEN',
-			displayName: 'GitHub Personal Access Token',
-			envVarName: 'GITHUB_TOKEN',
-			provider: 'github',
-			icon: '🐙',
-			description: 'GitHub token for repository operations',
-			instructions:
-				'Go to GitHub → Settings → Developer settings → Personal access tokens → Generate new token',
-			placeholder: 'ghp_... or github_pat_...',
-			validation: '^(ghp_[a-zA-Z0-9]{36}|github_pat_[a-zA-Z0-9_]{80,})$',
-			required: false,
-			category: 'development',
-		},
 		{
 			id: 'VERCEL_TOKEN',
 			displayName: 'Vercel Access Token',
