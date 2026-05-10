@@ -1624,7 +1624,7 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
                 });
             },
         });
-        if (!result.madeChanges && kind === 'create_project') {
+        if (!result.madePlayableChanges && kind === 'create_project') {
             const errorMessage = result.noChangeReason
                 ? `The project agent could not finish creating the playable version this time. ${result.noChangeReason}`
                 : 'The project agent could not finish creating the playable version this time. No project changes were applied.';
@@ -1643,8 +1643,8 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
             }
             throw new Error(errorMessage);
         }
-        const totalChangedFiles = result.changedFiles.length + result.deletedFiles.length;
-        const assistantMessage = this.buildGenerationCompleteMessage(kind, totalChangedFiles);
+        const totalPlayableChangedFiles = result.playableChangedFiles.length;
+        const assistantMessage = this.buildGenerationCompleteMessage(kind, totalPlayableChangedFiles);
 
         this.setState({
             ...this.state,
@@ -1652,7 +1652,7 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
             lastUserStopAt: undefined,
             lastFailedWorkflow: undefined,
             lastRetryableWorkflow: undefined,
-            ...(result.madeChanges ? {
+            ...(result.madePlayableChanges ? {
                 mvpGenerated: true,
                 lastPlayableDeploymentRevision: this.state.generatedFilesRevision ?? 0,
                 lastPlayableDeploymentAt: Date.now(),
@@ -1681,9 +1681,9 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
                 tunnelURL: result.preview.tunnelURL ?? '',
             });
         }
-        if (result.madeChanges) {
+        if (result.madePlayableChanges) {
             this.broadcast(WebSocketMessageResponses.GENERATION_COMPLETE, {
-                message: `Project update completed with ${totalChangedFiles} changed files.`,
+                message: `Project update completed with ${totalPlayableChangedFiles} playable file changes.`,
                 instanceId: this.state.sessionId,
                 previewURL: result.preview?.previewURL,
             });

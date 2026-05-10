@@ -18,6 +18,7 @@ const CODEX_WORK_DIR = '.buzz/codex';
 const CODEX_HOME_PATH = '.buzz/codex-home';
 const CODEX_CONFIG_PATH = `${CODEX_HOME_PATH}/config.toml`;
 const CODEX_AUTH_PATH = `${CODEX_HOME_PATH}/auth.json`;
+const BASELINE_REF_PATH = `${CODEX_WORK_DIR}/baseline-ref.txt`;
 const CHANGED_FILES_PATH = `${CODEX_WORK_DIR}/changed-files.txt`;
 const DELETED_FILES_PATH = `${CODEX_WORK_DIR}/deleted-files.txt`;
 const PROMPT_PATH = `${CODEX_WORK_DIR}/prompt.md`;
@@ -76,8 +77,10 @@ export interface CodexGenerationRequest {
 export interface CodexGenerationResult {
 	changedFiles: FileOutputType[];
 	deletedFiles: string[];
+	playableChangedFiles: string[];
 	preview: PreviewType | null;
 	madeChanges: boolean;
+	madePlayableChanges: boolean;
 	noChangeReason?: string;
 }
 
@@ -93,6 +96,42 @@ type CodexRecoverySnapshot = {
 	deletedFiles: string[];
 	madeChanges: boolean;
 };
+
+const PLAYABLE_CONFIG_PATHS = new Set([
+	'index.html',
+	'package.json',
+	'vite.config.js',
+	'vite.config.ts',
+	'wrangler.jsonc',
+	'wrangler.toml',
+	'tsconfig.json',
+	'tsconfig.node.json',
+]);
+const PLAYABLE_SOURCE_PREFIXES = ['src/', 'worker/', 'public/'];
+const PLAYABLE_FILE_EXTENSIONS = new Set([
+	'.ts',
+	'.tsx',
+	'.js',
+	'.jsx',
+	'.mjs',
+	'.cjs',
+	'.css',
+	'.scss',
+	'.sass',
+	'.less',
+	'.html',
+	'.json',
+	'.jsonc',
+	'.toml',
+	'.yaml',
+	'.yml',
+]);
+const NON_PLAYABLE_PROJECT_PATHS = new Set([
+	'.bootstrap.js',
+	'.bootstrap-complete',
+	'.reload-trigger',
+	'src/asset_map',
+]);
 
 function shellQuote(value: string): string {
 	return `'${value.replace(/'/g, `'\\''`)}'`;
@@ -117,6 +156,51 @@ function tomlString(value: string): string {
 
 function workspacePath(instanceId: string, relativePath: string): string {
 	return `/workspace/${instanceId}/${relativePath}`;
+}
+
+function normalizeProjectPath(path: string): string {
+	return path.trim().replace(/^\.\/+/, '');
+}
+
+function fileExtension(path: string): string {
+	const filename = path.split('/').pop() || path;
+	const dotIndex = filename.lastIndexOf('.');
+	return dotIndex > 0 ? filename.slice(dotIndex).toLowerCase() : '';
+}
+
+function isCollectableProjectPath(path: string): boolean {
+	const normalized = normalizeProjectPath(path);
+	return Boolean(normalized)
+		&& !normalized.startsWith('.buzz/')
+		&& !normalized.startsWith('.codex/')
+		&& !normalized.startsWith('.data/')
+		&& !normalized.startsWith('.git/')
+		&& !normalized.startsWith('.wrangler/')
+		&& !normalized.startsWith('node_modules/')
+		&& !normalized.startsWith('dist/')
+		&& !normalized.startsWith('build/')
+		&& normalized !== '.reload-trigger';
+}
+
+function isPlayableProjectPath(path: string): boolean {
+	const normalized = normalizeProjectPath(path);
+	if (!isCollectableProjectPath(normalized) || NON_PLAYABLE_PROJECT_PATHS.has(normalized)) {
+		return false;
+	}
+	if (PLAYABLE_CONFIG_PATHS.has(normalized)) {
+		return true;
+	}
+	if (!PLAYABLE_SOURCE_PREFIXES.some((prefix) => normalized.startsWith(prefix))) {
+		return false;
+	}
+	return PLAYABLE_FILE_EXTENSIONS.has(fileExtension(normalized));
+}
+
+function uniquePlayableChangedPaths(changedFiles: FileOutputType[], deletedPaths: string[]): string[] {
+	return [...new Set([
+		...changedFiles.map((file) => normalizeProjectPath(file.filePath)),
+		...deletedPaths.map(normalizeProjectPath),
+	].filter(isPlayableProjectPath))];
 }
 
 function buildCodexRuntime(env: Env, instanceId: string, requestedModel: string | undefined, provider: CodexProvider): CodexRuntime {
@@ -227,16 +311,8 @@ function resolveCodexSessionPersistence(env: Env, agentId: string): CodexSession
 function parsePathList(content: string): string[] {
 	return content
 		.split('\n')
-		.map((line) => line.trim())
-		.filter(Boolean)
-		.filter((path) => !path.startsWith('.buzz/'))
-		.filter((path) => !path.startsWith('.codex/'))
-		.filter((path) => !path.startsWith('.git/'))
-		.filter((path) => !path.startsWith('.wrangler/'))
-		.filter((path) => !path.startsWith('node_modules/'))
-		.filter((path) => !path.startsWith('dist/'))
-		.filter((path) => !path.startsWith('build/'))
-		.filter((path) => path !== '.reload-trigger');
+		.map(normalizeProjectPath)
+		.filter(isCollectableProjectPath);
 }
 
 function readReturnedFile(files: Array<{ filePath: string; fileContents: string }>, path: string): string {
@@ -501,6 +577,7 @@ export class CodexGenerationManager<TState extends BaseProjectState = BaseProjec
 		deployedPreview: PreviewType | null,
 		noChangeReason?: string,
 	): Promise<CodexGenerationResult> {
+		const playableChangedFiles = uniquePlayableChangedPaths(changedFiles, deletedPaths);
 		if (changedFiles.length > 0) {
 			await this.fileManager.saveGeneratedFiles(
 				changedFiles,
@@ -525,8 +602,10 @@ export class CodexGenerationManager<TState extends BaseProjectState = BaseProjec
 		return {
 			changedFiles,
 			deletedFiles: deletedPaths,
+			playableChangedFiles,
 			preview: deployedPreview,
 			madeChanges: changedFiles.length > 0 || deletedPaths.length > 0,
+			madePlayableChanges: playableChangedFiles.length > 0,
 			...(noChangeReason ? { noChangeReason } : {}),
 		};
 	}
@@ -736,13 +815,15 @@ export class CodexGenerationManager<TState extends BaseProjectState = BaseProjec
 
 	private async createGitBaseline(client: BaseSandboxService, instanceId: string): Promise<void> {
 		const command = [
+			`mkdir -p ${shellQuote(CODEX_WORK_DIR)}`,
 			'git init',
 			'git config user.email "buzzplay-codex@buzzplay.app"',
 			'git config user.name "Buzzplay Codex"',
 			'mkdir -p .git/info',
-			`printf '\\n.buzz/\\n.codex/\\n.wrangler/\\nnode_modules/\\ndist/\\nbuild/\\n' >> .git/info/exclude`,
+			`printf '\\n.buzz/\\n.codex/\\n.data/\\n.wrangler/\\nnode_modules/\\ndist/\\nbuild/\\n' >> .git/info/exclude`,
 			'git add -A',
 			'(git diff --cached --quiet || git commit -m "chore: baseline before codex")',
+			`git rev-parse HEAD > ${shellQuote(BASELINE_REF_PATH)}`,
 		].join(' && ');
 		const result = await client.executeCommands(instanceId, [command], 60_000);
 		const baseline = result.results[0];
@@ -874,8 +955,8 @@ export class CodexGenerationManager<TState extends BaseProjectState = BaseProjec
 	private async collectChangedPaths(client: BaseSandboxService, instanceId: string): Promise<string[]> {
 		const command = [
 			`mkdir -p ${shellQuote(CODEX_WORK_DIR)}`,
-			`(({ git diff --name-only --diff-filter=ACMRTUXB; git ls-files --others --exclude-standard; } | grep -v '^\\.buzz/' | grep -v '^\\.codex/' | grep -v '^\\.wrangler/' | grep -v '^node_modules/' | grep -v '^dist/' | grep -v '^build/' | sort -u > ${shellQuote(CHANGED_FILES_PATH)}) || true)`,
-			`((git diff --name-only --diff-filter=D | grep -v '^\\.buzz/' | grep -v '^\\.codex/' | grep -v '^\\.wrangler/' | grep -v '^node_modules/' | grep -v '^dist/' | grep -v '^build/' | sort -u > ${shellQuote(DELETED_FILES_PATH)}) || true)`,
+			`BASELINE="$(cat ${shellQuote(BASELINE_REF_PATH)} 2>/dev/null || git rev-parse HEAD 2>/dev/null || true)" && (({ git diff --name-only --diff-filter=ACMRTUXB "$BASELINE"..HEAD; git diff --name-only --diff-filter=ACMRTUXB "$BASELINE"; git diff --cached --name-only --diff-filter=ACMRTUXB "$BASELINE"; git ls-files --others --exclude-standard; } | grep -v '^\\.buzz/' | grep -v '^\\.codex/' | grep -v '^\\.data/' | grep -v '^\\.wrangler/' | grep -v '^node_modules/' | grep -v '^dist/' | grep -v '^build/' | sort -u > ${shellQuote(CHANGED_FILES_PATH)}) || true)`,
+			`BASELINE="$(cat ${shellQuote(BASELINE_REF_PATH)} 2>/dev/null || git rev-parse HEAD 2>/dev/null || true)" && (({ git diff --name-only --diff-filter=D "$BASELINE"..HEAD; git diff --name-only --diff-filter=D "$BASELINE"; git diff --cached --name-only --diff-filter=D "$BASELINE"; } | grep -v '^\\.buzz/' | grep -v '^\\.codex/' | grep -v '^\\.data/' | grep -v '^\\.wrangler/' | grep -v '^node_modules/' | grep -v '^dist/' | grep -v '^build/' | sort -u > ${shellQuote(DELETED_FILES_PATH)}) || true)`,
 		].join(' && ');
 		const result = await client.executeCommands(instanceId, [command], 60_000);
 		const collect = result.results[0];
