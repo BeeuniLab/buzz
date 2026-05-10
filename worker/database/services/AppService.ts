@@ -64,6 +64,17 @@ export class AppService extends BaseService {
         );
     }
 
+    private buildActiveOwnerFilter(): WhereCondition {
+        return or(
+            isNull(schema.apps.userId),
+            sql`EXISTS (
+                SELECT 1 FROM ${schema.users}
+                WHERE ${schema.users.id} = ${schema.apps.userId}
+                AND ${schema.users.deletedAt} IS NULL
+            )`
+        );
+    }
+
 
 
     // ========================================
@@ -282,6 +293,7 @@ export class AppService extends BaseService {
             sql`EXISTS (
                 SELECT 1 FROM ${schema.users}
                 WHERE ${schema.users.id} = ${schema.apps.userId}
+                AND ${schema.users.deletedAt} IS NULL
                 AND (
                     LOWER(${schema.users.displayName}) LIKE ${searchTerm}
                     OR LOWER(${schema.users.username}) LIKE ${searchTerm}
@@ -307,6 +319,7 @@ export class AppService extends BaseService {
                 isNull(schema.apps.userId)
             ),
             this.buildActiveAppFilter(),
+            this.buildActiveOwnerFilter(),
             or(
                 eq(schema.apps.status, 'completed'),
                 eq(schema.apps.status, 'generating')
@@ -461,7 +474,8 @@ export class AppService extends BaseService {
                     eq(schema.apps.visibility, 'public'),
                     eq(schema.apps.userId, userId)
                 ),
-                this.buildActiveAppFilter()
+                this.buildActiveAppFilter(),
+                this.buildActiveOwnerFilter()
             ))
             .orderBy(desc(schema.apps.updatedAt));
 
@@ -538,7 +552,11 @@ export class AppService extends BaseService {
                 visibility: schema.apps.visibility
             })
             .from(schema.apps)
-            .where(eq(schema.apps.id, appId))
+            .where(and(
+                eq(schema.apps.id, appId),
+                this.buildActiveAppFilter(),
+                this.buildActiveOwnerFilter()
+            ))
             .get();
 
         if (!app) {
@@ -563,7 +581,11 @@ export class AppService extends BaseService {
                 deploymentId: schema.apps.deploymentId,
             })
             .from(schema.apps)
-            .where(eq(schema.apps.id, appId))
+            .where(and(
+                eq(schema.apps.id, appId),
+                this.buildActiveAppFilter(),
+                this.buildActiveOwnerFilter()
+            ))
             .get();
 
         return app ?? null;
@@ -580,7 +602,11 @@ export class AppService extends BaseService {
                 visibility: schema.apps.visibility,
             })
             .from(schema.apps)
-            .where(eq(schema.apps.id, appId))
+            .where(and(
+                eq(schema.apps.id, appId),
+                this.buildActiveAppFilter(),
+                this.buildActiveOwnerFilter()
+            ))
             .get();
 
         return app ?? null;
@@ -601,7 +627,11 @@ export class AppService extends BaseService {
         const app = await readDb
             .select()
             .from(schema.apps)
-            .where(eq(schema.apps.id, appId))
+            .where(and(
+                eq(schema.apps.id, appId),
+                this.buildActiveAppFilter(),
+                this.buildActiveOwnerFilter()
+            ))
             .get();
 
         if (!app) {
@@ -694,7 +724,11 @@ export class AppService extends BaseService {
             })
             .from(schema.apps)
             .leftJoin(schema.users, eq(schema.apps.userId, schema.users.id))
-            .where(eq(schema.apps.id, appId))
+            .where(and(
+                eq(schema.apps.id, appId),
+                this.buildActiveAppFilter(),
+                this.buildActiveOwnerFilter()
+            ))
             .get();
 
         if (!appResult) {
@@ -863,6 +897,7 @@ export class AppService extends BaseService {
                 eq(schema.appViews.userId, userId),
                 eq(schema.apps.visibility, 'public'),
                 this.buildActiveAppFilter(),
+                this.buildActiveOwnerFilter(),
                 or(
                     eq(schema.apps.status, 'completed'),
                     eq(schema.apps.status, 'generating')

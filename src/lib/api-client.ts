@@ -1213,6 +1213,22 @@ class ApiClient {
 		});
 	}
 
+	async deleteAccount(): Promise<ApiResponse<{
+		deleted: boolean;
+		clerkDeleted: boolean;
+		hiddenAppCount: number;
+		message: string;
+	}>> {
+		return this.request<{
+			deleted: boolean;
+			clerkDeleted: boolean;
+			hiddenAppCount: number;
+			message: string;
+		}>('/api/auth/account', {
+			method: 'DELETE',
+		});
+	}
+
 	/**
 	 * Get available authentication providers
 	 */

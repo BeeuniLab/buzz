@@ -4,7 +4,7 @@
  */
 
 import * as schema from '../schema';
-import { eq, and, sql, isNull } from 'drizzle-orm';
+import { eq, and, sql, isNull, or } from 'drizzle-orm';
 import { createRemoteJWKSet, jwtVerify } from 'jose';
 import { JWTUtils } from '../../utils/jwtUtils';
 import { SessionService } from './SessionService';
@@ -81,6 +81,7 @@ interface ClerkUserProfile {
 }
 
 const CLERK_PHONE_EMAIL_DOMAIN = 'clerk-phone.buzzplay.internal';
+const DELETED_USER_EMAIL_DOMAIN = 'deleted.buzzplay.internal';
 
 function getRandomDiceBearStyle(): typeof DICEBEAR_AVATAR_STYLES[number] {
     const values = new Uint32Array(1);
@@ -187,7 +188,10 @@ export class AuthService extends BaseService {
             const existingUser = await this.database
                 .select()
                 .from(schema.users)
-                .where(eq(schema.users.email, data.email.toLowerCase()))
+                .where(and(
+                    eq(schema.users.email, data.email.toLowerCase()),
+                    isNull(schema.users.deletedAt)
+                ))
                 .get();
             
             if (existingUser) {
@@ -414,6 +418,124 @@ export class AuthService extends BaseService {
         }
     }
 
+    /**
+     * Remove account identity while keeping project records hidden for recovery/audit.
+     *
+     * The user row is retained because apps reference it, but all reusable identity
+     * fields are freed so the same email / Clerk account can create a fresh local user later.
+     */
+    async deleteAccount(userId: string): Promise<{
+        user: schema.User;
+        hiddenAppCount: number;
+    }> {
+        const user = await this.database
+            .select()
+            .from(schema.users)
+            .where(and(
+                eq(schema.users.id, userId),
+                isNull(schema.users.deletedAt)
+            ))
+            .get();
+
+        if (!user) {
+            throw new SecurityError(
+                SecurityErrorType.UNAUTHORIZED,
+                'Account not found',
+                404
+            );
+        }
+
+        const now = new Date();
+        const deletedEmail = `deleted+${user.id}@${DELETED_USER_EMAIL_DOMAIN}`;
+        const deletedProviderId = `deleted:${user.id}`;
+
+        // Hide projects without deleting project data.
+        const hiddenApps = await this.database
+            .update(schema.apps)
+            .set({
+                visibility: 'private',
+                isArchived: true,
+                hiddenFromBrowse: true,
+                updatedAt: now,
+            })
+            .where(eq(schema.apps.userId, user.id))
+            .returning({ id: schema.apps.id });
+
+        // Remove account-owned auth, preference, and social graph data.
+        await this.database.delete(schema.sessions).where(eq(schema.sessions.userId, user.id));
+        await this.database.delete(schema.apiKeys).where(eq(schema.apiKeys.userId, user.id));
+        await this.database.delete(schema.passwordResetTokens).where(eq(schema.passwordResetTokens.userId, user.id));
+        await this.database.delete(schema.emailVerificationTokens).where(eq(schema.emailVerificationTokens.userId, user.id));
+        await this.database.delete(schema.verificationOtps).where(eq(schema.verificationOtps.email, user.email));
+        await this.database.delete(schema.oauthStates).where(eq(schema.oauthStates.userId, user.id));
+        await this.database.delete(schema.favorites).where(eq(schema.favorites.userId, user.id));
+        await this.database.delete(schema.stars).where(eq(schema.stars.userId, user.id));
+        await this.database.delete(schema.appLikes).where(eq(schema.appLikes.userId, user.id));
+        await this.database.delete(schema.commentLikes).where(eq(schema.commentLikes.userId, user.id));
+        await this.database.delete(schema.appViews).where(eq(schema.appViews.userId, user.id));
+        await this.database.delete(schema.userModelConfigs).where(eq(schema.userModelConfigs.userId, user.id));
+        await this.database.delete(schema.userModelProviders).where(eq(schema.userModelProviders.userId, user.id));
+        await this.database.delete(schema.userFollows).where(or(
+            eq(schema.userFollows.followerId, user.id),
+            eq(schema.userFollows.followingId, user.id)
+        ));
+
+        await this.database
+            .update(schema.appComments)
+            .set({
+                content: '',
+                isDeleted: true,
+                updatedAt: now,
+            })
+            .where(eq(schema.appComments.userId, user.id));
+
+        await this.database
+            .update(schema.auditLogs)
+            .set({ userId: null })
+            .where(eq(schema.auditLogs.userId, user.id));
+
+        await this.database
+            .update(schema.systemSettings)
+            .set({ updatedBy: null, updatedAt: now })
+            .where(eq(schema.systemSettings.updatedBy, user.id));
+
+        await this.database
+            .update(schema.users)
+            .set({
+                email: deletedEmail,
+                username: null,
+                displayName: 'Deleted user',
+                avatarUrl: null,
+                bio: null,
+                provider: 'deleted',
+                providerId: deletedProviderId,
+                clerkUserId: null,
+                emailVerified: false,
+                passwordHash: null,
+                failedLoginAttempts: 0,
+                lockedUntil: null,
+                passwordChangedAt: null,
+                preferences: '{}',
+                timezone: 'UTC',
+                isActive: false,
+                isSuspended: false,
+                updatedAt: now,
+                lastActiveAt: null,
+                deletedAt: now,
+            })
+            .where(eq(schema.users.id, user.id));
+
+        logger.info('Account deleted locally', {
+            userId: user.id,
+            hiddenAppCount: hiddenApps.length,
+        });
+
+        return {
+            user,
+            hiddenAppCount: hiddenApps.length,
+        };
+    }
+
     private async getClerkUserProfile(clerkToken: string): Promise<ClerkUserProfile> {
         if (!this.env.CLERK_SECRET_KEY) {
             throw new SecurityError(
@@ -531,14 +653,20 @@ export class AuthService extends BaseService {
         let user = await this.database
             .select()
             .from(schema.users)
-            .where(eq(schema.users.clerkUserId, profile.clerkUserId))
+            .where(and(
+                eq(schema.users.clerkUserId, profile.clerkUserId),
+                isNull(schema.users.deletedAt)
+            ))
             .get();
 
         if (!user && profile.hasEmailAddress) {
             user = await this.database
                 .select()
                 .from(schema.users)
-                .where(eq(schema.users.email, profile.email))
+                .where(and(
+                    eq(schema.users.email, profile.email),
+                    isNull(schema.users.deletedAt)
+                ))
                 .get();
         }
 
@@ -570,7 +698,10 @@ export class AuthService extends BaseService {
                 const emailOwner = await this.database
                     .select()
                     .from(schema.users)
-                    .where(eq(schema.users.email, profile.email))
+                    .where(and(
+                        eq(schema.users.email, profile.email),
+                        isNull(schema.users.deletedAt)
+                    ))
                     .get();
 
                 if (!emailOwner || emailOwner.id === user.id) {

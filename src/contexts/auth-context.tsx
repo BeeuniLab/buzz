@@ -39,6 +39,7 @@ interface AuthContextType {
   register: (data: { email: string; password: string; name?: string }) => Promise<void>;
   
   logout: () => Promise<void>;
+  deleteAccount: () => Promise<void>;
   refreshUser: () => Promise<void>;
   clearError: () => void;
   
@@ -96,6 +97,7 @@ function AuthProviderInner({
   
   // Ref to store the refresh timer
   const refreshTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const accountDeletionRef = useRef(false);
 
   // Redirect URL management
   const INTENDED_URL_KEY = 'auth_intended_url';
@@ -237,7 +239,7 @@ function AuthProviderInner({
   }, [fetchAuthProviders, checkAuth]);
 
   useEffect(() => {
-    if (!clerkEnabled || !clerk?.isLoaded || !clerk.isSignedIn || user) {
+    if (accountDeletionRef.current || !clerkEnabled || !clerk?.isLoaded || !clerk.isSignedIn || user) {
       return;
     }
 
@@ -375,6 +377,39 @@ function AuthProviderInner({
     }
   }, [clerk, clerkEnabled]);
 
+  const deleteAccount = useCallback(async () => {
+    accountDeletionRef.current = true;
+    setError(null);
+    setIsLoading(true);
+
+    try {
+      await apiClient.deleteAccount();
+
+      if (refreshTimerRef.current) {
+        clearInterval(refreshTimerRef.current);
+      }
+
+      setUser(null);
+      setToken(null);
+      setSession(null);
+
+      if (clerkEnabled && clerk?.isLoaded && clerk.isSignedIn) {
+        await clerk.signOut({ redirectUrl: '/' });
+        return;
+      }
+
+      window.location.href = '/';
+    } catch (error) {
+      accountDeletionRef.current = false;
+      console.error('Delete account error:', error);
+      const message = error instanceof ApiError ? error.message : 'Failed to delete account.';
+      setError(message);
+      throw error;
+    } finally {
+      setIsLoading(false);
+    }
+  }, [clerk, clerkEnabled]);
+
   // Refresh user profile
   const refreshUser = useCallback(async () => {
     await checkAuth();
@@ -404,6 +439,7 @@ function AuthProviderInner({
     loginWithEmail, // Email/password method
     register,
     logout,
+    deleteAccount,
     refreshUser,
     clearError,
     setIntendedUrl,

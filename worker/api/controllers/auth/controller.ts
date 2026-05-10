@@ -36,6 +36,48 @@ export class AuthController extends BaseController {
     static hasClerkAuth(env: Env): boolean {
         return !!env.CLERK_SECRET_KEY && !!env.VITE_CLERK_PUBLISHABLE_KEY;
     }
+
+    private static async deleteClerkUserIfConfigured(env: Env, clerkUserId: string | null): Promise<boolean> {
+        if (!clerkUserId || !env.CLERK_SECRET_KEY) {
+            return false;
+        }
+
+        try {
+            const response = await fetch(
+                `https://api.clerk.com/v1/users/${encodeURIComponent(clerkUserId)}`,
+                {
+                    method: 'DELETE',
+                    headers: {
+                        Authorization: `Bearer ${env.CLERK_SECRET_KEY}`,
+                        Accept: 'application/json',
+                    },
+                }
+            );
+
+            if (response.ok) {
+                return true;
+            }
+
+            if (response.status === 404) {
+                AuthController.logger.warn('Clerk user was already deleted', { clerkUserId });
+                return false;
+            }
+
+            const responseText = await response.text().catch(() => '');
+            AuthController.logger.warn('Failed to delete Clerk user after local account deletion', {
+                clerkUserId,
+                status: response.status,
+                responseText: responseText.slice(0, 500),
+            });
+        } catch (error) {
+            AuthController.logger.warn('Clerk user deletion request failed after local account deletion', {
+                clerkUserId,
+                error: error instanceof Error ? error.message : String(error),
+            });
+        }
+
+        return false;
+    }
     
     /**
      * Register a new user
@@ -191,6 +233,44 @@ export class AuthController extends BaseController {
             CsrfService.clearTokenCookie(response);
             
             return response;
+        }
+    }
+
+    /**
+     * Delete current account.
+     * DELETE /api/auth/account
+     */
+    static async deleteAccount(_request: Request, env: Env, _ctx: ExecutionContext, routeContext: RouteContext): Promise<Response> {
+        try {
+            const user = routeContext.user;
+            if (!user) {
+                return AuthController.createErrorResponse('Unauthorized', 401);
+            }
+
+            const authService = new AuthService(env);
+            const result = await authService.deleteAccount(user.id);
+            const clerkDeleted = await AuthController.deleteClerkUserIfConfigured(
+                env,
+                result.user.clerkUserId
+            );
+
+            const response = AuthController.createSuccessResponse({
+                deleted: true,
+                clerkDeleted,
+                hiddenAppCount: result.hiddenAppCount,
+                message: 'Account deleted',
+            });
+
+            clearAuthCookies(response);
+            CsrfService.clearTokenCookie(response);
+
+            return response;
+        } catch (error) {
+            if (error instanceof SecurityError) {
+                return AuthController.createErrorResponse(error.message, error.statusCode);
+            }
+
+            return AuthController.handleError(error, 'delete account');
         }
     }
     

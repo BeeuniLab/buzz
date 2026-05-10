@@ -28,11 +28,12 @@ import { toast } from 'sonner';
 import { apiClient } from '@/lib/api-client';
 
 export default function SettingsPage() {
-	const { user } = useAuth();
+	const { user, deleteAccount } = useAuth();
 	const accountIdentifier =
 		user?.email?.endsWith('@clerk-phone.buzzplay.internal')
-			? 'Phone account'
+			? user.displayName || 'Phone account'
 			: user?.email || 'Signed in account';
+	const [isDeletingAccount, setIsDeletingAccount] = useState(false);
 	// Active sessions state
 	const [activeSessions, setActiveSessions] = useState<
 		ActiveSessionsData & { loading: boolean }
@@ -77,7 +78,17 @@ export default function SettingsPage() {
 	// };
 
 	const handleDeleteAccount = async () => {
-		toast.error('Account deletion is not yet implemented');
+		if (isDeletingAccount) return;
+
+		try {
+			setIsDeletingAccount(true);
+			await deleteAccount();
+			toast.success('Account deleted');
+		} catch (error) {
+			console.error('Delete account error:', error);
+			toast.error('Could not delete account. Please try again.');
+			setIsDeletingAccount(false);
+		}
 	};
 
 	// Load active sessions
@@ -246,7 +257,7 @@ export default function SettingsPage() {
 							<div>
 								<p className="font-medium text-text-primary">Delete Account</p>
 								<p className="text-sm text-text-tertiary">
-									Permanently delete your account and all data
+									Delete your account and hide your projects
 								</p>
 							</div>
 							<AlertDialog>
@@ -262,13 +273,10 @@ export default function SettingsPage() {
 								<AlertDialogContent>
 									<AlertDialogHeader>
 										<AlertDialogTitle>
-											Are you absolutely sure?
+											Delete account?
 										</AlertDialogTitle>
 										<AlertDialogDescription>
-											This action cannot be undone. This
-											will permanently delete your account
-											and remove all your data from our
-											servers.
+											Your account info will be deleted. Your projects will be hidden from the app.
 										</AlertDialogDescription>
 									</AlertDialogHeader>
 									<AlertDialogFooter>
@@ -277,9 +285,10 @@ export default function SettingsPage() {
 										</AlertDialogCancel>
 										<AlertDialogAction
 											onClick={handleDeleteAccount}
+											disabled={isDeletingAccount}
 											className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
 										>
-											Delete Account
+											{isDeletingAccount ? 'Deleting...' : 'Delete'}
 										</AlertDialogAction>
 									</AlertDialogFooter>
 								</AlertDialogContent>

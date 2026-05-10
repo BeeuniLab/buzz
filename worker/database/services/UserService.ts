@@ -5,7 +5,7 @@
 
 import { BaseService } from './BaseService';
 import * as schema from '../schema';
-import { eq, and, sql, lt, ne, desc, inArray } from 'drizzle-orm';
+import { eq, and, sql, lt, ne, desc, inArray, isNull } from 'drizzle-orm';
 import { generateId } from '../../utils/idGenerator';
 
 /**
@@ -32,19 +32,25 @@ export class UserService extends BaseService {
         id?: string;
         email?: string;
         provider?: { name: string; id: string };
+        includeDeleted?: boolean;
     }): Promise<schema.User | null> {
-        const whereConditions = [
+        const identityConditions = [
             options.id ? eq(schema.users.id, options.id) : undefined,
             options.email ? eq(schema.users.email, options.email) : undefined,
             options.provider ? and(
                 eq(schema.users.provider, options.provider.name),
                 eq(schema.users.providerId, options.provider.id)
-            ) : undefined
+            ) : undefined,
         ].filter(Boolean); // Remove undefined values
         
-        if (whereConditions.length === 0) {
+        if (identityConditions.length === 0) {
             return null;
         }
+
+        const whereConditions = [
+            ...identityConditions,
+            options.includeDeleted ? undefined : isNull(schema.users.deletedAt)
+        ].filter(Boolean);
         
         const users = await this.database
             .select()
