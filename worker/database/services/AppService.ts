@@ -4,7 +4,7 @@
 
 import { BaseService } from './BaseService';
 import * as schema from '../schema';
-import { eq, and, or, desc, asc, sql, isNull, isNotNull, inArray, notInArray } from 'drizzle-orm';
+import { eq, ne, and, or, desc, asc, sql, isNull, isNotNull, inArray, notInArray } from 'drizzle-orm';
 import { generateId } from '../../utils/idGenerator';
 import { formatRelativeTime } from '../../utils/timeFormatter';
 import { normalizeStoredInternalApiUrl } from '../../utils/urls';
@@ -25,6 +25,7 @@ import type {
 // Type definitions
 type WhereCondition =
     | ReturnType<typeof eq>
+    | ReturnType<typeof ne>
     | ReturnType<typeof and>
     | ReturnType<typeof or>
     | ReturnType<typeof isNull>
@@ -54,6 +55,13 @@ export class AppService extends BaseService {
             screenshotUrl: normalizeStoredInternalApiUrl(app.screenshotUrl) ?? null,
             iconUrl: normalizeStoredInternalApiUrl(app.iconUrl) ?? null,
         };
+    }
+
+    private buildActiveAppFilter(): WhereCondition {
+        return or(
+            eq(schema.apps.isArchived, false),
+            isNull(schema.apps.isArchived),
+        );
     }
 
 
@@ -298,6 +306,7 @@ export class AppService extends BaseService {
                 eq(schema.apps.visibility, 'public'),
                 isNull(schema.apps.userId)
             ),
+            this.buildActiveAppFilter(),
             or(
                 eq(schema.apps.status, 'completed'),
                 eq(schema.apps.status, 'generating')
@@ -404,7 +413,10 @@ export class AppService extends BaseService {
         const apps = await readDb
             .select()
             .from(schema.apps)
-            .where(eq(schema.apps.userId, userId))
+            .where(and(
+                eq(schema.apps.userId, userId),
+                this.buildActiveAppFilter()
+            ))
             .orderBy(desc(schema.apps.updatedAt))
             .limit(limit)
             .offset(offset);
@@ -459,12 +471,13 @@ export class AppService extends BaseService {
                 eq(schema.favorites.userId, userId)
             ))
             // Authorization: only return public apps OR user's own apps
-            .where(
+            .where(and(
                 or(
                     eq(schema.apps.visibility, 'public'),
                     eq(schema.apps.userId, userId)
-                )
-            )
+                ),
+                this.buildActiveAppFilter()
+            ))
             .orderBy(desc(schema.apps.updatedAt));
 
         // Strip sensitive fields - explicit about what's excluded
@@ -845,6 +858,74 @@ export class AppService extends BaseService {
     }
 
     /**
+     * Get public apps the user has played/viewed, excluding their own apps.
+     */
+    async getPlayedAppsForUser(
+        userId: string,
+        limit: number = 50
+    ): Promise<EnhancedAppData[]> {
+        const readDb = this.getReadDb('fresh');
+        const lastViewedAt = sql<number>`MAX(${schema.appViews.viewedAt})`;
+
+        const rows = await readDb
+            .select({
+                app: schema.apps,
+                userName: schema.users.displayName,
+                userAvatar: schema.users.avatarUrl,
+                lastViewedAt,
+                ...this.getCountSubqueries(),
+            })
+            .from(schema.appViews)
+            .innerJoin(schema.apps, eq(schema.appViews.appId, schema.apps.id))
+            .leftJoin(schema.users, eq(schema.apps.userId, schema.users.id))
+            .where(and(
+                eq(schema.appViews.userId, userId),
+                eq(schema.apps.visibility, 'public'),
+                this.buildActiveAppFilter(),
+                or(
+                    eq(schema.apps.status, 'completed'),
+                    eq(schema.apps.status, 'generating')
+                ),
+                or(
+                    isNull(schema.apps.userId),
+                    ne(schema.apps.userId, userId)
+                )
+            ))
+            .groupBy(schema.apps.id)
+            .orderBy(desc(lastViewedAt))
+            .limit(limit);
+
+        if (rows.length === 0) {
+            return [];
+        }
+
+        const appIds = rows.map(row => row.app.id);
+        const authorIds = Array.from(new Set(
+            rows
+                .map(row => row.app.userId)
+                .filter((id): id is string => Boolean(id))
+        ));
+
+        const [{ userStars, userFavorites }, userFollowingAuthors] = await Promise.all([
+            this.addUserSpecificAppData(appIds, userId),
+            this.getUserFollowingAuthors(authorIds, userId)
+        ]);
+
+        return rows.map(row => ({
+            ...this.normalizeAppUrls(row.app),
+            userName: row.userName,
+            userAvatar: row.userAvatar,
+            viewCount: row.viewCount || 0,
+            starCount: row.starCount || 0,
+            forkCount: row.forkCount || 0,
+            likeCount: 0,
+            userStarred: userStars.has(row.app.id),
+            userFavorited: userFavorites.has(row.app.id),
+            userFollowingAuthor: row.app.userId ? userFollowingAuthors.has(row.app.userId) : false
+        }));
+    }
+
+    /**
      * Get user apps with analytics data
      */
     async getUserAppsWithAnalytics(userId: string, options: Partial<AppQueryOptions> = {}): Promise<EnhancedAppData[]> {
@@ -862,6 +943,7 @@ export class AppService extends BaseService {
 
         const whereConditions: WhereCondition[] = [
             eq(schema.apps.userId, userId),
+            this.buildActiveAppFilter(),
             status ? eq(schema.apps.status, status) : undefined,
             visibility ? eq(schema.apps.visibility, visibility) : undefined,
             ...this.buildCommonAppFilters(framework, search),
@@ -940,6 +1022,7 @@ export class AppService extends BaseService {
 
         const whereConditions: WhereCondition[] = [
             eq(schema.apps.userId, userId),
+            this.buildActiveAppFilter(),
             status ? eq(schema.apps.status, status) : undefined,
             visibility ? eq(schema.apps.visibility, visibility) : undefined,
             ...this.buildCommonAppFilters(framework, search),

@@ -33,6 +33,9 @@ export function setupAppRoutes(app: Hono<AppEnv>): void {
     // Get favorite apps - requires authentication (for dashboard)
     appRouter.get('/favorites', setAuthLevel(AuthConfig.authenticated), adaptController(AppController, AppController.getFavoriteApps));
 
+    // Get apps the user has played - requires authentication
+    appRouter.get('/played', setAuthLevel(AuthConfig.authenticated), adaptController(AppController, AppController.getPlayedApps));
+
     // ========================================
     // AUTHENTICATED INTERACTION ROUTES
     // ========================================

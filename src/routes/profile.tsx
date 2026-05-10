@@ -7,11 +7,11 @@ import { useFavoriteApps } from '@/hooks/use-apps';
 import { AppCard } from '@/components/shared/AppCard';
 import { apiClient } from '@/lib/api-client';
 import { cn } from '@/lib/utils';
-import { Bookmark, Code2, Loader2, Share2, UserCheck, UserPlus } from 'lucide-react';
+import { Bookmark, Code2, Gamepad2, Loader2, Share2, UserCheck, UserPlus } from 'lucide-react';
 import { toast } from 'sonner';
 import type { AppWithUserAndStats, PublicUserProfileData } from '@/api-types';
 
-type ProfileTab = 'favorites' | 'created';
+type ProfileTab = 'favorites' | 'played' | 'created';
 
 function formatStatCount(n: number): string {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
@@ -29,6 +29,8 @@ export default function Profile() {
 
   // Own profile data
   const { apps: favoriteApps, loading: favLoading } = useFavoriteApps();
+  const [playedApps, setPlayedApps] = React.useState<AppWithUserAndStats[]>([]);
+  const [playedLoading, setPlayedLoading] = React.useState(false);
 
   // Created apps with stats (fetched via getPublicApps for both own and public profiles)
   const [createdApps, setCreatedApps] = React.useState<AppWithUserAndStats[]>([]);
@@ -61,6 +63,24 @@ export default function Profile() {
   React.useEffect(() => {
     setActiveTab(isViewingOther ? 'created' : 'favorites');
   }, [isViewingOther]);
+
+  React.useEffect(() => {
+    if (!isOwnProfile || !user) {
+      setPlayedApps([]);
+      setPlayedLoading(false);
+      return;
+    }
+
+    setPlayedLoading(true);
+    apiClient.getPlayedApps()
+      .then((res) => {
+        if (res.success && res.data) {
+          setPlayedApps(res.data.apps);
+        }
+      })
+      .catch(() => {})
+      .finally(() => setPlayedLoading(false));
+  }, [isOwnProfile, user]);
 
   React.useEffect(() => {
     setIsFollowing(Boolean(publicProfile?.isFollowing));
@@ -137,10 +157,10 @@ export default function Profile() {
   ];
 
   const apps = isOwnProfile
-    ? (activeTab === 'favorites' ? favoriteApps : createdApps)
+    ? (activeTab === 'favorites' ? favoriteApps : activeTab === 'played' ? playedApps : createdApps)
     : createdApps;
   const loading = isOwnProfile
-    ? (activeTab === 'favorites' ? favLoading : createdLoading)
+    ? (activeTab === 'favorites' ? favLoading : activeTab === 'played' ? playedLoading : createdLoading)
     : createdLoading;
 
   const handleShare = () => {
@@ -256,28 +276,24 @@ export default function Profile() {
         {/* Tabs — only show for own profile */}
         {isOwnProfile && (
           <div className="flex gap-2 mb-6">
-            <button
-              className={cn(
-                'px-5 py-2 rounded-full text-sm font-medium transition-colors',
-                activeTab === 'favorites'
-                  ? 'bg-text-primary text-bg-1'
-                  : 'bg-bg-3 text-text-tertiary hover:text-text-primary',
-              )}
-              onClick={() => setActiveTab('favorites')}
-            >
-              Favorites
-            </button>
-            <button
-              className={cn(
-                'px-5 py-2 rounded-full text-sm font-medium transition-colors',
-                activeTab === 'created'
-                  ? 'bg-text-primary text-bg-1'
-                  : 'bg-bg-3 text-text-tertiary hover:text-text-primary',
-              )}
-              onClick={() => setActiveTab('created')}
-            >
-              Created
-            </button>
+            {([
+              ['favorites', 'Favorites'],
+              ['played', 'Played'],
+              ['created', 'Created'],
+            ] as const).map(([tab, label]) => (
+              <button
+                key={tab}
+                className={cn(
+                  'px-5 py-2 rounded-full text-sm font-medium transition-colors',
+                  activeTab === tab
+                    ? 'bg-text-primary text-bg-1'
+                    : 'bg-bg-3 text-text-tertiary hover:text-text-primary',
+                )}
+                onClick={() => setActiveTab(tab)}
+              >
+                {label}
+              </button>
+            ))}
           </div>
         )}
 
@@ -307,6 +323,14 @@ export default function Profile() {
                 <p className="text-text-tertiary font-medium">No favorites yet</p>
                 <p className="text-sm text-text-tertiary/60 mt-1">
                   Tap the bookmark icon on apps you like!
+                </p>
+              </>
+            ) : isOwnProfile && activeTab === 'played' ? (
+              <>
+                <Gamepad2 className="h-12 w-12 text-text-tertiary/40 mb-4" />
+                <p className="text-text-tertiary font-medium">No played apps yet</p>
+                <p className="text-sm text-text-tertiary/60 mt-1">
+                  Games you open from other creators will appear here.
                 </p>
               </>
             ) : (

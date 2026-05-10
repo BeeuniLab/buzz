@@ -136,6 +136,45 @@ export class AppController extends BaseController {
         }
     }
 
+    // Get public apps the user has played/viewed, excluding their own apps
+    static async getPlayedApps(_request: Request, env: Env, _ctx: ExecutionContext, context: RouteContext): Promise<ControllerResponse<ApiResponse<PublicAppsData>>> {
+        try {
+            const user = context.user!;
+            const appService = new AppService(env);
+            const playedApps = await appService.getPlayedAppsForUser(user.id, 50);
+
+            const playableApps = (await Promise.all(playedApps.map(async app => {
+                const playableUrl = await AppController.resolvePublicPlayableUrl(env, app);
+                if (!playableUrl) return null;
+
+                return {
+                    ...app,
+                    cloudflareUrl: app.deploymentId ? playableUrl : null,
+                    previewUrl: playableUrl,
+                    userName: app.userName || 'Anonymous User',
+                    userAvatar: app.userAvatar || null,
+                    updatedAtFormatted: formatRelativeTime(app.updatedAt),
+                    createdAtFormatted: app.createdAt ? formatRelativeTime(app.createdAt) : ''
+                };
+            }))).filter((app): app is NonNullable<typeof app> => Boolean(app));
+
+            const responseData: PublicAppsData = {
+                apps: playableApps,
+                pagination: {
+                    limit: 50,
+                    offset: 0,
+                    total: playableApps.length,
+                    hasMore: false,
+                }
+            };
+
+            return AppController.createSuccessResponse(responseData);
+        } catch (error) {
+            this.logger.error('Error fetching played apps:', error);
+            return AppController.createErrorResponse<PublicAppsData>('Failed to fetch played apps', 500);
+        }
+    }
+
 
     // Toggle favorite status
     static async toggleFavorite(_request: Request, env: Env, _ctx: ExecutionContext, context: RouteContext): Promise<ControllerResponse<ApiResponse<FavoriteToggleData>>> {

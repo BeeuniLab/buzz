@@ -423,44 +423,46 @@ export default function FeedPage() {
 	const actionButtons = (
 		<>
 			<button onClick={handleReplay} className="flex flex-col items-center gap-1 group">
-				<div className={cn('rounded-full p-3 transition-colors', isMobile ? 'bg-black/40 backdrop-blur-sm text-white' : 'bg-bg-3 text-text-primary group-hover:bg-bg-3/80')}>
-					<RotateCcw className={cn(isMobile ? 'h-5 w-5' : 'h-6 w-6')} />
+				<div className={cn('rounded-full transition-colors', isMobile ? 'bg-black/40 backdrop-blur-sm text-white p-3' : 'bg-bg-3 text-text-primary group-hover:bg-bg-3/80 p-2.5')}>
+					<RotateCcw className={cn(isMobile ? 'h-5 w-5' : 'h-[18px] w-[18px]')} />
 				</div>
-				<span className={cn('text-xs', isMobile ? 'text-white/80' : 'text-text-tertiary')}>Replay</span>
+				<span className={cn(isMobile ? 'text-xs text-white/80' : 'text-[11px] text-text-tertiary')}>Replay</span>
 			</button>
 			<button onClick={handleShare} className="flex flex-col items-center gap-1 group">
-				<div className={cn('rounded-full p-3 transition-colors', isMobile ? 'bg-black/40 backdrop-blur-sm text-white' : 'bg-bg-3 text-text-primary group-hover:bg-bg-3/80')}>
-					<Send className={cn(isMobile ? 'h-5 w-5' : 'h-6 w-6')} />
+				<div className={cn('rounded-full transition-colors', isMobile ? 'bg-black/40 backdrop-blur-sm text-white p-3' : 'bg-bg-3 text-text-primary group-hover:bg-bg-3/80 p-2.5')}>
+					<Send className={cn(isMobile ? 'h-5 w-5' : 'h-[18px] w-[18px]')} />
 				</div>
-				<span className={cn('text-xs', isMobile ? 'text-white/80' : 'text-text-tertiary')}>Share</span>
+				<span className={cn(isMobile ? 'text-xs text-white/80' : 'text-[11px] text-text-tertiary')}>Share</span>
 			</button>
 			<button onClick={() => { if (requireAuth({ actionContext: 'to comment' })) setCommentsOpen(true); }} className="flex flex-col items-center gap-1 group">
-				<div className={cn('rounded-full p-3 transition-colors', isMobile ? 'bg-black/40 backdrop-blur-sm text-white' : 'bg-bg-3 text-text-primary group-hover:bg-bg-3/80')}>
-					<MessageCircle className={cn(isMobile ? 'h-5 w-5' : 'h-6 w-6')} />
+				<div className={cn('rounded-full transition-colors', isMobile ? 'bg-black/40 backdrop-blur-sm text-white p-3' : 'bg-bg-3 text-text-primary group-hover:bg-bg-3/80 p-2.5')}>
+					<MessageCircle className={cn(isMobile ? 'h-5 w-5' : 'h-[18px] w-[18px]')} />
 				</div>
-				<span className={cn('text-xs', isMobile ? 'text-white/80' : 'text-text-tertiary')}>{commentCount}</span>
+				<span className={cn(isMobile ? 'text-xs text-white/80' : 'text-[11px] text-text-tertiary')}>{commentCount}</span>
 			</button>
 			<button onClick={handleStar} className="flex flex-col items-center gap-1 group">
 				<div className={cn(
-					'rounded-full p-3 transition-colors',
+					'rounded-full transition-colors',
+					isMobile ? 'p-3' : 'p-2.5',
 					currentApp?.userStarred
 						? 'bg-red-500/20 text-red-500'
 						: isMobile ? 'bg-black/40 backdrop-blur-sm text-white' : 'bg-bg-3 text-text-primary group-hover:bg-bg-3/80'
 				)}>
-					<Heart className={cn(isMobile ? 'h-5 w-5' : 'h-6 w-6', currentApp?.userStarred && 'fill-current')} />
+					<Heart className={cn(isMobile ? 'h-5 w-5' : 'h-[18px] w-[18px]', currentApp?.userStarred && 'fill-current')} />
 				</div>
-				<span className={cn('text-xs', isMobile ? 'text-white/80' : 'text-text-tertiary')}>{currentApp?.starCount || 0}</span>
+				<span className={cn(isMobile ? 'text-xs text-white/80' : 'text-[11px] text-text-tertiary')}>{currentApp?.starCount || 0}</span>
 			</button>
 			<button onClick={handleFavorite} className="flex flex-col items-center gap-1 group">
 				<div className={cn(
-					'rounded-full p-3 transition-colors',
+					'rounded-full transition-colors',
+					isMobile ? 'p-3' : 'p-2.5',
 					currentApp?.userFavorited
 						? 'bg-accent/20 text-accent'
 						: isMobile ? 'bg-black/40 backdrop-blur-sm text-white' : 'bg-bg-3 text-text-primary group-hover:bg-bg-3/80'
 				)}>
-					<Bookmark className={cn(isMobile ? 'h-5 w-5' : 'h-6 w-6', currentApp?.userFavorited && 'fill-current')} />
+					<Bookmark className={cn(isMobile ? 'h-5 w-5' : 'h-[18px] w-[18px]', currentApp?.userFavorited && 'fill-current')} />
 				</div>
-				<span className={cn('text-xs', isMobile ? 'text-white/80' : 'text-text-tertiary')}>Favorite</span>
+				<span className={cn(isMobile ? 'text-xs text-white/80' : 'text-[11px] text-text-tertiary')}>Favorite</span>
 			</button>
 			{currentApp && (
 				<button
@@ -468,7 +470,7 @@ export default function FeedPage() {
 					className="group"
 					title={currentApp.userName || 'Anonymous'}
 				>
-					<Avatar className={cn('ring-2 group-hover:ring-accent transition-colors', isMobile ? 'h-8 w-8 ring-white/30' : 'h-10 w-10 ring-bg-3')}>
+					<Avatar className={cn('ring-2 group-hover:ring-accent transition-colors', isMobile ? 'h-8 w-8 ring-white/30' : 'h-8 w-8 ring-bg-3')}>
 						<AvatarImage src={currentApp.userAvatar ?? undefined} />
 						<AvatarFallback className={cn('text-xs font-semibold', isMobile ? 'bg-black/40 text-white' : 'bg-bg-3 text-text-primary')}>
 							{currentApp.userName?.charAt(0).toUpperCase() || '?'}
@@ -668,7 +670,7 @@ export default function FeedPage() {
 				</div>
 
 				{/* Right side: action buttons + avatar */}
-				<div className="flex flex-col items-center gap-5 pb-4">
+				<div className="flex flex-col items-center gap-3 pb-4">
 					{actionButtons}
 				</div>
 			</div>

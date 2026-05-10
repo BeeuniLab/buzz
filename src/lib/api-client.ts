@@ -498,6 +498,13 @@ class ApiClient {
 	}
 
 	/**
+	 * Get public apps the current user has played
+	 */
+	async getPlayedApps(): Promise<ApiResponse<PublicAppsData>> {
+		return this.request<PublicAppsData>('/api/apps/played');
+	}
+
+	/**
 	 * Get public apps feed with pagination
 	 */
 	async getPublicApps(
