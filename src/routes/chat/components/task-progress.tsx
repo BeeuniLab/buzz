@@ -1,16 +1,10 @@
 import clsx from 'clsx';
-import { Loader, Check, AlertCircle, XCircle } from 'lucide-react';
-import { useEffect, useRef } from 'react';
-import type { RefObject } from 'react';
+import { Loader, AlertCircle } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
-import type { PhaseTimelineItem } from '../hooks/use-chat';
 import type { FileType } from '@/api-types';
 import { ThinkingIndicator } from './thinking-indicator';
 
 import type { ProjectStage } from '../utils/project-stage-helpers';
-
-// Unified status type for consistency
-type UnifiedStatus = 'pending' | 'active' | 'completed' | 'error' | 'generating' | 'validating' | 'cancelled';
 
 // Animation variants and transitions for consistent motion
 const statusIconVariants = {
@@ -26,10 +20,6 @@ const commonTransitions = {
 	premiumShort: { duration: 0.3, ease: [0.23, 1, 0.32, 1] as const },
 	smoothInOut: { duration: 0.3, ease: 'easeInOut' as const },
 };
-
-// Centralized phase status utilities
-const getPhaseByStatus = (phases: PhaseTimelineItem[], status: PhaseTimelineItem['status']) =>
-	phases.find(p => p.status === status);
 
 // Consolidated status-specific loader components
 interface StatusLoaderProps {
@@ -48,40 +38,6 @@ const StatusLoader = ({ size = 'md', color = 'accent' }: StatusLoaderProps) => {
 	};
 	return <Loader className={`${sizeClass} animate-spin ${colorMap[color]}`} />;
 };
-
-// Unified StatusIcon component to eliminate DRY
-interface StatusIconProps {
-	status: UnifiedStatus;
-	size?: 'sm' | 'md';
-	className?: string;
-}
-
-function StatusIcon({ status, size = 'md', className }: StatusIconProps) {
-	const sizeClasses = {
-		sm: 'w-3 h-3',
-		md: 'w-4 h-4',
-	};
-
-	const iconClasses = sizeClasses[size];
-
-	switch (status) {
-		case 'generating':
-			return <Loader className={clsx(iconClasses, 'animate-spin text-accent', className)} />;
-		case 'validating':
-			return <Loader className={clsx(iconClasses, 'animate-spin text-blue-400', className)} />;
-		case 'completed':
-			return <Check className={clsx(iconClasses, 'text-green-500', className)} />;
-		case 'cancelled':
-			return <XCircle className={clsx(iconClasses, 'text-orange-400', className)} />;
-		case 'error':
-			return <AlertCircle className={clsx(iconClasses, 'text-red-500', className)} />;
-		case 'active':
-			return <Loader className={clsx(iconClasses, 'animate-spin text-accent', className)} />;
-		case 'pending':
-		default:
-			return <div className={clsx(iconClasses, 'bg-bg-3-foreground/40 dark:bg-bg-3-foreground/30 rounded-full', className)} />;
-	}
-}
 
 // Animated Status Indicator for project stages
 interface AnimatedStatusIndicatorProps {
@@ -152,17 +108,11 @@ function AnimatedStatusIndicator({ status, size = 5 }: AnimatedStatusIndicatorPr
 	);
 }
 
-interface PhaseTimelineProps {
+interface TaskProgressProps {
 	projectStages: ProjectStage[];
-	phaseTimeline: PhaseTimelineItem[];
 	files: FileType[];
-	view: string;
 	isThinkingNext?: boolean;
 	isPreviewDeploying?: boolean;
-	progress: number;
-	total: number;
-	parentScrollRef?: RefObject<HTMLDivElement | null>;
-	onViewChange?: (view: 'blueprint') => void;
 	// Issue tracking and debugging
 	runtimeErrorCount?: number;
 	staticIssueCount?: number;
@@ -173,34 +123,22 @@ interface PhaseTimelineProps {
 	taskRuntimeEstimate?: string;
 }
 
-export function PhaseTimeline({
+export function TaskProgress({
 	projectStages,
-	phaseTimeline,
 	files,
 	isThinkingNext,
 	isPreviewDeploying,
-	progress,
-	total,
 	runtimeErrorCount = 0,
 	staticIssueCount = 0,
 	isDebugging = false,
 	isGenerating = false,
 	isThinking = false,
 	taskRuntimeEstimate
-}: PhaseTimelineProps) {
-	const lastPhaseRef = useRef<HTMLDivElement>(null);
-	const hasStepProgress = phaseTimeline.length > 0 || total > 1;
+}: TaskProgressProps) {
 	const codeStage = projectStages.find(stage => stage.id === 'code');
 	const queuePosition = codeStage?.queuePosition;
-	const showFileSummary = phaseTimeline.length === 0 && files.length > 0 && codeStage?.status !== 'pending';
+	const showFileSummary = files.length > 0 && codeStage?.status !== 'pending';
 	const isCreatingPlayable = codeStage?.status === 'active' || isGenerating || isThinking || isPreviewDeploying || files.some(f => f.isGenerating);
-
-	// Auto-scroll to bottom when new phases are added or thinking indicator appears
-	useEffect(() => {
-		if (lastPhaseRef.current) {
-			lastPhaseRef.current.scrollIntoView({ behavior: 'smooth', block: 'end' });
-		}
-	}, [phaseTimeline.length, isThinkingNext]);
 
 	return (
 		<motion.div
@@ -232,19 +170,6 @@ export function PhaseTimeline({
 								)}>
 									{stage.title}
 								</span>
-
-									{/* Progress for code stage */}
-									{stage.id === 'code' && stage.status !== 'pending' && hasStepProgress && (
-										<motion.div
-											initial={{ x: -120 }}
-											animate={{ x: 0 }}
-										>
-											<span className="text-zinc-300 mx-1">&bull;</span>
-											<span className="text-text-tertiary">
-												{stage.status === 'completed' ? total : progress}/{total} steps
-											</span>
-										</motion.div>
-									)}
 
 								{/* Subtle inline issue indicator for completed code stage */}
 								{stage.id === 'code' && stage.status === 'completed' && (runtimeErrorCount > 0 || staticIssueCount > 0) && (
@@ -285,10 +210,10 @@ export function PhaseTimeline({
 									</motion.div>
 								)}
 
-								{/* Detailed Phase Timeline for code stage */}
+								{/* Detailed task progress for the code stage */}
 								{stage.id === 'code' && (
-									<div className="space-y-2 max-h-[400px] overflow-y-auto pr-2 phase-timeline-scroll relative">
-										{queuePosition && phaseTimeline.length === 0 && (
+									<div className="space-y-2 max-h-[400px] overflow-y-auto pr-2 task-progress-scroll relative">
+										{queuePosition && (
 											<div className="space-y-1 relative px-1 py-1">
 												<div className="flex items-start gap-2 relative z-0 w-full text-left">
 													<div className="flex-shrink-0 mt-0.5">
@@ -300,48 +225,10 @@ export function PhaseTimeline({
 												</div>
 											</div>
 										)}
-										{phaseTimeline.map((phase, phaseIndex) => (
-											<div
-												key={phase.id}
-												className="space-y-1 relative"
-												ref={phaseIndex === phaseTimeline.length - 1 ? lastPhaseRef : undefined}
-											>
-												{/* Subtle vertical line connecting phases */}
-												{phaseIndex < phaseTimeline.length - 1 && (
-													<div className="absolute left-[5px] w-[0.5px] h-full top-3 bg-border-primary/40" />
-												)}
-												{/* Phase Implementation Header */}
-												<div
-													className="flex items-start gap-2 relative z-0 w-full text-left px-1 py-1"
-												>
-													<div className="flex-shrink-0 mt-0.5">
-														<StatusIcon status={phase.status} size="sm" />
-													</div>
-													<span className="text-sm font-medium text-text-50 flex-1 break-words">
-														{phase.status === 'completed' ? 'Created a playable version' :
-														 phase.status === 'cancelled' ? 'Paused this step' :
-														 phase.status === 'error' ? 'Interrupted step' :
-														 phase.status === 'validating' ? 'Polishing the experience' :
-														 'Creating the playable experience'}
-													</span>
-												</div>
-											</div>
-										))}
 
 										{/* Validation/Preview deployment indicator */}
 										{(() => {
-											const validatingPhase = getPhaseByStatus(phaseTimeline, 'validating');
-											if (validatingPhase) {
-												return (
-													<div className="space-y-1 relative bg-blue-50/5 border border-blue-200/20 rounded-lg p-3">
-														<div className="flex items-center gap-2">
-															<StatusLoader size="sm" color="blue" />
-															<span className="text-sm font-medium text-blue-400">Polishing the experience...</span>
-														</div>
-														<span className="text-xs text-blue-300/80 ml-5">Checking that it feels right</span>
-													</div>
-												);
-											} else if (isPreviewDeploying) {
+											if (isPreviewDeploying) {
 												return (
 													<div className="space-y-1 relative bg-orange-50/5 border border-orange-200/20 rounded-lg p-3">
 														<div className="flex items-center gap-2">
@@ -355,14 +242,14 @@ export function PhaseTimeline({
 											return null;
 										})()}
 
-										{/* Thinking indicator for next phase */}
+										{/* Thinking indicator for the next task update */}
 										{isThinkingNext && (
-											<div className="relative z-10" ref={lastPhaseRef}>
+											<div className="relative z-10">
 												<ThinkingIndicator visible={isThinkingNext} />
 											</div>
 											)}
 
-											{/* File count summary for agentic mode (no phase timeline) */}
+											{/* File count summary for generated content */}
 											{showFileSummary && (
 												<div className="text-xs text-text-tertiary px-2 py-1">
 													{codeStage?.status === 'error'

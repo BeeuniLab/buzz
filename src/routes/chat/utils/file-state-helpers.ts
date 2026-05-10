@@ -1,4 +1,3 @@
-import type { PhaseTimelineItem } from '../hooks/use-chat';
 import type { FileType } from '@/api-types';
 import { getFileType } from '@/utils/string';
 
@@ -30,38 +29,6 @@ export function updateFileInArray(
         language: getFileType(filePath),
         ...updates
     }];
-}
-
-/**
- * Update file status in phase timeline
- */
-export function updatePhaseFileStatus(
-    phaseTimeline: PhaseTimelineItem[],
-    filePath: string,
-    status: 'generating' | 'completed' | 'error' | 'validating',
-    fileContents?: string
-): PhaseTimelineItem[] {
-    const updatedTimeline = [...phaseTimeline];
-    
-    // Find the most recent phase containing this file (iterate backwards)
-    for (let i = updatedTimeline.length - 1; i >= 0; i--) {
-        const phase = updatedTimeline[i];
-        if (phase.status === 'completed' && status !== 'completed') {
-            continue; // Skip completed phases unless we're marking as completed
-        }
-        
-        const fileInPhase = phase.files.find(f => f.path === filePath);
-        if (fileInPhase) {
-            fileInPhase.status = status;
-            if (fileContents !== undefined) {
-                fileInPhase.contents = fileContents;
-            }
-            console.log(`File ${status} in phase ${phase.name}: ${filePath}`);
-            break;
-        }
-    }
-    
-    return updatedTimeline;
 }
 
 /**

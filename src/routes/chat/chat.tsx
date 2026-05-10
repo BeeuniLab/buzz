@@ -11,12 +11,10 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { LoaderCircle, MoreHorizontal, RotateCcw, MessageSquare, Eye } from 'lucide-react';
 import clsx from 'clsx';
 import { UserMessage, AIMessage } from './components/messages';
-import { PhaseTimeline } from './components/phase-timeline';
+import { TaskProgress } from './components/task-progress';
 import { type DebugMessage } from './components/debug-panel';
 import { useChat } from './hooks/use-chat';
 import {
-	type BlueprintType,
-	type PhasicBlueprint,
 	SUPPORTED_CHAT_MEDIA_MIME_TYPES,
 	type ImageAttachment,
 	type ProjectType,
@@ -48,9 +46,6 @@ import {
 	type ChatAttachmentPreview,
 	type ChatAssetSelectionTarget,
 } from './utils/chat-attachments';
-
-const isPhasicBlueprint = (blueprint?: BlueprintType | null): blueprint is PhasicBlueprint =>
-	!!blueprint && 'implementationRoadmap' in blueprint;
 
 type CanvasView = 'editor' | 'preview' | 'docs' | 'blueprint' | 'presentation' | 'assets';
 
@@ -162,7 +157,6 @@ export default function Chat() {
 		previewUrl,
 		clearEdit,
 		projectStages,
-		phaseTimeline,
 		isThinking,
 		// Deployment and generation control
 		isGenerating,
@@ -415,10 +409,6 @@ export default function Chat() {
 		allFiles,
 	]);
 
-	const isPhase1Complete = useMemo(() => {
-		return phaseTimeline.length > 0 && phaseTimeline[0].status === 'completed';
-	}, [phaseTimeline]);
-
 	// Preview available based on projectType and content
 	const previewAvailable = useMemo(() => {
 		return !!previewUrl || files.length > 0;
@@ -483,7 +473,7 @@ export default function Chat() {
 			const isExistingChat = urlChatId !== 'new';
 			const shouldSwitch =
 				behaviorType === 'agentic' ||
-				(behaviorType === 'phasic' && isPhase1Complete) ||
+				behaviorType === 'phasic' ||
 				(isExistingChat && behaviorType !== 'phasic');
 
 			if (shouldSwitch) {
@@ -494,7 +484,7 @@ export default function Chat() {
 
 		// Update ref for next comparison
 		prevMarkdownCountRef.current = markdownFiles.length;
-	}, [previewUrl, isPhase1Complete, files, behaviorType, urlChatId]);
+	}, [previewUrl, files, behaviorType, urlChatId]);
 
 	useEffect(() => {
 		if (chatId) {
@@ -652,26 +642,6 @@ export default function Chat() {
 		[newMessage, websocket, sendUserMessage, isChatDisabled, scrollToBottom, images, clearImages],
 	);
 
-	const [progress, total] = useMemo((): [number, number] => {
-		// Calculate phase progress instead of file progress
-		const completedPhases = phaseTimeline.filter(p => p.status === 'completed').length;
-		const actualPhaseCount = Math.max(phaseTimeline.length, completedPhases);
-		const codeStageCompleted = projectStages.find((stage) => stage.id === 'code')?.status === 'completed';
-
-		if (codeStageCompleted) {
-			const completedTotal = Math.max(actualPhaseCount, 1);
-			return [completedTotal, completedTotal];
-		}
-
-		// Get predicted phase count from blueprint, fallback to current phase count
-		const predictedPhaseCount = isPhasicBlueprint(blueprint)
-			? blueprint.implementationRoadmap.length
-			: 0;
-		const totalPhases = Math.max(predictedPhaseCount, actualPhaseCount, 1);
-
-		return [completedPhases, totalPhases];
-	}, [phaseTimeline, blueprint, projectStages]);
-
 	const taskRuntimeEstimate = useMemo(() => {
 		return initialRouteWasNewRef.current
 			? 'Estimated run time: 6-20 min.'
@@ -697,8 +667,6 @@ export default function Chat() {
 			generatingCount,
 			isBootstrapping,
 			activeFilePath,
-			progress,
-			total,
 			isRunning,
 			projectStages,
 		});
@@ -841,28 +809,19 @@ export default function Chat() {
 							{isThinking && !otherMessages.some(m => m.ui?.isThinking) && (
 								<div className="mb-4">
 									<AIMessage
-										message="Planning next phase..."
+										message="Planning the next update..."
 										isThinking={true}
 									/>
 								</div>
 							)}
 
-							{/* Only show PhaseTimeline for phasic mode */}
+							{/* Generic task progress for the Codex build flow */}
 							{behaviorType !== 'agentic' && (
-								<PhaseTimeline
+								<TaskProgress
 									projectStages={projectStages}
-									phaseTimeline={phaseTimeline}
 									files={files}
-									view={view}
 									isThinkingNext={isThinking}
 									isPreviewDeploying={isPreviewDeploying}
-									progress={progress}
-									total={total}
-									parentScrollRef={messagesContainerRef}
-									onViewChange={(viewMode) => {
-										setView(viewMode);
-										hasSwitchedFile.current = true;
-									}}
 									runtimeErrorCount={runtimeErrorCount}
 									staticIssueCount={staticIssueCount}
 									isDebugging={isDebugging}

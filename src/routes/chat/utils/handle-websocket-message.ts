@@ -1,5 +1,5 @@
 import type { WebSocket } from 'partysocket';
-import type { WebSocketMessage, BlueprintType, ConversationMessage, AgentState, PhasicState, BehaviorType, ProjectType, TemplateDetails } from '@/api-types';
+import type { WebSocketMessage, BlueprintType, ConversationMessage, AgentState, BehaviorType, ProjectType, TemplateDetails } from '@/api-types';
 import { deduplicateMessages, isAssistantMessageDuplicate } from './deduplicate-messages';
 import { logger } from '@/utils/logger';
 import { getFileType } from '@/utils/string';
@@ -9,7 +9,6 @@ import {
     appendFileChunk,
     setFileCompleted,
     setAllFilesCompleted,
-    updatePhaseFileStatus,
 } from './file-state-helpers';
 import {
     createAIMessage,
@@ -21,7 +20,6 @@ import {
 import { buildInitialChatAttachments, parseUserMessageForDisplay } from './chat-attachments';
 import { completeStages, type ProjectStage } from './project-stage-helpers';
 import { sendWebSocketMessage } from './websocket-helpers';
-import type { PhaseTimelineItem } from '../hooks/use-chat';
 import type { FileType } from '@/api-types';
 import { toast } from 'sonner';
 import { createRepairingJSONParser } from '@/utils/ndjson-parser/ndjson-parser';
@@ -48,16 +46,6 @@ const isDeployProjectWorkflow = (workflow: AgentState['activeWorkflow']): boolea
 
 const isDeployPreviewWorkflow = (workflow: AgentState['activeWorkflow']): boolean =>
 	workflow?.kind === 'deploy_preview';
-
-const isPhasicState = (state: AgentState): state is PhasicState => {
-	const record = state as unknown as Record<string, unknown>;
-	const behaviorType = record.behaviorType;
-	if (behaviorType === 'phasic') return true;
-	if (behaviorType === undefined || behaviorType === null) {
-		return Array.isArray(record.generatedPhases);
-	}
-	return false;
-};
 
 const getFreshActiveTask = (state: AgentState) => {
 	const startedAt = state.activeAppTask?.startedAt;
@@ -370,7 +358,6 @@ const isRestoredBuildPaused = (state: AgentState): boolean =>
 export interface HandleMessageDeps {
     // State setters
     setFiles: React.Dispatch<React.SetStateAction<FileType[]>>;
-    setPhaseTimeline: React.Dispatch<React.SetStateAction<PhaseTimelineItem[]>>;
     setProjectStages: React.Dispatch<React.SetStateAction<any[]>>;
     setMessages: React.Dispatch<React.SetStateAction<ChatMessage[]>>;
     setBlueprint: React.Dispatch<React.SetStateAction<BlueprintType | undefined>>;
@@ -392,7 +379,6 @@ export interface HandleMessageDeps {
     setIsGenerationPaused: React.Dispatch<React.SetStateAction<boolean>>;
     setIsGenerating: React.Dispatch<React.SetStateAction<boolean>>;
     setIsConversationProcessing: React.Dispatch<React.SetStateAction<boolean>>;
-    setIsPhaseProgressActive: React.Dispatch<React.SetStateAction<boolean>>;
     setRuntimeErrorCount: React.Dispatch<React.SetStateAction<number>>;
     setStaticIssueCount: React.Dispatch<React.SetStateAction<number>>;
     setIsDebugging: React.Dispatch<React.SetStateAction<boolean>>;
@@ -408,7 +394,6 @@ export interface HandleMessageDeps {
     query: string | undefined;
     bootstrapFiles: FileType[];
     files: FileType[];
-    phaseTimeline: PhaseTimelineItem[];
     previewUrl: string | undefined;
     projectStages: ProjectStage[];
     isGenerating: boolean;
@@ -482,7 +467,6 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
     return (websocket: WebSocket, message: WebSocketMessage) => {
         const {
             setFiles,
-            setPhaseTimeline,
             setProjectStages,
             setMessages,
             setBlueprint,
@@ -504,7 +488,6 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
             setIsGenerationPaused,
             setIsGenerating,
             setIsConversationProcessing,
-            setIsPhaseProgressActive,
             setIsDebugging,
             setBehaviorType,
             setInternalProjectType,
@@ -514,7 +497,6 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
             query,
             bootstrapFiles,
             files,
-            phaseTimeline,
             previewUrl,
             projectStages,
             isGenerating,
@@ -649,56 +631,6 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
                         );
                     }
 
-                    if (isPhasicState(state) && state.generatedPhases.length > 0 && phaseTimeline.length === 0) {
-                        logger.debug('📋 Restoring phase timeline:', state.generatedPhases);
-                        const isActivelyGenerating = isStateActivelyGenerating(state);
-                        const wasExplicitlyStopped = Boolean(state.lastUserStopAt);
-                        
-                        const timeline = state.generatedPhases.map((phase, index: number) => {
-                            // Determine phase status:
-                            // - completed if explicitly marked complete
-                            // - cancelled only when the user explicitly stopped the task
-                            // - generating if incomplete and actively generating
-                            // - error if incomplete and no active task is present
-                            const phaseStatus = phase.completed 
-                                ? 'completed' as const 
-                                : wasExplicitlyStopped
-                                    ? 'cancelled' as const 
-                                    : isActivelyGenerating
-                                        ? 'generating' as const
-                                        : 'error' as const;
-                            
-                            return {
-                                id: `phase-${index}`,
-                                name: phase.name,
-                                description: phase.description,
-                                status: phaseStatus,
-                                files: phase.files.map(filesConcept => {
-                                    const file = state.generatedFilesMap?.[filesConcept.path];
-                                    // File status:
-                                    // - completed if it exists in generated files
-                                    // - cancelled if missing and not actively generating (interrupted)
-                                    // - generating if missing and actively generating
-                                    const fileStatus = file 
-                                        ? 'completed' as const 
-                                        : wasExplicitlyStopped
-                                            ? 'cancelled' as const 
-                                            : isActivelyGenerating
-                                                ? 'generating' as const
-                                                : 'error' as const;
-                                    return {
-                                        path: filesConcept.path,
-                                        purpose: filesConcept.purpose,
-                                        status: fileStatus,
-                                        contents: file?.fileContents
-                                    };
-                                }),
-                                timestamp: Date.now(),
-                            };
-                        });
-                        setPhaseTimeline(timeline);
-                    }
-                    
                     updateStage('bootstrap', { status: 'completed' });
 
                     if (restoredFailedWorkflow) {
@@ -1044,12 +976,6 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
 
 			case 'file_generated': {
 				setFiles((prev) => setFileCompleted(prev, message.file.filePath, message.file.fileContents));
-				setPhaseTimeline((prev) => updatePhaseFileStatus(
-					prev,
-					message.file.filePath,
-					'completed',
-					message.file.fileContents
-				));
 				deps.onPresentationFileEvent?.({ type: 'file_generated', path: message.file.filePath, contents: message.file.fileContents });
 				break;
 			}
@@ -1057,18 +983,11 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
             case 'file_regenerated': {
                 setIsRedeployReady(true);
                 setFiles((prev) => setFileCompleted(prev, message.file.filePath, message.file.fileContents));
-                setPhaseTimeline((prev) => updatePhaseFileStatus(
-                    prev,
-                    message.file.filePath,
-                    'completed',
-                    message.file.fileContents
-                ));
                 break;
             }
 
             case 'file_regenerating': {
                 setFiles((prev) => setFileGenerating(prev, message.filePath, 'File being regenerated...'));
-                setPhaseTimeline((prev) => updatePhaseFileStatus(prev, message.filePath, 'generating'));
                 break;
             }
 
@@ -1095,8 +1014,6 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
                 setFiles((prev) => setAllFilesCompleted(prev));
                 setProjectStages((prev) => completeStages(prev, ['code']));
                 
-                // Reset all phase indicators
-                setIsPhaseProgressActive(false);
                 setIsThinking(false);
                 setIsGenerating(false);
                 setMessages(prev => removeActiveBackgroundUpdateMessage(prev));
@@ -1212,92 +1129,32 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
             }
 
             case 'phase_generating': {
-                sendMessage(createAIMessage('phase_generating', message.message));
                 setIsThinking(true);
-                setIsPhaseProgressActive(true);
                 break;
             }
 
             case 'phase_generated': {
-                sendMessage(createAIMessage('phase_generated', message.message));
                 setIsThinking(false);
-                setIsPhaseProgressActive(false);
                 break;
             }
 
             case 'phase_implementing': {
-                sendMessage(createAIMessage('phase_implementing', message.message));
                 updateStage('code', { status: 'active' });
-                
-                if (message.phase) {
-                    setPhaseTimeline(prev => {
-                        const existingPhase = prev.find(p => p.name === message.phase.name);
-                        if (existingPhase) {
-                            logger.debug('Phase already exists in timeline:', message.phase.name);
-                            return prev;
-                        }
-                        
-                        const newPhase = {
-                            id: `${message.phase.name}-${Date.now()}`,
-                            name: message.phase.name,
-                            description: message.phase.description,
-                            files: message.phase.files?.map((f: { path: string; purpose: string }) => ({
-                                path: f.path,
-                                purpose: f.purpose,
-                                status: 'generating' as const,
-                            })) || [],
-                            status: 'generating' as const,
-                            timestamp: Date.now()
-                        };
-                        
-                        logger.debug('Added new phase to timeline:', message.phase.name);
-                        return [...prev, newPhase];
-                    });
-                }
                 break;
             }
 
             case 'phase_validating': {
-                sendMessage(createAIMessage('phase_validating', message.message));
-                
-                setPhaseTimeline(prev => {
-                    const updated = [...prev];
-                    if (updated.length > 0) {
-                        const lastPhase = updated[updated.length - 1];
-                        lastPhase.status = 'validating';
-                        logger.debug(`Phase validating: ${lastPhase.name}`);
-                    }
-                    return updated;
-                });
                 setIsPreviewDeploying(false);
-                setIsPhaseProgressActive(false);
                 break;
             }
 
             case 'phase_validated': {
-                sendMessage(createAIMessage('phase_validated', message.message));
                 break;
             }
 
             case 'phase_implemented': {
-                sendMessage(createAIMessage('phase_implemented', message.message));
-
                 updateStage('code', { status: 'completed' });
                 setIsRedeployReady(true);
-                setIsPhaseProgressActive(false);
-                
-                if (message.phase) {
-                    setPhaseTimeline(prev => {
-                        const updated = [...prev];
-                        if (updated.length > 0) {
-                            const lastPhase = updated[updated.length - 1];
-                            lastPhase.status = 'completed';
-                            lastPhase.files = lastPhase.files.map(f => ({ ...f, status: 'completed' as const }));
-                            logger.debug(`Phase completed: ${lastPhase.name}`);
-                        }
-                        return updated;
-                    });
-                }
 
                 logger.debug('🔄 Scheduling preview refresh in 1 second after deployment completion');
                 setTimeout(() => {
@@ -1354,27 +1211,8 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
                 setIsDeploying(false);
                 setIsPreviewDeploying(false);
                 
-                // Reset phase indicators
-                setIsPhaseProgressActive(false);
                 setIsThinking(false);
                 setMessages(prev => finishBackgroundUpdateMessage(prev, 'Update paused.'));
-                
-                // Mark any active phases as cancelled (not completed, since they were interrupted)
-                setPhaseTimeline((prev) => 
-                    prev.map(phase => 
-                        (phase.status === 'generating' || phase.status === 'validating')
-                            ? { 
-                                ...phase, 
-                                status: 'cancelled' as const,
-                                files: phase.files.map(file => 
-                                    file.status === 'generating' || file.status === 'validating'
-                                        ? { ...file, status: 'cancelled' as const }
-                                        : file
-                                )
-                            }
-                            : phase
-                    )
-                );
                 
                 // Show toast notification for user-initiated stop
                 toast.info('Task stopped', {
@@ -1422,7 +1260,7 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
 
                 onDebugMessage?.('info',
                     'Playable Update Completed',
-                    `Prepared URL: ${message.deploymentUrl}\nPhase count at preparation: ${phaseTimeline.length}`,
+                    `Prepared URL: ${message.deploymentUrl}`,
                     'Playable Update'
                 );
                 break;

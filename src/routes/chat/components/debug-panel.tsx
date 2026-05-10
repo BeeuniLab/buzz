@@ -56,7 +56,7 @@ export interface DebugMessage {
   source?: string;
   messageType?: string;
   rawMessage?: unknown;
-  wsCategory?: 'generation' | 'phase' | 'file' | 'deployment' | 'system';
+  wsCategory?: 'generation' | 'legacy' | 'file' | 'deployment' | 'system';
   duration?: number; // Time since previous message
   isBookmarked?: boolean;
   performance?: {
@@ -89,7 +89,7 @@ function DebugPanelCore({ messages, onClear, chatSessionId }: DebugPanelProps) {
   const [isMaximized, setIsMaximized] = useState(false);
   const [expandedMessages, setExpandedMessages] = useState<Set<string>>(new Set());
   const [filter, setFilter] = useState<'all' | 'error' | 'warning' | 'info' | 'websocket'>('all');
-  const [wsFilter, setWsFilter] = useState<'all' | 'generation' | 'phase' | 'file' | 'deployment' | 'system'>('all');
+  const [wsFilter, setWsFilter] = useState<'all' | 'generation' | 'legacy' | 'file' | 'deployment' | 'system'>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [isGeneratingDump, setIsGeneratingDump] = useState(false);
   const [viewMode, setViewMode] = useState<'list' | 'timeline' | 'analytics'>('list');
@@ -100,20 +100,20 @@ function DebugPanelCore({ messages, onClear, chatSessionId }: DebugPanelProps) {
   const calculateOperationMetrics = (wsMessages: DebugMessage[]) => {
     try {
       const operations = {
-        phaseGeneration: [] as number[],
+        legacyBuild: [] as number[],
         fileGeneration: [] as { duration: number; lines: number; chars: number }[],
         cfDeployment: [] as number[],
         runnerDeployment: [] as number[]
       };
       
-      // Track phase lifecycle: phase_generating → phase_generated → phase_implementing → phase_implemented
-      const phaseStarts = wsMessages.filter(m => m.messageType === 'phase_generating');
-      const phaseCompletes = wsMessages.filter(m => m.messageType === 'phase_implemented');
+      // Track legacy build lifecycle for older WebSocket events.
+      const legacyStarts = wsMessages.filter(m => m.messageType === 'phase_generating');
+      const legacyCompletes = wsMessages.filter(m => m.messageType === 'phase_implemented');
       
-      phaseStarts.forEach(start => {
-        const complete = phaseCompletes.find(c => c.timestamp > start.timestamp);
+      legacyStarts.forEach(start => {
+        const complete = legacyCompletes.find(c => c.timestamp > start.timestamp);
         if (complete) {
-          operations.phaseGeneration.push(complete.timestamp - start.timestamp);
+          operations.legacyBuild.push(complete.timestamp - start.timestamp);
         }
       });
       
@@ -192,7 +192,7 @@ function DebugPanelCore({ messages, onClear, chatSessionId }: DebugPanelProps) {
         }
       });
       
-      // Track runner deployment: phase_implemented → deployment_completed
+      // Track legacy runner deployment.
       const runnerStarts = wsMessages.filter(m => m.messageType === 'phase_implemented');
       const runnerCompletes = wsMessages.filter(m => m.messageType === 'deployment_completed');
       
@@ -258,7 +258,7 @@ function DebugPanelCore({ messages, onClear, chatSessionId }: DebugPanelProps) {
       };
       
       return {
-        phaseGeneration: getStats(operations.phaseGeneration),
+        legacyBuild: getStats(operations.legacyBuild),
         fileGeneration: getFileStats(operations.fileGeneration),
         cfDeployment: getStats(operations.cfDeployment),
         runnerDeployment: getStats(operations.runnerDeployment)
@@ -266,7 +266,7 @@ function DebugPanelCore({ messages, onClear, chatSessionId }: DebugPanelProps) {
     } catch (error) {
       console.error('Error calculating operation metrics:', error);
       return {
-        phaseGeneration: { avg: 0, median: 0, p99: 0, count: 0 },
+        legacyBuild: { avg: 0, median: 0, p99: 0, count: 0 },
         fileGeneration: {
           duration: { avg: 0, median: 0, p99: 0, count: 0 },
           linesPerSecond: { avg: 0, median: 0, p99: 0 },
@@ -280,7 +280,7 @@ function DebugPanelCore({ messages, onClear, chatSessionId }: DebugPanelProps) {
     }
   };
   
-  const categorizeWebSocketMessage = useCallback((messageType?: string): 'generation' | 'phase' | 'file' | 'deployment' | 'system' | undefined => {
+  const categorizeWebSocketMessage = useCallback((messageType?: string): 'generation' | 'legacy' | 'file' | 'deployment' | 'system' | undefined => {
     if (!messageType) return undefined;
     
     // Generation messages
@@ -288,9 +288,9 @@ function DebugPanelCore({ messages, onClear, chatSessionId }: DebugPanelProps) {
       return 'generation';
     }
     
-    // Phase messages  
+    // Legacy build messages
     if (['phase_generating', 'phase_generated', 'phase_implementing', 'phase_implemented'].includes(messageType)) {
-      return 'phase';
+      return 'legacy';
     }
     
     // File operation messages
@@ -329,7 +329,7 @@ function DebugPanelCore({ messages, onClear, chatSessionId }: DebugPanelProps) {
       // Group events into lanes by category for better visualization
       const lanes = [
         { id: 'generation', label: 'Generation', color: 'bg-blue-100 border-blue-300' },
-        { id: 'phase', label: 'Phases', color: 'bg-green-100 border-green-300' },
+        { id: 'legacy', label: 'Legacy', color: 'bg-green-100 border-green-300' },
         { id: 'file', label: 'Files', color: 'bg-purple-100 border-purple-300' },
         { id: 'deployment', label: 'Deployment', color: 'bg-orange-100 border-orange-300' },
         { id: 'system', label: 'System', color: 'bg-red-100 border-red-300' }
@@ -670,7 +670,7 @@ function DebugPanelCore({ messages, onClear, chatSessionId }: DebugPanelProps) {
                 {[
                   { key: 'all' as const, label: 'All WS', count: messages.filter(m => m.type === 'websocket').length },
                   { key: 'generation' as const, label: 'Generation', count: messages.filter(m => m.type === 'websocket' && (m.wsCategory === 'generation' || categorizeWebSocketMessage(m.messageType) === 'generation')).length },
-                  { key: 'phase' as const, label: 'Phases', count: messages.filter(m => m.type === 'websocket' && (m.wsCategory === 'phase' || categorizeWebSocketMessage(m.messageType) === 'phase')).length },
+                  { key: 'legacy' as const, label: 'Legacy', count: messages.filter(m => m.type === 'websocket' && (m.wsCategory === 'legacy' || categorizeWebSocketMessage(m.messageType) === 'legacy')).length },
                   { key: 'file' as const, label: 'Files', count: messages.filter(m => m.type === 'websocket' && (m.wsCategory === 'file' || categorizeWebSocketMessage(m.messageType) === 'file')).length },
                   { key: 'deployment' as const, label: 'Deploy', count: messages.filter(m => m.type === 'websocket' && (m.wsCategory === 'deployment' || categorizeWebSocketMessage(m.messageType) === 'deployment')).length },
                   { key: 'system' as const, label: 'System', count: messages.filter(m => m.type === 'websocket' && (m.wsCategory === 'system' || categorizeWebSocketMessage(m.messageType) === 'system')).length }
@@ -820,7 +820,7 @@ function DebugPanelCore({ messages, onClear, chatSessionId }: DebugPanelProps) {
                         .map(([operation, stats]) => {
                           const simpleStats = stats as { avg: number; median: number; p99: number; count: number };
                           const operationConfig = {
-                            phaseGeneration: { icon: '🔄', color: 'green', label: 'Phase Generation' },
+                            legacyBuild: { icon: '🔄', color: 'green', label: 'Legacy Build' },
                             cfDeployment: { icon: '☁️', color: 'orange', label: 'CF Deployment' },
                             runnerDeployment: { icon: '🚀', color: 'blue', label: 'Runner Deployment' }
                           }[operation] || { icon: '⚙️', color: 'gray', label: operation };

@@ -35,21 +35,6 @@ import { buildOptimisticChatAttachments, type ChatAttachmentPreview } from '../u
 
 export type Edit = Omit<CodeFixEdits, 'type'>;
 
-// New interface for phase timeline tracking
-export interface PhaseTimelineItem {
-	id: string;
-	name: string;
-	description: string;
-	files: {
-		path: string;
-		purpose: string;
-		status: 'generating' | 'completed' | 'error' | 'validating' | 'cancelled';
-		contents?: string;
-	}[];
-	status: 'generating' | 'completed' | 'error' | 'validating' | 'cancelled';
-	timestamp: number;
-}
-
 export function useChat({
 	chatId: urlChatId,
 	query: userQuery,
@@ -118,9 +103,6 @@ export function useChat({
 
 	const [projectStages, setProjectStages] = useState<ProjectStage[]>(() => createInitialStages());
 
-	// New state for phase timeline tracking
-	const [phaseTimeline, setPhaseTimeline] = useState<PhaseTimelineItem[]>([]);
-
 	const [files, setFiles] = useState<FileType[]>([]);
 
 	const [totalFiles, setTotalFiles] = useState<number>();
@@ -147,9 +129,6 @@ export function useChat({
 	const [isGenerationPaused, setIsGenerationPaused] = useState(false);
 	const [isGenerating, setIsGenerating] = useState(false);
 	const [isConversationProcessing, setIsConversationProcessing] = useState(false);
-
-	// Phase progress visual indicator (used to apply subtle throb on chat)
-	const [isPhaseProgressActive, setIsPhaseProgressActive] = useState(false);
 
 	const [isThinking, setIsThinking] = useState(false);
 	
@@ -217,7 +196,6 @@ export function useChat({
 		setIsGeneratingBlueprint(false);
 		setIsBootstrapping(nextRouteChatId === 'new');
 		setProjectStages(createInitialStages());
-		setPhaseTimeline([]);
 		setFiles([]);
 		setTotalFiles(undefined);
 		setEdit(undefined);
@@ -232,7 +210,6 @@ export function useChat({
 		setIsGenerationPaused(false);
 		setIsGenerating(false);
 		setIsConversationProcessing(false);
-		setIsPhaseProgressActive(false);
 		setIsThinking(false);
 		setShouldRefreshPreview(false);
 		setIsInitialStateRestored(false);
@@ -278,7 +255,6 @@ export function useChat({
 			createWebSocketMessageHandler({
 			// State setters
 			setFiles,
-			setPhaseTimeline,
 			setProjectStages,
 			setMessages,
 			setBlueprint,
@@ -300,7 +276,6 @@ export function useChat({
 			setIsGenerationPaused,
 			setIsGenerating,
 			setIsConversationProcessing,
-			setIsPhaseProgressActive,
 			setRuntimeErrorCount,
 			setStaticIssueCount,
 			setIsDebugging,
@@ -313,7 +288,6 @@ export function useChat({
 			query,
 			bootstrapFiles,
 			files,
-			phaseTimeline,
 			previewUrl,
 			projectStages,
 			isGenerating,
@@ -337,7 +311,6 @@ export function useChat({
 			query,
 			bootstrapFiles,
 			files,
-			phaseTimeline,
 			previewUrl,
 			projectStages,
 			isGenerating,
@@ -894,7 +867,6 @@ export function useChat({
 		sendAiMessage: sendMessage,
 		clearEdit,
 		projectStages,
-		phaseTimeline,
 		isThinking,
 		onCompleteBootstrap,
 		// Deployment and generation control
@@ -916,8 +888,6 @@ export function useChat({
 		isPreviewDeploying,
 		previewQueuePosition,
 		restartPreview,
-		// Phase progress visual indicator
-		isPhaseProgressActive,
 		// Issue tracking and debugging state
 		runtimeErrorCount,
 		staticIssueCount,
