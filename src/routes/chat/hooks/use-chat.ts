@@ -26,7 +26,10 @@ import { appEvents } from '@/lib/app-events';
 import { createWebSocketMessageHandler, type HandleMessageDeps } from '../utils/handle-websocket-message';
 import { isConversationalMessage, addOrUpdateMessage, createUserMessage, handleRateLimitError, createAIMessage, type ChatMessage } from '../utils/message-helpers';
 import { sendWebSocketMessage } from '../utils/websocket-helpers';
-import { initialStages as defaultStages, updateStage as updateStageHelper } from '../utils/project-stage-helpers';
+import {
+	createInitialStages,
+	updateStage as updateStageHelper,
+} from '../utils/project-stage-helpers';
 import type { ProjectStage } from '../utils/project-stage-helpers';
 import { buildOptimisticChatAttachments, type ChatAttachmentPreview } from '../utils/chat-attachments';
 
@@ -96,6 +99,7 @@ export function useChat({
 	const [bootstrapFiles, setBootstrapFiles] = useState<FileType[]>([]);
 	const [blueprint, setBlueprint] = useState<BlueprintType>();
 	const [previewUrl, setPreviewUrl] = useState<string>();
+	const [isPreviewPaused, setIsPreviewPaused] = useState(false);
 	const [query, setQuery] = useState<string>();
 	const [initialPromptAttachments, setInitialPromptAttachments] = useState<ChatAttachmentPreview[]>(
 		() => (userImages && userImages.length > 0 ? buildOptimisticChatAttachments(userImages) : []),
@@ -112,7 +116,7 @@ export function useChat({
 	const [isGeneratingBlueprint, setIsGeneratingBlueprint] = useState(false);
 	const [isBootstrapping, setIsBootstrapping] = useState(true);
 
-	const [projectStages, setProjectStages] = useState<ProjectStage[]>(defaultStages);
+	const [projectStages, setProjectStages] = useState<ProjectStage[]>(() => createInitialStages());
 
 	// New state for phase timeline tracking
 	const [phaseTimeline, setPhaseTimeline] = useState<PhaseTimelineItem[]>([]);
@@ -135,6 +139,7 @@ export function useChat({
 	
 	// Preview deployment state
 	const [isPreviewDeploying, setIsPreviewDeploying] = useState(false);
+	const [previewQueuePosition, setPreviewQueuePosition] = useState<number>();
 	
 	// Redeployment state - tracks when redeploy button should be enabled
 	const [isRedeployReady, setIsRedeployReady] = useState(false);
@@ -197,6 +202,7 @@ export function useChat({
 		setBootstrapFiles([]);
 		setBlueprint(undefined);
 		setPreviewUrl(undefined);
+		setIsPreviewPaused(false);
 		setQuery(undefined);
 		setInitialPromptAttachments(
 			options?.preserveInitialAttachments
@@ -210,7 +216,7 @@ export function useChat({
 		setTemplateDetails(null);
 		setIsGeneratingBlueprint(false);
 		setIsBootstrapping(nextRouteChatId === 'new');
-		setProjectStages(defaultStages);
+		setProjectStages(createInitialStages());
 		setPhaseTimeline([]);
 		setFiles([]);
 		setTotalFiles(undefined);
@@ -278,9 +284,11 @@ export function useChat({
 			setBlueprint,
 			setQuery,
 			setPreviewUrl,
+			setIsPreviewPaused,
 			setTotalFiles,
 			setIsRedeployReady,
 			setIsPreviewDeploying,
+			setPreviewQueuePosition,
 			setIsGeneratingBlueprint,
 			setIsThinking,
 			setIsInitialStateRestored,
@@ -554,7 +562,7 @@ export function useChat({
 					const response = await apiClient.createAgentSession({
 						query: userQuery,
 						projectType,
-						images: userImages, // Pass images from URL params for multi-modal blueprint
+						images: userImages, // Pass images from URL params for initial build context
 					});
 
 					const parser = createRepairingJSONParser();
@@ -648,9 +656,15 @@ export function useChat({
 						setIsGeneratingBlueprint(false);
 					} else {
 						setIsBootstrapping(false);
-						setIsGeneratingBlueprint(true);
 						updateStage('bootstrap', { status: 'completed' });
-						updateStage('blueprint', { status: 'active' });
+						if (result.workflowStarted) {
+							setIsGeneratingBlueprint(false);
+							updateStage('blueprint', { status: 'active' });
+							updateStage('code', { status: 'pending' });
+						} else {
+							setIsGeneratingBlueprint(true);
+							updateStage('blueprint', { status: 'active' });
+						}
 						sendMessage(
 							createAIMessage('workflow-started', 'The build is running durably now. You can leave this page and come back.', true),
 						);
@@ -788,6 +802,28 @@ export function useChat({
 		sendWebSocketMessage(websocket, 'resume_generation');
 	}, [websocket]);
 
+	const handleRetryLastFailedWorkflow = useCallback(() => {
+		if (!sendWebSocketMessage(websocket, 'retry_last_failed_workflow')) {
+			toast.error('Project agent is not connected', {
+				description: 'Refresh the page and try again.',
+			});
+			return;
+		}
+		setIsGenerating(true);
+		setIsGenerationPaused(false);
+	}, [websocket]);
+
+	const restartPreview = useCallback(() => {
+		if (!sendWebSocketMessage(websocket, 'preview')) {
+			toast.error('Project agent is not connected', {
+				description: 'Refresh the page and try again.',
+			});
+			return;
+		}
+		setIsPreviewPaused(false);
+		setIsPreviewDeploying(true);
+	}, [websocket]);
+
 	const handleDeployToCloudflare = useCallback(async (instanceId: string) => {
 		try {
 			// Send deployment command via WebSocket instead of HTTP request
@@ -851,6 +887,7 @@ export function useChat({
 		previewUrl,
 		isGeneratingBlueprint,
 		isBootstrapping,
+		isInitialStateRestored,
 		totalFiles,
 		websocket,
 		sendUserMessage,
@@ -870,11 +907,15 @@ export function useChat({
 		isConversationProcessing,
 		handleStopGeneration,
 		handleResumeGeneration,
+		handleRetryLastFailedWorkflow,
 		handleDeployToCloudflare,
 		// Preview refresh control
 		shouldRefreshPreview,
+		isPreviewPaused,
 		// Preview deployment state
 		isPreviewDeploying,
+		previewQueuePosition,
+		restartPreview,
 		// Phase progress visual indicator
 		isPhaseProgressActive,
 		// Issue tracking and debugging state

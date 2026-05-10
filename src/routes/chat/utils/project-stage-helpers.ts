@@ -3,21 +3,32 @@ export interface ProjectStage {
     title: string;
     status: 'pending' | 'active' | 'completed' | 'error';
     metadata?: string;
+    queuePosition?: number;
 }
 
-export const initialStages: ProjectStage[] = [
-    {
-        id: 'bootstrap',
-        title: 'Getting your idea ready',
-        status: 'active',
-    },
-    {
-        id: 'blueprint',
-        title: 'Shaping the experience',
-        status: 'pending',
-    },
-    { id: 'code', title: 'Making it playable', status: 'pending' },
-];
+const STAGE_TITLES: Record<ProjectStage['id'], string> = {
+    bootstrap: 'Getting your idea ready',
+    blueprint: 'Preparing the workspace',
+    code: 'Making it playable',
+};
+
+export function createInitialStages(): ProjectStage[] {
+    return [
+        {
+            id: 'bootstrap',
+            title: STAGE_TITLES.bootstrap,
+            status: 'active',
+        },
+        {
+            id: 'blueprint',
+            title: STAGE_TITLES.blueprint,
+            status: 'pending',
+        },
+        { id: 'code', title: STAGE_TITLES.code, status: 'pending' },
+    ];
+}
+
+export const initialStages: ProjectStage[] = createInitialStages();
 
 /**
  * Update a specific stage's status and metadata

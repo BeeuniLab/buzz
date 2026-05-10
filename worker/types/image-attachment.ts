@@ -94,8 +94,93 @@ export function getFileExtensionFromMimeType(mimeType: SupportedImageMimeType): 
 
 export const MAX_IMAGE_SIZE_BYTES = 10 * 1024 * 1024;
 
-/** Max image-only attachments (e.g. home / create flow). */
-export const MAX_IMAGES_PER_MESSAGE = 2;
+/** Max image attachments per chat/create message. */
+export const MAX_IMAGES_PER_MESSAGE = 5;
+
+/** Max audio attachments per chat/create message. */
+export const MAX_AUDIO_PER_MESSAGE = 1;
+
+/** Max video attachments per chat/create message. */
+export const MAX_VIDEO_PER_MESSAGE = 1;
 
 /** Max attachments (image + audio + video) per chat WebSocket message. */
-export const MAX_CHAT_MEDIA_PER_MESSAGE = 3;
+export const MAX_CHAT_MEDIA_PER_MESSAGE =
+	MAX_IMAGES_PER_MESSAGE + MAX_AUDIO_PER_MESSAGE + MAX_VIDEO_PER_MESSAGE;
+
+export type ChatMediaKind = 'image' | 'audio' | 'video';
+
+export interface ChatMediaAttachmentCandidate {
+	filename?: string;
+	mimeType?: string;
+	size?: number;
+}
+
+export function getChatMediaKind(mimeType: string): ChatMediaKind | null {
+	if (mimeType.startsWith('image/')) return 'image';
+	if (mimeType.startsWith('audio/')) return 'audio';
+	if (mimeType.startsWith('video/')) return 'video';
+	return null;
+}
+
+export function describeChatMediaLimits(): string {
+	return `${MAX_IMAGES_PER_MESSAGE} image(s), ${MAX_AUDIO_PER_MESSAGE} audio file, and ${MAX_VIDEO_PER_MESSAGE} video file`;
+}
+
+export function validateChatMediaAttachments(
+	attachments: readonly ChatMediaAttachmentCandidate[],
+	options: { maxSizeBytes?: number } = {},
+): string | null {
+	const maxSizeBytes = options.maxSizeBytes ?? MAX_IMAGE_SIZE_BYTES;
+	let imageCount = 0;
+	let audioCount = 0;
+	let videoCount = 0;
+
+	for (const attachment of attachments) {
+		if (!attachment || typeof attachment !== 'object') {
+			return 'Invalid attachment payload.';
+		}
+
+		const mimeType = attachment.mimeType || '';
+		const filename = attachment.filename || 'attachment';
+
+		if (!isSupportedChatMediaType(mimeType)) {
+			const allowed = SUPPORTED_CHAT_MEDIA_MIME_TYPES
+				.map((type) => type.split('/')[1] || type)
+				.join(', ');
+			return `Unsupported file type for "${filename}": ${mimeType || 'unknown'}. Allowed: ${allowed}`;
+		}
+
+		if (typeof attachment.size === 'number' && attachment.size > maxSizeBytes) {
+			const maxSizeMB = (maxSizeBytes / (1024 * 1024)).toFixed(1);
+			const fileSizeMB = (attachment.size / (1024 * 1024)).toFixed(1);
+			return `File too large: "${filename}" is ${fileSizeMB}MB. Maximum allowed is ${maxSizeMB}MB.`;
+		}
+
+		switch (getChatMediaKind(mimeType)) {
+			case 'image':
+				imageCount += 1;
+				break;
+			case 'audio':
+				audioCount += 1;
+				break;
+			case 'video':
+				videoCount += 1;
+				break;
+		}
+	}
+
+	if (imageCount > MAX_IMAGES_PER_MESSAGE) {
+		return `Maximum ${MAX_IMAGES_PER_MESSAGE} image(s) allowed per message. Received ${imageCount}.`;
+	}
+	if (audioCount > MAX_AUDIO_PER_MESSAGE) {
+		return `Maximum ${MAX_AUDIO_PER_MESSAGE} audio file allowed per message. Received ${audioCount}.`;
+	}
+	if (videoCount > MAX_VIDEO_PER_MESSAGE) {
+		return `Maximum ${MAX_VIDEO_PER_MESSAGE} video file allowed per message. Received ${videoCount}.`;
+	}
+	if (attachments.length > MAX_CHAT_MEDIA_PER_MESSAGE) {
+		return `Maximum ${MAX_CHAT_MEDIA_PER_MESSAGE} attachments allowed per message (${describeChatMediaLimits()}). Received ${attachments.length}.`;
+	}
+
+	return null;
+}

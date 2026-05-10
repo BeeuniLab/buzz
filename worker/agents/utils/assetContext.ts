@@ -16,7 +16,7 @@ function formatAssetLine(attachment: ProcessedImageAttachment): string {
 		? `, ${attachment.dimensions.width}x${attachment.dimensions.height}`
 		: '';
 
-	return `- ${assetKey} (${category}, ${attachment.mimeType}${dimensions}, filename: ${filename}, url: ${attachment.publicUrl})`;
+	return `- asset_map key: ${assetKey}; category: ${category}; mime: ${attachment.mimeType}${dimensions}; filename: ${filename}; URL: ${attachment.publicUrl}`;
 }
 
 export function formatUploadedAssetContext(
@@ -35,7 +35,8 @@ export function formatUploadedAssetContext(
 		: `\n\nRules for uploaded assets:
 - If the creator explicitly says how to use an uploaded asset, that usage is mandatory.
 - Latest explicit asset usage wins over older blueprint, phase, or chat instructions.
-- For Phaser playable projects, use uploaded assets through src/asset_map and src/playable-assets.ts.
+- Treat asset_map keys as lookup keys in src/asset_map, not guaranteed local filesystem paths.
+- For Phaser playable projects, use uploaded assets through src/asset_map URLs and src/playable-assets.ts.
 - Do not replace explicitly requested uploaded assets with shapes, emoji, external media, or starter assets except as missing/loading fallbacks.`;
 
 	return `<${title}>\n${lines}${rules}\n</${title}>`;

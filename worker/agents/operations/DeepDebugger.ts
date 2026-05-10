@@ -2,7 +2,7 @@ import { createSystemMessage, createUserMessage, Message } from '../inferutils/c
 import { AgentActionKey } from '../inferutils/config.types';
 import { CompletionConfig, InferError, InferResponseString } from '../inferutils/core';
 import { buildDebugTools } from '../tools/customTools';
-import { RenderToolCall } from './UserConversationProcessor';
+import type { RenderToolCall } from './toolRenderer';
 import { PROMPT_UTILS } from '../prompts';
 import { RuntimeError } from 'worker/types/project-types';
 import { FileState } from '../core/state';

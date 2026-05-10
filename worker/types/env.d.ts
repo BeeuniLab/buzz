@@ -29,5 +29,25 @@ declare namespace Cloudflare {
         SANDBOX_SERVICE_TYPE: string;
         SANDBOX_SERVICE_URL: string;
         SANDBOX_SERVICE_API_KEY: string;
+        CODE_GENERATION_BACKEND: string;
+        CODEX_OPENAI_API_KEY: string;
+        CODEX_OPENAI_BASE_URL: string;
+        CODEX_MODEL: string;
+        CODEX_MODEL_PROVIDER: string;
+        CODEX_MODEL_REASONING_EFFORT: string;
+        CODEX_EXEC_TIMEOUT_MS: string;
+        CODEX_PROXY_ATTEMPTS: string;
+        CODEX_RECOVERY_R2_PREFIX: string;
+        CODEX_STATE_R2_BUCKET_NAME: string;
+        CODEX_STATE_R2_ACCESS_KEY_ID: string;
+        CODEX_STATE_R2_SECRET_ACCESS_KEY: string;
+        CODEX_STATE_R2_ENDPOINT: string;
+        CODEX_STATE_R2_PREFIX: string;
+        R2_BUCKET_NAME: string;
+        R2_ACCESS_KEY_ID: string;
+        R2_SECRET_ACCESS_KEY: string;
+        R2_ENDPOINT: string;
+        AWS_ACCESS_KEY_ID: string;
+        AWS_SECRET_ACCESS_KEY: string;
     }
 }

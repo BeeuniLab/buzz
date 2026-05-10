@@ -177,12 +177,15 @@
             "version": "1.0.0"
         },
         "CUSTOM_DOMAIN": "buzzplay.app",
-        "ALLOCATION_STRATEGY": "many_to_one",
+        "ALLOCATION_STRATEGY": "one_to_one",
         "MAX_SANDBOX_INSTANCES": "480",
         "SANDBOX_INSTANCE_TYPE": "standard-2",
         "LLM_PROXY_URL": "https://subapi.cygnus.ink/v1",
         "LLM_PROXY_FALLBACK_URL": "https://codex-byering.com:8317/v1",
-        "INVITE_CODE_REQUIRED": "true"
+        "CODE_GENERATION_BACKEND": "native",
+        "CODEX_MODEL": "gpt-5.5",
+        "CODEX_MODEL_PROVIDER": "crs",
+        "INVITE_CODE_REQUIRED": "false"
     },
 	"workers_dev": false,
 	"preview_urls": false

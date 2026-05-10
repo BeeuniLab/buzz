@@ -19,9 +19,10 @@ For softer interaction prompts:
 - Prefer one strong core action and a 15-30 second payoff over many UI controls.
 
 Built with:
-- Phaser, React, Vite, TypeScript, Cloudflare Workers static serving, and `src/asset_map` awareness for uploaded images/audio/video.
+- Phaser 4.1.0, React, Vite, TypeScript, Cloudflare Workers static serving, and `src/asset_map` awareness for uploaded images/audio/video.
 - The main game code lives in `src/game/scenes/*` and `src/game/main.ts`; React is only a thin fullscreen host.
 
 Reference:
 - Phaser API Reference: https://docs.phaser.io/api-documentation/api-documentation
 - Phaser Examples: https://phaser.io/examples
+- Local Phaser 4 AI reference skills are included under `skills/`.

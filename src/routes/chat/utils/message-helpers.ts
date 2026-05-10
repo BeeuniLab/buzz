@@ -1,6 +1,6 @@
 import { toast } from 'sonner';
 import { generateId } from '@/utils/id-generator';
-import type { RateLimitError, ConversationMessage } from '@/api-types';
+import type { RateLimitError, ConversationMessage, ConversationAction } from '@/api-types';
 import type { ChatAttachmentPreview } from './chat-attachments';
 
 export type ToolEvent = {
@@ -14,6 +14,7 @@ export type ToolEvent = {
 export type ChatMessage = Omit<ConversationMessage, 'content'> & {
     content: string;
     attachments?: ChatAttachmentPreview[];
+    action?: ConversationAction;
     ui?: {
         isThinking?: boolean;
         toolEvents?: ToolEvent[];
@@ -48,12 +49,14 @@ export function isConversationalMessage(messageId: string): boolean {
 export function createAIMessage(
     conversationId: string,
     content: string,
-    isThinking?: boolean
+    isThinking?: boolean,
+    action?: ConversationAction,
 ): ChatMessage {
     return {
         role: 'assistant',
         conversationId,
         content,
+        action,
         ui: { isThinking },
     };
 }

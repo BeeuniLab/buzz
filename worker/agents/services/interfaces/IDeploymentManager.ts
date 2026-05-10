@@ -3,6 +3,7 @@ import { StaticAnalysisResponse, RuntimeError, PreviewType } from '../../../serv
 import { DeploymentStartedMessage, DeploymentCompletedMessage, DeploymentFailedMessage } from '../../../api/websocketTypes';
 import { CloudflareDeploymentStartedMessage, CloudflareDeploymentCompletedMessage, CloudflareDeploymentErrorMessage } from '../../../api/websocketTypes';
 import { DeploymentTarget } from '../../core/types';
+import type { GlobalSandboxCapacityProgress } from '../../../services/tasks/GlobalSandboxCapacityService';
 
 /**
  * Callbacks for sandbox deployment events
@@ -12,6 +13,12 @@ export interface SandboxDeploymentCallbacks {
     onCompleted?: (data: Omit<DeploymentCompletedMessage, 'type'>) => void;
     onError?: (data: Omit<DeploymentFailedMessage, 'type'>) => void;
     onAfterSetupCommands?: () => Promise<void>; // Called after setup commands execute (e.g., for package.json sync)
+}
+
+export interface SandboxDeploymentOptions {
+    capacityMode?: 'background' | 'foreground';
+    shouldContinueWaiting?: () => boolean;
+    onCapacityWaiting?: (progress: GlobalSandboxCapacityProgress) => Promise<void> | void;
 }
 
 /**
@@ -90,8 +97,14 @@ export interface IDeploymentManager {
         redeploy?: boolean,
         commitMessage?: string,
         clearLogs?: boolean,
-        callbacks?: SandboxDeploymentCallbacks
+        callbacks?: SandboxDeploymentCallbacks,
+        options?: SandboxDeploymentOptions
     ): Promise<PreviewType | null>;
+
+    /**
+     * Shutdown the current sandbox preview instance, if one exists.
+     */
+    shutdownPreviewInstance(reason?: string): Promise<boolean>;
 
     /**
      * Deploy to Cloudflare Workers

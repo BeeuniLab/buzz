@@ -7,7 +7,10 @@
 - Avoid conventional app/page structure unless the creator explicitly asks for it. BuzzPlay output should feel like playable media inside the preview iframe, not a marketing website or dashboard.
 
 ## Phaser Rules
+- This template uses Phaser 4.1.0. Do not use Phaser 3-only APIs when Phaser 4 has changed or removed them.
 - Reference the Phaser API before using unfamiliar classes, methods, config fields, physics APIs, or plugin APIs: https://docs.phaser.io/api-documentation/api-documentation
+- Use the local `skills/` directory as the first reference for Phaser 4 subsystems. Read the relevant `skills/<topic>/SKILL.md` before implementing unfamiliar scene, input, loader, physics, animation, particle, camera, tween, scale, text, audio, or migration behavior.
+- For v3-style examples or older snippets, check `skills/v3-to-v4-migration/SKILL.md` before copying APIs into this project.
 - Put game behavior in Phaser scenes under `src/game/scenes/`. Keep React as a fullscreen host in `src/App.tsx`.
 - Use scene lifecycle methods intentionally: `preload`, `create`, `update`, and scene transitions such as `this.scene.start("Game")`.
 - Prefer Phaser systems for gameplay: `this.add`, `this.physics.add`, `this.input`, `this.tweens`, `this.time`, `this.cameras`, `this.scale`, and `this.sound`.

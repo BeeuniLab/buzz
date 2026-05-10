@@ -1,6 +1,6 @@
 # BuzzPlay Phaser Reference
 
-Phaser + React + Vite + TypeScript reference used by BuzzPlay playable templates.
+Phaser 4 + React + Vite + TypeScript reference used by BuzzPlay playable templates.
 
 ## Folder Structure
 
@@ -9,6 +9,7 @@ Phaser + React + Vite + TypeScript reference used by BuzzPlay playable templates
 - `src/App.tsx` and `src/PhaserGame.tsx` - thin fullscreen React host for the Phaser canvas
 - `src/playable-assets.ts` and `src/asset_map` - bundled starter assets plus uploaded media references used by BuzzPlay
 - `public/assets` - bundled starter sprites/images
+- `skills` - read-only Phaser 4 subsystem guides copied from the official Phaser repo for AI code generation reference
 - `worker` - Cloudflare Worker shell for API/error routes and static asset serving
 
 ## Development

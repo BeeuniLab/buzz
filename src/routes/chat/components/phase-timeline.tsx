@@ -170,6 +170,7 @@ interface PhaseTimelineProps {
 	// Activity state
 	isGenerating?: boolean;
 	isThinking?: boolean;
+	taskRuntimeEstimate?: string;
 }
 
 export function PhaseTimeline({
@@ -184,9 +185,15 @@ export function PhaseTimeline({
 	staticIssueCount = 0,
 	isDebugging = false,
 	isGenerating = false,
-	isThinking = false
+	isThinking = false,
+	taskRuntimeEstimate
 }: PhaseTimelineProps) {
 	const lastPhaseRef = useRef<HTMLDivElement>(null);
+	const hasStepProgress = phaseTimeline.length > 0 || total > 1;
+	const codeStage = projectStages.find(stage => stage.id === 'code');
+	const queuePosition = codeStage?.queuePosition;
+	const showFileSummary = phaseTimeline.length === 0 && files.length > 0 && codeStage?.status !== 'pending';
+	const isCreatingPlayable = codeStage?.status === 'active' || isGenerating || isThinking || isPreviewDeploying || files.some(f => f.isGenerating);
 
 	// Auto-scroll to bottom when new phases are added or thinking indicator appears
 	useEffect(() => {
@@ -210,9 +217,9 @@ export function PhaseTimeline({
 					
 					return (
 						<>
-				{/* Project Stages */}
-				{projectStages.map((stage, index) => (
-					<div key={stage.id} className="flex relative w-full gap-2 pb-2.5">
+					{/* Project Stages */}
+					{projectStages.map((stage, index) => (
+						<div key={stage.id} className="flex relative w-full gap-2 pb-2.5">
 						<AnimatedStatusIndicator status={stage.status} />
 
 						<div className="flex flex-col gap-2 flex-1">
@@ -226,18 +233,18 @@ export function PhaseTimeline({
 									{stage.title}
 								</span>
 
-								{/* Progress for code stage */}
-								{stage.id === 'code' && stage.status !== 'pending' && (
-									<motion.div
-										initial={{ x: -120 }}
-										animate={{ x: 0 }}
-									>
-										<span className="text-zinc-300 mx-1">&bull;</span>
-										<span className="text-text-tertiary">
-											{progress}/{total} steps
-										</span>
-									</motion.div>
-								)}
+									{/* Progress for code stage */}
+									{stage.id === 'code' && stage.status !== 'pending' && hasStepProgress && (
+										<motion.div
+											initial={{ x: -120 }}
+											animate={{ x: 0 }}
+										>
+											<span className="text-zinc-300 mx-1">&bull;</span>
+											<span className="text-text-tertiary">
+												{stage.status === 'completed' ? total : progress}/{total} steps
+											</span>
+										</motion.div>
+									)}
 
 								{/* Subtle inline issue indicator for completed code stage */}
 								{stage.id === 'code' && stage.status === 'completed' && (runtimeErrorCount > 0 || staticIssueCount > 0) && (
@@ -267,9 +274,32 @@ export function PhaseTimeline({
 								)}
 								</div>
 
+								{stage.id === 'code' && taskRuntimeEstimate && (stage.status === 'pending' || stage.status === 'active') && (
+									<motion.div
+										initial={{ opacity: 0, y: -2 }}
+										animate={{ opacity: 1, y: 0 }}
+										transition={commonTransitions.premiumShort}
+										className="text-xs text-text-tertiary -mt-1"
+									>
+										{stage.queuePosition ? `You're #${stage.queuePosition} in line.` : taskRuntimeEstimate}
+									</motion.div>
+								)}
+
 								{/* Detailed Phase Timeline for code stage */}
 								{stage.id === 'code' && (
 									<div className="space-y-2 max-h-[400px] overflow-y-auto pr-2 phase-timeline-scroll relative">
+										{queuePosition && phaseTimeline.length === 0 && (
+											<div className="space-y-1 relative px-1 py-1">
+												<div className="flex items-start gap-2 relative z-0 w-full text-left">
+													<div className="flex-shrink-0 mt-0.5">
+														<StatusLoader size="sm" color="blue" />
+													</div>
+													<span className="text-sm font-medium text-text-50 flex-1 break-words">
+														Waiting for an available workspace
+													</span>
+												</div>
+											</div>
+										)}
 										{phaseTimeline.map((phase, phaseIndex) => (
 											<div
 												key={phase.id}
@@ -330,17 +360,19 @@ export function PhaseTimeline({
 											<div className="relative z-10" ref={lastPhaseRef}>
 												<ThinkingIndicator visible={isThinkingNext} />
 											</div>
-										)}
+											)}
 
-										{/* File count summary for agentic mode (no phase timeline) */}
-										{phaseTimeline.length === 0 && files.length > 0 && (
-											<div className="text-xs text-text-tertiary px-2 py-1">
-												{files.filter(f => f.isGenerating).length > 0
-													? 'Creating your playable...'
-													: 'Playable content created'
-												}
-											</div>
-										)}
+											{/* File count summary for agentic mode (no phase timeline) */}
+											{showFileSummary && (
+												<div className="text-xs text-text-tertiary px-2 py-1">
+													{codeStage?.status === 'error'
+														? 'Playable version was not completed'
+														: isCreatingPlayable
+															? 'Creating your playable...'
+															: 'Playable content created'
+													}
+												</div>
+											)}
 									</div>
 								)}
 

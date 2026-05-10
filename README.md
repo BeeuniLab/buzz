@@ -125,6 +125,19 @@ Set these in `.dev.vars` (local) or `.prod.vars` (production):
 | `ANTHROPIC_API_KEY` | Anthropic Claude API key |
 | `OPENAI_API_KEY` | OpenAI API key |
 | `ALLOWED_EMAIL` | Restrict access to specific email |
+| `CODE_GENERATION_BACKEND` | Set to `codex` to run create-project generation through background `codex exec`; defaults to `native` |
+| `CODEX_OPENAI_API_KEY` | Optional Codex-specific OpenAI API key; falls back to `OPENAI_API_KEY` or the LLM proxy keys |
+| `CODEX_OPENAI_BASE_URL` | Optional OpenAI-compatible base URL for Codex CLI |
+| `CODEX_MODEL` | Optional model override passed to `codex exec --model` |
+| `CODEX_MODEL_PROVIDER` | Optional Codex provider name written to local `CODEX_HOME/config.toml`; defaults to `crs` |
+| `CODEX_MODEL_REASONING_EFFORT` | Optional reasoning effort written to local Codex config |
+| `CODEX_EXEC_TIMEOUT_MS` | Optional Codex command timeout; defaults to 25 minutes |
+| `CODEX_PROXY_ATTEMPTS` | Optional retry attempts per configured LLM proxy before switching to the fallback proxy; defaults to 3 |
+| `CODEX_STATE_R2_BUCKET_NAME` | Optional R2 bucket name for persisted Codex sessions |
+| `CODEX_STATE_R2_ACCESS_KEY_ID` | Optional R2 S3 API access key for Codex session persistence |
+| `CODEX_STATE_R2_SECRET_ACCESS_KEY` | Optional R2 S3 API secret key for Codex session persistence |
+| `CODEX_STATE_R2_ENDPOINT` | Optional R2/S3 endpoint; defaults to `https://<CLOUDFLARE_ACCOUNT_ID>.r2.cloudflarestorage.com` |
+| `CODEX_STATE_R2_PREFIX` | Optional object prefix for persisted Codex sessions; defaults to `codex-state` |
 
 ### Domain & DNS Setup
 

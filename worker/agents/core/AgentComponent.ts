@@ -13,7 +13,7 @@ import { WebSocketMessageResponses } from '../constants';
  * 
  * Provides common infrastructure access patterns via protected helpers.
  * 
- * Both BaseCodingBehavior and ProjectObjective extend this class to access:
+ * ProjectObjective extends this class to access:
  * - Core infrastructure (state, env, sql, logger)
  * - Services (fileManager, deploymentManager, git)
  */

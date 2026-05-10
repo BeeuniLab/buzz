@@ -3,6 +3,7 @@ import {
     DeploymentParams, 
     DeploymentResult,
     SandboxDeploymentCallbacks,
+    SandboxDeploymentOptions,
     CloudflareDeploymentCallbacks
 } from '../interfaces/IDeploymentManager';
 import { BootstrapResponse, StaticAnalysisResponse, RuntimeError, PreviewType } from '../../../services/sandbox/sandboxTypes';
@@ -17,10 +18,21 @@ import { validateAndCleanBootstrapCommands } from 'worker/agents/utils/common';
 import { DeploymentTarget } from '../../core/types';
 import { BaseProjectState } from '../../core/state';
 import { resolvePreviewUrl } from '../../../utils/urls';
+import {
+    GlobalSandboxCapacityService,
+    type GlobalSandboxCapacityProgress,
+} from '../../../services/tasks/GlobalSandboxCapacityService';
 
 const PER_ATTEMPT_TIMEOUT_MS = 180000;  // 3 minutes per individual attempt; first installs can be slow for game templates
 const MASTER_DEPLOYMENT_TIMEOUT_MS = 300000;  // 5 minutes total
 const HEALTH_CHECK_INTERVAL_MS = 30000;
+
+function shouldReleaseSandboxCapacityForReason(reason: string): boolean {
+    return reason === 'preview limit exceeded'
+        || reason === 'app_deleted'
+        || reason === 'preview released'
+        || reason.includes('_completed_offline');
+}
 
 /**
  * Manages deployment operations for sandbox instances
@@ -35,6 +47,7 @@ export class DeploymentManager extends BaseAgentService<BaseProjectState> implem
     constructor(
         options: ServiceOptions<BaseProjectState>,
         private maxCommandsHistory: number,
+        private readonly onSandboxCapacityWaiting?: (progress: GlobalSandboxCapacityProgress) => Promise<void> | void,
     ) {
         super(options);
         
@@ -71,6 +84,24 @@ export class DeploymentManager extends BaseAgentService<BaseProjectState> implem
             );
         }
         return this.cachedSandboxClient;
+    }
+
+    private async acquireGlobalSandboxCapacity(options?: SandboxDeploymentOptions): Promise<void> {
+        const state = this.getState();
+        await GlobalSandboxCapacityService.acquire(this.env, {
+            userId: state.metadata?.userId,
+            agentId: this.getAgentId(),
+            kind: state.activeWorkflow?.kind ?? 'sandbox',
+            mode: options?.capacityMode,
+            shouldContinue: () => (
+                !this.getState().deletedAt
+                && !this.getState().lastUserStopAt
+                && (options?.shouldContinueWaiting?.() ?? true)
+            ),
+            onProgress: async (progress) => {
+                await (options?.onCapacityWaiting ?? this.onSandboxCapacityWaiting)?.(progress);
+            },
+        });
     }
 
     /**
@@ -119,7 +150,7 @@ export class DeploymentManager extends BaseAgentService<BaseProjectState> implem
         logger.info("Waiting for preview completed");
     }
 
-    private async shutdownInstanceIfPresent(client: BaseSandboxService, instanceId: string, reason: string): Promise<void> {
+    private async shutdownInstanceIfPresent(client: BaseSandboxService, instanceId: string, reason: string): Promise<boolean> {
         const logger = this.getLog();
         try {
             logger.info('Shutting down sandbox instance before recreation', { instanceId, reason });
@@ -130,14 +161,50 @@ export class DeploymentManager extends BaseAgentService<BaseProjectState> implem
                     reason,
                     error: response.error
                 });
+                return Boolean(response.error?.includes('not found'));
             }
+            return true;
         } catch (error) {
             logger.warn('Failed to shutdown sandbox instance before recreation', {
                 instanceId,
                 reason,
                 error: error instanceof Error ? error.message : 'Unknown error'
             });
+            return false;
         }
+    }
+
+    async shutdownPreviewInstance(reason: string = 'preview released'): Promise<boolean> {
+        const state = this.getState();
+        const instanceId = state.sandboxInstanceId;
+        const logger = this.getLog();
+
+        if (!instanceId) {
+            logger.info('No sandbox preview instance to release', { reason });
+            if (shouldReleaseSandboxCapacityForReason(reason)) {
+                await GlobalSandboxCapacityService.release(this.env, this.getAgentId());
+            }
+            return false;
+        }
+
+        const client = this.getClient();
+        const released = await this.shutdownInstanceIfPresent(client, instanceId, reason);
+        if (!released) {
+            logger.warn('Preview sandbox release did not complete; keeping current preview state', { instanceId, reason });
+            return false;
+        }
+
+        this.clearHealthCheckInterval();
+        this.setState({
+            ...this.getState(),
+            sandboxInstanceId: undefined,
+        });
+
+        logger.info('Released sandbox preview instance', { instanceId, reason });
+        if (shouldReleaseSandboxCapacityForReason(reason)) {
+            await GlobalSandboxCapacityService.release(this.env, this.getAgentId());
+        }
+        return true;
     }
 
     /**
@@ -220,6 +287,8 @@ export class DeploymentManager extends BaseAgentService<BaseProjectState> implem
                     } catch (redeployError) {
                         logger.error('Failed to redeploy after health check failure:', redeployError);
                     }
+                } else {
+                    await GlobalSandboxCapacityService.touch(this.env, this.getAgentId());
                 }
             } catch (error) {
                 logger.error('Health check failed:', error);
@@ -318,7 +387,8 @@ export class DeploymentManager extends BaseAgentService<BaseProjectState> implem
         redeploy: boolean = false,
         commitMessage?: string,
         clearLogs: boolean = false,
-        callbacks?: SandboxDeploymentCallbacks
+        callbacks?: SandboxDeploymentCallbacks,
+        options?: SandboxDeploymentOptions
     ): Promise<PreviewType | null> {
         const logger = this.getLog();
         
@@ -332,16 +402,18 @@ export class DeploymentManager extends BaseAgentService<BaseProjectState> implem
             ).catch(() => null);  // Convert timeout to null like first caller
         }
 
-        logger.info("Deploying to sandbox", { files: files.length, redeploy, commitMessage, sessionId: this.getSessionId() });
-
         // Create deployment promise
-        this.currentDeploymentPromise = this.executeDeploymentWithRetry(
-            files,
-            redeploy,
-            commitMessage,
-            clearLogs,
-            callbacks
-        );
+        this.currentDeploymentPromise = (async () => {
+            await this.acquireGlobalSandboxCapacity(options);
+            logger.info("Deploying to sandbox", { files: files.length, redeploy, commitMessage, sessionId: this.getSessionId() });
+            return this.executeDeploymentWithRetry(
+                files,
+                redeploy,
+                commitMessage,
+                clearLogs,
+                callbacks
+            );
+        })();
 
         try {
             // Master timeout: 5 minutes total

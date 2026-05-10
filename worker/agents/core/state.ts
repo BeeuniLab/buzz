@@ -3,8 +3,8 @@ import type { PhasicBlueprint, AgenticBlueprint, PhaseConceptType ,
     Blueprint,
 } from '../schemas';
 import type { InferenceMetadata } from '../inferutils/config.types';
-import { BehaviorType, Plan, ProjectType } from './types';
-import type { InitialUserAttachment } from '../../types/image-attachment';
+import { BehaviorType, GenerationBackend, Plan, ProjectType } from './types';
+import type { InitialUserAttachment, ProcessedImageAttachment } from '../../types/image-attachment';
 
 export interface FileState extends FileOutputType {
     lastDiff: string;
@@ -25,8 +25,29 @@ export interface ActiveWorkflowTask {
     kind: 'create_project' | 'generate_all' | 'resume_generation' | 'user_input' | 'deploy_project' | 'deploy_preview';
     status: 'queued' | 'running' | 'failed';
     message?: string;
+    queuePosition?: number;
     startedAt: number;
     updatedAt: number;
+}
+
+export type RetryableWorkflowKind = Extract<ActiveWorkflowTask['kind'], 'create_project' | 'generate_all' | 'resume_generation' | 'user_input'>;
+
+export interface RetryableWorkflowIntent {
+    workflowId?: string;
+    recoveryWorkflowId?: string;
+    kind: RetryableWorkflowKind;
+    query: string;
+    hostname?: string;
+    language?: string;
+    frameworks?: string[];
+    selectedTemplate?: string;
+    requestedProjectType?: ProjectType | 'auto';
+    images?: ProcessedImageAttachment[];
+}
+
+export interface LastFailedWorkflow extends RetryableWorkflowIntent {
+    error?: string;
+    failedAt: number;
 }
 
 export interface PhaseState extends PhaseConceptType {
@@ -48,6 +69,7 @@ export const MAX_PHASES = 10;
 export interface BaseProjectState {
     behaviorType: BehaviorType;
     projectType: ProjectType;
+    generationBackend?: GenerationBackend;
     
     // Identity
     projectName: string;
@@ -67,11 +89,14 @@ export interface BaseProjectState {
     shouldBeGenerating: boolean;
     activeAppTask?: ActiveAppTask;
     activeWorkflow?: ActiveWorkflowTask;
+    lastRetryableWorkflow?: RetryableWorkflowIntent;
+    lastFailedWorkflow?: LastFailedWorkflow;
     lastUserStopAt?: number;
     deletedAt?: number;
     
     // Common file storage
     sandboxInstanceId?: string;
+    projectAgentThreadId?: string;
     generatedFilesMap: Record<string, FileState>;
     generatedFilesRevision?: number;
     lastPlayableDeploymentRevision?: number;

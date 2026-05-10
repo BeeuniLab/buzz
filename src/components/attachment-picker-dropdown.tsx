@@ -61,7 +61,6 @@ export function AttachmentPickerDropdown({
 				ref={fileInputAudioRef}
 				type="file"
 				accept={CHAT_ACCEPT_AUDIO}
-				multiple
 				onChange={handleChange}
 				className="hidden"
 				disabled={inputsOff}
@@ -70,7 +69,6 @@ export function AttachmentPickerDropdown({
 				ref={fileInputVideoRef}
 				type="file"
 				accept={CHAT_ACCEPT_VIDEO}
-				multiple
 				onChange={handleChange}
 				className="hidden"
 				disabled={inputsOff}

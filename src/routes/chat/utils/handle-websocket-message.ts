@@ -34,14 +34,20 @@ const GENERATION_WORKFLOW_KINDS = new Set(['create_project', 'generate_all', 're
 const isGenerationWorkflow = (workflow: AgentState['activeWorkflow']): boolean =>
 	Boolean(workflow && GENERATION_WORKFLOW_KINDS.has(workflow.kind));
 
+const PLAYABLE_EXECUTION_WORKFLOW_MESSAGE = 'Making it playable';
+const SANDBOX_QUEUE_MESSAGE_PREFIX = 'Waiting for an available workspace.';
+
+const isPlayableExecutionWorkflow = (workflow: AgentState['activeWorkflow']): boolean =>
+	isGenerationWorkflow(workflow) && workflow?.message === PLAYABLE_EXECUTION_WORKFLOW_MESSAGE;
+
+const isSandboxQueueWorkflow = (workflow: AgentState['activeWorkflow']): boolean =>
+	typeof workflow?.message === 'string' && workflow.message.startsWith(SANDBOX_QUEUE_MESSAGE_PREFIX);
+
 const isDeployProjectWorkflow = (workflow: AgentState['activeWorkflow']): boolean =>
 	workflow?.kind === 'deploy_project';
 
 const isDeployPreviewWorkflow = (workflow: AgentState['activeWorkflow']): boolean =>
 	workflow?.kind === 'deploy_preview';
-
-const isCreateProjectWorkflow = (workflow: AgentState['activeWorkflow']): boolean =>
-	workflow?.kind === 'create_project';
 
 const isPhasicState = (state: AgentState): state is PhasicState => {
 	const record = state as unknown as Record<string, unknown>;
@@ -64,6 +70,10 @@ const getFreshActiveTask = (state: AgentState) => {
 };
 
 const getFreshActiveWorkflow = (state: AgentState) => {
+	if (state.lastFailedWorkflow) {
+		return undefined;
+	}
+
 	const workflow = state.activeWorkflow;
 	const updatedAt = workflow?.updatedAt ?? workflow?.startedAt;
 	const isFresh =
@@ -97,23 +107,241 @@ const hasCompletedPlayable = (state: AgentState): boolean =>
 const hasMeaningfulBlueprint = (state: AgentState): boolean =>
 	Boolean(state.blueprint && Object.keys(state.blueprint).length > 0);
 
-const isPreparingInitialBlueprint = (state: AgentState): boolean =>
-	isCreateProjectWorkflow(getFreshActiveWorkflow(state)) &&
-	!hasMeaningfulBlueprint(state) &&
-	!hasGeneratedFiles(state);
+const shouldSkipBlueprintStage = (state: AgentState): boolean =>
+	Boolean(
+		state.shouldBeGenerating ||
+		state.mvpGenerated ||
+		hasGeneratedFiles(state) ||
+		state.activeWorkflow ||
+		getFreshActiveWorkflow(state),
+	);
+
+const INTERNAL_GENERATOR_TOKEN = ['co', 'dex'].join('');
+const INTERNAL_GENERATOR_ENV_PREFIX = ['CO', 'DEX'].join('');
+const INTERNAL_GENERATOR_TOKEN_RE = new RegExp(`\\b${INTERNAL_GENERATOR_TOKEN}\\b`, 'gi');
+const INTERNAL_GENERATOR_ENV_RE = new RegExp(`\\b${INTERNAL_GENERATOR_ENV_PREFIX}_[A-Z0-9_]+\\b`, 'g');
+
+const redactInternalGeneratorName = (message: string): string =>
+	message
+		.replace(INTERNAL_GENERATOR_ENV_RE, 'LLM setting')
+		.replace(INTERNAL_GENERATOR_TOKEN_RE, 'background generator');
+
+const BACKGROUND_UPDATE_MESSAGE_PREFIX = 'background-update-';
+const BACKGROUND_UPDATE_RUNNING_MESSAGE = 'Working on your project...';
+const BACKGROUND_UPDATE_RESTORED_MESSAGE = 'Still working on your project...';
+const BACKGROUND_UPDATE_FAILED_MESSAGE = 'The project agent ran into a problem before finishing.';
+const LEGACY_GENERIC_BUG_PROMPT = 'there might be some bugs in the app. do you want me to try to fix them?';
+const LEGACY_GENERIC_BUG_PROMPT_RE = /^there might be some bugs in the app\.?\s+do you want me to try to fix them\??$/i;
+const RETRY_LAST_FAILED_WORKFLOW_ACTION: ChatMessage['action'] = {
+	type: 'retry_last_failed_workflow',
+	label: 'Retry',
+};
+
+const normalizeAssistantContent = (content: string | undefined): string =>
+	(content ?? '').replace(/\s+/g, ' ').trim();
+
+const shouldHideLegacyAssistantPrompt = (content: string | undefined): boolean =>
+	LEGACY_GENERIC_BUG_PROMPT_RE.test(normalizeAssistantContent(content));
+
+const shouldHoldLegacyAssistantStream = (content: string | undefined): boolean => {
+	const normalized = normalizeAssistantContent(content).toLowerCase();
+	return normalized.length > 0 && LEGACY_GENERIC_BUG_PROMPT.startsWith(normalized);
+};
+
+const filterHiddenAssistantPrompts = (messages: readonly ChatMessage[]): ChatMessage[] =>
+	messages.filter((message) => message.role !== 'assistant' || !shouldHideLegacyAssistantPrompt(message.content));
+
+const isBackgroundUpdateMessage = (message: ChatMessage): boolean =>
+	message.role === 'assistant' &&
+	message.conversationId.startsWith(BACKGROUND_UPDATE_MESSAGE_PREFIX);
+
+const isActiveBackgroundUpdateMessage = (message: ChatMessage): boolean =>
+	isBackgroundUpdateMessage(message) &&
+	message.ui?.isThinking === true;
+
+const appendBackgroundUpdateMessage = (
+	messages: ChatMessage[],
+	content = BACKGROUND_UPDATE_RUNNING_MESSAGE,
+): ChatMessage[] => {
+	if (messages.some(isActiveBackgroundUpdateMessage)) return messages;
+	return [
+		...messages,
+		createAIMessage(`${BACKGROUND_UPDATE_MESSAGE_PREFIX}${Date.now()}`, content, true),
+	];
+};
+
+const finishBackgroundUpdateMessage = (
+	messages: ChatMessage[],
+	content: string,
+): ChatMessage[] => {
+	let didUpdate = false;
+	const next = [...messages];
+
+	for (let index = next.length - 1; index >= 0; index -= 1) {
+		const message = next[index];
+		if (!isActiveBackgroundUpdateMessage(message)) continue;
+
+		next[index] = {
+			...message,
+			content,
+			ui: {
+				...message.ui,
+				isThinking: false,
+			},
+		};
+		didUpdate = true;
+		break;
+	}
+
+	return didUpdate ? next : messages;
+};
+
+const replaceLatestBackgroundUpdateMessage = (
+	messages: ChatMessage[],
+	content: string,
+): ChatMessage[] => {
+	const next = [...messages];
+	for (let index = next.length - 1; index >= 0; index -= 1) {
+		const message = next[index];
+		if (!isBackgroundUpdateMessage(message)) continue;
+
+		next[index] = {
+			...message,
+			content,
+			ui: {
+				...message.ui,
+				isThinking: false,
+			},
+		};
+		return next;
+	}
+	return messages;
+};
+
+const removeActiveBackgroundUpdateMessage = (messages: ChatMessage[]): ChatMessage[] => {
+	let index = -1;
+	for (let i = messages.length - 1; i >= 0; i -= 1) {
+		if (isActiveBackgroundUpdateMessage(messages[i])) {
+			index = i;
+			break;
+		}
+	}
+	if (index < 0) return messages;
+
+	const next = [...messages];
+	next.splice(index, 1);
+	return next;
+};
+
+const isRetryableProjectFailureMessage = (content: string): boolean =>
+	content.startsWith('The project agent ');
+
+const attachRetryActionToLatestFailure = (
+	messages: ChatMessage[],
+	agentState?: AgentState,
+): ChatMessage[] => {
+	if (!agentState?.lastFailedWorkflow || getFreshActiveWorkflow(agentState)) {
+		return messages;
+	}
+
+	for (let index = messages.length - 1; index >= 0; index -= 1) {
+		const message = messages[index];
+		if (
+			message.role === 'assistant' &&
+			(message.conversationId.endsWith('-failed') || isRetryableProjectFailureMessage(message.content))
+		) {
+			return messages.map((item, itemIndex) => itemIndex === index
+				? { ...item, action: RETRY_LAST_FAILED_WORKFLOW_ACTION }
+				: item);
+		}
+	}
+
+	return [
+		...messages,
+		createAIMessage('retry-available', BACKGROUND_UPDATE_FAILED_MESSAGE, false, RETRY_LAST_FAILED_WORKFLOW_ACTION),
+	];
+};
+
+const summarizeErrorForChat = (error: string | undefined): string => {
+	const fallback = 'Something went wrong while updating the project.';
+	if (!error) return fallback;
+
+	if (!error.includes('{"type":')) {
+		return redactInternalGeneratorName(error);
+	}
+
+	const events: Array<{ message?: string; error?: { message?: string } }> = [];
+	let start = -1;
+	let depth = 0;
+	let inString = false;
+	let escaped = false;
+
+	for (let index = 0; index < error.length; index += 1) {
+		const char = error[index];
+		if (inString) {
+			if (escaped) {
+				escaped = false;
+			} else if (char === '\\') {
+				escaped = true;
+			} else if (char === '"') {
+				inString = false;
+			}
+			continue;
+		}
+
+		if (char === '"') {
+			inString = true;
+			continue;
+		}
+		if (char === '{') {
+			if (depth === 0) start = index;
+			depth += 1;
+			continue;
+		}
+		if (char === '}' && depth > 0) {
+			depth -= 1;
+			if (depth === 0 && start >= 0) {
+				const chunk = error.slice(start, index + 1);
+				start = -1;
+				if (!chunk.includes('"type"')) continue;
+				try {
+					events.push(JSON.parse(chunk));
+				} catch {
+					// Keep chat clean even if debug output contains partial JSON.
+				}
+			}
+		}
+	}
+
+	const messages = events
+		.map((event) => event.error?.message || event.message || null)
+		.filter((message): message is string => Boolean(message));
+
+	const summary = messages[messages.length - 1] || fallback;
+	const safeSummary = redactInternalGeneratorName(summary);
+	return safeSummary.length > 500 ? `${safeSummary.slice(0, 500)}...` : safeSummary;
+};
 
 const isStateActivelyGenerating = (state: AgentState): boolean => {
+	if (state.lastFailedWorkflow) {
+		return false;
+	}
+
 	const freshActiveTask = getFreshActiveTask(state);
 	const freshActiveWorkflow = getFreshActiveWorkflow(state);
 	return !state.lastUserStopAt && (
 		(state.shouldBeGenerating === true && !hasCompletedPlayable(state)) ||
 		Boolean(freshActiveTask) ||
-		Boolean(freshActiveWorkflow)
+		isGenerationWorkflow(freshActiveWorkflow) ||
+		isDeployProjectWorkflow(freshActiveWorkflow) ||
+		isDeployPreviewWorkflow(freshActiveWorkflow)
 	);
 };
 
 const shouldRestoreCodeGeneration = (state: AgentState): boolean => {
-	if (isPreparingInitialBlueprint(state)) return false;
+	if (state.lastFailedWorkflow) {
+		return false;
+	}
 
 	const freshActiveTask = getFreshActiveTask(state);
 	const freshActiveWorkflow = getFreshActiveWorkflow(state);
@@ -125,16 +353,19 @@ const shouldRestoreCodeGeneration = (state: AgentState): boolean => {
 };
 
 const shouldRequestGenerationResume = (state: AgentState): boolean =>
-	!isPreparingInitialBlueprint(state) &&
+	!state.lastFailedWorkflow &&
 	!getFreshActiveWorkflow(state) &&
 	state.shouldBeGenerating === true &&
 	!hasCompletedPlayable(state);
+
+const hasRestoredFailedWorkflow = (state: AgentState): boolean =>
+	Boolean(state.lastFailedWorkflow);
 
 const getRestoredAppStatus = (state: AgentState): 'generating' | 'completed' =>
 	isStateActivelyGenerating(state) ? 'generating' : 'completed';
 
 const isRestoredBuildPaused = (state: AgentState): boolean =>
-	!isStateActivelyGenerating(state) && !state.mvpGenerated;
+	!state.lastFailedWorkflow && !isStateActivelyGenerating(state) && !state.mvpGenerated;
 
 export interface HandleMessageDeps {
     // State setters
@@ -145,9 +376,11 @@ export interface HandleMessageDeps {
     setBlueprint: React.Dispatch<React.SetStateAction<BlueprintType | undefined>>;
     setQuery: React.Dispatch<React.SetStateAction<string | undefined>>;
     setPreviewUrl: React.Dispatch<React.SetStateAction<string | undefined>>;
+    setIsPreviewPaused: React.Dispatch<React.SetStateAction<boolean>>;
     setTotalFiles: React.Dispatch<React.SetStateAction<number | undefined>>;
     setIsRedeployReady: React.Dispatch<React.SetStateAction<boolean>>;
     setIsPreviewDeploying: React.Dispatch<React.SetStateAction<boolean>>;
+    setPreviewQueuePosition: React.Dispatch<React.SetStateAction<number | undefined>>;
     setIsGeneratingBlueprint: React.Dispatch<React.SetStateAction<boolean>>;
     setIsThinking: React.Dispatch<React.SetStateAction<boolean>>;
     setIsInitialStateRestored: React.Dispatch<React.SetStateAction<boolean>>;
@@ -255,9 +488,11 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
             setBlueprint,
             setQuery,
             setPreviewUrl,
+            setIsPreviewPaused,
             setTotalFiles,
             setIsRedeployReady,
             setIsPreviewDeploying,
+            setPreviewQueuePosition,
             setIsGeneratingBlueprint,
             setIsThinking,
             setIsInitialStateRestored,
@@ -313,6 +548,13 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
                 }));
                 break;
             }
+            case 'app_title_updated': {
+                const appId = message.agentId || deps.urlChatId;
+                if (appId && appId !== 'new') {
+                    appEvents.emitAppUpdated(appId, { title: message.title });
+                }
+                break;
+            }
             case 'agent_connected': {
                 const { state, templateDetails, previewUrl } = message;
                 if (!isInitialStateRestored) {
@@ -338,9 +580,22 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
                         logger.debug('🔄 Restored projectType from backend:', restoredProjectType);
                     }
 
-                    if (hasMeaningfulBlueprint(state) && !blueprint) {
-                        setBlueprint(state.blueprint);
+                    const freshActiveWorkflowForStages = getFreshActiveWorkflow(state);
+                    const restoredFailedWorkflow = hasRestoredFailedWorkflow(state);
+
+                    if (restoredFailedWorkflow) {
+                        setIsGeneratingBlueprint(false);
+                        updateStage('bootstrap', { status: 'completed' });
                         updateStage('blueprint', { status: 'completed' });
+                        updateStage('code', { status: 'error' });
+                    } else if (hasMeaningfulBlueprint(state) && !blueprint) {
+                        setBlueprint(state.blueprint);
+                    } else if (shouldSkipBlueprintStage(state)) {
+                        updateStage('blueprint', {
+                            status: hasCompletedPlayable(state) || isPlayableExecutionWorkflow(freshActiveWorkflowForStages) || isSandboxQueueWorkflow(freshActiveWorkflowForStages)
+                                ? 'completed'
+                                : 'active',
+                        });
                     }
 
                     if (state.query && !query) {
@@ -358,6 +613,7 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
 
                     if (previewUrl) {
                         setPreviewUrl(previewUrl);
+                        setIsPreviewPaused(false);
                     }
 
                     if (templateDetails) {
@@ -445,26 +701,30 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
                     
                     updateStage('bootstrap', { status: 'completed' });
 
-                    const preparingInitialBlueprint = isPreparingInitialBlueprint(state);
-                    if (preparingInitialBlueprint) {
-                        setIsGeneratingBlueprint(true);
-                        updateStage('blueprint', { status: 'active' });
-                        updateStage('code', { status: 'pending' });
-                    } else if (hasMeaningfulBlueprint(state)) {
+                    if (restoredFailedWorkflow) {
                         setIsGeneratingBlueprint(false);
                         updateStage('blueprint', { status: 'completed' });
+                        updateStage('code', { status: 'error' });
+                    } else if (hasMeaningfulBlueprint(state) || shouldSkipBlueprintStage(state)) {
+                        setIsGeneratingBlueprint(false);
+                        updateStage('blueprint', {
+                            status: hasCompletedPlayable(state) || isPlayableExecutionWorkflow(freshActiveWorkflowForStages) || isSandboxQueueWorkflow(freshActiveWorkflowForStages)
+                                ? 'completed'
+                                : 'active',
+                        });
                     }
                     
-                    if (state.generatedFilesMap && Object.keys(state.generatedFilesMap).length > 0) {
+                    const freshActiveWorkflow = freshActiveWorkflowForStages;
+
+                    if (hasCompletedPlayable(state) && !isGenerationWorkflow(freshActiveWorkflow)) {
                         updateStage('code', { status: 'completed' });
                         setIsRedeployReady(hasPlayableChangesSinceLastDeployment(state));
-                        if (urlChatId !== 'new' && !getFreshActiveWorkflow(state)) {
+                        if (urlChatId !== 'new' && !freshActiveWorkflow) {
                             logger.debug('🚀 Requesting preview deployment for existing chat with files');
                             sendWebSocketMessage(websocket, 'preview');
                         }
                     }
 
-                    const freshActiveWorkflow = getFreshActiveWorkflow(state);
                     if (isDeployProjectWorkflow(freshActiveWorkflow)) {
                         setIsDeploying(true);
                         setDeploymentError('');
@@ -491,13 +751,23 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
                     
                     if (shouldRestoreCodeGeneration(state) && !isGenerating) {
                         logger.debug('🔄 Reconnected with active generation intent, restoring generation UI');
-                        setIsGenerating(true); 
-                        updateStage('code', { status: 'active' });
+                        const activeWorkflow = getFreshActiveWorkflow(state);
+                        setIsGenerating(true);
+                        updateStage('code', {
+                            status: isPlayableExecutionWorkflow(activeWorkflow) || isSandboxQueueWorkflow(activeWorkflow)
+                                ? 'active'
+                                : 'pending',
+                            queuePosition: activeWorkflow?.queuePosition,
+                        });
+                        if (activeWorkflow?.kind === 'user_input') {
+                            setIsConversationProcessing(true);
+                            setMessages(prev => appendBackgroundUpdateMessage(prev, BACKGROUND_UPDATE_RESTORED_MESSAGE));
+                        }
                         if (shouldRequestGenerationResume(state)) {
                             sendWebSocketMessage(websocket, 'generate_all');
                         }
-                    }
-                }
+	                    }
+	                }
                 break;
             }
             case 'template_updated': {
@@ -542,25 +812,36 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
 
                 setIsGenerationPaused(isRestoredBuildPaused(state));
 
-                if (isPreparingInitialBlueprint(state)) {
-                    logger.debug('🔄 Initial create workflow is still preparing blueprint');
-                    setIsGeneratingBlueprint(true);
-                    updateStage('bootstrap', { status: 'completed' });
-                    updateStage('blueprint', { status: 'active' });
-                    updateStage('code', { status: 'pending' });
-                } else if (hasMeaningfulBlueprint(state)) {
+                const freshActiveWorkflowForStages = getFreshActiveWorkflow(state);
+                const restoredFailedWorkflow = hasRestoredFailedWorkflow(state);
+
+                if (restoredFailedWorkflow) {
                     setIsGeneratingBlueprint(false);
                     updateStage('bootstrap', { status: 'completed' });
                     updateStage('blueprint', { status: 'completed' });
+                    updateStage('code', { status: 'error' });
+                } else if (hasMeaningfulBlueprint(state) || shouldSkipBlueprintStage(state)) {
+                    setIsGeneratingBlueprint(false);
+                    updateStage('bootstrap', { status: 'completed' });
+                    updateStage('blueprint', {
+                        status: hasCompletedPlayable(state) || isPlayableExecutionWorkflow(freshActiveWorkflowForStages) || isSandboxQueueWorkflow(freshActiveWorkflowForStages)
+                            ? 'completed'
+                            : 'active',
+                    });
                 }
 
                 if (shouldRestoreCodeGeneration(state) && !isGenerating) {
                     logger.debug('🔄 Active generation intent detected, updating UI to active state');
-                    updateStage('code', { status: 'active' });
+                    updateStage('code', {
+                        status: isPlayableExecutionWorkflow(freshActiveWorkflowForStages) || isSandboxQueueWorkflow(freshActiveWorkflowForStages)
+                            ? 'active'
+                            : 'pending',
+                        queuePosition: freshActiveWorkflowForStages?.queuePosition,
+                    });
                 } else if (!isStateActivelyGenerating(state)) {
                     const codeStage = projectStages.find((stage) => stage.id === 'code');
                     if (codeStage?.status === 'active' && !isGenerating) {
-                        if (state.generatedFilesMap && Object.keys(state.generatedFilesMap).length > 0) {
+                        if (hasCompletedPlayable(state)) {
                             updateStage('code', { status: 'completed' });
 
                             if (!previewUrl && !getFreshActiveWorkflow(state)) {
@@ -571,7 +852,18 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
                     }
                 }
 
-                const freshActiveWorkflow = getFreshActiveWorkflow(state);
+                const freshActiveWorkflow = freshActiveWorkflowForStages;
+                if (isGenerationWorkflow(freshActiveWorkflow)) {
+                    setIsGenerating(true);
+                    if (freshActiveWorkflow?.kind === 'user_input') {
+                        setIsConversationProcessing(true);
+                        setMessages(prev => appendBackgroundUpdateMessage(prev, BACKGROUND_UPDATE_RESTORED_MESSAGE));
+                    }
+                } else if (!isStateActivelyGenerating(state)) {
+                    setIsGenerating(false);
+                    setIsConversationProcessing(false);
+                }
+
                 if (isDeployProjectWorkflow(freshActiveWorkflow)) {
                     setIsDeploying(true);
                     setDeploymentError('');
@@ -590,7 +882,7 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
 
             case 'conversation_state': {
                 if (message.type !== 'conversation_state') break;
-                const { state, deepDebugSession } = message;
+                const { state, agentState, deepDebugSession } = message;
                 const history: ReadonlyArray<ConversationMessage> = state?.runningHistory ?? [];
                 logger.debug('Received conversation_state with messages:', history.length, 'deepDebugSession:', deepDebugSession);
 
@@ -617,10 +909,14 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
                         });
                         currentAssistant = null;
                     } else if (msg.role === 'assistant') {
-                        const content = msg.conversationId.startsWith('archive-') 
-                            ? 'previous history was compacted' 
+                        const content = msg.conversationId.startsWith('archive-')
+                            ? 'previous history was compacted'
                             : (text || '');
-                        
+                        if (shouldHideLegacyAssistantPrompt(content)) {
+                            currentAssistant = null;
+                            continue;
+                        }
+
                         const hasToolCalls = msg.tool_calls && msg.tool_calls.length > 0;
                         
                         // Merge all consecutive assistant messages into one bubble
@@ -706,11 +1002,16 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
                     }
                 }
 
-                if (restoredMessages.length > 0) {
+                const messagesToRestore = restoredMessages;
+
+                if (messagesToRestore.length > 0) {
                     // Deduplicate assistant messages with identical content (even if separated by tool messages)
-                    const deduplicated = deduplicateMessages(restoredMessages);
+                    const deduplicated = attachRetryActionToLatestFailure(
+                        deduplicateMessages(filterHiddenAssistantPrompts(messagesToRestore)),
+                        agentState,
+                    );
                     
-                    logger.debug('Merging conversation_state with', deduplicated.length, 'messages (', restoredMessages.length - deduplicated.length, 'duplicates removed)');
+                    logger.debug('Merging conversation_state with', deduplicated.length, 'messages (', messagesToRestore.length - deduplicated.length, 'duplicates removed)');
                     setMessages(prev => {
                         const restoredWithPreservedAttachments = preserveExistingUserAttachments(deduplicated, prev);
                         const hasFetching = prev.some(m => m.role === 'assistant' && m.conversationId === 'fetching-chat');
@@ -773,11 +1074,15 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
 
             case 'generation_started': {
                 setIsGeneratingBlueprint(false);
+                setIsThinking(false);
                 updateStage('bootstrap', { status: 'completed' });
                 updateStage('blueprint', { status: 'completed' });
                 updateStage('code', { status: 'active' });
                 setTotalFiles(message.totalFiles);
                 setIsGenerating(true);
+                if (message.workflowKind && message.workflowKind !== 'create_project') {
+                    setMessages(prev => appendBackgroundUpdateMessage(prev));
+                }
                 if (deps.urlChatId) {
                     appEvents.emitAppUpdated(deps.urlChatId, { status: 'generating' });
                 }
@@ -794,6 +1099,11 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
                 setIsPhaseProgressActive(false);
                 setIsThinking(false);
                 setIsGenerating(false);
+                setMessages(prev => removeActiveBackgroundUpdateMessage(prev));
+                if (message.previewURL) {
+                    setPreviewUrl(message.previewURL);
+                    setIsPreviewPaused(false);
+                }
                 if (deps.urlChatId) {
                     appEvents.emitAppUpdated(deps.urlChatId, { status: 'completed' });
                 }
@@ -802,6 +1112,7 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
 
             case 'deployment_started': {
                 setIsPreviewDeploying(true);
+                setPreviewQueuePosition(undefined);
                 if (deps.urlChatId) {
                     appEvents.emitAppUpdated(deps.urlChatId, { status: 'generating' });
                 }
@@ -810,8 +1121,10 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
 
             case 'deployment_completed': {
                 setIsPreviewDeploying(false);
+                setPreviewQueuePosition(undefined);
                 const finalPreviewURL = getPreviewUrl(message.previewURL, message.tunnelURL);
                 setPreviewUrl(finalPreviewURL);
+                setIsPreviewPaused(false);
                 if (deps.urlChatId) {
                     appEvents.emitAppUpdated(deps.urlChatId, { status: 'completed' });
                 }
@@ -820,6 +1133,7 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
 
             case 'deployment_failed': {
                 setIsPreviewDeploying(false);
+                setPreviewQueuePosition(undefined);
                 if (isTaskBusyWarning(message.error)) {
                     toast.warning(getTaskBusyWarningTitle(message.error), {
                         description: message.error,
@@ -1004,10 +1318,30 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
             }
 
             case 'preview_force_refresh': {
+                setPreviewQueuePosition(undefined);
                 setShouldRefreshPreview(true);
                 setTimeout(() => {
                     setShouldRefreshPreview(false);
                 }, 100);
+                break;
+            }
+
+            case 'preview_released': {
+                setIsPreviewDeploying(false);
+                setPreviewQueuePosition(undefined);
+                setIsPreviewPaused(true);
+                setShouldRefreshPreview(false);
+                break;
+            }
+
+            case 'preview_queue_waiting': {
+                setIsPreviewDeploying(true);
+                setIsPreviewPaused(false);
+                setPreviewQueuePosition(
+                    Number.isFinite(message.position) && message.position > 0
+                        ? message.position
+                        : undefined,
+                );
                 break;
             }
 
@@ -1023,6 +1357,7 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
                 // Reset phase indicators
                 setIsPhaseProgressActive(false);
                 setIsThinking(false);
+                setMessages(prev => finishBackgroundUpdateMessage(prev, 'Update paused.'));
                 
                 // Mark any active phases as cancelled (not completed, since they were interrupted)
                 setPhaseTimeline((prev) => 
@@ -1129,7 +1464,6 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
                 if (message.isStreaming || message.tool) {
                     setIsConversationProcessing(true);
                 }
-
                 // Use concrete conversationId when available; otherwise use placeholder id
                 let conversationId = message.conversationId ?? 'conversation_response';
 
@@ -1151,38 +1485,79 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
 
                 if (message.tool) {
                     const tool = message.tool;
-                    setMessages(prev => appendToolEvent(prev, conversationId, { 
-                        name: tool.name, 
+                    setMessages(prev => appendToolEvent(prev, conversationId, {
+                        name: tool.name,
                         status: tool.status,
-                        result: tool.result 
+                        result: tool.result
                     }));
                     break;
                 }
 
+                if (!message.isStreaming && shouldHideLegacyAssistantPrompt(message.message)) {
+                    setMessages(prev => prev.filter((item) => item.conversationId !== conversationId));
+                    break;
+                }
+
                 if (message.isStreaming) {
-                    setMessages(prev => handleStreamingMessage(prev, conversationId, isArchive ? placeholder : message.message, false));
+                    const chunk = isArchive ? placeholder : message.message;
+                    setMessages(prev => {
+                        const existing = prev.find(
+                            item => item.role === 'assistant' && item.conversationId === conversationId,
+                        );
+                        const nextContent = `${existing?.content ?? ''}${chunk}`;
+                        if (shouldHoldLegacyAssistantStream(nextContent)) {
+                            return prev.filter(item => item.conversationId !== conversationId);
+                        }
+                        return filterHiddenAssistantPrompts(
+                            handleStreamingMessage(prev, conversationId, chunk, false),
+                        );
+                    });
                     break;
                 }
 
                 setMessages(prev => {
-                    const idx = prev.findIndex(m => m.role === 'assistant' && m.conversationId === conversationId);
-                    if (idx !== -1) return prev.map((m, i) => i === idx ? { ...m, content: (isArchive ? placeholder : message.message) } : m);
-                    
+                    const withoutActiveStatus = !message.isStreaming && !message.tool
+                        ? removeActiveBackgroundUpdateMessage(prev)
+                        : prev;
+                    const idx = withoutActiveStatus.findIndex(m => m.role === 'assistant' && m.conversationId === conversationId);
+                    if (idx !== -1) {
+                        return withoutActiveStatus.map((m, i) => i === idx
+                            ? { ...m, content: (isArchive ? placeholder : message.message), action: message.action }
+                            : m);
+                    }
+
                     // Deduplicate: Don't add if last assistant message has identical content
                     const newContent = isArchive ? placeholder : message.message;
-                    if (isAssistantMessageDuplicate(prev, newContent)) {
+                    if (isAssistantMessageDuplicate(withoutActiveStatus, newContent)) {
                         logger.debug('Skipping duplicate assistant message');
-                        return prev; // Skip duplicate
+                        return withoutActiveStatus; // Skip duplicate
                     }
-                    
-                    return [...prev, createAIMessage(conversationId, newContent)];
+
+                    return [...withoutActiveStatus, createAIMessage(conversationId, newContent, false, message.action)];
                 });
                 break;
             }
 
-            case 'user_suggestions_processing': {
-                const isProcessing = message.status !== 'complete' && message.status !== 'error';
-                setIsConversationProcessing(isProcessing);
+	            case 'user_suggestions_processing': {
+	                const isProcessing = message.status !== 'complete' && message.status !== 'error';
+	                setIsConversationProcessing(isProcessing);
+	                setIsThinking(isProcessing);
+	                if (isProcessing) {
+	                    setIsGenerating(true);
+	                    setIsGenerationPaused(false);
+	                    updateStage('bootstrap', { status: 'completed' });
+                    updateStage('blueprint', { status: 'active' });
+                    updateStage('code', { status: 'pending' });
+                    setMessages(prev => appendBackgroundUpdateMessage(prev));
+                } else {
+                    if (message.status === 'error') {
+                        setIsGenerating(false);
+                        updateStage('code', { status: 'error' });
+                        setMessages(prev => finishBackgroundUpdateMessage(prev, BACKGROUND_UPDATE_FAILED_MESSAGE));
+                    } else {
+                        setMessages(prev => removeActiveBackgroundUpdateMessage(prev));
+                    }
+                }
                 if (deps.urlChatId) {
                     appEvents.emitAppUpdated(deps.urlChatId, {
                         status: isProcessing ? 'generating' : 'completed',
@@ -1192,13 +1567,27 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
             }
 
             case 'server_log': {
+                const safeMessage = redactInternalGeneratorName(message.message);
+                if (safeMessage.startsWith(SANDBOX_QUEUE_MESSAGE_PREFIX)) {
+                    const position = typeof message.queuePosition === 'number'
+                        ? message.queuePosition
+                        : Number(safeMessage.match(/#(\d+)/)?.[1]);
+                    const validPosition = Number.isFinite(position) && position > 0 ? position : undefined;
+                    updateStage('bootstrap', { status: 'completed' });
+                    updateStage('blueprint', { status: 'completed' });
+                    updateStage('code', {
+                        status: 'active',
+                        queuePosition: validPosition,
+                    });
+                    setIsGenerating(true);
+                }
                 onDebugMessage?.(
                     message.level === 'error' ? 'error' : message.level === 'warn' ? 'warning' : 'info',
-                    message.message,
+                    safeMessage,
                     message.source,
                     'Server',
                     'server_log',
-                    message,
+                    { ...message, message: safeMessage },
                 );
                 break;
             }
@@ -1250,7 +1639,10 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
 
             case 'error': {
                 setIsConversationProcessing(false);
+                setIsThinking(false);
+                setIsGenerating(false);
                 const errorData = message;
+                const safeError = summarizeErrorForChat(errorData.error);
                 if (isTaskBusyWarning(errorData.error)) {
                     toast.warning(getTaskBusyWarningTitle(errorData.error), {
                         description: errorData.error,
@@ -1265,30 +1657,50 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
                     );
                     break;
                 }
-                setMessages(prev => [
-                    ...prev,
-                    createAIMessage(`error_${Date.now()}`, `❌ ${errorData.error}`)
-                ]);
+                setMessages(prev => {
+                    const withoutActiveStatus = replaceLatestBackgroundUpdateMessage(prev, BACKGROUND_UPDATE_FAILED_MESSAGE);
+                    if (isRetryableProjectFailureMessage(safeError)) {
+                        if (withoutActiveStatus.some(item => item.action?.type === 'retry_last_failed_workflow')) {
+                            return withoutActiveStatus;
+                        }
+                        return [
+                            ...withoutActiveStatus,
+                            createAIMessage(`error_${Date.now()}`, safeError, false, RETRY_LAST_FAILED_WORKFLOW_ACTION),
+                        ];
+                    }
+
+                    return [
+                        ...withoutActiveStatus,
+                        createAIMessage(`error_${Date.now()}`, `❌ ${safeError}`)
+                    ];
+                });
                 
                 onDebugMessage?.(
                     'error',
                     'WebSocket Error',
-                    errorData.error,
+                    safeError,
                     'WebSocket',
                     'error',
-                    errorData
+                    { ...errorData, error: safeError }
                 );
                 break;
             }
 
             case 'rate_limit_error': {
                 setIsConversationProcessing(false);
+                setIsThinking(false);
+                setIsGenerating(false);
                 const errorData = message.error;
                 const rateLimitMessage = handleRateLimitError(
                     errorData.details,
                     onDebugMessage
-                );
-                setMessages(prev => [...prev, rateLimitMessage]);
+	                );
+	                setMessages(prev => {
+	                    return [
+	                        ...replaceLatestBackgroundUpdateMessage(prev, BACKGROUND_UPDATE_FAILED_MESSAGE),
+	                        rateLimitMessage,
+                    ];
+                });
                 
                 break;
             }

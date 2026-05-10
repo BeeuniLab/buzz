@@ -2,7 +2,7 @@ import { Connection } from 'agents';
 import { createLogger } from '../../logger';
 import { WebSocketMessageRequests, WebSocketMessageResponses } from '../constants';
 import { WebSocketMessage, WebSocketMessageData, WebSocketMessageType } from '../../api/websocketTypes';
-import { MAX_CHAT_MEDIA_PER_MESSAGE, MAX_IMAGE_SIZE_BYTES } from '../../types/image-attachment';
+import { MAX_IMAGE_SIZE_BYTES, validateChatMediaAttachments } from '../../types/image-attachment';
 // import { credentialsToRuntimeOverrides, type CredentialsPayload } from '../inferutils/config.types';
 import type { CodeGeneratorAgent } from './codingAgent';
 
@@ -20,13 +20,13 @@ export function handleWebSocketMessage(
         switch (parsedMessage.type) {
             case WebSocketMessageRequests.SESSION_INIT: {
                 // const credentials = parsedMessage.credentials as CredentialsPayload | undefined;
-                // agent.getBehavior().setRuntimeOverrides(credentialsToRuntimeOverrides(credentials));
+                // Runtime credential overrides are disabled for Codex background execution.
                 logger.info(`Received session init message from ${connection.id}, Disable for now`);
                 break;
             }
             case WebSocketMessageRequests.GENERATE_ALL:
                 // Check if generation is already active to avoid duplicate processes
-                if (agent.getBehavior().isCodeGenerating()) {
+                if (agent.isCodeGenerating()) {
                     logger.info('Generation already in progress, skipping duplicate request');
                     // sendToConnection(connection, WebSocketMessageResponses.GENERATION_STARTED, {
                     //     message: 'Code generation is already in progress'
@@ -62,10 +62,10 @@ export function handleWebSocketMessage(
                 
                 Promise.all([
                     agent.stopActiveWorkflow(),
-                    agent.getBehavior().stopCurrentTask(),
+                    agent.stopCurrentTask(),
                 ])
                     .then(([workflowTerminated, wasCancelled]) => {
-                        // Clear shouldBeGenerating after behavior state updates so the stopped marker is preserved.
+                        // Clear shouldBeGenerating after state updates so the stopped marker is preserved.
                         agent.setState({
                             ...agent.state,
                             shouldBeGenerating: false,
@@ -87,7 +87,7 @@ export function handleWebSocketMessage(
             case WebSocketMessageRequests.RESUME_GENERATION:
                 logger.info('Resuming code generation');
                 
-                if (!agent.getBehavior().isCodeGenerating()) {
+                if (!agent.isCodeGenerating()) {
                     sendToConnection(connection, WebSocketMessageResponses.GENERATION_RESUMED, {
                         message: 'Code generation resumed'
                     });
@@ -101,6 +101,13 @@ export function handleWebSocketMessage(
                     // });
                 }
                 break;
+            case WebSocketMessageRequests.RETRY_LAST_FAILED_WORKFLOW:
+                logger.info('Retrying last failed workflow');
+                agent.retryLastFailedWorkflow().catch((error: unknown) => {
+                    logger.error('Error retrying last failed workflow:', error);
+                    sendError(connection, `Error retrying project task: ${error instanceof Error ? error.message : String(error)}`);
+                });
+                break;
             case WebSocketMessageRequests.USER_SUGGESTION: {
                 // Handle user suggestion for conversational AI
                 logger.info('Received user suggestion', {
@@ -110,8 +117,8 @@ export function handleWebSocketMessage(
                 });
 
                 if (
-                    agent.getBehavior().isCodeGenerating() ||
-                    agent.getBehavior().isDeepDebugging() ||
+                    agent.isCodeGenerating() ||
+                    agent.isDeepDebugging() ||
                     agent.state.shouldBeGenerating ||
                     agent.state.activeWorkflow
                 ) {
@@ -128,18 +135,14 @@ export function handleWebSocketMessage(
                     return;
                 }
                 
-                // Validate image count and size
+                // Validate attachment type, per-category count, and size.
                 if (parsedMessage.images && parsedMessage.images.length > 0) {
-                    if (parsedMessage.images.length > MAX_CHAT_MEDIA_PER_MESSAGE) {
-                        sendError(connection, `Maximum ${MAX_CHAT_MEDIA_PER_MESSAGE} attachments allowed per message. Received ${parsedMessage.images.length}.`);
+                    const attachmentError = validateChatMediaAttachments(parsedMessage.images, {
+                        maxSizeBytes: MAX_IMAGE_SIZE_BYTES,
+                    });
+                    if (attachmentError) {
+                        sendError(connection, attachmentError);
                         return;
-                    }
-                    
-                    for (const image of parsedMessage.images) {
-                        if (image.size > MAX_IMAGE_SIZE_BYTES) {
-                            sendError(connection, `Attachment "${image.filename}" exceeds maximum size of ${MAX_IMAGE_SIZE_BYTES / (1024 * 1024)}MB`);
-                            return;
-                        }
                     }
                 }
                 
@@ -156,7 +159,7 @@ export function handleWebSocketMessage(
             }
             case WebSocketMessageRequests.GET_MODEL_CONFIGS:
                 logger.info('Fetching model configurations');
-                agent.getBehavior().getModelConfigsInfo().then(configsInfo => {
+                agent.getModelConfigsInfo().then(configsInfo => {
                     sendToConnection(connection, WebSocketMessageResponses.MODEL_CONFIGS_INFO, {
                         message: 'Model configurations retrieved',
                         configs: configsInfo
@@ -179,10 +182,11 @@ export function handleWebSocketMessage(
             case WebSocketMessageRequests.GET_CONVERSATION_STATE:
                 try {
                     const state = agent.getConversationState();
-                    const debugState = agent.getBehavior().getDeepDebugSessionState();
+                    const debugState = agent.getDeepDebugSessionState();
                     logger.info('Conversation state retrieved', state);
                     sendToConnection(connection, WebSocketMessageResponses.CONVERSATION_STATE, { 
                         state,
+                        agentState: agent.state,
                         deepDebugSession: debugState
                     });
                 } catch (error) {
@@ -227,6 +231,12 @@ export function handleWebSocketClose(agent: CodeGeneratorAgent, connection: Conn
     logger.info(`WebSocket connection closed: ${connection.id}`);
     // Clear vault session on disconnect for security
     agent.handleVaultLocked();
+    agent.schedulePreviewReleaseAfterClientDisconnect().catch((error: unknown) => {
+        logger.warn('Failed to schedule preview release after websocket close', {
+            connectionId: connection.id,
+            error: error instanceof Error ? error.message : String(error),
+        });
+    });
 }
 
 export function broadcastToConnections<T extends WebSocketMessageType>(

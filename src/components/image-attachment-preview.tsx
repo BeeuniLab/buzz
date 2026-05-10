@@ -53,14 +53,14 @@ export function ImageAttachmentPreview({
 						animate={{ opacity: 1, scale: 1 }}
 						exit={{ opacity: 0, scale: 0.8 }}
 						transition={{ duration: 0.2 }}
-						className={`relative group ${compact ? 'w-12 h-12' : 'w-20 h-20'} rounded-lg overflow-hidden border border-border-primary bg-bg-3`}
+						className={`relative group ${compact ? 'w-14 h-14 rounded-xl' : 'w-20 h-20 rounded-lg'} overflow-hidden border border-border-primary bg-bg-3`}
 					>
 						<MediaBadge attachment={attachment} compact={compact} />
 						{onRemove && (
 							<button
 								type="button"
 								onClick={() => onRemove(attachment.id)}
-								className="absolute top-1 right-1 p-0.5 rounded-full bg-bg-1/90 hover:bg-bg-1 text-text-primary opacity-0 group-hover:opacity-100 transition-opacity"
+								className={`absolute top-1 right-1 p-0.5 rounded-full bg-bg-1/90 hover:bg-bg-1 text-text-primary transition-opacity ${compact ? 'opacity-90' : 'opacity-0 group-hover:opacity-100'}`}
 								aria-label={`Remove ${attachment.filename}`}
 							>
 								<X className="size-3" />

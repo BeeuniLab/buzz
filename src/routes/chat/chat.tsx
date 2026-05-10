@@ -6,7 +6,7 @@ import {
 	useState,
 	type FormEvent,
 } from 'react';
-import { useParams, useSearchParams, useNavigate } from 'react-router';
+import { useParams, useSearchParams, useNavigate, useLocation } from 'react-router';
 import { AnimatePresence, motion } from 'framer-motion';
 import { LoaderCircle, MoreHorizontal, RotateCcw, MessageSquare, Eye } from 'lucide-react';
 import clsx from 'clsx';
@@ -18,8 +18,10 @@ import {
 	type BlueprintType,
 	type PhasicBlueprint,
 	SUPPORTED_CHAT_MEDIA_MIME_TYPES,
+	type ImageAttachment,
 	type ProjectType,
 	type FileType,
+	type ConversationAction,
 } from '@/api-types';
 import { featureRegistry } from '@/features';
 import { useFileContentStream } from './hooks/use-file-content-stream';
@@ -56,24 +58,45 @@ function normalizeCanvasView(view: CanvasView): Exclude<CanvasView, 'docs' | 'ed
 	return view === 'docs' || view === 'editor' || view === 'blueprint' ? 'preview' : view;
 }
 
+function parsePendingMedia(raw: string | null): ImageAttachment[] | undefined {
+	if (!raw) return undefined;
+
+	try {
+		const parsed = JSON.parse(raw) as unknown;
+		return Array.isArray(parsed) ? parsed as ImageAttachment[] : undefined;
+	} catch (error) {
+		console.error('Failed to parse pending media:', error);
+		return undefined;
+	}
+}
+
 export default function Chat() {
 	const { chatId: urlChatId } = useParams();
+	const initialRouteWasNewRef = useRef(urlChatId === 'new' || !urlChatId);
 
 	const [searchParams] = useSearchParams();
+	const location = useLocation();
 	const userQuery = searchParams.get('query');
 	const urlProjectType = searchParams.get('projectType') || 'app';
+	const routeStateImages = (location.state as { images?: ImageAttachment[] } | null)?.images;
 
-	// Extract images from URL params if present
+	// Extract attachments from router state, sessionStorage, or legacy URL params.
 	const userImages = useMemo(() => {
-		const imagesParam = searchParams.get('images');
-		if (!imagesParam) return undefined;
-		try {
-			return JSON.parse(decodeURIComponent(imagesParam));
-		} catch (error) {
-			console.error('Failed to parse images from URL:', error);
-			return undefined;
+		if (routeStateImages && routeStateImages.length > 0) {
+			return routeStateImages;
 		}
-	}, [searchParams]);
+
+		const mediaKey = searchParams.get('mediaKey');
+		if (mediaKey && typeof window !== 'undefined') {
+			const pendingMedia = parsePendingMedia(window.sessionStorage.getItem(mediaKey));
+			if (pendingMedia && pendingMedia.length > 0) {
+				return pendingMedia;
+			}
+		}
+
+		const imagesParam = searchParams.get('images');
+		return parsePendingMedia(imagesParam);
+	}, [routeStateImages, searchParams]);
 
 	// Load existing app data if chatId is provided
 	const { app, loading: appLoading, refetch: refetchApp } = useApp(urlChatId);
@@ -131,6 +154,7 @@ export default function Chat() {
 		files,
 		isGeneratingBlueprint,
 		isBootstrapping,
+		isInitialStateRestored,
 		totalFiles,
 		websocket,
 		sendUserMessage,
@@ -150,11 +174,15 @@ export default function Chat() {
 		isConversationProcessing,
 		handleStopGeneration,
 		handleResumeGeneration,
+		handleRetryLastFailedWorkflow,
 		handleDeployToCloudflare,
 		// Preview refresh control
 		shouldRefreshPreview,
+		isPreviewPaused,
 		// Preview deployment state
 		isPreviewDeploying,
+		previewQueuePosition,
+		restartPreview,
 		// Issue tracking and debugging state
 		runtimeErrorCount,
 		staticIssueCount,
@@ -251,6 +279,7 @@ export default function Chat() {
 	const editorRef = useRef<HTMLDivElement>(null);
 	const previewRef = useRef<HTMLIFrameElement>(null);
 	const messagesContainerRef = useRef<HTMLDivElement>(null);
+	const [showFloatingTitle, setShowFloatingTitle] = useState(false);
 
 	const [newMessage, setNewMessage] = useState('');
 
@@ -331,6 +360,12 @@ export default function Chat() {
 		setIsResetDialogOpen(false);
 	}, [websocket]);
 
+	const handleMessageAction = useCallback((action: ConversationAction) => {
+		if (action.type === 'retry_last_failed_workflow') {
+			handleRetryLastFailedWorkflow();
+		}
+	}, [handleRetryLastFailedWorkflow]);
+
 	const generatingCount = useMemo(
 		() =>
 			files.reduce(
@@ -388,9 +423,12 @@ export default function Chat() {
 	const previewAvailable = useMemo(() => {
 		return !!previewUrl || files.length > 0;
 	}, [files.length, previewUrl]);
+	const isProjectInteractionReady = Boolean(isInitialStateRestored && !appLoading);
 	const canUpdatePlayable = Boolean(
 		chatId &&
+		isProjectInteractionReady &&
 		previewAvailable &&
+		previewUrl &&
 		!isBootstrapping &&
 		!isThinking &&
 		!isGenerating &&
@@ -532,7 +570,22 @@ export default function Chat() {
 	]);
 
 	const isRunning = isServerTaskRunning || isSendLockActive;
-	const showResumeGeneration = isGenerationPaused && !isRunning && Boolean(blueprint);
+	const showResumeGeneration = isGenerationPaused && !isRunning;
+
+	useEffect(() => {
+		const container = messagesContainerRef.current;
+		if (!container) return;
+
+		const handleScroll = () => {
+			setShowFloatingTitle(container.scrollTop > 96);
+		};
+
+		handleScroll();
+		container.addEventListener('scroll', handleScroll, { passive: true });
+		return () => {
+			container.removeEventListener('scroll', handleScroll);
+		};
+	}, []);
 
 	useEffect(() => {
 		if (isServerTaskRunning && isSendLockActive) {
@@ -550,14 +603,14 @@ export default function Chat() {
 		return isBootstrapping || isGenerating || isGeneratingBlueprint || isThinking || isDebugging || isConversationProcessing;
 	}, [isBootstrapping, isGenerating, isGeneratingBlueprint, isThinking, isDebugging, isConversationProcessing]);
 
-	// Check if chat input should be disabled (before blueprint completion, or during debugging)
+	// Check if chat input should be disabled until build setup finishes, or while work is running
 	const isChatDisabled = useMemo(() => {
-		const blueprintStage = projectStages.find(
+		const setupStage = projectStages.find(
 			(stage) => stage.id === 'blueprint',
 		);
-		const blueprintNotCompleted = !blueprintStage || blueprintStage.status !== 'completed';
+		const setupNotCompleted = !setupStage || setupStage.status !== 'completed';
 
-		return blueprintNotCompleted || isRunning;
+		return setupNotCompleted || isRunning;
 	}, [projectStages, isRunning]);
 
 	const chatFormRef = useRef<HTMLFormElement>(null);
@@ -607,7 +660,7 @@ export default function Chat() {
 
 		if (codeStageCompleted) {
 			const completedTotal = Math.max(actualPhaseCount, 1);
-			return [Math.min(completedPhases, completedTotal), completedTotal];
+			return [completedTotal, completedTotal];
 		}
 
 		// Get predicted phase count from blueprint, fallback to current phase count
@@ -618,6 +671,12 @@ export default function Chat() {
 
 		return [completedPhases, totalPhases];
 	}, [phaseTimeline, blueprint, projectStages]);
+
+	const taskRuntimeEstimate = useMemo(() => {
+		return initialRouteWasNewRef.current
+			? 'Estimated run time: 6-20 min.'
+			: 'Estimated update time: 4-8 min.';
+	}, []);
 
 	if (import.meta.env.DEV) {
 		logger.debug({
@@ -655,24 +714,19 @@ export default function Chat() {
 						isMobile && mobilePanel !== 'chat' && 'hidden'
 					)}
 				>
-					<div 
-					className={clsx(
-						'flex-1 overflow-y-auto min-h-0 chat-messages-scroll',
-						isDebugging && 'animate-debug-pulse'
-					)} 
-					ref={messagesContainerRef}
-				>
-						<div className="pt-5 px-4 pb-4 text-sm flex flex-col gap-5">
-							{appLoading ? (
-								<div className="flex items-center gap-2 text-text-tertiary">
-									<LoaderCircle className="size-4 animate-spin" />
-									Loading app...
-								</div>
-							) : (
-								<>
-									{(appTitle || chatId) && (
-								<div className="flex items-center justify-between gap-2 mb-2">
-									<div className="min-w-0 truncate text-lg font-semibold">{appTitle}</div>
+					<AnimatePresence>
+						{!appLoading && showFloatingTitle && (appTitle || chatId) && (
+							<motion.div
+								initial={{ opacity: 0, y: -8 }}
+								animate={{ opacity: 1, y: 0 }}
+								exit={{ opacity: 0, y: -8 }}
+								transition={{ duration: 0.16 }}
+								className="pointer-events-none absolute left-4 right-4 top-3 z-30"
+							>
+								<div className="pointer-events-auto flex h-11 w-full items-center justify-between gap-3 rounded-full border border-border-primary bg-bg-3/95 px-4 shadow-neo-sm backdrop-blur-sm">
+									<div className="min-w-0 flex-1 truncate text-sm font-semibold leading-tight">
+										{appTitle}
+									</div>
 									{chatId && (previewAvailable || hasStablePlayable || playableUpdateAvailable || isDeploying) && (
 										<UpdatePlayableAction
 											isDeploying={isDeploying}
@@ -686,14 +740,48 @@ export default function Chat() {
 										/>
 									)}
 								</div>
+							</motion.div>
+						)}
+					</AnimatePresence>
+						<div
+							className={clsx(
+								'flex-1 overflow-y-auto min-h-0 chat-messages-scroll',
+								isDebugging && 'animate-debug-pulse'
 							)}
-									<UserMessage
-										message={query ?? displayQuery}
-										attachments={initialPromptAttachments}
-										onAttachmentClick={handleMessageAttachmentClick}
-									/>
-								</>
-							)}
+							ref={messagesContainerRef}
+						>
+							<div className="pt-5 px-4 pb-4 text-sm flex flex-col gap-5">
+								{appLoading ? (
+									<div className="flex items-center gap-2 text-text-tertiary">
+										<LoaderCircle className="size-4 animate-spin" />
+										Loading app...
+									</div>
+								) : (
+									<>
+										{(appTitle || chatId) && (
+											<div className="flex items-center justify-between gap-2 mb-2">
+												<div className="min-w-0 truncate text-lg font-semibold">{appTitle}</div>
+												{chatId && (previewAvailable || hasStablePlayable || playableUpdateAvailable || isDeploying) && (
+													<UpdatePlayableAction
+														isDeploying={isDeploying}
+														isTaskRunning={isServerTaskRunning || isSendLockActive}
+														hasStablePlayable={hasStablePlayable}
+														isUpdateAvailable={playableUpdateAvailable || !hasStablePlayable}
+														canUpdate={canUpdatePlayable}
+														deploymentError={deploymentError}
+														showLabelOnMobile
+														onUpdate={handleUpdatePlayable}
+													/>
+												)}
+											</div>
+										)}
+										<UserMessage
+											message={query ?? displayQuery}
+											attachments={initialPromptAttachments}
+											onAttachmentClick={handleMessageAttachmentClick}
+										/>
+									</>
+								)}
 
 							{mainMessage && (
 							<div className="relative">
@@ -701,6 +789,9 @@ export default function Chat() {
 									message={mainMessage.content}
 									isThinking={mainMessage.ui?.isThinking}
 									toolEvents={mainMessage.ui?.toolEvents}
+									action={mainMessage.action}
+									onAction={handleMessageAction}
+									actionDisabled={isRunning}
 								/>
 								{chatId && (
 									<div className="absolute right-1 top-1">
@@ -740,6 +831,9 @@ export default function Chat() {
 											message={message.content}
 											isThinking={true}
 											toolEvents={message.ui?.toolEvents}
+											action={message.action}
+											onAction={handleMessageAction}
+											actionDisabled={isRunning}
 										/>
 									</div>
 								))}
@@ -774,24 +868,25 @@ export default function Chat() {
 									isDebugging={isDebugging}
 									isGenerating={isGenerating}
 									isThinking={isThinking}
+									taskRuntimeEstimate={taskRuntimeEstimate}
 								/>
 							)}
 
 							{showResumeGeneration && (
 								<div className="mb-4 rounded-xl border border-orange-300/30 bg-orange-500/10 px-3 py-3 text-sm text-text-primary">
 									<div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-										<div>
-											<div className="font-medium">Build is paused</div>
-											<div className="text-xs text-text-tertiary">
-												This project is not running right now. Resume generation from the saved blueprint when you're ready.
+											<div>
+												<div className="font-medium">Build paused</div>
+												<div className="text-xs text-text-tertiary">
+													Resume when you're ready.
+												</div>
 											</div>
-										</div>
 										<Button
 											type="button"
 											onClick={handleResumeGeneration}
 											className="h-8 shrink-0 bg-accent text-text-primary hover:bg-neo-yellow"
 										>
-											Resume build
+											Resume
 										</Button>
 									</div>
 								</div>
@@ -808,6 +903,9 @@ export default function Chat() {
 												message={message.content}
 												isThinking={message.ui?.isThinking}
 												toolEvents={message.ui?.toolEvents}
+												action={message.action}
+												onAction={handleMessageAction}
+												actionDisabled={isRunning}
 											/>
 										);
 									}
@@ -864,8 +962,11 @@ export default function Chat() {
 								previewUrl={previewUrl}
 								previewAvailable={previewAvailable}
 								shouldRefreshPreview={shouldRefreshPreview}
+								isPreviewPaused={isPreviewPaused}
+								previewQueuePosition={previewQueuePosition}
 								manualRefreshTrigger={manualRefreshTrigger}
 								onManualRefresh={() => setManualRefreshTrigger(Date.now())}
+								onRestartPreview={restartPreview}
 								blueprint={blueprint}
 								activeFile={activeFile}
 								allFiles={allFiles}
@@ -877,6 +978,7 @@ export default function Chat() {
 								isDeployingPlayable={isDeploying}
 								hasStablePlayable={hasStablePlayable}
 								isRedeployReady={playableUpdateAvailable}
+								canUpdatePlayable={canUpdatePlayable}
 								deploymentError={deploymentError}
 								onUpdatePlayable={handleUpdatePlayable}
 								behaviorType={behaviorType}

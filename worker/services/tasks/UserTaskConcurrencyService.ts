@@ -1,12 +1,12 @@
 import { createObjectLogger } from '../../logger';
 import type { DORateLimitStore, TaskSlotResult } from '../rate-limit/DORateLimitStore';
 
-export const USER_TASK_CONCURRENCY_LIMIT = 2;
+export const USER_TASK_CONCURRENCY_LIMIT = 1;
 const USER_TASK_LEASE_TTL_MS = 45 * 60 * 1000;
 const STORE_PREFIX = 'user-task-concurrency';
 
 export const USER_TASK_CONCURRENCY_LIMIT_MESSAGE =
-    'You already have 2 tasks running. Please wait for one to finish before starting another.';
+    'You already have a task running. Please wait for it to finish before starting another.';
 
 export class UserTaskConcurrencyLimitError extends Error {
     constructor(public readonly result: TaskSlotResult) {

@@ -1,7 +1,7 @@
 import { WebSocketMessageResponses } from '../../../agents/constants';
 import { BaseController } from '../baseController';
 import { generateId } from '../../../utils/idGenerator';
-import { BehaviorType, ProjectType } from '../../../agents/core/types';
+import { ProjectType } from '../../../agents/core/types';
 import { getAgentStub } from '../../../agents';
 import {
     AgentConnectionData,
@@ -20,7 +20,12 @@ import { createLogger } from '../../../logger';
 import { getPreviewDomain } from 'worker/utils/urls';
 import { uploadImageAsAgentAsset } from 'worker/utils/images';
 import { uniqueAgentAssetRelativePath } from 'worker/utils/agentAssets';
-import { ProcessedImageAttachment } from 'worker/types/image-attachment';
+import {
+    MAX_IMAGE_SIZE_BYTES,
+    ProcessedImageAttachment,
+    validateChatMediaAttachments,
+} from 'worker/types/image-attachment';
+import { generateAppTitle } from '../../../utils/appTitleGenerator';
 import { hasTicketParam } from '../../../middleware/auth/ticketAuth';
 import type { CodeGenerationWorkflowParams } from '../../../agents/workflows/codeGenerationWorkflow';
 import {
@@ -32,14 +37,6 @@ const defaultCodeGenArgs: Partial<CodeGenArgs> = {
     language: 'typescript',
     frameworks: ['react', 'vite'],
     selectedTemplate: 'auto',
-};
-
-const resolveBehaviorType = (body: CodeGenArgs): BehaviorType => {
-    if (body.behaviorType) return body.behaviorType;
-    const pt = body.projectType;
-    if (pt === 'presentation' || pt === 'workflow' || pt === 'general') return 'agentic';
-    // default (including 'app' and when projectType omitted)
-    return 'phasic';
 };
 
 const resolveProjectType = (body: CodeGenArgs): ProjectType | 'auto' => {
@@ -66,10 +63,42 @@ const stripBase64ForWorkflow = (attachment: ProcessedImageAttachment): Processed
  */
 export class CodingAgentController extends BaseController {
     static logger = createLogger('CodingAgentController');
+
+    private static async generateAndSyncAppTitle(args: {
+        env: Env;
+        agentId: string;
+        query: string;
+        fallbackTitle: string;
+    }): Promise<void> {
+        const { env, agentId, query, fallbackTitle } = args;
+        try {
+            const title = await generateAppTitle(env, query);
+            if (!title || title === fallbackTitle) {
+                return;
+            }
+
+            const appService = new AppService(env);
+            const updated = await appService.updateApp(agentId, { title });
+            if (!updated) {
+                this.logger.warn('Generated app title but failed to update app', { agentId, title });
+                return;
+            }
+
+            const agent = await getAgentStub(env, agentId);
+            await agent.broadcast(WebSocketMessageResponses.APP_TITLE_UPDATED, { agentId, title });
+            this.logger.info('Generated app title synced', { agentId, title });
+        } catch (error) {
+            this.logger.warn('App title generation skipped', {
+                agentId,
+                error: error instanceof Error ? error.message : String(error),
+            });
+        }
+    }
+
     /**
      * Start the incremental code generation process
      */
-    static async startCodeGeneration(request: Request, env: Env, _: ExecutionContext, context: RouteContext): Promise<Response> {
+    static async startCodeGeneration(request: Request, env: Env, executionContext: ExecutionContext, context: RouteContext): Promise<Response> {
         let pendingAppForCleanup: { agentId: string; userId: string } | null = null;
         let pendingTaskSlot: { userId: string; taskId: string } | null = null;
 
@@ -100,6 +129,14 @@ export class CodingAgentController extends BaseController {
                     413,
                 );
             }
+            if (body.images && body.images.length > 0) {
+                const attachmentError = validateChatMediaAttachments(body.images, {
+                    maxSizeBytes: MAX_IMAGE_SIZE_BYTES,
+                });
+                if (attachmentError) {
+                    return CodingAgentController.createErrorResponse(attachmentError, 400);
+                }
+            }
             // Check if user is authenticated (required for app creation)
             const user = context.user!;
             try {
@@ -117,7 +154,6 @@ export class CodingAgentController extends BaseController {
             const workflowId = `create-${agentId}`;
             const modelConfigService = new ModelConfigService(env);
             const projectType = resolveProjectType(body);
-            const behaviorType = resolveBehaviorType(body);
             const appService = new AppService(env);
             const appTitle = buildPendingAppTitle(query);
 
@@ -152,7 +188,7 @@ export class CodingAgentController extends BaseController {
             });
             pendingAppForCleanup = { agentId, userId: user.id };
 
-            this.logger.info(`Resolved behaviorType: ${behaviorType}, projectType: ${projectType} for agent ${agentId}`);
+            this.logger.info(`Resolved projectType: ${projectType} for agent ${agentId}`);
                                 
             // Fetch all user model configs, api keys and agent instance at once
             const userConfigsRecord = await modelConfigService.getUserModelConfigs(user.id);
@@ -201,7 +237,6 @@ export class CodingAgentController extends BaseController {
 
             const workflowProjectType = normalizeProjectType(projectType);
             const agentInstance = await getAgentStub(env, agentId, {
-                behaviorType,
                 projectType: workflowProjectType,
             });
 
@@ -210,10 +245,14 @@ export class CodingAgentController extends BaseController {
                 userId: user.id,
                 query,
                 hostname,
-                behaviorType,
                 projectType: workflowProjectType,
                 workflowId,
                 workflowKind: 'create_project',
+                language: body.language || defaultCodeGenArgs.language,
+                frameworks: body.frameworks || defaultCodeGenArgs.frameworks,
+                selectedTemplate: body.selectedTemplate,
+                requestedProjectType: projectType,
+                images: workflowImages,
             });
 
             const workflow = (env as Env & {
@@ -228,7 +267,6 @@ export class CodingAgentController extends BaseController {
                 params: {
                     kind: 'create_project',
                     agentId,
-                    behaviorType,
                     projectType: workflowProjectType,
                     requestedProjectType: projectType,
                     query,
@@ -241,12 +279,18 @@ export class CodingAgentController extends BaseController {
                 },
             });
 
+            executionContext.waitUntil(this.generateAndSyncAppTitle({
+                env,
+                agentId,
+                query,
+                fallbackTitle: appTitle,
+            }));
+
             const acknowledgement = {
                 message: 'Code generation queued',
                 agentId,
                 websocketUrl,
                 httpStatusUrl,
-                behaviorType,
                 projectType: workflowProjectType,
                 workflowStarted: true,
                 workflowId,

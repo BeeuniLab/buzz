@@ -2,7 +2,12 @@ import { useRef, useState, useEffect, useMemo } from 'react';
 import { ArrowRight } from 'react-feather';
 import { useNavigate } from 'react-router';
 import { ProjectModeSelector, type ProjectModeOption } from '../components/project-mode-selector';
-import { MAX_AGENT_QUERY_LENGTH, SUPPORTED_CHAT_MEDIA_MIME_TYPES, type ProjectType } from '@/api-types';
+import {
+	MAX_AGENT_QUERY_LENGTH,
+	SUPPORTED_CHAT_MEDIA_MIME_TYPES,
+	type ImageAttachment,
+	type ProjectType,
+} from '@/api-types';
 import { useFeature } from '@/features';
 import { useAuthGuard } from '../hooks/useAuthGuard';
 import { useInviteCode } from '../hooks/useInviteCode';
@@ -76,6 +81,26 @@ const SURPRISE_PROMPTS = [
 	"Make a best-friend telepathy game where two players choose matching snacks, moods, and excuses to reveal a sync score.",
 	"Create a 'do not press the button' toy where every tap makes the button more dramatic until it reveals your chaos level.",
 ];
+
+const PENDING_MEDIA_STORAGE_PREFIX = 'buzzplay-pending-media:';
+
+function createPendingMediaKey(): string {
+	const randomId = globalThis.crypto?.randomUUID?.() ?? Math.random().toString(36).slice(2);
+	return `${PENDING_MEDIA_STORAGE_PREFIX}${Date.now()}:${randomId}`;
+}
+
+function storePendingMedia(attachments: ImageAttachment[]): string | null {
+	if (attachments.length === 0 || typeof window === 'undefined') return null;
+
+	try {
+		const key = createPendingMediaKey();
+		window.sessionStorage.setItem(key, JSON.stringify(attachments));
+		return key;
+	} catch (error) {
+		console.warn('Failed to store pending media for chat route:', error);
+		return null;
+	}
+}
 
 export default function Home() {
 	const navigate = useNavigate();
@@ -153,9 +178,13 @@ export default function Home() {
 		const encodedQuery = encodeURIComponent(query);
 		const encodedMode = encodeURIComponent(mode);
 
-		// Encode images as JSON if present
-		const imageParam = images.length > 0 ? `&images=${encodeURIComponent(JSON.stringify(images))}` : '';
-		const intendedUrl = `/chat/new?query=${encodedQuery}&projectType=${encodedMode}${imageParam}`;
+		const mediaKey = storePendingMedia(images);
+		const fallbackImageParam = images.length > 0 && !mediaKey
+			? `&images=${encodeURIComponent(JSON.stringify(images))}`
+			: '';
+		const mediaParam = mediaKey ? `&mediaKey=${encodeURIComponent(mediaKey)}` : fallbackImageParam;
+		const intendedUrl = `/chat/new?query=${encodedQuery}&projectType=${encodedMode}${mediaParam}`;
+		const routeState = images.length > 0 ? { images } : undefined;
 
 		if (
 			!requireAuth({
@@ -169,7 +198,7 @@ export default function Home() {
 
 		// User is already authenticated, check invite code
 		const goToChat = () => {
-			navigate(intendedUrl);
+			navigate(intendedUrl, routeState ? { state: routeState } : undefined);
 			clearImages();
 		};
 		if (!requireInviteCode({ onSuccess: goToChat })) {

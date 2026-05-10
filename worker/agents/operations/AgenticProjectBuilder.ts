@@ -6,7 +6,7 @@ import {
 } from '../inferutils/common';
 import { AgentActionKey } from '../inferutils/config.types';
 import { withRenderer } from '../tools/customTools';
-import { RenderToolCall } from './UserConversationProcessor';
+import type { RenderToolCall } from './toolRenderer';
 import { PROMPT_UTILS } from '../prompts';
 import { FileState } from '../core/state';
 import { ProjectType } from '../core/types';

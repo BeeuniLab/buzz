@@ -9,5 +9,6 @@
 	"worker/index.ts",
 	"worker/core-utils.ts",
 	"vite.config.js",
-	"index.html"
+	"index.html",
+	"skills/"
 ]

@@ -31,6 +31,7 @@ type TemplateUpdatedMessage = {
 type ConversationStateMessage = {
     type: 'conversation_state';
     state: ConversationState;
+    agentState?: AgentState;
     deepDebugSession?: { conversationId: string } | null;
 };
 
@@ -43,6 +44,7 @@ type GenerationStartedMessage = {
 	type: 'generation_started';
 	message: string;
 	totalFiles: number;
+	workflowKind?: string;
 };
 
 type FileGeneratingMessage = {
@@ -101,6 +103,16 @@ export type DeploymentCompletedMessage = {
 
 type PreviewForceRefreshMessage = {
 	type: 'preview_force_refresh';
+};
+
+type PreviewReleasedMessage = {
+	type: 'preview_released';
+	reason?: string;
+};
+
+type PreviewQueueWaitingMessage = {
+	type: 'preview_queue_waiting';
+	position: number;
 };
 
 type CommandExecutingMessage = {
@@ -258,6 +270,11 @@ type UserSuggestionsProcessingMessage = {
 	suggestions?: string[];
 };
 
+export type ConversationAction = {
+	type: 'retry_last_failed_workflow';
+	label: string;
+};
+
 type ConversationResponseMessage = {
 	type: 'conversation_response';
 	message: string;
@@ -265,6 +282,7 @@ type ConversationResponseMessage = {
 	enhancedRequest?: string;
 	pendingInputsCount?: number;
 	isStreaming?: boolean;
+	action?: ConversationAction;
 	tool?: {
 		name: string;
 		status: 'start' | 'success' | 'error';
@@ -283,6 +301,12 @@ type ProjectNameUpdatedMessage = {
 	type: 'project_name_updated';
 	message: string;
 	projectName: string;
+};
+
+type AppTitleUpdatedMessage = {
+	type: 'app_title_updated';
+	agentId: string;
+	title: string;
 };
 
 type BlueprintUpdatedMessage = {
@@ -363,6 +387,7 @@ type ServerLogMessage = {
 	timestamp: number;
 	source?: string;
 	workflowKind?: string;
+	queuePosition?: number;
 };
 
 // ========== VAULT MESSAGES ==========
@@ -510,6 +535,8 @@ export type WebSocketMessage =
 	| DeploymentCompletedMessage
 	| DeploymentFailedMessage
 	| PreviewForceRefreshMessage
+	| PreviewReleasedMessage
+	| PreviewQueueWaitingMessage
 	| CodeReviewingMessage
 	| CodeReviewedMessage
 	| CommandExecutingMessage
@@ -535,6 +562,7 @@ export type WebSocketMessage =
 	| ConversationResponseMessage
 	| ConversationClearedMessage
     | ProjectNameUpdatedMessage
+	| AppTitleUpdatedMessage
     | BlueprintUpdatedMessage
     | BlueprintChunkMessage
     | DeterministicCodeFixStartedMessage

@@ -17,7 +17,7 @@ export const COMPACTIFICATION_CONFIG = {
 
 /**
  * Tool call renderer type for UI feedback during compactification
- * Compatible with RenderToolCall from UserConversationProcessor
+ * Compatible with RenderToolCall from operations/toolRenderer
  */
 export type CompactificationRenderer = (args: {
     name: string;

@@ -9,6 +9,7 @@ export interface RateLimitState {
     buckets: Map<string, RateLimitBucket>;
     lastCleanup: number;
     activeTasks: Map<string, ActiveTaskLease>;
+    waitingTasks: Map<string, ActiveTaskLease>;
     lastTaskCleanup: number;
 }
 
@@ -46,6 +47,12 @@ export interface TaskSlotResult {
     tasks: ActiveTaskLease[];
 }
 
+export interface TaskQueueSlotResult extends TaskSlotResult {
+    waitingCount: number;
+    position?: number;
+    waitingTasks: ActiveTaskLease[];
+}
+
 /**
  * DORateLimitStore - Durable Object-based rate limiting store
  * 
@@ -57,6 +64,7 @@ export class DORateLimitStore extends DurableObject<Env> {
         buckets: new Map(),
         lastCleanup: Date.now(),
         activeTasks: new Map(),
+        waitingTasks: new Map(),
         lastTaskCleanup: Date.now()
     };
     private initialized = false;
@@ -227,6 +235,69 @@ export class DORateLimitStore extends DurableObject<Env> {
         return this.buildTaskSlotResult(true, limit);
     }
 
+    async acquireQueuedTaskSlot(
+        taskId: string,
+        task: Omit<ActiveTaskLease, 'taskId' | 'createdAt' | 'updatedAt' | 'expiresAt'>,
+        limit: number,
+        ttlMs: number,
+    ): Promise<TaskQueueSlotResult> {
+        await this.ensureInitialized();
+
+        const now = Date.now();
+        this.cleanupExpiredTasks(now);
+
+        const existingActive = this.state.activeTasks.get(taskId);
+        if (existingActive) {
+            this.state.activeTasks.set(taskId, {
+                ...existingActive,
+                ...task,
+                updatedAt: now,
+                expiresAt: now + ttlMs,
+            });
+            this.state.waitingTasks.delete(taskId);
+            await this.persistState();
+            return this.buildTaskQueueSlotResult(true, limit);
+        }
+
+        const existingWaiting = this.state.waitingTasks.get(taskId);
+        if (existingWaiting) {
+            this.state.waitingTasks.set(taskId, {
+                ...existingWaiting,
+                ...task,
+                updatedAt: now,
+                expiresAt: now + ttlMs,
+            });
+        } else {
+            this.state.waitingTasks.set(taskId, {
+                taskId,
+                ...task,
+                createdAt: now,
+                updatedAt: now,
+                expiresAt: now + ttlMs,
+            });
+        }
+
+        const orderedWaiting = this.getOrderedWaitingTasks();
+        const isNextInQueue = orderedWaiting[0]?.taskId === taskId;
+
+        if (this.state.activeTasks.size < limit && isNextInQueue) {
+            const waitingTask = this.state.waitingTasks.get(taskId);
+            this.state.waitingTasks.delete(taskId);
+            this.state.activeTasks.set(taskId, {
+                taskId,
+                ...task,
+                createdAt: waitingTask?.createdAt ?? now,
+                updatedAt: now,
+                expiresAt: now + ttlMs,
+            });
+            await this.persistState();
+            return this.buildTaskQueueSlotResult(true, limit);
+        }
+
+        await this.persistState();
+        return this.buildTaskQueueSlotResult(false, limit, taskId);
+    }
+
     async touchTaskSlot(taskId: string, ttlMs: number, limit: number): Promise<TaskSlotResult> {
         await this.ensureInitialized();
 
@@ -248,6 +319,31 @@ export class DORateLimitStore extends DurableObject<Env> {
         return this.buildTaskSlotResult(Boolean(existing), limit);
     }
 
+    async upsertTaskSlot(
+        taskId: string,
+        task: Omit<ActiveTaskLease, 'taskId' | 'createdAt' | 'updatedAt' | 'expiresAt'>,
+        limit: number,
+        ttlMs: number,
+    ): Promise<TaskSlotResult> {
+        await this.ensureInitialized();
+
+        const now = Date.now();
+        this.cleanupExpiredTasks(now);
+
+        const existing = this.state.activeTasks.get(taskId);
+        this.state.activeTasks.set(taskId, {
+            ...existing,
+            taskId,
+            ...task,
+            createdAt: existing?.createdAt ?? now,
+            updatedAt: now,
+            expiresAt: now + ttlMs,
+        });
+
+        await this.persistState();
+        return this.buildTaskSlotResult(true, limit);
+    }
+
     async releaseTaskSlot(taskId: string, limit: number): Promise<TaskSlotResult> {
         await this.ensureInitialized();
 
@@ -262,6 +358,23 @@ export class DORateLimitStore extends DurableObject<Env> {
         }
 
         return this.buildTaskSlotResult(true, limit);
+    }
+
+    async releaseQueuedTaskSlot(taskId: string, limit: number): Promise<TaskQueueSlotResult> {
+        await this.ensureInitialized();
+
+        const now = Date.now();
+        this.cleanupExpiredTasks(now);
+        const activeExisted = this.state.activeTasks.delete(taskId);
+        const waitingExisted = this.state.waitingTasks.delete(taskId);
+
+        if (activeExisted || waitingExisted) {
+            await this.persistState();
+        } else {
+            await this.persistTaskCleanupIfNeeded(now);
+        }
+
+        return this.buildTaskQueueSlotResult(true, limit);
     }
 
     private getBucketsInWindow(key: string, now: number, windowMs: number, bucketSizeMs: number): RateLimitBucket[] {
@@ -306,6 +419,13 @@ export class DORateLimitStore extends DurableObject<Env> {
             }
         }
 
+        for (const [taskId, task] of this.state.waitingTasks) {
+            if (task.expiresAt <= now) {
+                this.state.waitingTasks.delete(taskId);
+                needsUpdate = true;
+            }
+        }
+
         if (needsUpdate || now - this.state.lastTaskCleanup > 5 * 60 * 1000) {
             this.state.lastTaskCleanup = now;
             needsUpdate = true;
@@ -329,12 +449,29 @@ export class DORateLimitStore extends DurableObject<Env> {
         };
     }
 
+    private getOrderedWaitingTasks(): ActiveTaskLease[] {
+        return Array.from(this.state.waitingTasks.values())
+            .sort((a, b) => a.createdAt - b.createdAt || a.taskId.localeCompare(b.taskId));
+    }
+
+    private buildTaskQueueSlotResult(success: boolean, limit: number, taskId?: string): TaskQueueSlotResult {
+        const waitingTasks = this.getOrderedWaitingTasks();
+        const waitingIndex = taskId ? waitingTasks.findIndex(task => task.taskId === taskId) : -1;
+        return {
+            ...this.buildTaskSlotResult(success, limit),
+            waitingCount: waitingTasks.length,
+            ...(waitingIndex >= 0 ? { position: waitingIndex + 1 } : {}),
+            waitingTasks,
+        };
+    }
+
     private async ensureInitialized(): Promise<void> {
         if (!this.initialized) {
             const stored = await this.ctx.storage.get<{
                 buckets: [string, RateLimitBucket][];
                 lastCleanup: number;
                 activeTasks?: [string, ActiveTaskLease][];
+                waitingTasks?: [string, ActiveTaskLease][];
                 lastTaskCleanup?: number;
             }>('state');
             
@@ -343,6 +480,7 @@ export class DORateLimitStore extends DurableObject<Env> {
                     buckets: new Map(stored.buckets),
                     lastCleanup: stored.lastCleanup,
                     activeTasks: new Map(stored.activeTasks ?? []),
+                    waitingTasks: new Map(stored.waitingTasks ?? []),
                     lastTaskCleanup: stored.lastTaskCleanup ?? Date.now()
                 };
             }
@@ -356,6 +494,7 @@ export class DORateLimitStore extends DurableObject<Env> {
             buckets: Array.from(this.state.buckets.entries()),
             lastCleanup: this.state.lastCleanup,
             activeTasks: Array.from(this.state.activeTasks.entries()),
+            waitingTasks: Array.from(this.state.waitingTasks.entries()),
             lastTaskCleanup: this.state.lastTaskCleanup
         });
     }

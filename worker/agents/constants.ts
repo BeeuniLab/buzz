@@ -29,6 +29,8 @@ export const WebSocketMessageResponses: Record<string, WebSocketMessageType> = {
     DEPLOYMENT_COMPLETED: 'deployment_completed',
     DEPLOYMENT_FAILED: 'deployment_failed',
     PREVIEW_FORCE_REFRESH: 'preview_force_refresh',
+    PREVIEW_RELEASED: 'preview_released',
+    PREVIEW_QUEUE_WAITING: 'preview_queue_waiting',
     // Cloudflare deployment messages
     CLOUDFLARE_DEPLOYMENT_STARTED: 'cloudflare_deployment_started',
     CLOUDFLARE_DEPLOYMENT_COMPLETED: 'cloudflare_deployment_completed', 
@@ -57,6 +59,7 @@ export const WebSocketMessageResponses: Record<string, WebSocketMessageType> = {
     CONVERSATION_CLEARED: 'conversation_cleared',
     CONVERSATION_STATE: 'conversation_state',
     PROJECT_NAME_UPDATED: 'project_name_updated',
+    APP_TITLE_UPDATED: 'app_title_updated',
     BLUEPRINT_UPDATED: 'blueprint_updated',
     BLUEPRINT_CHUNK: 'blueprint_chunk',
     TEMPLATE_UPDATED: 'template_updated',
@@ -85,6 +88,7 @@ export const WebSocketMessageRequests = {
     PREVIEW_FAILED: 'preview_failed',
     STOP_GENERATION: 'stop_generation',
     RESUME_GENERATION: 'resume_generation',
+    RETRY_LAST_FAILED_WORKFLOW: 'retry_last_failed_workflow',
     
     // Conversational AI requests
     USER_SUGGESTION: 'user_suggestion',
