@@ -372,6 +372,7 @@ export interface HandleMessageDeps {
     setBlueprint: React.Dispatch<React.SetStateAction<BlueprintType | undefined>>;
     setQuery: React.Dispatch<React.SetStateAction<string | undefined>>;
     setPreviewUrl: React.Dispatch<React.SetStateAction<string | undefined>>;
+    setIsPreviewPaused: React.Dispatch<React.SetStateAction<boolean>>;
     setTotalFiles: React.Dispatch<React.SetStateAction<number | undefined>>;
     setIsRedeployReady: React.Dispatch<React.SetStateAction<boolean>>;
     setIsPreviewDeploying: React.Dispatch<React.SetStateAction<boolean>>;
@@ -482,6 +483,7 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
             setBlueprint,
             setQuery,
             setPreviewUrl,
+            setIsPreviewPaused,
             setTotalFiles,
             setIsRedeployReady,
             setIsPreviewDeploying,
@@ -605,6 +607,7 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
 
                     if (previewUrl) {
                         setPreviewUrl(previewUrl);
+                        setIsPreviewPaused(false);
                     }
 
                     if (templateDetails) {
@@ -1087,6 +1090,7 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
                 setMessages(prev => removeActiveBackgroundUpdateMessage(prev));
                 if (message.previewURL) {
                     setPreviewUrl(message.previewURL);
+                    setIsPreviewPaused(false);
                 }
                 if (deps.urlChatId) {
                     appEvents.emitAppUpdated(deps.urlChatId, { status: 'completed' });
@@ -1106,6 +1110,7 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
                 setIsPreviewDeploying(false);
                 const finalPreviewURL = getPreviewUrl(message.previewURL, message.tunnelURL);
                 setPreviewUrl(finalPreviewURL);
+                setIsPreviewPaused(false);
                 if (deps.urlChatId) {
                     appEvents.emitAppUpdated(deps.urlChatId, { status: 'completed' });
                 }
@@ -1302,6 +1307,13 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
                 setTimeout(() => {
                     setShouldRefreshPreview(false);
                 }, 100);
+                break;
+            }
+
+            case 'preview_released': {
+                setIsPreviewDeploying(false);
+                setIsPreviewPaused(true);
+                setShouldRefreshPreview(false);
                 break;
             }
 

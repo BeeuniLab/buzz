@@ -248,6 +248,31 @@ export class DORateLimitStore extends DurableObject<Env> {
         return this.buildTaskSlotResult(Boolean(existing), limit);
     }
 
+    async upsertTaskSlot(
+        taskId: string,
+        task: Omit<ActiveTaskLease, 'taskId' | 'createdAt' | 'updatedAt' | 'expiresAt'>,
+        limit: number,
+        ttlMs: number,
+    ): Promise<TaskSlotResult> {
+        await this.ensureInitialized();
+
+        const now = Date.now();
+        this.cleanupExpiredTasks(now);
+
+        const existing = this.state.activeTasks.get(taskId);
+        this.state.activeTasks.set(taskId, {
+            ...existing,
+            taskId,
+            ...task,
+            createdAt: existing?.createdAt ?? now,
+            updatedAt: now,
+            expiresAt: now + ttlMs,
+        });
+
+        await this.persistState();
+        return this.buildTaskSlotResult(true, limit);
+    }
+
     async releaseTaskSlot(taskId: string, limit: number): Promise<TaskSlotResult> {
         await this.ensureInitialized();
 

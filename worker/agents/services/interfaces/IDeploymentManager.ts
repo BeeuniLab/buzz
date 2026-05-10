@@ -94,6 +94,11 @@ export interface IDeploymentManager {
     ): Promise<PreviewType | null>;
 
     /**
+     * Shutdown the current sandbox preview instance, if one exists.
+     */
+    shutdownPreviewInstance(reason?: string): Promise<boolean>;
+
+    /**
      * Deploy to Cloudflare Workers
      * Returns deployment URL and deployment ID for database updates
      */

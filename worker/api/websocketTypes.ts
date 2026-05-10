@@ -105,6 +105,11 @@ type PreviewForceRefreshMessage = {
 	type: 'preview_force_refresh';
 };
 
+type PreviewReleasedMessage = {
+	type: 'preview_released';
+	reason?: string;
+};
+
 type CommandExecutingMessage = {
 	type: 'command_executing';
 	message: string;
@@ -524,6 +529,7 @@ export type WebSocketMessage =
 	| DeploymentCompletedMessage
 	| DeploymentFailedMessage
 	| PreviewForceRefreshMessage
+	| PreviewReleasedMessage
 	| CodeReviewingMessage
 	| CodeReviewedMessage
 	| CommandExecutingMessage

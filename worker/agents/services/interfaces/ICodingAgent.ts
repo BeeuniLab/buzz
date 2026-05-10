@@ -22,6 +22,8 @@ export interface ICodingAgent {
 
     deployPreview(clearLogs?: boolean, forceRedeploy?: boolean): Promise<string>;
 
+    releasePreviewSandbox(reason?: string): Promise<boolean>;
+
     broadcast<T extends WebSocketMessageType>(msg: T, data?: WebSocketMessageData<T>): void;
 
     deployToCloudflare(target?: DeploymentTarget): Promise<{ deploymentUrl?: string; workersUrl?: string } | null>;

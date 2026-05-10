@@ -178,8 +178,10 @@ export default function Chat() {
 		handleDeployToCloudflare,
 		// Preview refresh control
 		shouldRefreshPreview,
+		isPreviewPaused,
 		// Preview deployment state
 		isPreviewDeploying,
+		restartPreview,
 		// Issue tracking and debugging state
 		runtimeErrorCount,
 		staticIssueCount,
@@ -919,8 +921,10 @@ export default function Chat() {
 								previewUrl={previewUrl}
 								previewAvailable={previewAvailable}
 								shouldRefreshPreview={shouldRefreshPreview}
+								isPreviewPaused={isPreviewPaused}
 								manualRefreshTrigger={manualRefreshTrigger}
 								onManualRefresh={() => setManualRefreshTrigger(Date.now())}
+								onRestartPreview={restartPreview}
 								blueprint={blueprint}
 								activeFile={activeFile}
 								allFiles={allFiles}

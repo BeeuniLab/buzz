@@ -177,7 +177,7 @@
             "version": "1.0.0"
         },
         "CUSTOM_DOMAIN": "buzzplay.app",
-        "ALLOCATION_STRATEGY": "many_to_one",
+        "ALLOCATION_STRATEGY": "one_to_one",
         "MAX_SANDBOX_INSTANCES": "480",
         "SANDBOX_INSTANCE_TYPE": "standard-2",
         "LLM_PROXY_URL": "https://subapi.cygnus.ink/v1",

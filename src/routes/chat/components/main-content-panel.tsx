@@ -1,13 +1,14 @@
 import { type RefObject, type ReactNode, Suspense, useState, useCallback, useRef, useEffect } from 'react';
 import { WebSocket } from 'partysocket';
 import { motion } from 'framer-motion';
-import { RefreshCw } from 'lucide-react';
+import { Play, RefreshCw } from 'lucide-react';
 import { PreviewIframe } from './preview-iframe';
 import { ViewContainer } from './view-container';
 import { ViewHeader } from './view-header';
 import { PreviewHeaderActions } from './preview-header-actions';
 import { UpdatePlayableAction } from './update-playable-action';
 import { AssetsPanel } from './assets-panel';
+import { Button } from '@/components/ui/button';
 import { featureRegistry } from '@/features';
 import type { FileType, BlueprintType, BehaviorType, TemplateDetails, ProjectType } from '@/api-types';
 import type { Edit } from '../hooks/use-chat';
@@ -97,6 +98,35 @@ function PreviewLoadingPlaceholder({
 	);
 }
 
+function PreviewPausedPlaceholder({
+	onRestartPreview,
+}: {
+	onRestartPreview: () => void;
+}) {
+	return (
+		<div className="flex-1 flex items-center justify-center bg-bg-3" role="status" aria-live="polite">
+			<div className="text-center p-8 max-w-sm">
+				<div className="mx-auto mb-5 flex size-14 items-center justify-center rounded-full bg-bg-4 border border-border-primary shadow-neo-sm">
+					<Play className="ml-0.5 size-7 text-accent" />
+				</div>
+				<h3 className="text-2xl font-semibold text-text-primary mb-2">
+					Preview paused
+				</h3>
+				<p className="text-text-primary/70 text-sm mb-5">
+					This preview was paused to free workspace resources.
+				</p>
+				<Button
+					type="button"
+					onClick={onRestartPreview}
+				>
+					<Play className="size-4" />
+					Restart preview
+				</Button>
+			</div>
+		</div>
+	);
+}
+
 interface MainContentPanelProps {
 	// View state
 	view: 'editor' | 'preview' | 'docs' | 'blueprint' | 'presentation' | 'assets';
@@ -107,8 +137,10 @@ interface MainContentPanelProps {
 	previewUrl?: string;
 	previewAvailable: boolean;
 	shouldRefreshPreview: boolean;
+	isPreviewPaused: boolean;
 	manualRefreshTrigger: number;
 	onManualRefresh: () => void;
+	onRestartPreview: () => void;
 
 	// Blueprint
 	blueprint?: BlueprintType | null;
@@ -152,8 +184,10 @@ export function MainContentPanel(props: MainContentPanelProps) {
 		previewUrl,
 		previewAvailable,
 		shouldRefreshPreview,
+		isPreviewPaused,
 		manualRefreshTrigger,
 		onManualRefresh,
+		onRestartPreview,
 		blueprint,
 		activeFile,
 		allFiles,
@@ -210,6 +244,20 @@ export function MainContentPanel(props: MainContentPanelProps) {
 		const featureDefinition = featureRegistry.getDefinition(projectType);
 		const previewTitle = blueprint?.title ?? featureDefinition?.name ?? 'Preview';
 		const isPreviewLoading = isGenerating || isGeneratingBlueprint || isPreviewDeploying;
+
+		if (isPreviewPaused && !isPreviewLoading) {
+			return renderViewWithHeader(
+				<div className="flex w-full min-w-0 items-center gap-2">
+					<span
+						className="min-w-0 flex-1 truncate text-left text-sm font-mono text-text-50/70"
+						title={previewTitle}
+					>
+						{previewTitle}
+					</span>
+				</div>,
+				<PreviewPausedPlaceholder onRestartPreview={onRestartPreview} />
+			);
+		}
 
 		if (isPreviewLoading || !previewUrl) {
 			return renderViewWithHeader(

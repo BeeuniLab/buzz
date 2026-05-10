@@ -99,6 +99,7 @@ export function useChat({
 	const [bootstrapFiles, setBootstrapFiles] = useState<FileType[]>([]);
 	const [blueprint, setBlueprint] = useState<BlueprintType>();
 	const [previewUrl, setPreviewUrl] = useState<string>();
+	const [isPreviewPaused, setIsPreviewPaused] = useState(false);
 	const [query, setQuery] = useState<string>();
 	const [initialPromptAttachments, setInitialPromptAttachments] = useState<ChatAttachmentPreview[]>(
 		() => (userImages && userImages.length > 0 ? buildOptimisticChatAttachments(userImages) : []),
@@ -200,6 +201,7 @@ export function useChat({
 		setBootstrapFiles([]);
 		setBlueprint(undefined);
 		setPreviewUrl(undefined);
+		setIsPreviewPaused(false);
 		setQuery(undefined);
 		setInitialPromptAttachments(
 			options?.preserveInitialAttachments
@@ -281,6 +283,7 @@ export function useChat({
 			setBlueprint,
 			setQuery,
 			setPreviewUrl,
+			setIsPreviewPaused,
 			setTotalFiles,
 			setIsRedeployReady,
 			setIsPreviewDeploying,
@@ -808,6 +811,17 @@ export function useChat({
 		setIsGenerationPaused(false);
 	}, [websocket]);
 
+	const restartPreview = useCallback(() => {
+		if (!sendWebSocketMessage(websocket, 'preview')) {
+			toast.error('Project agent is not connected', {
+				description: 'Refresh the page and try again.',
+			});
+			return;
+		}
+		setIsPreviewPaused(false);
+		setIsPreviewDeploying(true);
+	}, [websocket]);
+
 	const handleDeployToCloudflare = useCallback(async (instanceId: string) => {
 		try {
 			// Send deployment command via WebSocket instead of HTTP request
@@ -895,8 +909,10 @@ export function useChat({
 		handleDeployToCloudflare,
 		// Preview refresh control
 		shouldRefreshPreview,
+		isPreviewPaused,
 		// Preview deployment state
 		isPreviewDeploying,
+		restartPreview,
 		// Phase progress visual indicator
 		isPhaseProgressActive,
 		// Issue tracking and debugging state

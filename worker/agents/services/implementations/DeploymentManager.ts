@@ -140,6 +140,28 @@ export class DeploymentManager extends BaseAgentService<BaseProjectState> implem
         }
     }
 
+    async shutdownPreviewInstance(reason: string = 'preview released'): Promise<boolean> {
+        const state = this.getState();
+        const instanceId = state.sandboxInstanceId;
+        const logger = this.getLog();
+
+        if (!instanceId) {
+            logger.info('No sandbox preview instance to release', { reason });
+            return false;
+        }
+
+        const client = this.getClient();
+        await this.shutdownInstanceIfPresent(client, instanceId, reason);
+        this.clearHealthCheckInterval();
+        this.setState({
+            ...this.getState(),
+            sandboxInstanceId: undefined,
+        });
+
+        logger.info('Released sandbox preview instance', { instanceId, reason });
+        return true;
+    }
+
     /**
      * Execute setup commands (used during redeployment)
      * @param onAfterCommands Optional callback invoked after commands complete (e.g., for syncing package.json)

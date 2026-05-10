@@ -1,4 +1,4 @@
-import { Agent, AgentContext, ConnectionContext } from "agents";
+import { Agent, AgentContext, ConnectionContext, getAgentByName } from "agents";
 import { AgentInitArgs, AgentSummary, AllIssues, DeployOptions, DeployResult, ExportOptions, ExportResult, BehaviorType } from "./types";
 import {
     AgentState,
@@ -63,6 +63,8 @@ import {
     UserTaskConcurrencyLimitError,
     UserTaskConcurrencyService,
 } from '../../services/tasks/UserTaskConcurrencyService';
+import { UserActivePreviewService } from '../../services/tasks/UserActivePreviewService';
+import type { ActiveTaskLease } from '../../services/rate-limit/DORateLimitStore';
 import type {
     CodeGenerationWorkflowParams,
     CreateProjectWorkflowParams,
@@ -901,6 +903,74 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
         await UserTaskConcurrencyService.release(this.env, this.getWorkflowUserId(), workflowId);
     }
 
+    private async reserveActivePreviewSlot(): Promise<{ candidates: ActiveTaskLease[]; releasesNeeded: number }> {
+        const userId = this.getWorkflowUserId();
+        const agentId = this.getAgentId();
+        if (!userId || !agentId) return { candidates: [], releasesNeeded: 0 };
+
+        try {
+            const reservation = await UserActivePreviewService.reserve(this.env, { userId, agentId });
+            return {
+                candidates: reservation.evictionCandidates,
+                releasesNeeded: reservation.releasesNeeded,
+            };
+        } catch (error) {
+            this.logger().warn('Failed to reserve active preview slot; allowing preview to continue', {
+                userId,
+                agentId,
+                error: error instanceof Error ? error.message : String(error),
+            });
+            return { candidates: [], releasesNeeded: 0 };
+        }
+    }
+
+    private async releaseActivePreviewSlot(): Promise<void> {
+        await UserActivePreviewService.release(this.env, this.getWorkflowUserId(), this.getAgentId());
+    }
+
+    private async releaseEvictedPreviewSandboxes(candidates: ActiveTaskLease[], releasesNeeded: number): Promise<void> {
+        const currentAgentId = this.getAgentId();
+        if (releasesNeeded <= 0) return;
+
+        let releasedCount = 0;
+        for (const preview of candidates) {
+            const agentId = preview.agentId ?? preview.taskId;
+            if (!agentId || agentId === currentAgentId) continue;
+
+            try {
+                const agent = await getAgentByName<Env, CodeGeneratorAgent>(this.env.CodeGenObject, agentId, {
+                    props: { readOnlyMode: true },
+                });
+                const released = await agent.releasePreviewSandbox('preview limit exceeded');
+                if (released) {
+                    releasedCount++;
+                }
+                if (releasedCount >= releasesNeeded) {
+                    return;
+                }
+            } catch (error) {
+                this.logger().warn('Failed to release evicted preview sandbox', {
+                    evictedAgentId: agentId,
+                    error: error instanceof Error ? error.message : String(error),
+                });
+            }
+        }
+
+        this.logger().warn('Could not release enough active preview sandboxes', {
+            releasesNeeded,
+            releasedCount,
+            candidates: candidates.map(preview => preview.agentId ?? preview.taskId),
+        });
+    }
+
+    private async markCurrentPreviewActive(): Promise<void> {
+        const previewReservation = await this.reserveActivePreviewSlot();
+        await this.releaseEvictedPreviewSandboxes(
+            previewReservation.candidates,
+            previewReservation.releasesNeeded,
+        );
+    }
+
     private isDeleted(): boolean {
         return Boolean(this.state.deletedAt);
     }
@@ -1105,9 +1175,10 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
     }
 
     async deleteProject(reason = 'app_deleted'): Promise<{ workflowTerminated: boolean; taskStopped: boolean }> {
-        const [workflowResult, taskResult] = await Promise.allSettled([
+        const [workflowResult, taskResult, previewResult] = await Promise.allSettled([
             this.stopActiveWorkflow(reason),
             this.stopCurrentTask(),
+            this.releasePreviewSandbox(reason),
         ]);
 
         const workflowTerminated = workflowResult.status === 'fulfilled' ? workflowResult.value : false;
@@ -1143,6 +1214,12 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
             this.logger().warn('Failed to stop active task during project deletion', {
                 reason,
                 error: taskResult.reason instanceof Error ? taskResult.reason.message : String(taskResult.reason),
+            });
+        }
+        if (previewResult.status === 'rejected') {
+            this.logger().warn('Failed to release preview sandbox during project deletion', {
+                reason,
+                error: previewResult.reason instanceof Error ? previewResult.reason.message : String(previewResult.reason),
             });
         }
 
@@ -1360,6 +1437,7 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
         });
 
         if (result.madeChanges && result.preview?.previewURL) {
+            await this.markCurrentPreviewActive();
             this.broadcast(WebSocketMessageResponses.DEPLOYMENT_COMPLETED, {
                 message: 'Deployment completed',
                 instanceId: result.preview.runId ?? this.state.sandboxInstanceId ?? this.state.sessionId,
@@ -2046,18 +2124,50 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
         return '';
     }
 
-    deployPreview(
+    async releasePreviewSandbox(reason: string = 'preview released'): Promise<boolean> {
+        if (this.isCodeGenerating() || this.state.shouldBeGenerating || this.state.activeWorkflow) {
+            this.logger().info('Skipping preview sandbox release while workflow is active', {
+                reason,
+                activeWorkflow: this.state.activeWorkflow,
+                shouldBeGenerating: this.state.shouldBeGenerating,
+                activeAppTask: this.state.activeAppTask,
+            });
+            return false;
+        }
+
+        const released = await this.deploymentManager.shutdownPreviewInstance(reason);
+        await this.releaseActivePreviewSlot();
+        if (released) {
+            this.broadcast(WebSocketMessageResponses.PREVIEW_RELEASED, { reason });
+        }
+        return released;
+    }
+
+    async deployPreview(
         clearLogs: boolean = true,
         forceRedeploy: boolean = false
     ): Promise<string> {
-        return this.deployToSandbox([], forceRedeploy, undefined, clearLogs)
-            .then((response) => {
-                if (response?.previewURL) {
-                    this.broadcast(WebSocketMessageResponses.PREVIEW_FORCE_REFRESH, {});
-                    return response.previewURL;
-                }
-                return response?.tunnelURL ?? '';
-            });
+        let reservedPreviewSlot = false;
+        try {
+            const previewReservation = await this.reserveActivePreviewSlot();
+            reservedPreviewSlot = true;
+            await this.releaseEvictedPreviewSandboxes(
+                previewReservation.candidates,
+                previewReservation.releasesNeeded,
+            );
+
+            const response = await this.deployToSandbox([], forceRedeploy, undefined, clearLogs);
+            if (response?.previewURL) {
+                this.broadcast(WebSocketMessageResponses.PREVIEW_FORCE_REFRESH, {});
+                return response.previewURL;
+            }
+            return response?.tunnelURL ?? '';
+        } catch (error) {
+            if (reservedPreviewSlot) {
+                await this.releaseActivePreviewSlot();
+            }
+            throw error;
+        }
     }
 
     async deployProject(options?: DeployOptions): Promise<DeployResult> {
