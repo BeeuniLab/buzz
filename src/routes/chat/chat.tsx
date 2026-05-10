@@ -656,15 +656,10 @@ export default function Chat() {
 	}, [phaseTimeline, blueprint, projectStages]);
 
 	const taskRuntimeEstimate = useMemo(() => {
-		const userMessageCount = messages.filter(message => message.role === 'user').length;
-		const isExistingPlayable = !initialRouteWasNewRef.current
-			|| userMessageCount > 1
-			|| Boolean(hasStablePlayable || cloudflareDeploymentUrl || app?.cloudflareUrl);
-
-		return isExistingPlayable
-			? 'Estimated update time: 4-8 min.'
-			: 'Estimated run time: 6-12 min.';
-	}, [app?.cloudflareUrl, cloudflareDeploymentUrl, hasStablePlayable, messages]);
+		return initialRouteWasNewRef.current
+			? 'Estimated run time: 6-20 min.'
+			: 'Estimated update time: 4-8 min.';
+	}, []);
 
 	if (import.meta.env.DEV) {
 		logger.debug({

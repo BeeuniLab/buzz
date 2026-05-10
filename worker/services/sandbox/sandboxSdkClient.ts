@@ -123,6 +123,7 @@ export class SandboxSdkClient extends BaseSandboxService {
     private sandbox: SandboxType;
     private metadataCache = new Map<string, InstanceMetadata>();
     private sessionCache = new Map<string, ExecutionSession>();
+    private instanceSessionGenerations = new Map<string, string>();
 
     constructor(sandboxId: string, agentId: string) {
         if (env.ALLOCATION_STRATEGY === AllocationStrategy.MANY_TO_ONE) {
@@ -201,21 +202,44 @@ export class SandboxSdkClient extends BaseSandboxService {
         }
     }
 
+    private getInstanceSessionGeneration(instanceId: string): string {
+        let generation = this.instanceSessionGenerations.get(instanceId);
+        if (!generation) {
+            generation = generateId();
+            this.instanceSessionGenerations.set(instanceId, generation);
+        }
+        return generation;
+    }
+
+    private resetInstanceSessionGeneration(instanceId: string): void {
+        this.instanceSessionGenerations.set(instanceId, generateId());
+        this.invalidateSessionCache(instanceId);
+    }
+
+    private getExecutionSessionId(instanceId: string): string {
+        if (instanceId === 'sandbox-default') {
+            return instanceId;
+        }
+
+        return `${instanceId}-${this.getInstanceSessionGeneration(instanceId)}`;
+    }
+
     /**
      * Get or create a session for an instance with automatic caching.
      * Environment variables should be set via .dev.vars file.
      */
     private async getInstanceSession(instanceId: string, cwd?: string): Promise<ExecutionSession> {
-        if (!this.sessionCache.has(instanceId)) {
+        const sessionId = this.getExecutionSessionId(instanceId);
+        if (!this.sessionCache.has(sessionId)) {
             if (instanceId === 'sandbox-default') {
                 cwd = '/workspace';
             } else {
                 cwd = cwd || `/workspace/${instanceId}`;
             }
-            const session = await this.getOrCreateSession(instanceId, cwd);
-            this.sessionCache.set(instanceId, session);
+            const session = await this.getOrCreateSession(sessionId, cwd);
+            this.sessionCache.set(sessionId, session);
         }
-        const session = this.sessionCache.get(instanceId);
+        const session = this.sessionCache.get(sessionId);
         return session!;
     }
 
@@ -243,9 +267,11 @@ export class SandboxSdkClient extends BaseSandboxService {
      * Invalidate session cache (call when instance is destroyed)
      */
     private invalidateSessionCache(instanceId: string): void {
-        if (this.sessionCache.has(instanceId)) {
-            this.sessionCache.delete(instanceId);
-            this.logger.debug('Session cache invalidated', { instanceId });
+        for (const sessionId of Array.from(this.sessionCache.keys())) {
+            if (sessionId === instanceId || sessionId.startsWith(`${instanceId}-`)) {
+                this.sessionCache.delete(sessionId);
+                this.logger.debug('Session cache invalidated', { instanceId, sessionId });
+            }
         }
     }
 
@@ -458,6 +484,23 @@ export class SandboxSdkClient extends BaseSandboxService {
 
     private invalidateMetadataCache(instanceId: string): void {
         this.metadataCache.delete(instanceId);
+    }
+
+    private async cleanupPartialInstance(instanceId: string, reason: string): Promise<void> {
+        try {
+            this.logger.info('Cleaning up partial sandbox instance', { instanceId, reason });
+            await this.safeSandboxExec(`rm -rf ${shellQuote(`/workspace/${instanceId}`)} ${shellQuote(this.getInstanceMetadataFile(instanceId))}`);
+        } catch (error) {
+            this.logger.warn('Failed to clean up partial sandbox instance', {
+                instanceId,
+                reason,
+                error: error instanceof Error ? error.message : 'Unknown error',
+            });
+        } finally {
+            this.invalidateSessionCache(instanceId);
+            this.instanceSessionGenerations.delete(instanceId);
+            this.invalidateMetadataCache(instanceId);
+        }
     }
 
     private async cleanupPreviewPort(port: number, instanceId?: string): Promise<void> {
@@ -700,7 +743,7 @@ export class SandboxSdkClient extends BaseSandboxService {
         try {
             // Use session-based process management
             // Note: Environment variables should already be set via setLocalEnvVars
-            const session = await this.getOrCreateSession(`${instanceId}-dev`, `/workspace/${instanceId}`);
+            const session = await this.getOrCreateSession(`${instanceId}-dev-${this.getInstanceSessionGeneration(instanceId)}`, `/workspace/${instanceId}`);
             
             // Start process with env vars inline for those not in .dev.vars
             const process = await session.startProcess(
@@ -1099,6 +1142,8 @@ export class SandboxSdkClient extends BaseSandboxService {
             const redactedFile = files.find(f => f.filePath === '.redacted_files.json');
             const redactedFiles = redactedFile ? JSON.parse(redactedFile.fileContents) : [];
 
+            this.resetInstanceSessionGeneration(instanceId);
+
             // Create directory for instance
             await this.sandbox.exec(`mkdir -p /workspace/${instanceId}`);
 
@@ -1113,6 +1158,7 @@ export class SandboxSdkClient extends BaseSandboxService {
             
             const results = await this.setupInstance(instanceId, projectName, initCommand, envVars);
             if (!results) {
+                await this.cleanupPartialInstance(instanceId, 'setup failed');
                 return {
                     success: false,
                     error: 'Failed to setup instance'
@@ -1283,10 +1329,11 @@ export class SandboxSdkClient extends BaseSandboxService {
             }
             
             // Clean up files
-            await this.safeSandboxExec(`rm -rf ${instanceId}`);
+            await this.safeSandboxExec(`rm -rf ${shellQuote(`/workspace/${instanceId}`)}`);
 
             // Invalidate session cache
             this.invalidateSessionCache(instanceId);
+            this.instanceSessionGenerations.delete(instanceId);
             
             // Invalidate metadata cache since instance is being shutdown
             this.invalidateMetadataCache(instanceId);

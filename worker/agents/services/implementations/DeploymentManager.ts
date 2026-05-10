@@ -119,7 +119,7 @@ export class DeploymentManager extends BaseAgentService<BaseProjectState> implem
         logger.info("Waiting for preview completed");
     }
 
-    private async shutdownInstanceIfPresent(client: BaseSandboxService, instanceId: string, reason: string): Promise<void> {
+    private async shutdownInstanceIfPresent(client: BaseSandboxService, instanceId: string, reason: string): Promise<boolean> {
         const logger = this.getLog();
         try {
             logger.info('Shutting down sandbox instance before recreation', { instanceId, reason });
@@ -130,13 +130,16 @@ export class DeploymentManager extends BaseAgentService<BaseProjectState> implem
                     reason,
                     error: response.error
                 });
+                return Boolean(response.error?.includes('not found'));
             }
+            return true;
         } catch (error) {
             logger.warn('Failed to shutdown sandbox instance before recreation', {
                 instanceId,
                 reason,
                 error: error instanceof Error ? error.message : 'Unknown error'
             });
+            return false;
         }
     }
 
@@ -151,7 +154,12 @@ export class DeploymentManager extends BaseAgentService<BaseProjectState> implem
         }
 
         const client = this.getClient();
-        await this.shutdownInstanceIfPresent(client, instanceId, reason);
+        const released = await this.shutdownInstanceIfPresent(client, instanceId, reason);
+        if (!released) {
+            logger.warn('Preview sandbox release did not complete; keeping current preview state', { instanceId, reason });
+            return false;
+        }
+
         this.clearHealthCheckInterval();
         this.setState({
             ...this.getState(),

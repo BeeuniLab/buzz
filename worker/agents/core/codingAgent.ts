@@ -2136,7 +2136,9 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
         }
 
         const released = await this.deploymentManager.shutdownPreviewInstance(reason);
-        await this.releaseActivePreviewSlot();
+        if (released || !this.state.sandboxInstanceId) {
+            await this.releaseActivePreviewSlot();
+        }
         if (released) {
             this.broadcast(WebSocketMessageResponses.PREVIEW_RELEASED, { reason });
         }
@@ -2151,12 +2153,12 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
         try {
             const previewReservation = await this.reserveActivePreviewSlot();
             reservedPreviewSlot = true;
+
+            const response = await this.deployToSandbox([], forceRedeploy, undefined, clearLogs);
             await this.releaseEvictedPreviewSandboxes(
                 previewReservation.candidates,
                 previewReservation.releasesNeeded,
             );
-
-            const response = await this.deployToSandbox([], forceRedeploy, undefined, clearLogs);
             if (response?.previewURL) {
                 this.broadcast(WebSocketMessageResponses.PREVIEW_FORCE_REFRESH, {});
                 return response.previewURL;
