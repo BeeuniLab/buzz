@@ -111,7 +111,14 @@ const isRetryableWorkflowKind = (kind: ActiveWorkflowTask['kind']): kind is Retr
     || kind === 'user_input';
 
 const ACTIVE_WORKFLOW_STALE_MS = 30 * 60 * 1000;
+const OFFLINE_PREVIEW_RELEASE_GRACE_SECONDS = 120;
 const USER_UPLOADED_MEDIA_HISTORY_MARKER = '[User-uploaded media - also listed in project assets / src/asset_map]';
+
+interface OfflinePreviewReleasePayload {
+    instanceId?: string;
+    scheduledAt: number;
+    reason: string;
+}
 
 function mergeFrameworks(...groups: Array<string[] | undefined>): string[] {
     return Array.from(new Set(groups.flatMap((group) => group ?? []).filter(Boolean)));
@@ -609,6 +616,11 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
         redeploy = false,
         commitMessage?: string,
         clearLogs = false,
+        options?: {
+            capacityMode?: 'background' | 'foreground';
+            shouldContinueWaiting?: () => boolean;
+            onCapacityWaiting?: (position: number) => Promise<void> | void;
+        },
     ): Promise<PreviewType | null> {
         if (!this.isPreviewable()) {
             throw new Error('Project is not previewable');
@@ -661,6 +673,13 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
                     await this.syncPackageJsonFromSandbox();
                 },
             },
+            options ? {
+                capacityMode: options.capacityMode,
+                shouldContinueWaiting: options.shouldContinueWaiting,
+                onCapacityWaiting: options.onCapacityWaiting
+                    ? (progress) => options.onCapacityWaiting?.(progress.position)
+                    : undefined,
+            } : undefined,
         );
 
         this.resolveSandboxReady();
@@ -966,6 +985,67 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
             workflowKind: 'sandbox',
             queuePosition: position,
         });
+    }
+
+    private reportPreviewCapacityWaiting(position: number): void {
+        this.logger().info('Waiting for preview sandbox capacity', {
+            agentId: this.getAgentId(),
+            position,
+        });
+        this.broadcast(WebSocketMessageResponses.PREVIEW_QUEUE_WAITING, { position });
+    }
+
+    private hasLivePreviewClients(): boolean {
+        return this.getWebSockets().length > 0;
+    }
+
+    private async scheduleOfflinePreviewRelease(reason: string): Promise<void> {
+        if (this.hasLivePreviewClients() || !this.state.sandboxInstanceId) {
+            return;
+        }
+
+        const payload: OfflinePreviewReleasePayload = {
+            instanceId: this.state.sandboxInstanceId,
+            scheduledAt: Date.now(),
+            reason,
+        };
+
+        try {
+            await this.schedule(
+                OFFLINE_PREVIEW_RELEASE_GRACE_SECONDS,
+                'releaseOfflinePreviewAfterGrace',
+                payload,
+            );
+            this.logger().info('Scheduled offline preview release', {
+                ...payload,
+                graceSeconds: OFFLINE_PREVIEW_RELEASE_GRACE_SECONDS,
+            });
+        } catch (error) {
+            this.logger().warn('Failed to schedule offline preview release', {
+                ...payload,
+                error: error instanceof Error ? error.message : String(error),
+            });
+        }
+    }
+
+    async releaseOfflinePreviewAfterGrace(payload: OfflinePreviewReleasePayload): Promise<void> {
+        if (this.hasLivePreviewClients()) {
+            this.logger().info('Keeping preview sandbox because a client reconnected before grace expired', payload);
+            return;
+        }
+        if (this.state.activeWorkflow || this.state.shouldBeGenerating) {
+            this.logger().info('Keeping preview sandbox because a workflow is active after grace expired', payload);
+            return;
+        }
+        if (!payload.instanceId || this.state.sandboxInstanceId !== payload.instanceId) {
+            this.logger().info('Skipping offline preview release because sandbox instance changed', {
+                ...payload,
+                currentInstanceId: this.state.sandboxInstanceId,
+            });
+            return;
+        }
+
+        await this.releasePreviewSandbox(payload.reason);
     }
 
     private async releaseEvictedPreviewSandboxes(candidates: ActiveTaskLease[], releasesNeeded: number): Promise<void> {
@@ -1518,6 +1598,9 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
                 message: `Workflow ${kind} completed`,
             });
         }
+        if (result.madeChanges && result.preview?.previewURL) {
+            await this.scheduleOfflinePreviewRelease(`workflow_${kind}_completed_offline`);
+        }
     }
 
     async startGenerationWorkflow(kind: ExistingProjectWorkflowParams['kind'], retryFrom?: LastFailedWorkflow): Promise<string | null> {
@@ -1971,16 +2054,30 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
     }
 
     async startDeployPreviewWorkflow(clearLogs = true, forceRedeploy = false): Promise<string | null> {
-        return this.queueOperationalWorkflow(
-            {
-                kind: 'deploy_preview',
-                agentId: this.getAgentId(),
-                projectType: this.state.projectType,
-                clearLogs,
-                forceRedeploy,
-            },
-            'Queued preview deployment workflow',
-        );
+        this.throwIfDeleted('start preview deployment');
+        if (this.isBusyForOperationalWorkflow()) {
+            const message = 'Another task is still running. Please wait for it to finish before starting this one.';
+            this.logger().info('Preview deployment skipped because agent is busy', {
+                activeWorkflow: this.state.activeWorkflow,
+                shouldBeGenerating: this.state.shouldBeGenerating,
+            });
+            this.broadcastOperationalWorkflowStartFailure('deploy_preview', message);
+            this.broadcast(WebSocketMessageResponses.ERROR, { error: message });
+            return null;
+        }
+
+        const task = this.deployPreview(clearLogs, forceRedeploy, {
+            capacityMode: 'foreground',
+            shouldContinueWaiting: () => this.getWebSockets().length > 0,
+            onCapacityWaiting: (position) => this.reportPreviewCapacityWaiting(position),
+        }).catch((error: unknown) => {
+            const message = error instanceof Error ? error.message : String(error);
+            this.logger().warn('Foreground preview deployment failed', { error: message });
+            this.broadcast(WebSocketMessageResponses.DEPLOYMENT_FAILED, { error: message });
+            return '';
+        });
+        this.trackBackgroundTask('deploy_preview', task);
+        return null;
     }
 
     trackBackgroundTask(label: string, task: Promise<unknown>): void {
@@ -2206,7 +2303,12 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
 
     async deployPreview(
         clearLogs: boolean = true,
-        forceRedeploy: boolean = false
+        forceRedeploy: boolean = false,
+        options?: {
+            capacityMode?: 'background' | 'foreground';
+            shouldContinueWaiting?: () => boolean;
+            onCapacityWaiting?: (position: number) => Promise<void> | void;
+        },
     ): Promise<string> {
         let reservedPreviewSlot = false;
         try {
@@ -2217,12 +2319,19 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
                 previewReservation.releasesNeeded,
             );
 
-            const response = await this.deployToSandbox([], forceRedeploy, undefined, clearLogs);
+            const response = await this.deployToSandbox([], forceRedeploy, undefined, clearLogs, options);
             if (response?.previewURL) {
                 this.broadcast(WebSocketMessageResponses.PREVIEW_FORCE_REFRESH, {});
                 return response.previewURL;
             }
-            return response?.tunnelURL ?? '';
+            if (response?.tunnelURL) {
+                this.broadcast(WebSocketMessageResponses.PREVIEW_FORCE_REFRESH, {});
+                return response.tunnelURL;
+            }
+            if (options?.capacityMode === 'foreground') {
+                throw new Error('Preview paused while waiting for an available workspace. Try again in a moment.');
+            }
+            return '';
         } catch (error) {
             if (reservedPreviewSlot) {
                 await this.releaseActivePreviewSlot();

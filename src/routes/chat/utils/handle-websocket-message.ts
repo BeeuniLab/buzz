@@ -380,6 +380,7 @@ export interface HandleMessageDeps {
     setTotalFiles: React.Dispatch<React.SetStateAction<number | undefined>>;
     setIsRedeployReady: React.Dispatch<React.SetStateAction<boolean>>;
     setIsPreviewDeploying: React.Dispatch<React.SetStateAction<boolean>>;
+    setPreviewQueuePosition: React.Dispatch<React.SetStateAction<number | undefined>>;
     setIsGeneratingBlueprint: React.Dispatch<React.SetStateAction<boolean>>;
     setIsThinking: React.Dispatch<React.SetStateAction<boolean>>;
     setIsInitialStateRestored: React.Dispatch<React.SetStateAction<boolean>>;
@@ -491,6 +492,7 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
             setTotalFiles,
             setIsRedeployReady,
             setIsPreviewDeploying,
+            setPreviewQueuePosition,
             setIsGeneratingBlueprint,
             setIsThinking,
             setIsInitialStateRestored,
@@ -1110,6 +1112,7 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
 
             case 'deployment_started': {
                 setIsPreviewDeploying(true);
+                setPreviewQueuePosition(undefined);
                 if (deps.urlChatId) {
                     appEvents.emitAppUpdated(deps.urlChatId, { status: 'generating' });
                 }
@@ -1118,6 +1121,7 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
 
             case 'deployment_completed': {
                 setIsPreviewDeploying(false);
+                setPreviewQueuePosition(undefined);
                 const finalPreviewURL = getPreviewUrl(message.previewURL, message.tunnelURL);
                 setPreviewUrl(finalPreviewURL);
                 setIsPreviewPaused(false);
@@ -1129,6 +1133,7 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
 
             case 'deployment_failed': {
                 setIsPreviewDeploying(false);
+                setPreviewQueuePosition(undefined);
                 if (isTaskBusyWarning(message.error)) {
                     toast.warning(getTaskBusyWarningTitle(message.error), {
                         description: message.error,
@@ -1313,6 +1318,7 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
             }
 
             case 'preview_force_refresh': {
+                setPreviewQueuePosition(undefined);
                 setShouldRefreshPreview(true);
                 setTimeout(() => {
                     setShouldRefreshPreview(false);
@@ -1322,8 +1328,20 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
 
             case 'preview_released': {
                 setIsPreviewDeploying(false);
+                setPreviewQueuePosition(undefined);
                 setIsPreviewPaused(true);
                 setShouldRefreshPreview(false);
+                break;
+            }
+
+            case 'preview_queue_waiting': {
+                setIsPreviewDeploying(true);
+                setIsPreviewPaused(false);
+                setPreviewQueuePosition(
+                    Number.isFinite(message.position) && message.position > 0
+                        ? message.position
+                        : undefined,
+                );
                 break;
             }
 

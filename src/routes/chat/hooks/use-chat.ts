@@ -139,6 +139,7 @@ export function useChat({
 	
 	// Preview deployment state
 	const [isPreviewDeploying, setIsPreviewDeploying] = useState(false);
+	const [previewQueuePosition, setPreviewQueuePosition] = useState<number>();
 	
 	// Redeployment state - tracks when redeploy button should be enabled
 	const [isRedeployReady, setIsRedeployReady] = useState(false);
@@ -287,6 +288,7 @@ export function useChat({
 			setTotalFiles,
 			setIsRedeployReady,
 			setIsPreviewDeploying,
+			setPreviewQueuePosition,
 			setIsGeneratingBlueprint,
 			setIsThinking,
 			setIsInitialStateRestored,
@@ -912,6 +914,7 @@ export function useChat({
 		isPreviewPaused,
 		// Preview deployment state
 		isPreviewDeploying,
+		previewQueuePosition,
 		restartPreview,
 		// Phase progress visual indicator
 		isPhaseProgressActive,

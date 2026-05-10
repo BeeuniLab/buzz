@@ -30,6 +30,7 @@ export const WebSocketMessageResponses: Record<string, WebSocketMessageType> = {
     DEPLOYMENT_FAILED: 'deployment_failed',
     PREVIEW_FORCE_REFRESH: 'preview_force_refresh',
     PREVIEW_RELEASED: 'preview_released',
+    PREVIEW_QUEUE_WAITING: 'preview_queue_waiting',
     // Cloudflare deployment messages
     CLOUDFLARE_DEPLOYMENT_STARTED: 'cloudflare_deployment_started',
     CLOUDFLARE_DEPLOYMENT_COMPLETED: 'cloudflare_deployment_completed', 

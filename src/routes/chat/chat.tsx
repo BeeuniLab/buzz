@@ -181,6 +181,7 @@ export default function Chat() {
 		isPreviewPaused,
 		// Preview deployment state
 		isPreviewDeploying,
+		previewQueuePosition,
 		restartPreview,
 		// Issue tracking and debugging state
 		runtimeErrorCount,
@@ -962,6 +963,7 @@ export default function Chat() {
 								previewAvailable={previewAvailable}
 								shouldRefreshPreview={shouldRefreshPreview}
 								isPreviewPaused={isPreviewPaused}
+								previewQueuePosition={previewQueuePosition}
 								manualRefreshTrigger={manualRefreshTrigger}
 								onManualRefresh={() => setManualRefreshTrigger(Date.now())}
 								onRestartPreview={restartPreview}

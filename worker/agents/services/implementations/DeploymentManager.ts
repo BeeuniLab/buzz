@@ -3,6 +3,7 @@ import {
     DeploymentParams, 
     DeploymentResult,
     SandboxDeploymentCallbacks,
+    SandboxDeploymentOptions,
     CloudflareDeploymentCallbacks
 } from '../interfaces/IDeploymentManager';
 import { BootstrapResponse, StaticAnalysisResponse, RuntimeError, PreviewType } from '../../../services/sandbox/sandboxTypes';
@@ -29,7 +30,8 @@ const HEALTH_CHECK_INTERVAL_MS = 30000;
 function shouldReleaseSandboxCapacityForReason(reason: string): boolean {
     return reason === 'preview limit exceeded'
         || reason === 'app_deleted'
-        || reason === 'preview released';
+        || reason === 'preview released'
+        || reason.includes('_completed_offline');
 }
 
 /**
@@ -84,15 +86,20 @@ export class DeploymentManager extends BaseAgentService<BaseProjectState> implem
         return this.cachedSandboxClient;
     }
 
-    private async acquireGlobalSandboxCapacity(): Promise<void> {
+    private async acquireGlobalSandboxCapacity(options?: SandboxDeploymentOptions): Promise<void> {
         const state = this.getState();
         await GlobalSandboxCapacityService.acquire(this.env, {
             userId: state.metadata?.userId,
             agentId: this.getAgentId(),
             kind: state.activeWorkflow?.kind ?? 'sandbox',
-            shouldContinue: () => !this.getState().deletedAt && !this.getState().lastUserStopAt,
+            mode: options?.capacityMode,
+            shouldContinue: () => (
+                !this.getState().deletedAt
+                && !this.getState().lastUserStopAt
+                && (options?.shouldContinueWaiting?.() ?? true)
+            ),
             onProgress: async (progress) => {
-                await this.onSandboxCapacityWaiting?.(progress);
+                await (options?.onCapacityWaiting ?? this.onSandboxCapacityWaiting)?.(progress);
             },
         });
     }
@@ -380,7 +387,8 @@ export class DeploymentManager extends BaseAgentService<BaseProjectState> implem
         redeploy: boolean = false,
         commitMessage?: string,
         clearLogs: boolean = false,
-        callbacks?: SandboxDeploymentCallbacks
+        callbacks?: SandboxDeploymentCallbacks,
+        options?: SandboxDeploymentOptions
     ): Promise<PreviewType | null> {
         const logger = this.getLog();
         
@@ -396,7 +404,7 @@ export class DeploymentManager extends BaseAgentService<BaseProjectState> implem
 
         // Create deployment promise
         this.currentDeploymentPromise = (async () => {
-            await this.acquireGlobalSandboxCapacity();
+            await this.acquireGlobalSandboxCapacity(options);
             logger.info("Deploying to sandbox", { files: files.length, redeploy, commitMessage, sessionId: this.getSessionId() });
             return this.executeDeploymentWithRetry(
                 files,

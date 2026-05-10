@@ -62,13 +62,19 @@ function PhoneFrame({ children }: { children: ReactNode }) {
 function PreviewLoadingPlaceholder({
 	isActive,
 	isGeneratingBlueprint,
+	queuePosition,
 }: {
 	isActive: boolean;
 	isGeneratingBlueprint: boolean;
+	queuePosition?: number;
 }) {
-	const title = isGeneratingBlueprint ? 'Shaping Your Idea' : 'Loading Preview';
-	const statusText = isGeneratingBlueprint
-		? 'Turning the idea into a playable direction.'
+	const title = queuePosition
+		? 'Waiting for Preview'
+		: isGeneratingBlueprint ? 'Shaping Your Idea' : 'Loading Preview';
+	const statusText = queuePosition
+			? `You're #${queuePosition} in line.`
+		: isGeneratingBlueprint
+			? 'Turning the idea into a playable direction.'
 		: isActive
 			? 'Making your preview playable.'
 			: 'Preview will load here as soon as it is ready.';
@@ -138,6 +144,7 @@ interface MainContentPanelProps {
 	previewAvailable: boolean;
 	shouldRefreshPreview: boolean;
 	isPreviewPaused: boolean;
+	previewQueuePosition?: number;
 	manualRefreshTrigger: number;
 	onManualRefresh: () => void;
 	onRestartPreview: () => void;
@@ -185,6 +192,7 @@ export function MainContentPanel(props: MainContentPanelProps) {
 		previewAvailable,
 		shouldRefreshPreview,
 		isPreviewPaused,
+		previewQueuePosition,
 		manualRefreshTrigger,
 		onManualRefresh,
 		onRestartPreview,
@@ -272,6 +280,7 @@ export function MainContentPanel(props: MainContentPanelProps) {
 				<PreviewLoadingPlaceholder
 					isActive={isPreviewLoading}
 					isGeneratingBlueprint={isGeneratingBlueprint}
+					queuePosition={previewQueuePosition}
 				/>
 			);
 		}

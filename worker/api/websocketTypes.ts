@@ -110,6 +110,11 @@ type PreviewReleasedMessage = {
 	reason?: string;
 };
 
+type PreviewQueueWaitingMessage = {
+	type: 'preview_queue_waiting';
+	position: number;
+};
+
 type CommandExecutingMessage = {
 	type: 'command_executing';
 	message: string;
@@ -531,6 +536,7 @@ export type WebSocketMessage =
 	| DeploymentFailedMessage
 	| PreviewForceRefreshMessage
 	| PreviewReleasedMessage
+	| PreviewQueueWaitingMessage
 	| CodeReviewingMessage
 	| CodeReviewedMessage
 	| CommandExecutingMessage

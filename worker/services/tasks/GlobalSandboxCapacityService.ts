@@ -4,6 +4,8 @@ import type { DORateLimitStore, TaskQueueSlotResult } from '../rate-limit/DORate
 const STORE_NAME = 'global-sandbox-capacity';
 const DEFAULT_GLOBAL_SANDBOX_LIMIT = 480;
 const GLOBAL_SANDBOX_LEASE_TTL_MS = 8 * 60 * 1000;
+const FOREGROUND_SANDBOX_LEASE_TTL_MS = 60 * 1000;
+const FOREGROUND_SANDBOX_WAIT_TIMEOUT_MS = 90 * 1000;
 const WAITING_LEASE_REFRESH_MS = 15_000;
 const MAX_WAIT_JITTER_MS = 3_000;
 
@@ -20,6 +22,13 @@ export class GlobalSandboxCapacityWaitError extends Error {
     constructor(message: string) {
         super(message);
         this.name = 'GlobalSandboxCapacityWaitError';
+    }
+}
+
+export class GlobalSandboxCapacityTimeoutError extends Error {
+    constructor(message: string) {
+        super(message);
+        this.name = 'GlobalSandboxCapacityTimeoutError';
     }
 }
 
@@ -47,18 +56,27 @@ export class GlobalSandboxCapacityService {
             userId?: string;
             agentId: string;
             kind?: string;
+            mode?: 'background' | 'foreground';
             onProgress?: (progress: GlobalSandboxCapacityProgress) => Promise<void>;
             shouldContinue?: () => boolean;
         },
     ): Promise<GlobalSandboxCapacityAcquireResult> {
         const limit = getGlobalSandboxLimit(env);
         const startedAt = Date.now();
+        const mode = args.mode ?? 'background';
+        const leaseTtlMs = mode === 'foreground'
+            ? FOREGROUND_SANDBOX_LEASE_TTL_MS
+            : GLOBAL_SANDBOX_LEASE_TTL_MS;
         let lastReportedPosition: number | undefined;
 
         while (true) {
             if (args.shouldContinue && !args.shouldContinue()) {
                 await this.release(env, args.agentId);
                 throw new GlobalSandboxCapacityWaitError('Sandbox queue wait was cancelled.');
+            }
+            if (mode === 'foreground' && Date.now() - startedAt >= FOREGROUND_SANDBOX_WAIT_TIMEOUT_MS) {
+                await this.release(env, args.agentId);
+                throw new GlobalSandboxCapacityTimeoutError('Preview is still waiting for an available workspace.');
             }
 
             const result = await this.getStore(env).acquireQueuedTaskSlot(
@@ -69,7 +87,7 @@ export class GlobalSandboxCapacityService {
                     kind: args.kind ?? 'sandbox',
                 },
                 limit,
-                GLOBAL_SANDBOX_LEASE_TTL_MS,
+                leaseTtlMs,
             );
 
             if (result.success) {
