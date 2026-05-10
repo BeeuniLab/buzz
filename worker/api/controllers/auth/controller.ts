@@ -46,7 +46,7 @@ export class AuthController extends BaseController {
             // Clerk is the production auth provider; local email auth remains a fallback when Clerk is absent.
             if (AuthController.hasClerkAuth(env)) {
                 return AuthController.createErrorResponse(
-                    'Email/password registration is not available when Clerk sign-in is configured. Please use Google sign-in instead.',
+                    'Email/password registration is not available when Clerk sign-in is configured. Please use Clerk sign-in instead.',
                     403
                 );
             }
@@ -101,7 +101,7 @@ export class AuthController extends BaseController {
             // Clerk is the production auth provider; local email auth remains a fallback when Clerk is absent.
             if (AuthController.hasClerkAuth(env)) {
                 return AuthController.createErrorResponse(
-                    'Email/password login is not available when Clerk sign-in is configured. Please use Google sign-in instead.',
+                    'Email/password login is not available when Clerk sign-in is configured. Please use Clerk sign-in instead.',
                     403
                 );
             }
@@ -758,9 +758,13 @@ export class AuthController extends BaseController {
         _context: RouteContext
     ): Promise<Response> {
         try {
+            const hasClerkAuth = AuthController.hasClerkAuth(env);
             const providers = {
-                google: AuthController.hasClerkAuth(env),
-                email: true
+                google: hasClerkAuth,
+                facebook: hasClerkAuth,
+                discord: hasClerkAuth,
+                phone: hasClerkAuth,
+                email: !hasClerkAuth
             };
             
             // Include CSRF token with provider info
@@ -768,11 +772,14 @@ export class AuthController extends BaseController {
             
             const response = AuthController.createSuccessResponse({
                 providers,
-                hasThirdPartyAuth: providers.google,
-                requiresEmailAuth: !providers.google,
+                hasThirdPartyAuth: hasClerkAuth,
+                requiresEmailAuth: !hasClerkAuth,
                 clerk: {
-                    enabled: AuthController.hasClerkAuth(env),
-                    google: AuthController.hasClerkAuth(env)
+                    enabled: hasClerkAuth,
+                    google: hasClerkAuth,
+                    facebook: hasClerkAuth,
+                    discord: hasClerkAuth,
+                    phone: hasClerkAuth
                 },
                 csrfToken,
                 csrfExpiresIn: Math.floor(CsrfService.defaults.tokenTTL / 1000)

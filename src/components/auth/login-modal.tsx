@@ -1,10 +1,10 @@
 /**
  * Enhanced Login Modal
- * Supports Clerk Google sign-in and local email/password authentication.
+ * Supports Clerk sign-in and local email/password authentication fallback.
  */
 
-import { useState } from 'react';
-import { useSignIn } from '@clerk/clerk-react';
+import { useEffect, useState } from 'react';
+import { SignIn } from '@clerk/react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, AlertCircle, Eye, EyeOff } from 'lucide-react';
 import { createPortal } from 'react-dom';
@@ -43,69 +43,41 @@ interface LoginModalProps {
 
 type AuthMode = 'login' | 'register';
 
-function GoogleButtonContent() {
-	return (
-		<div className="relative z-10 flex items-center justify-center gap-3">
-			<svg
-				className="h-5 w-5"
-				viewBox="0 0 24 24"
-			>
-				<path
-					d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-					fill="#4285F4"
-				/>
-				<path
-					d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-					fill="#34A853"
-				/>
-				<path
-					d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
-					fill="#FBBC05"
-				/>
-				<path
-					d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
-					fill="#EA4335"
-				/>
-			</svg>
-			<span className="font-bold">
-				Continue with Google
-			</span>
-		</div>
-	);
-}
+const clerkSignInAppearance = {
+	layout: {
+		socialButtonsVariant: 'iconButton',
+	},
+	elements: {
+		socialButtonsIconButton__google: 'order-first',
+		socialButtonsBlockButton__google: 'order-first',
+	},
+};
 
-function ClerkGoogleButton({
+function ClerkSignInPanel({
 	authRedirectUrl,
 	onPrepareRedirect,
 }: {
 	authRedirectUrl: string;
 	onPrepareRedirect: (url: string) => void;
 }) {
-	const { isLoaded, signIn } = useSignIn();
-
-	const handleClick = async () => {
+	useEffect(() => {
 		onPrepareRedirect(authRedirectUrl);
-
-		if (!isLoaded) {
-			return;
-		}
-
-		await signIn.authenticateWithRedirect({
-			strategy: 'oauth_google',
-			redirectUrl: '/sso-callback',
-			redirectUrlComplete: authRedirectUrl,
-		});
-	};
+	}, [authRedirectUrl, onPrepareRedirect]);
 
 	return (
-		<motion.button
-			whileTap={{ scale: 0.98 }}
-			onClick={handleClick}
-			disabled={!isLoaded}
-			className="w-full group relative overflow-hidden rounded-xl bg-bg-4 p-4 text-text-primary transition-all border-2 border-[var(--neo-border-color)] shadow-[4px_4px_0px_0px_var(--neo-border-color)] hover:shadow-[6px_6px_0px_0px_var(--neo-border-color)] hover:-translate-x-[1px] hover:-translate-y-[1px] active:translate-x-[2px] active:translate-y-[2px] active:shadow-[1px_1px_0px_0px_var(--neo-border-color)] disabled:opacity-50 disabled:cursor-not-allowed"
-		>
-			<GoogleButtonContent />
-		</motion.button>
+		<div className="flex justify-center">
+			<SignIn
+				routing="hash"
+				withSignUp
+				transferable
+				oauthFlow="redirect"
+				forceRedirectUrl={authRedirectUrl}
+				fallbackRedirectUrl={authRedirectUrl}
+				signUpForceRedirectUrl={authRedirectUrl}
+				signUpFallbackRedirectUrl={authRedirectUrl}
+				appearance={clerkSignInAppearance}
+			/>
+		</div>
 	);
 }
 
@@ -119,7 +91,7 @@ export function LoginModal({
 	actionContext,
 	showCloseButton = true,
 }: LoginModalProps) {
-	const { authProviders, clerkEnabled, hasThirdPartyAuth, requiresEmailAuth, setIntendedUrl } = useAuth();
+	const { clerkEnabled, hasThirdPartyAuth, requiresEmailAuth, setIntendedUrl } = useAuth();
 	const [mode, setMode] = useState<AuthMode>('login');
 	const [showPassword, setShowPassword] = useState(false);
 	const [isLoading, setIsLoading] = useState(false);
@@ -138,7 +110,7 @@ export function LoginModal({
 	// Determine if enhanced features are available
 	const hasEmailAuth = requiresEmailAuth && !!onEmailLogin;
 	const hasRegistration = requiresEmailAuth && !!onRegister;
-	const showGoogle = clerkEnabled && authProviders?.google && hasThirdPartyAuth;
+	const showClerkAuth = clerkEnabled && hasThirdPartyAuth;
 	const authRedirectUrl = window.location.pathname + window.location.search;
 
 	const resetForm = () => {
@@ -222,6 +194,51 @@ export function LoginModal({
 
 	if (!isOpen) return null;
 
+	if (showClerkAuth) {
+		return createPortal(
+			<AnimatePresence>
+				{isOpen && (
+					<div
+						data-nosnippet
+						className="fixed inset-0 z-[9999] flex items-center justify-center p-4 overflow-y-auto"
+					>
+						<motion.div
+							initial={{ opacity: 0 }}
+							animate={{ opacity: 1 }}
+							exit={{ opacity: 0 }}
+							className="fixed inset-0 bg-black/50 backdrop-blur-md"
+							onClick={handleClose}
+						/>
+
+						<motion.div
+							initial={{ opacity: 0, scale: 0.96, y: 16 }}
+							animate={{ opacity: 1, scale: 1, y: 0 }}
+							exit={{ opacity: 0, scale: 0.96, y: 16 }}
+							transition={{ type: 'spring', duration: 0.45 }}
+							className="relative z-10 mx-auto my-8 flex w-fit max-w-[calc(100vw-2rem)] justify-center"
+						>
+							{showCloseButton && (
+								<button
+									onClick={handleClose}
+									className="absolute right-3 top-3 z-20 grid h-7 w-7 place-items-center rounded-md text-zinc-400 transition-colors hover:bg-black/[0.04] hover:text-zinc-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black/15"
+									aria-label="Close sign in"
+								>
+									<X className="h-3.5 w-3.5" />
+								</button>
+							)}
+
+							<ClerkSignInPanel
+								authRedirectUrl={authRedirectUrl}
+								onPrepareRedirect={setIntendedUrl}
+							/>
+						</motion.div>
+					</div>
+				)}
+			</AnimatePresence>,
+			document.body,
+		);
+	}
+
 	return createPortal(
 		<AnimatePresence>
 			{isOpen && (
@@ -302,25 +319,6 @@ export function LoginModal({
 
 							{/* Authentication Options */}
 							<div className={clsx('p-6 space-y-5 pt-12')}>
-								{/* Google */}
-								{showGoogle && (
-									<ClerkGoogleButton
-										authRedirectUrl={authRedirectUrl}
-										onPrepareRedirect={setIntendedUrl}
-									/>
-								)}
-
-								{hasEmailAuth && hasThirdPartyAuth && (
-									<div className="relative">
-										<div className="absolute inset-0 flex items-center">
-											<div className="w-full border-t-2 border-[var(--neo-border-color)]" />
-										</div>
-										<div className="relative flex justify-center text-xs uppercase">
-											<span className="bg-bg-4 px-3 text-text-tertiary font-bold">Or continue with</span>
-										</div>
-									</div>
-								)}
-
 								{/* Email/Password Form */}
 								{hasEmailAuth && (
 									<form onSubmit={handleSubmit} className="space-y-4">

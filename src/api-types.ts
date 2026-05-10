@@ -287,6 +287,9 @@ export type ProfileResponseData = {
 export interface AuthProvidersResponseData {
   providers: {
     google: boolean;
+    facebook: boolean;
+    discord: boolean;
+    phone: boolean;
     email: boolean;
   };
   hasThirdPartyAuth: boolean;
@@ -294,6 +297,9 @@ export interface AuthProvidersResponseData {
   clerk?: {
     enabled: boolean;
     google: boolean;
+    facebook: boolean;
+    discord: boolean;
+    phone: boolean;
   };
   csrfToken?: string;
   csrfExpiresIn?: number;

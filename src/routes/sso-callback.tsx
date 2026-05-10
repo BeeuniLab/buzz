@@ -1,4 +1,4 @@
-import { AuthenticateWithRedirectCallback } from '@clerk/clerk-react';
+import { AuthenticateWithRedirectCallback } from '@clerk/react';
 import { Skeleton } from '@/components/ui/skeleton';
 
 export default function SsoCallback() {

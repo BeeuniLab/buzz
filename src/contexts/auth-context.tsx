@@ -1,15 +1,22 @@
 /**
  * Enhanced Auth Context
- * Provides Clerk Google sign-in plus local email/password fallback.
+ * Provides Clerk sign-in plus local email/password fallback.
  */
 
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
-import { useAuth as useClerkAuth } from '@clerk/clerk-react';
-import { useSignIn as useClerkSignIn } from '@clerk/clerk-react';
+import { useAuth as useClerkAuth, useClerk } from '@clerk/react';
 import { useNavigate } from 'react-router';
 import { apiClient, ApiError } from '@/lib/api-client';
 import { useSentryUser } from '@/hooks/useSentryUser';
 import type { AuthSession, AuthUser } from '../api-types';
+
+type AuthProviderFlags = {
+  google: boolean;
+  facebook: boolean;
+  discord: boolean;
+  phone: boolean;
+  email: boolean;
+};
 
 interface AuthContextType {
   user: AuthUser | null;
@@ -20,10 +27,7 @@ interface AuthContextType {
   error: string | null;
   
   // Auth provider configuration
-  authProviders: {
-    google: boolean;
-    email: boolean;
-  } | null;
+  authProviders: AuthProviderFlags | null;
   clerkEnabled: boolean;
   hasThirdPartyAuth: boolean;
   requiresEmailAuth: boolean;
@@ -50,38 +54,38 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 const TOKEN_REFRESH_INTERVAL = 60 * 60 * 1000; // 1 hour (check less frequently since tokens last 24h)
 const CLERK_ENABLED = !!import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
 type ClerkAuthState = ReturnType<typeof useClerkAuth>;
-type ClerkSignInState = ReturnType<typeof useClerkSignIn>;
+type ClerkClientState = ReturnType<typeof useClerk>;
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   if (CLERK_ENABLED) {
     return <ClerkAwareAuthProvider>{children}</ClerkAwareAuthProvider>;
   }
 
-  return <AuthProviderInner clerk={null} clerkSignIn={null}>{children}</AuthProviderInner>;
+  return <AuthProviderInner clerk={null} clerkClient={null}>{children}</AuthProviderInner>;
 }
 
 function ClerkAwareAuthProvider({ children }: { children: React.ReactNode }) {
   const clerk = useClerkAuth();
-  const clerkSignIn = useClerkSignIn();
+  const clerkClient = useClerk();
 
-  return <AuthProviderInner clerk={clerk} clerkSignIn={clerkSignIn}>{children}</AuthProviderInner>;
+  return <AuthProviderInner clerk={clerk} clerkClient={clerkClient}>{children}</AuthProviderInner>;
 }
 
 function AuthProviderInner({
   children,
   clerk,
-  clerkSignIn,
+  clerkClient,
 }: {
   children: React.ReactNode;
   clerk: ClerkAuthState | null;
-  clerkSignIn: ClerkSignInState | null;
+  clerkClient: ClerkClientState | null;
 }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [token, setToken] = useState<string | null>(null);
   const [session, setSession] = useState<AuthSession | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [authProviders, setAuthProviders] = useState<{ google: boolean; email: boolean; } | null>(null);
+  const [authProviders, setAuthProviders] = useState<AuthProviderFlags | null>(null);
   const [clerkEnabled, setClerkEnabled] = useState<boolean>(CLERK_ENABLED);
   const [hasThirdPartyAuth, setHasThirdPartyAuth] = useState<boolean>(false);
   const [requiresEmailAuth, setRequiresEmailAuth] = useState<boolean>(true);
@@ -135,7 +139,7 @@ function AuthProviderInner({
     } catch (error) {
       console.warn('Failed to fetch auth providers:', error);
       // Fallback to defaults
-      setAuthProviders({ google: false, email: true });
+      setAuthProviders({ google: false, facebook: false, discord: false, phone: false, email: true });
       setClerkEnabled(false);
       setHasThirdPartyAuth(false);
       setRequiresEmailAuth(true);
@@ -282,17 +286,18 @@ function AuthProviderInner({
     const intendedUrl = redirectUrl || window.location.pathname + window.location.search;
     setIntendedUrl(intendedUrl);
 
-    if (clerkEnabled && clerkSignIn?.isLoaded) {
-      clerkSignIn.signIn.authenticateWithRedirect({
-        strategy: 'oauth_google',
-        redirectUrl: '/sso-callback',
-        redirectUrlComplete: intendedUrl,
+	if (clerkEnabled && clerkClient) {
+      void clerkClient.redirectToSignUp({
+        signUpForceRedirectUrl: intendedUrl,
+        signUpFallbackRedirectUrl: intendedUrl,
+        signInForceRedirectUrl: intendedUrl,
+        signInFallbackRedirectUrl: intendedUrl,
       });
       return;
     }
 
-    setError('Google sign in is not configured yet.');
-  }, [clerkEnabled, clerkSignIn, setIntendedUrl]);
+    setError('Sign in is not configured yet.');
+  }, [clerkClient, clerkEnabled, setIntendedUrl]);
 
   // Email/password login
   const loginWithEmail = useCallback(async (credentials: { email: string; password: string }) => {

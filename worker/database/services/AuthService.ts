@@ -51,6 +51,14 @@ interface ClerkEmailAddress {
     };
 }
 
+interface ClerkPhoneNumber {
+    id: string;
+    phone_number?: string;
+    verification?: {
+        status?: string;
+    };
+}
+
 interface ClerkApiUser {
     id: string;
     username?: string | null;
@@ -59,6 +67,8 @@ interface ClerkApiUser {
     image_url?: string | null;
     primary_email_address_id?: string | null;
     email_addresses?: ClerkEmailAddress[];
+    primary_phone_number_id?: string | null;
+    phone_numbers?: ClerkPhoneNumber[];
 }
 
 interface ClerkUserProfile {
@@ -66,7 +76,11 @@ interface ClerkUserProfile {
     email: string;
     displayName: string;
     emailVerified: boolean;
+    identifier: string;
+    hasEmailAddress: boolean;
 }
+
+const CLERK_PHONE_EMAIL_DOMAIN = 'clerk-phone.buzzplay.internal';
 
 function getRandomDiceBearStyle(): typeof DICEBEAR_AVATAR_STYLES[number] {
     const values = new Uint32Array(1);
@@ -89,6 +103,14 @@ function shouldAssignDiceBearAvatar(avatarUrl?: string | null): boolean {
     }
 
     return LEGACY_PROVIDER_AVATAR_PREFIXES.some((prefix) => avatarUrl.startsWith(prefix));
+}
+
+function getClerkFallbackEmail(clerkUserId: string): string {
+    const safeId = clerkUserId
+        .toLowerCase()
+        .replace(/[^a-z0-9.!#$%&'*+/=?^_`{|}~-]/g, '-');
+
+    return `${safeId}@${CLERK_PHONE_EMAIL_DOMAIN}`;
 }
 
 function getCachedClerkJwks(jwksUrl: string) {
@@ -364,7 +386,7 @@ export class AuthService extends BaseService {
                 request
             );
 
-            await this.logAuthAttempt(profile.email, 'oauth_google', true, request);
+            await this.logAuthAttempt(profile.identifier, 'clerk', true, request);
             logger.info('Clerk login successful', {
                 userId: user.id,
                 clerkUserId: profile.clerkUserId,
@@ -377,7 +399,7 @@ export class AuthService extends BaseService {
                 expiresAt: session.expiresAt,
             };
         } catch (error) {
-            await this.logAuthAttempt(profile?.email || '', 'oauth_google', false, request);
+            await this.logAuthAttempt(profile?.identifier || '', 'clerk', false, request);
 
             if (error instanceof SecurityError) {
                 throw error;
@@ -437,29 +459,40 @@ export class AuthService extends BaseService {
         const primaryEmail =
             clerkUser.email_addresses?.find((email) => email.id === clerkUser.primary_email_address_id) ||
             clerkUser.email_addresses?.[0];
-        const email = primaryEmail?.email_address?.trim().toLowerCase();
+        const primaryPhone =
+            clerkUser.phone_numbers?.find((phone) => phone.id === clerkUser.primary_phone_number_id) ||
+            clerkUser.phone_numbers?.[0];
+        const realEmail = primaryEmail?.email_address?.trim().toLowerCase() || '';
+        const phoneNumber = primaryPhone?.phone_number?.trim() || '';
 
-        if (!email) {
+        if (!realEmail && !phoneNumber) {
             throw new SecurityError(
                 SecurityErrorType.INVALID_INPUT,
-                'Clerk account has no email address',
+                'Clerk account has no email address or phone number',
                 400
             );
         }
 
+        const email = realEmail || getClerkFallbackEmail(clerkUserId);
         const nameParts = [clerkUser.first_name, clerkUser.last_name]
             .map((part) => part?.trim())
             .filter(Boolean);
         const displayName =
             nameParts.join(' ') ||
             clerkUser.username?.trim() ||
-            email.split('@')[0];
+            phoneNumber ||
+            realEmail.split('@')[0] ||
+            'BuzzPlay user';
 
         return {
             clerkUserId,
             email,
             displayName,
-            emailVerified: primaryEmail?.verification?.status === 'verified',
+            emailVerified:
+                primaryEmail?.verification?.status === 'verified' ||
+                primaryPhone?.verification?.status === 'verified',
+            identifier: realEmail || phoneNumber || clerkUserId,
+            hasEmailAddress: !!realEmail,
         };
     }
 
@@ -501,7 +534,7 @@ export class AuthService extends BaseService {
             .where(eq(schema.users.clerkUserId, profile.clerkUserId))
             .get();
 
-        if (!user) {
+        if (!user && profile.hasEmailAddress) {
             user = await this.database
                 .select()
                 .from(schema.users)
@@ -532,13 +565,32 @@ export class AuthService extends BaseService {
                 .where(eq(schema.users.id, userId))
                 .get();
         } else {
+            let nextEmail = user.email;
+            if (profile.hasEmailAddress && user.email !== profile.email) {
+                const emailOwner = await this.database
+                    .select()
+                    .from(schema.users)
+                    .where(eq(schema.users.email, profile.email))
+                    .get();
+
+                if (!emailOwner || emailOwner.id === user.id) {
+                    nextEmail = profile.email;
+                } else {
+                    logger.warn('Skipping Clerk email update because email is already linked to another user', {
+                        userId: user.id,
+                        clerkUserId: profile.clerkUserId,
+                    });
+                }
+            }
+
             const avatarUrl = shouldAssignDiceBearAvatar(user.avatarUrl)
-                ? getDiceBearAvatarUrl(`${user.id}:${user.email}`)
+                ? getDiceBearAvatarUrl(`${user.id}:${nextEmail}`)
                 : user.avatarUrl;
 
             await this.database
                 .update(schema.users)
                 .set({
+                    email: nextEmail,
                     displayName: profile.displayName || user.displayName,
                     avatarUrl,
                     provider: 'clerk',
@@ -573,7 +625,7 @@ export class AuthService extends BaseService {
             
             await this.database.insert(schema.authAttempts).values({
                 identifier: identifier.toLowerCase(),
-                attemptType: attemptType as 'login' | 'register' | 'oauth_google' | 'oauth_github' | 'refresh' | 'reset_password',
+                attemptType: attemptType as 'login' | 'register' | 'clerk' | 'oauth_google' | 'oauth_github' | 'refresh' | 'reset_password',
                 success: success,
                 ipAddress: requestMetadata.ipAddress
             });

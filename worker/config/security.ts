@@ -162,6 +162,7 @@ export function getSecureHeadersConfig(env: Env): SecureHeadersConfig {
                 "'strict-dynamic'",
                 "https://*.clerk.accounts.dev",
                 "https://*.clerk.com",
+                "https://challenges.cloudflare.com",
                 // Development only - for hot reload
                 ...(isDevelopment ? ["'unsafe-eval'"] : [])
             ],
@@ -180,6 +181,7 @@ export function getSecureHeadersConfig(env: Env): SecureHeadersConfig {
                 "data:",
                 "blob:",
                 "https://api.dicebear.com", // Generated user avatars
+                "https://img.clerk.com", // Clerk-managed user images
                 "https://lh3.googleusercontent.com", // Google avatars
                 "https://*.cloudflare.com" // Cloudflare assets
             ],
@@ -193,11 +195,13 @@ export function getSecureHeadersConfig(env: Env): SecureHeadersConfig {
                 "https://api.cloudflare.com",
                 "https://api.clerk.com",
                 "https://*.clerk.accounts.dev",
-                "https://*.clerk.com"
+                "https://*.clerk.com",
+                "https://challenges.cloudflare.com"
             ],
             frameSrc: [
                 "https://*.clerk.accounts.dev",
-                "https://*.clerk.com"
+                "https://*.clerk.com",
+                "https://challenges.cloudflare.com"
             ],
             objectSrc: ["'none'"],
             mediaSrc: ["'self'"],

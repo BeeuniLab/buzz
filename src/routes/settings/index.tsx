@@ -29,7 +29,10 @@ import { apiClient } from '@/lib/api-client';
 
 export default function SettingsPage() {
 	const { user } = useAuth();
-	const connectedProvider = user?.provider === 'clerk' ? 'google' : user?.provider;
+	const accountIdentifier =
+		user?.email?.endsWith('@clerk-phone.buzzplay.internal')
+			? 'Phone account'
+			: user?.email || 'Signed in account';
 	// Active sessions state
 	const [activeSessions, setActiveSessions] = useState<
 		ActiveSessionsData & { loading: boolean }
@@ -166,20 +169,10 @@ export default function SettingsPage() {
 									Connected Accounts
 								</h4>
 								<div className="flex items-center justify-between">
-									<div className="flex items-center gap-3">
-										<div className="h-5 w-5 rounded-full bg-bg-3 flex items-center justify-center">
-											{connectedProvider === 'google'
-												? '🇬'
-												: '🐙'}
-										</div>
-										<div>
-											<p className="text-sm font-medium capitalize">
-												{connectedProvider}
-											</p>
-											<p className="text-sm text-text-tertiary">
-												{user?.email}
-											</p>
-										</div>
+									<div>
+										<p className="text-sm font-medium text-text-primary">
+											{accountIdentifier}
+										</p>
 									</div>
 									<Badge variant="secondary">Connected</Badge>
 								</div>
