@@ -232,7 +232,6 @@ export function MainContentPanel(props: MainContentPanelProps) {
 	};
 
 	const renderViewWithHeader = (
-		centerContent: ReactNode,
 		viewContent: ReactNode,
 		rightActions?: ReactNode,
 		headerOverrides?: Partial<typeof commonHeaderProps>
@@ -241,7 +240,6 @@ export function MainContentPanel(props: MainContentPanelProps) {
 			<ViewHeader
 				{...commonHeaderProps}
 				{...headerOverrides}
-				centerContent={centerContent}
 				rightActions={rightActions}
 			/>
 			{viewContent}
@@ -249,34 +247,16 @@ export function MainContentPanel(props: MainContentPanelProps) {
 	);
 
 	const renderPreviewView = () => {
-		const featureDefinition = featureRegistry.getDefinition(projectType);
-		const previewTitle = blueprint?.title ?? featureDefinition?.name ?? 'Preview';
 		const isPreviewLoading = isGenerating || isGeneratingBlueprint || isPreviewDeploying;
 
 		if (isPreviewPaused && !isPreviewLoading) {
 			return renderViewWithHeader(
-				<div className="flex w-full min-w-0 items-center gap-2">
-					<span
-						className="min-w-0 flex-1 truncate text-left text-sm font-mono text-text-50/70"
-						title={previewTitle}
-					>
-						{previewTitle}
-					</span>
-				</div>,
 				<PreviewPausedPlaceholder onRestartPreview={onRestartPreview} />
 			);
 		}
 
 		if (isPreviewLoading || !previewUrl) {
 			return renderViewWithHeader(
-				<div className="flex w-full min-w-0 items-center gap-2">
-					<span
-						className="min-w-0 flex-1 truncate text-left text-sm font-mono text-text-50/70"
-						title={previewTitle}
-					>
-						{previewTitle}
-					</span>
-				</div>,
 				<PreviewLoadingPlaceholder
 					isActive={isPreviewLoading}
 					isGeneratingBlueprint={isGeneratingBlueprint}
@@ -381,6 +361,15 @@ export function MainContentPanel(props: MainContentPanelProps) {
 		);
 		const headerActions = (
 			<div className="flex min-w-0 items-center gap-1.5">
+				{showManualRefresh && (
+					<button
+						className="p-1 hover:bg-bg-2 rounded transition-colors"
+						onClick={onManualRefresh}
+						title="Refresh preview"
+					>
+						<RefreshCw className="size-4 text-text-primary/50" />
+					</button>
+				)}
 				{onUpdatePlayable && (
 					<UpdatePlayableAction
 						isDeploying={isDeployingPlayable}
@@ -396,25 +385,6 @@ export function MainContentPanel(props: MainContentPanelProps) {
 		);
 
 		return renderViewWithHeader(
-			<div className="flex w-full min-w-0 items-center gap-2">
-				<span
-					className="min-w-0 flex-1 truncate text-left text-sm font-mono text-text-50/70"
-					title={previewTitle}
-				>
-					{previewTitle}
-				</span>
-				{showManualRefresh && (
-					<div className="flex shrink-0 items-center gap-1">
-						<button
-							className="p-1 hover:bg-bg-2 rounded transition-colors"
-							onClick={onManualRefresh}
-							title="Refresh preview"
-						>
-							<RefreshCw className="size-4 text-text-primary/50" />
-						</button>
-					</div>
-				)}
-			</div>,
 			previewContent,
 			headerActions
 		);
@@ -422,7 +392,6 @@ export function MainContentPanel(props: MainContentPanelProps) {
 
 	const renderAssetsView = () =>
 		renderViewWithHeader(
-			<span className="text-sm font-mono text-text-50/70">Assets</span>,
 			<AssetsPanel
 				agentId={agentId}
 				selectedAssetTarget={selectedAssetTarget}

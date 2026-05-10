@@ -3,15 +3,12 @@ import { useParams, useNavigate, useSearchParams } from 'react-router';
 import type { AppDetailsData } from '@/api-types';
 import { apiClient, ApiError } from '@/lib/api-client';
 import { appEvents } from '@/lib/app-events';
-import { useCopyToClipboard } from '@/hooks/use-copy-to-clipboard';
 import {
 	Star,
 	Eye,
 	Code2,
 	ChevronLeft,
-	Copy,
 	Loader2,
-	MessageSquare,
 	Play,
 	Lock,
 	Unlock,
@@ -22,16 +19,12 @@ import { Button } from '@/components/ui/button';
 import {
 	Card,
 	CardContent,
-	CardDescription,
-	CardHeader,
-	CardTitle,
 } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAuth } from '@/contexts/auth-context';
 import { toggleFavorite } from '@/hooks/use-apps';
 import { toast } from 'sonner';
-import { capitalizeFirstLetter, cn, getPreviewUrl } from '@/lib/utils';
+import { capitalizeFirstLetter, getPreviewUrl } from '@/lib/utils';
 import { ConfirmDeleteDialog } from '@/components/shared/ConfirmDeleteDialog';
 
 // Use proper types from API types
@@ -73,8 +66,6 @@ export default function AppView() {
 	const [app, setApp] = useState<AppDetails | null>(null);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
-	const { copy: copyPrompt } = useCopyToClipboard({ successMessage: 'Prompt copied to clipboard' });
-	const [activeTab, setActiveTab] = useState('preview');
 	const [isDeploying, setIsDeploying] = useState(false);
 	const [deploymentProgress, setDeploymentProgress] = useState<string>('');
 	const [isUpdatingVisibility, setIsUpdatingVisibility] = useState(false);
@@ -544,165 +535,68 @@ export default function AppView() {
 
 					</div>
 				</div>
-				<Tabs
-					value={activeTab}
-					onValueChange={setActiveTab}
-					className="flex flex-col flex-1 gap-2"
-				>
-					{/* Tab switcher */}
-					<div className="flex items-center gap-4">
-						{/* Using proper TabsList and TabsTrigger components */}
-						<TabsList className="inline-flex h-auto w-fit items-center gap-0.5 bg-bg-2 dark:bg-bg-1 rounded-md p-0.5 border border-border-primary/30">
-						<TabsTrigger
-							value="preview"
-							className="px-3 py-1.5 rounded text-xs font-medium data-[state=active]:bg-bg-4 dark:data-[state=active]:bg-bg-3 data-[state=active]:text-text-primary data-[state=active]:shadow-sm"
-						>
-							<Eye className={cn(
-								"h-3.5 w-3.5 mr-1.5",
-								activeTab === 'preview' ? 'text-accent' : 'text-accent/60'
-							)} />
-							Preview
-						</TabsTrigger>
-						<TabsTrigger
-							value="prompt"
-							className="px-3 py-1.5 rounded text-xs font-medium data-[state=active]:bg-bg-4 dark:data-[state=active]:bg-bg-3 data-[state=active]:text-text-primary data-[state=active]:shadow-sm"
-						>
-							<MessageSquare className={cn(
-								"h-3.5 w-3.5 mr-1.5",
-								activeTab === 'prompt' ? 'text-accent' : 'text-accent/60'
-							)} />
-							Prompt
-						</TabsTrigger>
-						</TabsList>
-						
-					</div>
-
-					<TabsContent value="preview" className="flex-1 flex flex-col">
-						<Card className="px-2 flex-1 flex flex-col">
-							<CardContent className="p-0 flex-1 flex flex-col">
-								<div className="relative flex-1 flex flex-col">
-									{appUrl ? (
-										<div className="flex items-center justify-center bg-bg-3 p-4">
-											<div className="w-full max-w-[360px] aspect-[9/16] rounded-2xl overflow-hidden shadow-2xl border border-border-primary bg-black relative">
-												<iframe
-													ref={previewIframeRef}
-													src={appUrl}
-													title={`${app.title} Preview`}
-													allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope"
-													sandbox="allow-scripts allow-same-origin allow-pointer-lock allow-forms allow-modals allow-orientation-lock allow-popups allow-presentation"
-													style={{
-														position: 'absolute',
-														top: 0,
-														left: 0,
-														border: 'none',
-														width: 720,
-														height: 1280,
-														transform: 'scale(0.5)',
-														transformOrigin: 'top left',
-													}}
-												/>
-											</div>
-										</div>
-									) : (
-										<div className="relative w-full flex-1 bg-gray-50 flex items-center justify-center">
-											<div className="text-center">
-												<h3 className="text-xl font-semibold mb-2 text-gray-700">
-													Live Preview
-												</h3>
-												<p className="text-gray-500 mb-4 max-w-md">
-													Run the app to see a live preview.
-												</p>
-												{deploymentProgress && (
-													<p className="text-sm text-gray-800 mb-4">
-														{deploymentProgress}
-													</p>
-												)}
-												<Button
-													onClick={handlePreviewDeploy}
-													disabled={isDeploying}
-													className="gap-2"
-												>
-													{isDeploying ? (
-														<>
-															<Loader2 className="h-4 w-4 animate-spin" />
-															Loading...
-														</>
-													) : (
-														<>
-															<Play className="h-4 w-4" />
-															Run Preview
-														</>
-													)}
-												</Button>
-											</div>
-										</div>
-									)}
+				<Card className="px-2 flex-1 flex flex-col">
+					<CardContent className="p-0 flex-1 flex flex-col">
+						<div className="relative flex-1 flex flex-col">
+							{appUrl ? (
+								<div className="flex items-center justify-center bg-bg-3 p-4">
+									<div className="w-full max-w-[360px] aspect-[9/16] rounded-2xl overflow-hidden shadow-2xl border border-border-primary bg-black relative">
+										<iframe
+											ref={previewIframeRef}
+											src={appUrl}
+											title={`${app.title} Preview`}
+											allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope"
+											sandbox="allow-scripts allow-same-origin allow-pointer-lock allow-forms allow-modals allow-orientation-lock allow-popups allow-presentation"
+											style={{
+												position: 'absolute',
+												top: 0,
+												left: 0,
+												border: 'none',
+												width: 720,
+												height: 1280,
+												transform: 'scale(0.5)',
+												transformOrigin: 'top left',
+											}}
+										/>
+									</div>
 								</div>
-							</CardContent>
-						</Card>
-					</TabsContent>
-
-					<TabsContent
-						value="prompt"
-					>
-						<Card>
-							<CardHeader>
-								<CardTitle>Original Prompt</CardTitle>
-								<CardDescription>
-									The initial prompt used to create this app
-								</CardDescription>
-							</CardHeader>
-							<CardContent>
-								{app?.agentSummary?.query || app?.originalPrompt ? (
-									<div className="bg-bg-2 rounded-lg p-6 border border-border-primary">
-										<div className="flex items-start gap-3">
-											<div className="flex-shrink-0 mt-1">
-												<div className="rounded-full bg-accent/10 p-2">
-													<MessageSquare className="h-4 w-4 text-accent" />
-												</div>
-											</div>
-											<div className="flex-1">
-												<p className="text-sm text-text-secondary mb-2 font-medium">Prompt</p>
-												<p className="text-text-primary whitespace-pre-wrap">
-													{app?.agentSummary?.query || app?.originalPrompt}
-												</p>
-											</div>
-										</div>
-										
-										{/* Copy button */}
-										<div className="mt-4 flex justify-end">
-											<Button
-												variant="outline"
-												size="sm"
-												onClick={() => {
-													const prompt = app?.agentSummary?.query || app?.originalPrompt;
-																		if (prompt) {
-																			void copyPrompt(prompt);
-																		}
-
-												}}
-												className="gap-2"
-											>
-												<Copy className="h-3 w-3" />
-												Copy Prompt
-											</Button>
-										</div>
-									</div>
-								) : (
-									<div className="flex items-center justify-center py-12 text-text-tertiary">
-										<MessageSquare className="h-8 w-8 mr-3" />
-										<p>
-											{app?.agentSummary === null 
-												? 'Loading prompt...' 
-												: 'No prompt available'
-											}
+							) : (
+								<div className="relative w-full flex-1 bg-gray-50 flex items-center justify-center">
+									<div className="text-center">
+										<h3 className="text-xl font-semibold mb-2 text-gray-700">
+											Live Preview
+										</h3>
+										<p className="text-gray-500 mb-4 max-w-md">
+											Run the app to see a live preview.
 										</p>
+										{deploymentProgress && (
+											<p className="text-sm text-gray-800 mb-4">
+												{deploymentProgress}
+											</p>
+										)}
+										<Button
+											onClick={handlePreviewDeploy}
+											disabled={isDeploying}
+											className="gap-2"
+										>
+											{isDeploying ? (
+												<>
+													<Loader2 className="h-4 w-4 animate-spin" />
+													Loading...
+												</>
+											) : (
+												<>
+													<Play className="h-4 w-4" />
+													Run Preview
+												</>
+											)}
+										</Button>
 									</div>
-								)}
-							</CardContent>
-						</Card>
-					</TabsContent>
-				</Tabs>
+								</div>
+							)}
+						</div>
+					</CardContent>
+				</Card>
 			</div>
 
 			{/* Delete Confirmation Dialog */}

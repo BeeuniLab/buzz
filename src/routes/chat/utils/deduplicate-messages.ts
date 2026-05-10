@@ -29,14 +29,15 @@ function normalizeAssistantContentForDedup(content: string): string {
 }
 
 /**
- * Deduplicates consecutive assistant messages with identical content.
+ * Deduplicates assistant messages with identical content within the same turn.
  * 
  * This handles cases where the backend sends duplicate responses after tool execution,
- * even when tool messages appear between them.
+ * while still preserving identical completion replies for separate user requests.
  * 
  * Algorithm:
  * - Keeps all non-assistant messages
- * - For each assistant message, checks if the last assistant (not necessarily adjacent) has identical content
+ * - Resets assistant duplicate tracking when a user message starts a new turn
+ * - For each assistant message, checks if the last assistant in the current turn has identical content
  * - If duplicate found, skips the current message
  * 
  * @param messages - Array of chat messages to deduplicate
@@ -52,6 +53,9 @@ export function deduplicateMessages(messages: readonly ChatMessage[]): ChatMessa
         if (msg.role !== 'assistant') {
             // Keep all non-assistant messages (user, tool, etc.)
             result.push(msg);
+            if (msg.role === 'user') {
+                lastAssistantContent = null;
+            }
             continue;
         }
 
@@ -84,9 +88,12 @@ export function isAssistantMessageDuplicate(
     messages: readonly ChatMessage[],
     newContent: string
 ): boolean {
-    // Find the last assistant message
+    // Find the last assistant message in the current user turn.
     const normalizedNewContent = normalizeAssistantContentForDedup(newContent);
     for (let i = messages.length - 1; i >= 0; i--) {
+        if (messages[i].role === 'user') {
+            return false;
+        }
         if (messages[i].role === 'assistant') {
             return normalizeAssistantContentForDedup(messages[i].content) === normalizedNewContent;
         }
