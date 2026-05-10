@@ -440,31 +440,6 @@ export default function AppView() {
 								<h1 className="text-2xl md:text-4xl font-semibold tracking-tight text-text-primary">
 									{app.title}
 								</h1>
-
-								<div className="flex items-center gap-2 border rounded-xl">
-									<Badge variant={'default'}>
-										<Globe />
-										{capitalizeFirstLetter(app.visibility)}
-									</Badge>
-									{isOwner && (
-										<Button
-											variant="ghost"
-											size="sm"
-											onClick={handleToggleVisibility}
-											disabled={isUpdatingVisibility}
-											className="h-6 w-6 p-0 hover:bg-bg-3/50 -ml-1.5 !mr-1.5"
-											title={`Make ${app.visibility === 'private' ? 'public' : 'private'}`}
-										>
-											{isUpdatingVisibility ? (
-												<Loader2 className="h-3 w-3 animate-spin text-text-primary" />
-											) : app.visibility === 'private' ? (
-												<Unlock className="h-3 w-3 text-text-primary" />
-											) : (
-												<Lock className="h-3 w-3 text-text-primary" />
-											)}
-										</Button>
-									)}
-								</div>
 							</div>
 							<div className="flex flex-wrap items-center gap-2">
 								{isOwner ? (
@@ -477,7 +452,7 @@ export default function AppView() {
 											className="gap-2 bg-text-primary text-bg-4 border-bg-4 border"
 										>
 											<Code2 className="h-4 w-4" />
-											Continue Editing
+											Editing
 										</Button>
 										<Button
 											variant="outline"
@@ -488,7 +463,7 @@ export default function AppView() {
 											className="gap-2 text-text-on-brand !border-0 bg-destructive hover:opacity-90 transition-colors"
 										>
 											<Trash2 className="h-4 w-4" />
-											Delete App
+											Delete
 										</Button>
 									</>
 								)
@@ -517,6 +492,30 @@ export default function AppView() {
 								<div className="flex items-center gap-1.5 text-sm text-text-tertiary border border-border-primary rounded-md px-3 py-1">
 									<Star className="h-3.5 w-3.5" />
 									<span>{app.starCount || 0}</span>
+								</div>
+								<div className="flex items-center gap-2 border border-border-primary rounded-xl">
+									<Badge variant={'default'}>
+										<Globe />
+										{capitalizeFirstLetter(app.visibility)}
+									</Badge>
+									{isOwner && (
+										<Button
+											variant="ghost"
+											size="sm"
+											onClick={handleToggleVisibility}
+											disabled={isUpdatingVisibility}
+											className="h-6 w-6 p-0 hover:bg-bg-3/50 -ml-1.5 !mr-1.5"
+											title={`Make ${app.visibility === 'private' ? 'public' : 'private'}`}
+										>
+											{isUpdatingVisibility ? (
+												<Loader2 className="h-3 w-3 animate-spin text-text-primary" />
+											) : app.visibility === 'private' ? (
+												<Unlock className="h-3 w-3 text-text-primary" />
+											) : (
+												<Lock className="h-3 w-3 text-text-primary" />
+											)}
+										</Button>
+									)}
 								</div>
 								{feedUrl && (
 									<Button
