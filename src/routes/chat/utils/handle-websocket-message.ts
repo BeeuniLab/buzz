@@ -114,9 +114,6 @@ const redactInternalGeneratorName = (message: string): string =>
 		.replace(INTERNAL_GENERATOR_ENV_RE, 'LLM setting')
 		.replace(INTERNAL_GENERATOR_TOKEN_RE, 'background generator');
 
-const BACKGROUND_UPDATE_MESSAGE_PREFIX = 'background-update-';
-const BACKGROUND_UPDATE_RUNNING_MESSAGE = 'Working on your project...';
-const BACKGROUND_UPDATE_RESTORED_MESSAGE = 'Still working on your project...';
 const BACKGROUND_UPDATE_FAILED_MESSAGE = 'The project agent ran into a problem before finishing.';
 const LEGACY_GENERIC_BUG_PROMPT = 'there might be some bugs in the app. do you want me to try to fix them?';
 const LEGACY_GENERIC_BUG_PROMPT_RE = /^there might be some bugs in the app\.?\s+do you want me to try to fix them\??$/i;
@@ -138,88 +135,6 @@ const shouldHoldLegacyAssistantStream = (content: string | undefined): boolean =
 
 const filterHiddenAssistantPrompts = (messages: readonly ChatMessage[]): ChatMessage[] =>
 	messages.filter((message) => message.role !== 'assistant' || !shouldHideLegacyAssistantPrompt(message.content));
-
-const isBackgroundUpdateMessage = (message: ChatMessage): boolean =>
-	message.role === 'assistant' &&
-	message.conversationId.startsWith(BACKGROUND_UPDATE_MESSAGE_PREFIX);
-
-const isActiveBackgroundUpdateMessage = (message: ChatMessage): boolean =>
-	isBackgroundUpdateMessage(message) &&
-	message.ui?.isThinking === true;
-
-const appendBackgroundUpdateMessage = (
-	messages: ChatMessage[],
-	content = BACKGROUND_UPDATE_RUNNING_MESSAGE,
-): ChatMessage[] => {
-	if (messages.some(isActiveBackgroundUpdateMessage)) return messages;
-	return [
-		...messages,
-		createAIMessage(`${BACKGROUND_UPDATE_MESSAGE_PREFIX}${Date.now()}`, content, true),
-	];
-};
-
-const finishBackgroundUpdateMessage = (
-	messages: ChatMessage[],
-	content: string,
-): ChatMessage[] => {
-	let didUpdate = false;
-	const next = [...messages];
-
-	for (let index = next.length - 1; index >= 0; index -= 1) {
-		const message = next[index];
-		if (!isActiveBackgroundUpdateMessage(message)) continue;
-
-		next[index] = {
-			...message,
-			content,
-			ui: {
-				...message.ui,
-				isThinking: false,
-			},
-		};
-		didUpdate = true;
-		break;
-	}
-
-	return didUpdate ? next : messages;
-};
-
-const replaceLatestBackgroundUpdateMessage = (
-	messages: ChatMessage[],
-	content: string,
-): ChatMessage[] => {
-	const next = [...messages];
-	for (let index = next.length - 1; index >= 0; index -= 1) {
-		const message = next[index];
-		if (!isBackgroundUpdateMessage(message)) continue;
-
-		next[index] = {
-			...message,
-			content,
-			ui: {
-				...message.ui,
-				isThinking: false,
-			},
-		};
-		return next;
-	}
-	return messages;
-};
-
-const removeActiveBackgroundUpdateMessage = (messages: ChatMessage[]): ChatMessage[] => {
-	let index = -1;
-	for (let i = messages.length - 1; i >= 0; i -= 1) {
-		if (isActiveBackgroundUpdateMessage(messages[i])) {
-			index = i;
-			break;
-		}
-	}
-	if (index < 0) return messages;
-
-	const next = [...messages];
-	next.splice(index, 1);
-	return next;
-};
 
 const isRetryableProjectFailureMessage = (content: string): boolean =>
 	content.startsWith('The project agent ');
@@ -402,7 +317,6 @@ export interface HandleMessageDeps {
     
     // Functions
     updateStage: (stageId: ProjectStage['id'], updates: Partial<Omit<ProjectStage, 'id'>>) => void;
-    sendMessage: (message: ConversationMessage) => void;
     loadBootstrapFiles: (files: FileType[]) => void;
     onDebugMessage?: (
         type: 'error' | 'warning' | 'info' | 'websocket',
@@ -503,7 +417,6 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
             urlChatId,
             behaviorType,
             updateStage,
-            sendMessage,
             loadBootstrapFiles,
             onDebugMessage,
             clearDeploymentTimeout,
@@ -693,7 +606,6 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
                         });
                         if (activeWorkflow?.kind === 'user_input') {
                             setIsConversationProcessing(true);
-                            setMessages(prev => appendBackgroundUpdateMessage(prev, BACKGROUND_UPDATE_RESTORED_MESSAGE));
                         }
                         if (shouldRequestGenerationResume(state)) {
                             sendWebSocketMessage(websocket, 'generate_all');
@@ -789,7 +701,6 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
                     setIsGenerating(true);
                     if (freshActiveWorkflow?.kind === 'user_input') {
                         setIsConversationProcessing(true);
-                        setMessages(prev => appendBackgroundUpdateMessage(prev, BACKGROUND_UPDATE_RESTORED_MESSAGE));
                     }
                 } else if (!isStateActivelyGenerating(state)) {
                     setIsGenerating(false);
@@ -999,9 +910,6 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
                 updateStage('code', { status: 'active' });
                 setTotalFiles(message.totalFiles);
                 setIsGenerating(true);
-                if (message.workflowKind && message.workflowKind !== 'create_project') {
-                    setMessages(prev => appendBackgroundUpdateMessage(prev));
-                }
                 if (deps.urlChatId) {
                     appEvents.emitAppUpdated(deps.urlChatId, { status: 'generating' });
                 }
@@ -1016,7 +924,6 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
                 
                 setIsThinking(false);
                 setIsGenerating(false);
-                setMessages(prev => removeActiveBackgroundUpdateMessage(prev));
                 if (message.previewURL) {
                     setPreviewUrl(message.previewURL);
                     setIsPreviewPaused(false);
@@ -1070,18 +977,7 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
             }
 
             case 'code_reviewed': {
-                const reviewData = message.review;
-                const totalIssues = reviewData?.filesToFix?.reduce((count: number, file: { issues: unknown[] }) =>
-                    count + file.issues.length, 0) || 0;
-
-                let reviewMessage = 'Code review complete';
-                if (reviewData?.issuesFound) {
-                    reviewMessage = `Code review complete - ${totalIssues} issue${totalIssues !== 1 ? 's' : ''} found across ${reviewData.filesToFix?.length || 0} file${reviewData.filesToFix?.length !== 1 ? 's' : ''}`;
-                } else {
-                    reviewMessage = 'Code review complete - no issues found';
-                }
-
-                sendMessage(createAIMessage('code_reviewed', reviewMessage));
+                logger.debug('Code review complete', message.review);
                 break;
             }
 
@@ -1108,9 +1004,6 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
                 // Update issue counts
                 deps.setStaticIssueCount(lintIssues + typecheckIssues);
                 deps.setRuntimeErrorCount(runtimeErrors);
-
-                // Show review start message
-                sendMessage(createAIMessage('review_start', 'App generation complete, now reviewing code indepth'));
 
                 if (totalIssues > 0) {
                     const errorDetails = [
@@ -1212,7 +1105,6 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
                 setIsPreviewDeploying(false);
                 
                 setIsThinking(false);
-                setMessages(prev => finishBackgroundUpdateMessage(prev, 'Update paused.'));
                 
                 // Show toast notification for user-initiated stop
                 toast.info('Task stopped', {
@@ -1222,15 +1114,12 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
                 if (deps.urlChatId) {
                     appEvents.emitAppUpdated(deps.urlChatId, { status: 'completed' });
                 }
-                
-                sendMessage(createAIMessage('generation_stopped', message.message));
                 break;
             }
 
             case 'generation_resumed': {
                 setIsGenerating(true);
                 setIsGenerationPaused(false);
-                sendMessage(createAIMessage('generation_resumed', message.message));
                 break;
             }
 
@@ -1354,9 +1243,7 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
                 }
 
                 setMessages(prev => {
-                    const withoutActiveStatus = !message.isStreaming && !message.tool
-                        ? removeActiveBackgroundUpdateMessage(prev)
-                        : prev;
+                    const withoutActiveStatus = prev;
                     const idx = withoutActiveStatus.findIndex(m => m.role === 'assistant' && m.conversationId === conversationId);
                     if (idx !== -1) {
                         return withoutActiveStatus.map((m, i) => i === idx
@@ -1381,19 +1268,15 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
 	                setIsConversationProcessing(isProcessing);
 	                setIsThinking(isProcessing);
 	                if (isProcessing) {
-	                    setIsGenerating(true);
-	                    setIsGenerationPaused(false);
-	                    updateStage('bootstrap', { status: 'completed' });
+                    setIsGenerating(true);
+                    setIsGenerationPaused(false);
+                    updateStage('bootstrap', { status: 'completed' });
                     updateStage('blueprint', { status: 'active' });
                     updateStage('code', { status: 'pending' });
-                    setMessages(prev => appendBackgroundUpdateMessage(prev));
                 } else {
                     if (message.status === 'error') {
                         setIsGenerating(false);
                         updateStage('code', { status: 'error' });
-                        setMessages(prev => finishBackgroundUpdateMessage(prev, BACKGROUND_UPDATE_FAILED_MESSAGE));
-                    } else {
-                        setMessages(prev => removeActiveBackgroundUpdateMessage(prev));
                     }
                 }
                 if (deps.urlChatId) {
@@ -1496,7 +1379,7 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
                     break;
                 }
                 setMessages(prev => {
-                    const withoutActiveStatus = replaceLatestBackgroundUpdateMessage(prev, BACKGROUND_UPDATE_FAILED_MESSAGE);
+                    const withoutActiveStatus = prev;
                     if (isRetryableProjectFailureMessage(safeError)) {
                         if (withoutActiveStatus.some(item => item.action?.type === 'retry_last_failed_workflow')) {
                             return withoutActiveStatus;
@@ -1532,11 +1415,11 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
                 const rateLimitMessage = handleRateLimitError(
                     errorData.details,
                     onDebugMessage
-	                );
-	                setMessages(prev => {
-	                    return [
-	                        ...replaceLatestBackgroundUpdateMessage(prev, BACKGROUND_UPDATE_FAILED_MESSAGE),
-	                        rateLimitMessage,
+                );
+                setMessages(prev => {
+                    return [
+                        ...prev,
+                        rateLimitMessage,
                     ];
                 });
                 

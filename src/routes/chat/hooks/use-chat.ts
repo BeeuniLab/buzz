@@ -77,9 +77,7 @@ export function useChat({
 	>(null);
 	const handleWebSocketMessageRef = useRef<ReturnType<typeof createWebSocketMessageHandler> | null>(null);
 	const [chatId, setChatId] = useState<string>();
-	const [messages, setMessages] = useState<ChatMessage[]>([
-		createAIMessage('main', 'Thinking...', true),
-	]);
+	const [messages, setMessages] = useState<ChatMessage[]>([]);
 
 	const [bootstrapFiles, setBootstrapFiles] = useState<FileType[]>([]);
 	const [blueprint, setBlueprint] = useState<BlueprintType>();
@@ -177,7 +175,7 @@ export function useChat({
 		websocket?.close();
 		setWebsocket(undefined);
 		setChatId(nextRouteChatId === 'new' ? undefined : nextRouteChatId);
-		setMessages([createAIMessage('main', nextRouteChatId === 'new' ? 'Thinking...' : 'Starting from where you left off...', true)]);
+		setMessages([]);
 		setBootstrapFiles([]);
 		setBlueprint(undefined);
 		setPreviewUrl(undefined);
@@ -295,7 +293,6 @@ export function useChat({
 			behaviorType,
 			// Functions
 			updateStage,
-			sendMessage,
 			loadBootstrapFiles,
 			onDebugMessage,
 			onVaultUnlockRequired,
@@ -317,7 +314,6 @@ export function useChat({
 			urlChatId,
 			behaviorType,
 			updateStage,
-			sendMessage,
 			loadBootstrapFiles,
 			onDebugMessage,
 			onVaultUnlockRequired,
@@ -567,18 +563,11 @@ export function useChat({
 					};
 
 					let startedBlueprintStream = false;
-					const initialBehaviorType = getBehaviorTypeForProject(projectType);
-					if (initialBehaviorType === 'phasic') {
-						sendMessage(
-							createAIMessage('main', "Great, I'll turn this idea into something playable.", true),
-						);
-					}
 
 					for await (const obj of ndjsonStream(response.stream)) {
 						logger.debug('Received chunk from server:', obj);
 						if (obj.chunk) {
 							if (!startedBlueprintStream) {
-								sendMessage(createAIMessage('main', 'Shaping the experience...', true));
 								logger.info('Blueprint stream has started');
 								setIsBootstrapping(false);
 								setIsGeneratingBlueprint(true);
@@ -638,16 +627,11 @@ export function useChat({
 							setIsGeneratingBlueprint(true);
 							updateStage('blueprint', { status: 'active' });
 						}
-						sendMessage(
-							createAIMessage('workflow-started', 'The build is running durably now. You can leave this page and come back.', true),
-						);
 					}
 
 					const finalBehaviorType = getBehaviorTypeForProject(projectType);
 					if (startedBlueprintStream && finalBehaviorType === 'phasic') {
-						sendMessage(
-							createAIMessage('main', 'The concept is set. Now making it playable...', true),
-						);
+						updateStage('code', { status: 'active' });
 					}
 
 					if (!result.websocketUrl || !result.agentId) {
@@ -665,10 +649,6 @@ export function useChat({
 					connectionStatus.current = 'connecting';
 
 					setIsBootstrapping(false);
-					// Show starting message with thinking indicator
-					setMessages(() => [
-						createAIMessage('fetching-chat', 'Starting from where you left off...', true)
-					]);
 
 					// Fetch existing agent connection details
 					const response = await apiClient.connectToAgent(urlChatId);

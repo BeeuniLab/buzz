@@ -31,11 +31,9 @@ export function isConversationalMessage(messageId: string): boolean {
         'main',
         'creating-blueprint',
         'conversation_response',
-        'fetching-chat',
         'chat-not-found',
         'chat-welcome',
         'deployment-status',
-        'code_reviewed',
         'generation-complete',
         'core_app_complete',
     ];
