@@ -999,8 +999,11 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
         return this.getWebSockets().length > 0;
     }
 
-    private async scheduleOfflinePreviewRelease(reason: string): Promise<void> {
-        if (this.hasLivePreviewClients() || !this.state.sandboxInstanceId) {
+    private async scheduleOfflinePreviewRelease(
+        reason: string,
+        options: { allowLiveClients?: boolean } = {},
+    ): Promise<void> {
+        if ((!options.allowLiveClients && this.hasLivePreviewClients()) || !this.state.sandboxInstanceId) {
             return;
         }
 
@@ -1046,6 +1049,16 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
         }
 
         await this.releasePreviewSandbox(payload.reason);
+    }
+
+    async schedulePreviewReleaseAfterClientDisconnect(): Promise<void> {
+        if (this.state.activeWorkflow || this.state.shouldBeGenerating || !this.state.sandboxInstanceId) {
+            return;
+        }
+
+        await this.scheduleOfflinePreviewRelease('preview_client_disconnected_offline', {
+            allowLiveClients: true,
+        });
     }
 
     private async releaseEvictedPreviewSandboxes(candidates: ActiveTaskLease[], releasesNeeded: number): Promise<void> {

@@ -231,6 +231,12 @@ export function handleWebSocketClose(agent: CodeGeneratorAgent, connection: Conn
     logger.info(`WebSocket connection closed: ${connection.id}`);
     // Clear vault session on disconnect for security
     agent.handleVaultLocked();
+    agent.schedulePreviewReleaseAfterClientDisconnect().catch((error: unknown) => {
+        logger.warn('Failed to schedule preview release after websocket close', {
+            connectionId: connection.id,
+            error: error instanceof Error ? error.message : String(error),
+        });
+    });
 }
 
 export function broadcastToConnections<T extends WebSocketMessageType>(
