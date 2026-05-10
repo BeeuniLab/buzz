@@ -1129,6 +1129,20 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
         return uploadedImages;
     }
 
+    private async normalizeWorkflowAttachments(
+        images?: Array<ImageAttachment | ProcessedImageAttachment>,
+    ): Promise<ProcessedImageAttachment[] | undefined> {
+        if (!images || images.length === 0) return undefined;
+        if (images.every(isProcessedWorkflowAttachment)) {
+            return images.map(stripBase64FromProcessedAttachment);
+        }
+        return this.uploadWorkflowUserInputAssets(images as ImageAttachment[]);
+    }
+
+    private hasCompletedPlayable(): boolean {
+        return Boolean(this.state.mvpGenerated && Object.keys(this.state.generatedFilesMap ?? {}).length > 0);
+    }
+
     private async updateAppStatus(status: 'generating' | 'completed', reason: string): Promise<void> {
         try {
             if (this.isDeleted()) {
@@ -1728,6 +1742,10 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
             return null;
         }
 
+        if (!this.hasCompletedPlayable()) {
+            return this.startIncompleteProjectCreateWorkflowFromUserInput(userMessage, images, options);
+        }
+
         const workflowId = this.createWorkflowId('user_input');
         await this.acquireUserTaskSlot(workflowId, 'user_input');
         const retryableWorkflow = this.normalizeRetryableWorkflowIntent({
@@ -1776,11 +1794,7 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
             if (!options.skipUserMessageRecord) {
                 this.recordWorkflowUserMessage(workflowId, userMessage);
             }
-            const workflowImages = images && images.length > 0
-                ? (images.every(isProcessedWorkflowAttachment)
-                    ? images.map(stripBase64FromProcessedAttachment)
-                    : await this.uploadWorkflowUserInputAssets(images as ImageAttachment[]))
-                : undefined;
+            const workflowImages = await this.normalizeWorkflowAttachments(images);
             if (!options.skipUserMessageRecord && workflowImages && workflowImages.length > 0) {
                 this.recordWorkflowUserMessage(workflowId, userMessage, workflowImages);
             }
@@ -1834,6 +1848,55 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
         }
         this.logger().info('User input workflow queued', { workflowId });
         return workflowId;
+    }
+
+    private async startIncompleteProjectCreateWorkflowFromUserInput(
+        userMessage: string,
+        images?: Array<ImageAttachment | ProcessedImageAttachment>,
+        options: { skipUserMessageRecord?: boolean; recoveryWorkflowId?: string } = {},
+    ): Promise<string | null> {
+        const workflowImages = await this.normalizeWorkflowAttachments(images);
+        const previousIntent = this.state.lastRetryableWorkflow;
+        const baseQuery = previousIntent?.kind === 'create_project' && previousIntent.query
+            ? previousIntent.query
+            : this.state.query;
+        const latestMessage = userMessage.trim();
+        const query = latestMessage
+            ? `${baseQuery || 'Create the playable project.'}\n\nLatest user message after stopping the initial build:\n${latestMessage}`
+            : baseQuery || 'Create the playable project from the provided attachments.';
+        const intent = this.normalizeRetryableWorkflowIntent({
+            workflowId: previousIntent?.kind === 'create_project' ? previousIntent.workflowId : undefined,
+            recoveryWorkflowId: options.recoveryWorkflowId
+                ?? (previousIntent?.kind === 'create_project'
+                    ? previousIntent.workflowId ?? previousIntent.recoveryWorkflowId
+                    : undefined),
+            kind: 'create_project',
+            query,
+            hostname: previousIntent?.hostname || this.state.hostname,
+            language: previousIntent?.language || 'typescript',
+            frameworks: previousIntent?.frameworks,
+            selectedTemplate: previousIntent?.selectedTemplate,
+            requestedProjectType: previousIntent?.requestedProjectType || this.state.projectType,
+            images: workflowImages && workflowImages.length > 0
+                ? workflowImages
+                : previousIntent?.kind === 'create_project'
+                    ? previousIntent.images
+                    : undefined,
+        });
+
+        this.logger().info('Routing user input to create_project because no playable has completed yet', {
+            hasImages: Boolean(intent.images?.length),
+            previousWorkflowId: intent.recoveryWorkflowId,
+        });
+
+        if (!options.skipUserMessageRecord) {
+            this.recordWorkflowUserMessage(undefined, userMessage, workflowImages);
+        }
+
+        return this.startCreateProjectRetryWorkflow({
+            ...intent,
+            failedAt: Date.now(),
+        });
     }
 
     private async startCreateProjectRetryWorkflow(intent: LastFailedWorkflow): Promise<string | null> {

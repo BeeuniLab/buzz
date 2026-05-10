@@ -185,7 +185,7 @@
         "CODE_GENERATION_BACKEND": "native",
         "CODEX_MODEL": "gpt-5.5",
         "CODEX_MODEL_PROVIDER": "crs",
-        "INVITE_CODE_REQUIRED": "false"
+        "INVITE_CODE_REQUIRED": "true"
     },
 	"workers_dev": false,
 	"preview_urls": false
