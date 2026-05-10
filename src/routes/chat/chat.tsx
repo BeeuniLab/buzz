@@ -278,6 +278,7 @@ export default function Chat() {
 	const editorRef = useRef<HTMLDivElement>(null);
 	const previewRef = useRef<HTMLIFrameElement>(null);
 	const messagesContainerRef = useRef<HTMLDivElement>(null);
+	const [showFloatingTitle, setShowFloatingTitle] = useState(false);
 
 	const [newMessage, setNewMessage] = useState('');
 
@@ -571,6 +572,21 @@ export default function Chat() {
 	const showResumeGeneration = isGenerationPaused && !isRunning;
 
 	useEffect(() => {
+		const container = messagesContainerRef.current;
+		if (!container) return;
+
+		const handleScroll = () => {
+			setShowFloatingTitle(container.scrollTop > 96);
+		};
+
+		handleScroll();
+		container.addEventListener('scroll', handleScroll, { passive: true });
+		return () => {
+			container.removeEventListener('scroll', handleScroll);
+		};
+	}, []);
+
+	useEffect(() => {
 		if (isServerTaskRunning && isSendLockActive) {
 			setIsSendLockActive(false);
 		}
@@ -697,24 +713,19 @@ export default function Chat() {
 						isMobile && mobilePanel !== 'chat' && 'hidden'
 					)}
 				>
-					<div 
-					className={clsx(
-						'flex-1 overflow-y-auto min-h-0 chat-messages-scroll',
-						isDebugging && 'animate-debug-pulse'
-					)} 
-					ref={messagesContainerRef}
-				>
-						<div className="pt-5 px-4 pb-4 text-sm flex flex-col gap-5">
-							{appLoading ? (
-								<div className="flex items-center gap-2 text-text-tertiary">
-									<LoaderCircle className="size-4 animate-spin" />
-									Loading app...
-								</div>
-							) : (
-								<>
-									{(appTitle || chatId) && (
-								<div className="flex items-center justify-between gap-2 mb-2">
-									<div className="min-w-0 truncate text-lg font-semibold">{appTitle}</div>
+					<AnimatePresence>
+						{!appLoading && showFloatingTitle && (appTitle || chatId) && (
+							<motion.div
+								initial={{ opacity: 0, y: -8 }}
+								animate={{ opacity: 1, y: 0 }}
+								exit={{ opacity: 0, y: -8 }}
+								transition={{ duration: 0.16 }}
+								className="pointer-events-none absolute left-4 right-4 top-3 z-30"
+							>
+								<div className="pointer-events-auto flex h-11 w-full items-center justify-between gap-3 rounded-full border border-border-primary bg-bg-3/95 px-4 shadow-neo-sm backdrop-blur-sm">
+									<div className="min-w-0 flex-1 truncate text-sm font-semibold leading-tight">
+										{appTitle}
+									</div>
 									{chatId && (previewAvailable || hasStablePlayable || playableUpdateAvailable || isDeploying) && (
 										<UpdatePlayableAction
 											isDeploying={isDeploying}
@@ -728,14 +739,48 @@ export default function Chat() {
 										/>
 									)}
 								</div>
+							</motion.div>
+						)}
+					</AnimatePresence>
+						<div
+							className={clsx(
+								'flex-1 overflow-y-auto min-h-0 chat-messages-scroll',
+								isDebugging && 'animate-debug-pulse'
 							)}
-									<UserMessage
-										message={query ?? displayQuery}
-										attachments={initialPromptAttachments}
-										onAttachmentClick={handleMessageAttachmentClick}
-									/>
-								</>
-							)}
+							ref={messagesContainerRef}
+						>
+							<div className="pt-5 px-4 pb-4 text-sm flex flex-col gap-5">
+								{appLoading ? (
+									<div className="flex items-center gap-2 text-text-tertiary">
+										<LoaderCircle className="size-4 animate-spin" />
+										Loading app...
+									</div>
+								) : (
+									<>
+										{(appTitle || chatId) && (
+											<div className="flex items-center justify-between gap-2 mb-2">
+												<div className="min-w-0 truncate text-lg font-semibold">{appTitle}</div>
+												{chatId && (previewAvailable || hasStablePlayable || playableUpdateAvailable || isDeploying) && (
+													<UpdatePlayableAction
+														isDeploying={isDeploying}
+														isTaskRunning={isServerTaskRunning || isSendLockActive}
+														hasStablePlayable={hasStablePlayable}
+														isUpdateAvailable={playableUpdateAvailable || !hasStablePlayable}
+														canUpdate={canUpdatePlayable}
+														deploymentError={deploymentError}
+														showLabelOnMobile
+														onUpdate={handleUpdatePlayable}
+													/>
+												)}
+											</div>
+										)}
+										<UserMessage
+											message={query ?? displayQuery}
+											attachments={initialPromptAttachments}
+											onAttachmentClick={handleMessageAttachmentClick}
+										/>
+									</>
+								)}
 
 							{mainMessage && (
 							<div className="relative">
