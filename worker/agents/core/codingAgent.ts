@@ -2906,22 +2906,6 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
             runningHistory = fullHistory;
         }
 
-        // Remove duplicates
-        const deduplicateMessages = (messages: ConversationMessage[]): ConversationMessage[] => {
-            const seen = new Set<string>();
-            return messages.filter(msg => {
-                const key = `${msg.conversationId}-${msg.role}-${msg.tool_call_id || ''}`;
-                if (seen.has(key)) {
-                    return false;
-                }
-                seen.add(key);
-                return true;
-            });
-        };
-
-        runningHistory = deduplicateMessages(runningHistory);
-        fullHistory = deduplicateMessages(fullHistory);
-
         this.logger().info(`Loaded conversation state ${id}, full_length: ${fullHistory.length}, compact_length: ${runningHistory.length}`, fullHistory);
         
         return {
