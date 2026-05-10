@@ -35,9 +35,13 @@ const isGenerationWorkflow = (workflow: AgentState['activeWorkflow']): boolean =
 	Boolean(workflow && GENERATION_WORKFLOW_KINDS.has(workflow.kind));
 
 const PLAYABLE_EXECUTION_WORKFLOW_MESSAGE = 'Making it playable';
+const SANDBOX_QUEUE_MESSAGE_PREFIX = 'Waiting for an available workspace.';
 
 const isPlayableExecutionWorkflow = (workflow: AgentState['activeWorkflow']): boolean =>
 	isGenerationWorkflow(workflow) && workflow?.message === PLAYABLE_EXECUTION_WORKFLOW_MESSAGE;
+
+const isSandboxQueueWorkflow = (workflow: AgentState['activeWorkflow']): boolean =>
+	typeof workflow?.message === 'string' && workflow.message.startsWith(SANDBOX_QUEUE_MESSAGE_PREFIX);
 
 const isDeployProjectWorkflow = (workflow: AgentState['activeWorkflow']): boolean =>
 	workflow?.kind === 'deploy_project';
@@ -586,7 +590,7 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
                         setBlueprint(state.blueprint);
                     } else if (shouldSkipBlueprintStage(state)) {
                         updateStage('blueprint', {
-                            status: hasCompletedPlayable(state) || isPlayableExecutionWorkflow(freshActiveWorkflowForStages)
+                            status: hasCompletedPlayable(state) || isPlayableExecutionWorkflow(freshActiveWorkflowForStages) || isSandboxQueueWorkflow(freshActiveWorkflowForStages)
                                 ? 'completed'
                                 : 'active',
                         });
@@ -702,7 +706,7 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
                     } else if (hasMeaningfulBlueprint(state) || shouldSkipBlueprintStage(state)) {
                         setIsGeneratingBlueprint(false);
                         updateStage('blueprint', {
-                            status: hasCompletedPlayable(state) || isPlayableExecutionWorkflow(freshActiveWorkflowForStages)
+                            status: hasCompletedPlayable(state) || isPlayableExecutionWorkflow(freshActiveWorkflowForStages) || isSandboxQueueWorkflow(freshActiveWorkflowForStages)
                                 ? 'completed'
                                 : 'active',
                         });
@@ -748,7 +752,10 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
                         const activeWorkflow = getFreshActiveWorkflow(state);
                         setIsGenerating(true);
                         updateStage('code', {
-                            status: isPlayableExecutionWorkflow(activeWorkflow) ? 'active' : 'pending',
+                            status: isPlayableExecutionWorkflow(activeWorkflow) || isSandboxQueueWorkflow(activeWorkflow)
+                                ? 'active'
+                                : 'pending',
+                            queuePosition: activeWorkflow?.queuePosition,
                         });
                         if (activeWorkflow?.kind === 'user_input') {
                             setIsConversationProcessing(true);
@@ -815,7 +822,7 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
                     setIsGeneratingBlueprint(false);
                     updateStage('bootstrap', { status: 'completed' });
                     updateStage('blueprint', {
-                        status: hasCompletedPlayable(state) || isPlayableExecutionWorkflow(freshActiveWorkflowForStages)
+                        status: hasCompletedPlayable(state) || isPlayableExecutionWorkflow(freshActiveWorkflowForStages) || isSandboxQueueWorkflow(freshActiveWorkflowForStages)
                             ? 'completed'
                             : 'active',
                     });
@@ -824,7 +831,10 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
                 if (shouldRestoreCodeGeneration(state) && !isGenerating) {
                     logger.debug('🔄 Active generation intent detected, updating UI to active state');
                     updateStage('code', {
-                        status: isPlayableExecutionWorkflow(freshActiveWorkflowForStages) ? 'active' : 'pending',
+                        status: isPlayableExecutionWorkflow(freshActiveWorkflowForStages) || isSandboxQueueWorkflow(freshActiveWorkflowForStages)
+                            ? 'active'
+                            : 'pending',
+                        queuePosition: freshActiveWorkflowForStages?.queuePosition,
                     });
                 } else if (!isStateActivelyGenerating(state)) {
                     const codeStage = projectStages.find((stage) => stage.id === 'code');
@@ -1540,6 +1550,19 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
 
             case 'server_log': {
                 const safeMessage = redactInternalGeneratorName(message.message);
+                if (safeMessage.startsWith(SANDBOX_QUEUE_MESSAGE_PREFIX)) {
+                    const position = typeof message.queuePosition === 'number'
+                        ? message.queuePosition
+                        : Number(safeMessage.match(/#(\d+)/)?.[1]);
+                    const validPosition = Number.isFinite(position) && position > 0 ? position : undefined;
+                    updateStage('bootstrap', { status: 'completed' });
+                    updateStage('blueprint', { status: 'completed' });
+                    updateStage('code', {
+                        status: 'active',
+                        queuePosition: validPosition,
+                    });
+                    setIsGenerating(true);
+                }
                 onDebugMessage?.(
                     message.level === 'error' ? 'error' : message.level === 'warn' ? 'warning' : 'info',
                     safeMessage,

@@ -191,6 +191,7 @@ export function PhaseTimeline({
 	const lastPhaseRef = useRef<HTMLDivElement>(null);
 	const hasStepProgress = phaseTimeline.length > 0 || total > 1;
 	const codeStage = projectStages.find(stage => stage.id === 'code');
+	const queuePosition = codeStage?.queuePosition;
 	const showFileSummary = phaseTimeline.length === 0 && files.length > 0 && codeStage?.status !== 'pending';
 	const isCreatingPlayable = codeStage?.status === 'active' || isGenerating || isThinking || isPreviewDeploying || files.some(f => f.isGenerating);
 
@@ -280,13 +281,25 @@ export function PhaseTimeline({
 										transition={commonTransitions.premiumShort}
 										className="text-xs text-text-tertiary -mt-1"
 									>
-										{taskRuntimeEstimate}
+										{stage.queuePosition ? `You're #${stage.queuePosition} in line.` : taskRuntimeEstimate}
 									</motion.div>
 								)}
 
 								{/* Detailed Phase Timeline for code stage */}
 								{stage.id === 'code' && (
 									<div className="space-y-2 max-h-[400px] overflow-y-auto pr-2 phase-timeline-scroll relative">
+										{queuePosition && phaseTimeline.length === 0 && (
+											<div className="space-y-1 relative px-1 py-1">
+												<div className="flex items-start gap-2 relative z-0 w-full text-left">
+													<div className="flex-shrink-0 mt-0.5">
+														<StatusLoader size="sm" color="blue" />
+													</div>
+													<span className="text-sm font-medium text-text-50 flex-1 break-words">
+														Waiting for an available workspace
+													</span>
+												</div>
+											</div>
+										)}
 										{phaseTimeline.map((phase, phaseIndex) => (
 											<div
 												key={phase.id}

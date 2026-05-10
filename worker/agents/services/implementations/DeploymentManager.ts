@@ -17,10 +17,20 @@ import { validateAndCleanBootstrapCommands } from 'worker/agents/utils/common';
 import { DeploymentTarget } from '../../core/types';
 import { BaseProjectState } from '../../core/state';
 import { resolvePreviewUrl } from '../../../utils/urls';
+import {
+    GlobalSandboxCapacityService,
+    type GlobalSandboxCapacityProgress,
+} from '../../../services/tasks/GlobalSandboxCapacityService';
 
 const PER_ATTEMPT_TIMEOUT_MS = 180000;  // 3 minutes per individual attempt; first installs can be slow for game templates
 const MASTER_DEPLOYMENT_TIMEOUT_MS = 300000;  // 5 minutes total
 const HEALTH_CHECK_INTERVAL_MS = 30000;
+
+function shouldReleaseSandboxCapacityForReason(reason: string): boolean {
+    return reason === 'preview limit exceeded'
+        || reason === 'app_deleted'
+        || reason === 'preview released';
+}
 
 /**
  * Manages deployment operations for sandbox instances
@@ -35,6 +45,7 @@ export class DeploymentManager extends BaseAgentService<BaseProjectState> implem
     constructor(
         options: ServiceOptions<BaseProjectState>,
         private maxCommandsHistory: number,
+        private readonly onSandboxCapacityWaiting?: (progress: GlobalSandboxCapacityProgress) => Promise<void> | void,
     ) {
         super(options);
         
@@ -71,6 +82,19 @@ export class DeploymentManager extends BaseAgentService<BaseProjectState> implem
             );
         }
         return this.cachedSandboxClient;
+    }
+
+    private async acquireGlobalSandboxCapacity(): Promise<void> {
+        const state = this.getState();
+        await GlobalSandboxCapacityService.acquire(this.env, {
+            userId: state.metadata?.userId,
+            agentId: this.getAgentId(),
+            kind: state.activeWorkflow?.kind ?? 'sandbox',
+            shouldContinue: () => !this.getState().deletedAt && !this.getState().lastUserStopAt,
+            onProgress: async (progress) => {
+                await this.onSandboxCapacityWaiting?.(progress);
+            },
+        });
     }
 
     /**
@@ -150,6 +174,9 @@ export class DeploymentManager extends BaseAgentService<BaseProjectState> implem
 
         if (!instanceId) {
             logger.info('No sandbox preview instance to release', { reason });
+            if (shouldReleaseSandboxCapacityForReason(reason)) {
+                await GlobalSandboxCapacityService.release(this.env, this.getAgentId());
+            }
             return false;
         }
 
@@ -167,6 +194,9 @@ export class DeploymentManager extends BaseAgentService<BaseProjectState> implem
         });
 
         logger.info('Released sandbox preview instance', { instanceId, reason });
+        if (shouldReleaseSandboxCapacityForReason(reason)) {
+            await GlobalSandboxCapacityService.release(this.env, this.getAgentId());
+        }
         return true;
     }
 
@@ -250,6 +280,8 @@ export class DeploymentManager extends BaseAgentService<BaseProjectState> implem
                     } catch (redeployError) {
                         logger.error('Failed to redeploy after health check failure:', redeployError);
                     }
+                } else {
+                    await GlobalSandboxCapacityService.touch(this.env, this.getAgentId());
                 }
             } catch (error) {
                 logger.error('Health check failed:', error);
@@ -362,16 +394,18 @@ export class DeploymentManager extends BaseAgentService<BaseProjectState> implem
             ).catch(() => null);  // Convert timeout to null like first caller
         }
 
-        logger.info("Deploying to sandbox", { files: files.length, redeploy, commitMessage, sessionId: this.getSessionId() });
-
         // Create deployment promise
-        this.currentDeploymentPromise = this.executeDeploymentWithRetry(
-            files,
-            redeploy,
-            commitMessage,
-            clearLogs,
-            callbacks
-        );
+        this.currentDeploymentPromise = (async () => {
+            await this.acquireGlobalSandboxCapacity();
+            logger.info("Deploying to sandbox", { files: files.length, redeploy, commitMessage, sessionId: this.getSessionId() });
+            return this.executeDeploymentWithRetry(
+                files,
+                redeploy,
+                commitMessage,
+                clearLogs,
+                callbacks
+            );
+        })();
 
         try {
             // Master timeout: 5 minutes total

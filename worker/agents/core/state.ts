@@ -25,6 +25,7 @@ export interface ActiveWorkflowTask {
     kind: 'create_project' | 'generate_all' | 'resume_generation' | 'user_input' | 'deploy_project' | 'deploy_preview';
     status: 'queued' | 'running' | 'failed';
     message?: string;
+    queuePosition?: number;
     startedAt: number;
     updatedAt: number;
 }

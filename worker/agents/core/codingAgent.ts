@@ -64,6 +64,7 @@ import {
     UserTaskConcurrencyService,
 } from '../../services/tasks/UserTaskConcurrencyService';
 import { UserActivePreviewService } from '../../services/tasks/UserActivePreviewService';
+import { GlobalSandboxCapacityService } from '../../services/tasks/GlobalSandboxCapacityService';
 import type { ActiveTaskLease } from '../../services/rate-limit/DORateLimitStore';
 import type {
     CodeGenerationWorkflowParams,
@@ -241,6 +242,7 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
                 env: this.env
             },
             10, // MAX_COMMANDS_HISTORY
+            (progress) => this.reportSandboxCapacityWaiting(progress.position),
         );
         this.codexGenerationManager = new CodexGenerationManager(
             {
@@ -628,7 +630,10 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
         });
 
         if (templateDetails.renderMode === 'browser') {
-            this.broadcast(WebSocketMessageResponses.DEPLOYMENT_STARTED, {});
+            this.broadcast(WebSocketMessageResponses.DEPLOYMENT_STARTED, {
+                message: 'Preparing preview',
+                files: [],
+            });
             const result: PreviewType = {
                 previewURL: this.getBrowserPreviewURL(),
             };
@@ -928,6 +933,41 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
         await UserActivePreviewService.release(this.env, this.getWorkflowUserId(), this.getAgentId());
     }
 
+    private async releaseGlobalSandboxCapacity(): Promise<void> {
+        await GlobalSandboxCapacityService.release(this.env, this.getAgentId());
+    }
+
+    private async reportSandboxCapacityWaiting(position: number): Promise<void> {
+        const message = `Waiting for an available workspace. You're #${position} in line.`;
+        const activeWorkflow = this.state.activeWorkflow;
+        this.logger().info('Waiting for global sandbox capacity', {
+            agentId: this.getAgentId(),
+            workflowId: activeWorkflow?.id,
+            kind: activeWorkflow?.kind,
+            position,
+        });
+
+        if (activeWorkflow?.id) {
+            await this.updateWorkflowStatus({
+                workflowId: activeWorkflow.id,
+                kind: activeWorkflow.kind,
+                status: 'running',
+                message,
+                queuePosition: position,
+            });
+            return;
+        }
+
+        this.broadcast(WebSocketMessageResponses.SERVER_LOG, {
+            message,
+            level: 'info',
+            timestamp: Date.now(),
+            source: 'workflow',
+            workflowKind: 'sandbox',
+            queuePosition: position,
+        });
+    }
+
     private async releaseEvictedPreviewSandboxes(candidates: ActiveTaskLease[], releasesNeeded: number): Promise<void> {
         const currentAgentId = this.getAgentId();
         if (releasesNeeded <= 0) return;
@@ -1021,10 +1061,14 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
         kind: ActiveWorkflowTask['kind'];
         status: ActiveWorkflowTask['status'] | 'completed';
         message?: string;
+        queuePosition?: number;
     }): Promise<void> {
         const shouldReleaseTaskSlot = args.status === 'failed' || args.status === 'completed';
         if (shouldReleaseTaskSlot) {
             await this.releaseUserTaskSlot(args.workflowId);
+            if (!this.state.sandboxInstanceId) {
+                await this.releaseGlobalSandboxCapacity();
+            }
         } else {
             await this.touchUserTaskSlot(args.workflowId);
         }
@@ -1053,6 +1097,7 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
                 kind: args.kind,
                 status: args.status,
                 message,
+                queuePosition: args.queuePosition,
                 startedAt: existing?.id === args.workflowId ? existing.startedAt : now,
                 updatedAt: now,
             },
@@ -1160,6 +1205,9 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
             lastUserStopAt: Date.now(),
         });
         await this.releaseUserTaskSlot(activeWorkflow.id);
+        if (!this.state.sandboxInstanceId) {
+            await this.releaseGlobalSandboxCapacity();
+        }
         await this.updateAppStatus('completed', reason);
         this.broadcast(WebSocketMessageResponses.SERVER_LOG, {
             message: terminated
@@ -1175,10 +1223,14 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
     }
 
     async deleteProject(reason = 'app_deleted'): Promise<{ workflowTerminated: boolean; taskStopped: boolean }> {
-        const [workflowResult, taskResult, previewResult] = await Promise.allSettled([
+        const [workflowResult, taskResult] = await Promise.allSettled([
             this.stopActiveWorkflow(reason),
             this.stopCurrentTask(),
+        ]);
+
+        const [previewResult, capacityResult] = await Promise.allSettled([
             this.releasePreviewSandbox(reason),
+            this.releaseGlobalSandboxCapacity(),
         ]);
 
         const workflowTerminated = workflowResult.status === 'fulfilled' ? workflowResult.value : false;
@@ -1220,6 +1272,12 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
             this.logger().warn('Failed to release preview sandbox during project deletion', {
                 reason,
                 error: previewResult.reason instanceof Error ? previewResult.reason.message : String(previewResult.reason),
+            });
+        }
+        if (capacityResult.status === 'rejected') {
+            this.logger().warn('Failed to release sandbox capacity during project deletion', {
+                reason,
+                error: capacityResult.reason instanceof Error ? capacityResult.reason.message : String(capacityResult.reason),
             });
         }
 
@@ -2138,6 +2196,7 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
         const released = await this.deploymentManager.shutdownPreviewInstance(reason);
         if (released || !this.state.sandboxInstanceId) {
             await this.releaseActivePreviewSlot();
+            await this.releaseGlobalSandboxCapacity();
         }
         if (released) {
             this.broadcast(WebSocketMessageResponses.PREVIEW_RELEASED, { reason });

@@ -382,6 +382,7 @@ type ServerLogMessage = {
 	timestamp: number;
 	source?: string;
 	workflowKind?: string;
+	queuePosition?: number;
 };
 
 // ========== VAULT MESSAGES ==========

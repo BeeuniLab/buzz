@@ -3,6 +3,7 @@ export interface ProjectStage {
     title: string;
     status: 'pending' | 'active' | 'completed' | 'error';
     metadata?: string;
+    queuePosition?: number;
 }
 
 const STAGE_TITLES: Record<ProjectStage['id'], string> = {
