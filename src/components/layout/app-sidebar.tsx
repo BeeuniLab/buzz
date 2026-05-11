@@ -193,7 +193,7 @@ function DiscoverSidebar({
 
 	return (
 		<>
-			<SidebarGroup>
+			<SidebarGroup className="shrink-0">
 				<SidebarGroupContent>
 					<div className={cn(isCollapsed ? 'pr-2' : 'px-1')}>
 						<TooltipProvider delayDuration={0}>
@@ -335,7 +335,7 @@ function BuildSidebar({
 	return (
 		<>
 			{/* Discover Button */}
-			<SidebarGroup>
+			<SidebarGroup className="shrink-0">
 				<SidebarGroupContent>
 					<div className={cn(isCollapsed ? 'pr-2' : 'px-1')}>
 						<TooltipProvider delayDuration={0}>
@@ -387,12 +387,11 @@ function BuildSidebar({
 			</SidebarGroup>
 
 			{!isCollapsed && (
-				<ScrollArea className="flex-1 px-1 relative overflow-visible">
-					<SidebarGroup>
-						{expandedGroups.includes('apps') && (
+				<>
+					{expandedGroups.includes('apps') && (
+						<SidebarGroup className="shrink-0">
 							<SidebarGroupContent>
-								{/* Search */}
-								<div className="relative mb-4 mt-2 pr-2 pb-1">
+								<div className="relative mt-2 pr-2 pb-1">
 									<Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-tertiary z-10" />
 									<Input
 										placeholder="Search apps..."
@@ -401,6 +400,14 @@ function BuildSidebar({
 										className="h-10 w-full pl-9 placeholder:text-text-tertiary"
 									/>
 								</div>
+							</SidebarGroupContent>
+						</SidebarGroup>
+					)}
+
+					<ScrollArea className="min-h-0 flex-1 px-1 relative">
+					<SidebarGroup>
+						{expandedGroups.includes('apps') && (
+							<SidebarGroupContent>
 								<SidebarMenu>
 									{isSearching ? (
 										<>
@@ -598,7 +605,8 @@ function BuildSidebar({
 							</SidebarGroup>
 						</>
 					)}
-				</ScrollArea>
+					</ScrollArea>
+				</>
 			)}
 		</>
 	);
@@ -690,7 +698,7 @@ export function AppSidebar() {
 					)}
 				</div>
 
-				<SidebarContent>
+				<SidebarContent className={cn(!isDiscoverContext && 'overflow-hidden')}>
 					{isDiscoverContext ? (
 						<DiscoverSidebar isCollapsed={isCollapsed} navigate={navigateAndClose} />
 					) : (

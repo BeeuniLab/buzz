@@ -67,7 +67,6 @@ function parsePendingMedia(raw: string | null): ImageAttachment[] | undefined {
 
 export default function Chat() {
 	const { chatId: urlChatId } = useParams();
-	const initialRouteWasNewRef = useRef(urlChatId === 'new' || !urlChatId);
 
 	const [searchParams] = useSearchParams();
 	const location = useLocation();
@@ -652,10 +651,10 @@ export default function Chat() {
 	);
 
 	const taskRuntimeEstimate = useMemo(() => {
-		return initialRouteWasNewRef.current
-			? 'Estimated run time: 6-20 min.'
-			: 'Estimated update time: 4-8 min.';
-	}, []);
+		return hasCompletedPlayable || isConversationProcessing
+			? 'Estimated update time: 4-8 min.'
+			: 'Estimated run time: 6-20 min.';
+	}, [hasCompletedPlayable, isConversationProcessing]);
 
 	if (import.meta.env.DEV) {
 		logger.debug({
