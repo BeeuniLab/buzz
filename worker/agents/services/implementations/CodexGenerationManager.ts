@@ -1009,6 +1009,14 @@ export class CodexGenerationManager<TState extends BaseProjectState = BaseProjec
 			title: 'LATEST_UPLOADED_MEDIA',
 			includeRules: false,
 		});
+		const postValidationContext = state.lastPostValidationFailure
+			? [
+				'Recent post validation failure:',
+				'The previous Post attempt was blocked by these detected issues. Prioritize fixing them before adding new scope. Treat line numbers as hints and verify against current code.',
+				state.lastPostValidationFailure,
+				'',
+			].join('\n')
+			: '';
 		return [
 			'You are running inside a Buzzplay project workspace.',
 			'Implement the requested project by editing files directly in this repository.',
@@ -1030,6 +1038,7 @@ export class CodexGenerationManager<TState extends BaseProjectState = BaseProjec
 			'',
 			'Latest request:',
 			request.query,
+			postValidationContext,
 			latestUploadedAssetContext ? `\n${latestUploadedAssetContext}` : '',
 		].join('\n');
 	}

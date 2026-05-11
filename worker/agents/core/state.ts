@@ -103,6 +103,7 @@ export interface BaseProjectState {
     lastPlayableDeploymentAt?: number;
     lastPlayableDeploymentId?: string;
     lastPlayableDeploymentUrl?: string;
+    lastPostValidationFailure?: string;
     
     // Common infrastructure
     fileServingToken?: FileServingToken;

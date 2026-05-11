@@ -77,6 +77,7 @@ import type {
 
 const DEFAULT_CONVERSATION_SESSION_ID = 'default';
 const LEGACY_STATE_BEHAVIOR_TYPE: BehaviorType = 'phasic';
+const POST_VALIDATION_CONTEXT_LIMIT = 6000;
 
 interface AgentBootstrapProps {
     projectType?: ProjectType;
@@ -109,6 +110,11 @@ const isRetryableWorkflowKind = (kind: ActiveWorkflowTask['kind']): kind is Retr
     || kind === 'generate_all'
     || kind === 'resume_generation'
     || kind === 'user_input';
+
+const truncatePostValidationContext = (context: string): string =>
+    context.length > POST_VALIDATION_CONTEXT_LIMIT
+        ? `${context.slice(0, POST_VALIDATION_CONTEXT_LIMIT)}\n... truncated`
+        : context;
 
 const ACTIVE_WORKFLOW_STALE_MS = 30 * 60 * 1000;
 const OFFLINE_PREVIEW_RELEASE_GRACE_SECONDS = 120;
@@ -776,6 +782,34 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
         ]);
         this.logger().info('Fetched all issues', { runtimeErrors, staticAnalysis });
         return { runtimeErrors, staticAnalysis };
+    }
+
+    private formatIssuesForPostValidationContext(issues: AllIssues): string {
+        const runtimeErrors = issues.runtimeErrors.slice(0, 8).map((error, index) => {
+            const message = error.message || error.rawOutput || 'Unknown runtime error';
+            return `${index + 1}. ${message.split('\n').slice(0, 8).join('\n')}`;
+        });
+        const formatStaticIssues = (label: string, issueList: StaticAnalysisResponse['lint']['issues']) => {
+            const relevantIssues = issueList
+                .filter((issue) => issue.severity === 'error')
+                .slice(0, 12);
+            if (relevantIssues.length === 0) return '';
+            return [
+                `${label}:`,
+                ...relevantIssues.map((issue, index) =>
+                    `${index + 1}. ${issue.filePath}:${issue.line}${issue.column ? `:${issue.column}` : ''} [${issue.severity}] ${issue.message}${issue.ruleId ? ` (${issue.ruleId})` : ''}`
+                ),
+            ].join('\n');
+        };
+
+        const sections = [
+            runtimeErrors.length > 0 ? `Runtime errors:\n${runtimeErrors.join('\n\n')}` : '',
+            formatStaticIssues('Type errors', issues.staticAnalysis.typecheck.issues),
+            formatStaticIssues('Lint errors', issues.staticAnalysis.lint.issues),
+            issues.staticAnalysis.error ? `Static analysis error:\n${issues.staticAnalysis.error}` : '',
+        ].filter(Boolean);
+
+        return truncatePostValidationContext(sections.join('\n\n'));
     }
 
     async readFiles(paths: string[]): Promise<{ files: { path: string; content: string }[] }> {
@@ -1652,6 +1686,7 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
             lastUserStopAt: undefined,
             lastFailedWorkflow: undefined,
             lastRetryableWorkflow: undefined,
+            lastPostValidationFailure: undefined,
             ...(result.madePlayableChanges ? {
                 mvpGenerated: true,
                 lastPlayableDeploymentRevision: this.state.generatedFilesRevision ?? 0,
@@ -2529,6 +2564,7 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
                 typecheckErrorCount > 0 ||
                 lintErrorCount > 0
             ) {
+                const validationContext = this.formatIssuesForPostValidationContext(issues);
                 const issueSummary = [
                     runtimeErrorCount > 0 ? `${runtimeErrorCount} runtime error${runtimeErrorCount === 1 ? '' : 's'}` : '',
                     typecheckErrorCount > 0 ? `${typecheckErrorCount} type error${typecheckErrorCount === 1 ? '' : 's'}` : '',
@@ -2546,6 +2582,11 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
                     staticAnalysisSuccess: issues.staticAnalysis.success,
                     staticAnalysisError: issues.staticAnalysis.error,
                 });
+
+                this.setState({
+                    ...this.state,
+                    lastPostValidationFailure: validationContext || error,
+                } as AgentState);
 
                 this.broadcast(WebSocketMessageResponses.CLOUDFLARE_DEPLOYMENT_ERROR, {
                     message,
@@ -2577,6 +2618,13 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
                 error: message,
             });
             return { success: false, target, error: message };
+        }
+
+        if (this.state.lastPostValidationFailure) {
+            this.setState({
+                ...this.state,
+                lastPostValidationFailure: undefined,
+            } as AgentState);
         }
 
         return this.objective.deploy(options);
