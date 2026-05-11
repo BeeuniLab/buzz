@@ -62,13 +62,13 @@ export function UpdatePlayableAction({
 			title={deploymentError || title}
 			aria-label={title}
 			className={clsx(
-				'inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full border px-2.5 text-xs font-medium transition-colors',
+				'inline-flex h-7 shrink-0 items-center gap-1 rounded-full border px-2 text-[11px] font-medium transition-colors sm:h-8 sm:gap-1.5 sm:px-2.5 sm:text-xs',
 				disabled
 					? 'cursor-not-allowed border-border-primary bg-bg-3 text-text-primary/45'
 					: 'border-border-primary bg-bg-4 text-text-primary shadow-neo-sm hover:bg-bg-1 hover:text-brand-primary',
 			)}
 		>
-			<Icon className={clsx('size-3.5', isDeploying && 'animate-spin')} />
+			<Icon className={clsx('size-3 sm:size-3.5', isDeploying && 'animate-spin')} />
 			<span className={clsx(!showLabelOnMobile && 'hidden sm:inline')}>{label}</span>
 		</button>
 	);

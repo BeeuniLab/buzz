@@ -99,6 +99,7 @@ export default function Chat() {
 	// If we have an existing app, use its data
 	const displayQuery = app ? app.originalPrompt || app.title : userQuery || '';
 	const appTitle = app?.title;
+	const chatHeaderTitle = appTitle || displayQuery || (urlChatId && urlChatId !== 'new' ? 'Untitled playable' : 'New playable');
 
 	// Manual refresh trigger for preview
 	const [manualRefreshTrigger, setManualRefreshTrigger] = useState(0);
@@ -414,6 +415,9 @@ export default function Chat() {
 	const previewAvailable = useMemo(() => {
 		return !!previewUrl || files.length > 0;
 	}, [files.length, previewUrl]);
+	const showPlayableHeaderAction = Boolean(
+		chatId && (previewAvailable || hasStablePlayable || playableUpdateAvailable || isDeploying),
+	);
 	const isProjectInteractionReady = Boolean(isInitialStateRestored && !appLoading);
 	const canUpdatePlayable = Boolean(
 		chatId &&
@@ -688,19 +692,19 @@ export default function Chat() {
 					)}
 				>
 					<AnimatePresence>
-						{!appLoading && showFloatingTitle && (appTitle || chatId) && (
+						{!appLoading && showFloatingTitle && (chatHeaderTitle || chatId) && (
 							<motion.div
 								initial={{ opacity: 0, y: -8 }}
 								animate={{ opacity: 1, y: 0 }}
 								exit={{ opacity: 0, y: -8 }}
 								transition={{ duration: 0.16 }}
-								className="pointer-events-none absolute left-4 right-4 top-3 z-30"
+								className="pointer-events-none absolute inset-x-3 top-2 z-30 sm:inset-x-4 sm:top-3"
 							>
-								<div className="pointer-events-auto flex h-11 w-full items-center justify-between gap-3 rounded-full border border-border-primary bg-bg-3/95 px-4 shadow-neo-sm backdrop-blur-sm">
+								<div className="pointer-events-auto flex h-10 w-full items-center justify-between gap-2 rounded-full border border-border-primary bg-bg-3/95 px-3 shadow-neo-sm backdrop-blur-sm sm:h-11 sm:gap-3 sm:px-4">
 									<div className="min-w-0 flex-1 truncate text-sm font-semibold leading-tight">
-										{appTitle}
+										{chatHeaderTitle}
 									</div>
-									{chatId && (previewAvailable || hasStablePlayable || playableUpdateAvailable || isDeploying) && (
+									{showPlayableHeaderAction && (
 										<UpdatePlayableAction
 											isDeploying={isDeploying}
 											isTaskRunning={isServerTaskRunning || isSendLockActive}
@@ -732,10 +736,10 @@ export default function Chat() {
 									</div>
 								) : (
 									<>
-										{(appTitle || chatId) && (
+										{(chatHeaderTitle || chatId) && (
 											<div className="flex items-center justify-between gap-2 mb-2">
-												<div className="min-w-0 truncate text-lg font-semibold">{appTitle}</div>
-												{chatId && (previewAvailable || hasStablePlayable || playableUpdateAvailable || isDeploying) && (
+												<div className="min-w-0 truncate text-lg font-semibold">{chatHeaderTitle}</div>
+												{showPlayableHeaderAction && (
 													<UpdatePlayableAction
 														isDeploying={isDeploying}
 														isTaskRunning={isServerTaskRunning || isSendLockActive}

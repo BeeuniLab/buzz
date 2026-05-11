@@ -10,6 +10,9 @@ import type { DeployOptions, ProjectType } from '../core/types';
 import type { InferenceContext } from '../inferutils/config.types';
 import type { ProcessedImageAttachment } from '../../types/image-attachment';
 import { createLogger } from '../../logger';
+import { AppService } from '../../database';
+import { generateAppTitle } from '../../utils/appTitleGenerator';
+import { WebSocketMessageResponses } from '../constants';
 
 const logger = createLogger('CodeGenerationWorkflow');
 
@@ -119,6 +122,7 @@ type WorkflowInferenceContext = Omit<InferenceContext, 'abortSignal'>;
 export type CreateProjectWorkflowParams = BaseWorkflowParams & {
 	kind: 'create_project';
 	query: string;
+	fallbackTitle?: string;
 	hostname: string;
 	inferenceContext: WorkflowInferenceContext;
 	language?: string;
@@ -248,6 +252,49 @@ export class CodeGenerationWorkflow extends WorkflowEntrypoint<Env, CodeGenerati
 				projectType: templateInfo.projectType,
 				templateName: templateInfo.templateDetails.name,
 			};
+		});
+
+		await step.do('generate app title', LONG_STEP, async () => {
+			try {
+				const title = await generateAppTitle(this.env, params.query);
+				if (!title || title === params.fallbackTitle) {
+					logger.warn('App title generation skipped after workflow attempt', {
+						agentId: params.agentId,
+						reason: !title ? 'empty_title' : 'same_as_fallback',
+						fallbackTitle: params.fallbackTitle,
+					});
+					return { updated: false, reason: !title ? 'empty_title' : 'same_as_fallback' };
+				}
+
+				const appService = new AppService(this.env);
+				const updated = await appService.updateApp(params.agentId, { title });
+				if (!updated) {
+					logger.warn('Generated app title but failed to update app', {
+						agentId: params.agentId,
+						title,
+					});
+					return { updated: false, reason: 'update_failed' };
+				}
+
+				const agent = await getAgentStub(this.env, params.agentId, {
+					projectType: selected.projectType,
+				});
+				await agent.broadcast(WebSocketMessageResponses.APP_TITLE_UPDATED, {
+					agentId: params.agentId,
+					title,
+				});
+				logger.info('Generated app title synced from workflow', {
+					agentId: params.agentId,
+					title,
+				});
+				return { updated: true, title };
+			} catch (error) {
+				logger.warn('App title generation skipped in workflow', {
+					agentId: params.agentId,
+					error: error instanceof Error ? error.message : String(error),
+				});
+				return { updated: false, reason: 'error' };
+			}
 		});
 
 		if (params.images && params.images.length > 0) {

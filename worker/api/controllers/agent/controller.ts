@@ -25,7 +25,6 @@ import {
     ProcessedImageAttachment,
     validateChatMediaAttachments,
 } from 'worker/types/image-attachment';
-import { generateAppTitle } from '../../../utils/appTitleGenerator';
 import { hasTicketParam } from '../../../middleware/auth/ticketAuth';
 import type { CodeGenerationWorkflowParams } from '../../../agents/workflows/codeGenerationWorkflow';
 import {
@@ -64,41 +63,10 @@ const stripBase64ForWorkflow = (attachment: ProcessedImageAttachment): Processed
 export class CodingAgentController extends BaseController {
     static logger = createLogger('CodingAgentController');
 
-    private static async generateAndSyncAppTitle(args: {
-        env: Env;
-        agentId: string;
-        query: string;
-        fallbackTitle: string;
-    }): Promise<void> {
-        const { env, agentId, query, fallbackTitle } = args;
-        try {
-            const title = await generateAppTitle(env, query);
-            if (!title || title === fallbackTitle) {
-                return;
-            }
-
-            const appService = new AppService(env);
-            const updated = await appService.updateApp(agentId, { title });
-            if (!updated) {
-                this.logger.warn('Generated app title but failed to update app', { agentId, title });
-                return;
-            }
-
-            const agent = await getAgentStub(env, agentId);
-            await agent.broadcast(WebSocketMessageResponses.APP_TITLE_UPDATED, { agentId, title });
-            this.logger.info('Generated app title synced', { agentId, title });
-        } catch (error) {
-            this.logger.warn('App title generation skipped', {
-                agentId,
-                error: error instanceof Error ? error.message : String(error),
-            });
-        }
-    }
-
     /**
      * Start the incremental code generation process
      */
-    static async startCodeGeneration(request: Request, env: Env, executionContext: ExecutionContext, context: RouteContext): Promise<Response> {
+    static async startCodeGeneration(request: Request, env: Env, _executionContext: ExecutionContext, context: RouteContext): Promise<Response> {
         let pendingAppForCleanup: { agentId: string; userId: string } | null = null;
         let pendingTaskSlot: { userId: string; taskId: string } | null = null;
 
@@ -270,6 +238,7 @@ export class CodingAgentController extends BaseController {
                     projectType: workflowProjectType,
                     requestedProjectType: projectType,
                     query,
+                    fallbackTitle: appTitle,
                     language: body.language || defaultCodeGenArgs.language,
                     frameworks: body.frameworks || defaultCodeGenArgs.frameworks,
                     hostname,
@@ -278,13 +247,6 @@ export class CodingAgentController extends BaseController {
                     selectedTemplate: body.selectedTemplate,
                 },
             });
-
-            executionContext.waitUntil(this.generateAndSyncAppTitle({
-                env,
-                agentId,
-                query,
-                fallbackTitle: appTitle,
-            }));
 
             const acknowledgement = {
                 message: 'Code generation queued',
