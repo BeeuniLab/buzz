@@ -603,7 +603,7 @@ function BuildSidebar({
 }
 
 export function AppSidebar() {
-	const { user, loginWithEmail, register, logout, error: authError, clearError } = useAuth();
+	const { user, isLoading: authLoading, loginWithEmail, register, logout, error: authError, clearError } = useAuth();
 	const navigate = useNavigate();
 	const [searchQuery, setSearchQuery] = React.useState('');
 	const [expandedGroups, setExpandedGroups] = React.useState<string[]>([
@@ -758,7 +758,15 @@ export function AppSidebar() {
 					</div>
 					<SidebarMenu>
 						<SidebarMenuItem>
-							{user ? (
+							{authLoading ? (
+								<SidebarMenuButton
+									tooltip="Signing in"
+									className="cursor-default text-text-tertiary"
+								>
+									<Loader2 className="h-5 w-5 animate-spin" />
+									{!isCollapsed && <span className="font-medium">Signing in</span>}
+								</SidebarMenuButton>
+							) : user ? (
 								<DropdownMenu>
 									<DropdownMenuTrigger asChild>
 										<SidebarMenuButton

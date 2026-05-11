@@ -18,6 +18,11 @@ type AuthProviderFlags = {
   email: boolean;
 };
 
+type ClerkSyncOptions = {
+  navigateOnSuccess?: boolean;
+  retryWithFreshToken?: boolean;
+};
+
 interface AuthContextType {
   user: AuthUser | null;
   token: string | null;
@@ -41,6 +46,7 @@ interface AuthContextType {
   logout: () => Promise<void>;
   deleteAccount: () => Promise<void>;
   refreshUser: () => Promise<void>;
+  syncClerkSession: (options?: ClerkSyncOptions) => Promise<boolean>;
   clearError: () => void;
   
   // Redirect URL management
@@ -97,6 +103,7 @@ function AuthProviderInner({
   
   // Ref to store the refresh timer
   const refreshTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const clerkSyncPromiseRef = useRef<Promise<boolean> | null>(null);
   const accountDeletionRef = useRef(false);
 
   // Redirect URL management
@@ -238,50 +245,78 @@ function AuthProviderInner({
     initAuth();
   }, [fetchAuthProviders, checkAuth]);
 
-  useEffect(() => {
+  const syncClerkSession = useCallback(async (options: ClerkSyncOptions = {}): Promise<boolean> => {
+    const { navigateOnSuccess = true, retryWithFreshToken = true } = options;
     if (accountDeletionRef.current || !clerkEnabled || !clerk?.isLoaded || !clerk.isSignedIn || user) {
-      return;
+      return false;
     }
 
-    let cancelled = false;
+    if (clerkSyncPromiseRef.current) {
+      return clerkSyncPromiseRef.current;
+    }
 
-    const syncClerkUser = async () => {
+    const syncPromise = (async () => {
       setError(null);
       setIsLoading(true);
 
       try {
-        const clerkToken = await clerk.getToken();
+        let clerkToken = await clerk.getToken();
         if (!clerkToken) {
           throw new Error('Missing Clerk session token');
         }
 
-        const response = await apiClient.syncClerkSession(clerkToken);
-        if (!cancelled && response.success && response.data) {
-          applySessionResponse(response.data);
+        let response;
+        try {
+          response = await apiClient.syncClerkSession(clerkToken);
+        } catch (syncError) {
+          if (!(retryWithFreshToken && syncError instanceof ApiError && syncError.status === 401)) {
+            throw syncError;
+          }
+
+          const freshToken = await clerk.getToken({ skipCache: true });
+          if (!freshToken || freshToken === clerkToken) {
+            throw syncError;
+          }
+
+          clerkToken = freshToken;
+          response = await apiClient.syncClerkSession(clerkToken);
+        }
+
+        if (!response.success || !response.data) {
+          throw new Error(response.error?.message || response.message || 'Unable to complete sign in.');
+        }
+
+        applySessionResponse(response.data);
+        if (navigateOnSuccess) {
           const intendedUrl = getIntendedUrl();
           clearIntendedUrl();
           if (intendedUrl) {
             navigate(intendedUrl);
           }
         }
+        return true;
       } catch (error) {
         console.error('Clerk sync error:', error);
-        if (!cancelled) {
-          setError(error instanceof ApiError ? error.message : 'Unable to complete sign in. Please try again.');
-        }
+        setError(error instanceof ApiError ? error.message : 'Unable to complete sign in. Please try again.');
+        return false;
       } finally {
-        if (!cancelled) {
-          setIsLoading(false);
-        }
+        setIsLoading(false);
       }
-    };
+    })();
 
-    syncClerkUser();
-
-    return () => {
-      cancelled = true;
-    };
+    clerkSyncPromiseRef.current = syncPromise;
+    try {
+      return await syncPromise;
+    } finally {
+      if (clerkSyncPromiseRef.current === syncPromise) {
+        clerkSyncPromiseRef.current = null;
+      }
+    }
   }, [applySessionResponse, clearIntendedUrl, clerk, clerkEnabled, getIntendedUrl, navigate, user]);
+
+  useEffect(() => {
+    void syncClerkSession();
+  }, [syncClerkSession]);
 
   const loginWithGoogle = useCallback((redirectUrl?: string) => {
     // Store intended redirect URL if provided, otherwise use current location
@@ -413,7 +448,10 @@ function AuthProviderInner({
   // Refresh user profile
   const refreshUser = useCallback(async () => {
     await checkAuth();
-  }, [checkAuth]);
+    if (clerkEnabled && clerk?.isLoaded && clerk.isSignedIn) {
+      await syncClerkSession({ navigateOnSuccess: false });
+    }
+  }, [checkAuth, clerk, clerkEnabled, syncClerkSession]);
 
 
   // Clear error
@@ -441,6 +479,7 @@ function AuthProviderInner({
     logout,
     deleteAccount,
     refreshUser,
+    syncClerkSession,
     clearError,
     setIntendedUrl,
     getIntendedUrl,

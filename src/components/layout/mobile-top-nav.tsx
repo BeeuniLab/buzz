@@ -6,12 +6,12 @@ import { useAuthModal } from '@/components/auth/AuthModalProvider';
 
 export function MobileTopNav() {
 	const isMobile = useIsMobile();
-	const { user } = useAuth();
+	const { user, isLoading } = useAuth();
 	const { pathname } = useLocation();
 	const { showAuthModal } = useAuthModal();
 
 	// Only show on mobile, for unauthenticated users, on discover-context pages
-	if (!isMobile || user) return null;
+	if (!isMobile || user || isLoading) return null;
 
 	const isDiscoverContext =
 		pathname === '/' ||

@@ -4,7 +4,7 @@
  */
 
 import { useEffect, useState } from 'react';
-import { useSignIn, useSignUp } from '@clerk/react';
+import { useAuth as useClerkAuth, useSignIn, useSignUp } from '@clerk/react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, AlertCircle, Check, ChevronDown, Eye, EyeOff, MessageCircle } from 'lucide-react';
 import { createPortal } from 'react-dom';
@@ -153,13 +153,17 @@ function getDefaultPhoneCountryCode(): PhoneCountryCode {
 
 function ClerkAuthPanel({
 	authRedirectUrl,
+	onLegalLinkClick,
 	onPrepareRedirect,
 	authProviders,
 }: {
 	authRedirectUrl: string;
+	onLegalLinkClick: () => void;
 	onPrepareRedirect: (url: string) => void;
 	authProviders: ClerkAuthProviderFlags | null;
 }) {
+	const clerkAuth = useClerkAuth();
+	const { error: authSyncError, syncClerkSession } = useAuth();
 	const { signIn } = useSignIn();
 	const { signUp } = useSignUp();
 	const [countryCode, setCountryCode] = useState<PhoneCountryCode>(() => getDefaultPhoneCountryCode());
@@ -179,6 +183,35 @@ function ClerkAuthPanel({
 	const phoneEnabled = authProviders?.phone !== false;
 	const enabledSsoProviders = SSO_PROVIDERS.filter((provider) => authProviders?.[provider.key] !== false);
 	const isBusy = Boolean(busy);
+
+	if (clerkAuth.isLoaded && clerkAuth.isSignedIn) {
+		return (
+			<div className="w-[min(360px,calc(100vw-2rem))] rounded-2xl bg-white px-7 pb-7 pt-8 text-center shadow-xl ring-1 ring-black/10">
+				<img src="/logo.svg" alt="" className="mx-auto mb-4 h-9 w-9 object-contain" />
+				<h2 className="text-base font-semibold text-zinc-900">
+					Finishing sign in
+				</h2>
+				{authSyncError ? (
+					<div className="mt-5 space-y-3">
+						<p className="text-xs font-medium text-zinc-500">
+							Sign in needs another try.
+						</p>
+						<button
+							type="button"
+							onClick={() => void syncClerkSession()}
+							className="h-8 rounded-md bg-zinc-800 px-4 text-xs font-semibold text-white shadow-sm transition hover:bg-zinc-900"
+						>
+							Try again
+						</button>
+					</div>
+				) : (
+					<div className="mx-auto mt-5 h-1.5 w-28 overflow-hidden rounded-full bg-zinc-100">
+						<div className="h-full w-1/2 animate-pulse rounded-full bg-zinc-300" />
+					</div>
+				)}
+			</div>
+		);
+	}
 
 	const finalizeNavigate = {
 		navigate: async ({ decorateUrl }: { decorateUrl: (url: string) => string }) => {
@@ -491,11 +524,19 @@ function ClerkAuthPanel({
 
 				<p className="mt-4 text-center text-[11px] leading-5 text-zinc-500">
 					By continuing, you agree to our{' '}
-					<Link to={TERMS_URL} className="font-medium text-zinc-700 underline underline-offset-2">
+					<Link
+						to={TERMS_URL}
+						onClick={onLegalLinkClick}
+						className="font-medium text-zinc-700 underline underline-offset-2"
+					>
 						Terms
 					</Link>{' '}
 					and{' '}
-					<Link to={PRIVACY_URL} className="font-medium text-zinc-700 underline underline-offset-2">
+					<Link
+						to={PRIVACY_URL}
+						onClick={onLegalLinkClick}
+						className="font-medium text-zinc-700 underline underline-offset-2"
+					>
 						Privacy Policy
 					</Link>
 					.
@@ -653,6 +694,7 @@ export function LoginModal({
 
 							<ClerkAuthPanel
 								authRedirectUrl={authRedirectUrl}
+								onLegalLinkClick={handleClose}
 								onPrepareRedirect={setIntendedUrl}
 								authProviders={authProviders}
 							/>
