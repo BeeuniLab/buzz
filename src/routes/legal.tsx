@@ -4,9 +4,9 @@ import { ArrowLeft } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { cn } from '@/lib/utils';
 
-type LegalTab = 'terms' | 'privacy';
+type LegalTab = 'terms' | 'privacy' | 'data-deletion';
 
-const EFFECTIVE_DATE = '13 August 2024';
+const EFFECTIVE_DATE = '11 May 2026';
 const SUPPORT_EMAIL = 'support@hekmat.cloud';
 
 const termsSections = [
@@ -163,7 +163,7 @@ const privacySections = [
 	{
 		title: 'Your Choices',
 		body: [
-			'You may update account information in the product where available. You may contact us to request access, correction, deletion, or other privacy assistance, subject to applicable law and verification requirements.',
+			'You may update account information in the product where available. You may delete your account in BuzzPlay settings, or contact us to request access, correction, deletion, or other privacy assistance, subject to applicable law and verification requirements.',
 		],
 	},
 	{
@@ -180,8 +180,31 @@ const privacySections = [
 	},
 ] as const;
 
+const dataDeletionSections = [
+	{
+		title: 'Data Deletion Instructions',
+		body: [
+			'BuzzPlay lets signed-in users delete their account from the product. Sign in to BuzzPlay, open Settings, choose Delete account, and confirm the deletion prompt.',
+			'When you delete your account, BuzzPlay deletes or anonymizes account identity information and hides your projects from public discovery. Some limited records may be retained only when needed for security, fraud prevention, legal compliance, backups, or dispute resolution.',
+		],
+	},
+	{
+		title: 'Facebook Login Data',
+		body: [
+			'If you used Facebook Login, BuzzPlay may receive your Facebook account identifier, email address, display name, avatar, and authentication status from Facebook or our authentication provider.',
+			'Deleting your BuzzPlay account removes the BuzzPlay account data associated with your Facebook login. Removing BuzzPlay from Facebook Apps and Websites prevents future access, but you should still delete your BuzzPlay account or contact us if you want BuzzPlay-held data deleted.',
+		],
+	},
+	{
+		title: 'Email Request',
+		body: [
+			`If you cannot access your account, send a data deletion request to ${SUPPORT_EMAIL}. Include the email address or login provider used for BuzzPlay so we can verify and process the request.`,
+		],
+	},
+] as const;
+
 function isLegalTab(value: string | null): value is LegalTab {
-	return value === 'terms' || value === 'privacy';
+	return value === 'terms' || value === 'privacy' || value === 'data-deletion';
 }
 
 function SectionList({
@@ -229,7 +252,9 @@ export default function LegalPage() {
 		document.title =
 			currentTab === 'terms'
 				? 'BuzzPlay Terms of Service'
-				: 'BuzzPlay Privacy Policy';
+				: currentTab === 'privacy'
+					? 'BuzzPlay Privacy Policy'
+					: 'BuzzPlay Data Deletion Instructions';
 	}, [currentTab]);
 
 	const handleTabChange = (value: string) => {
@@ -271,6 +296,9 @@ export default function LegalPage() {
 						<TabsTrigger value="privacy" className="min-w-32">
 							Privacy Policy
 						</TabsTrigger>
+						<TabsTrigger value="data-deletion" className="min-w-40">
+							Data Deletion
+						</TabsTrigger>
 					</TabsList>
 
 					<div className="rounded-xl border-3 border-[var(--neo-border-color)] bg-bg-4 p-5 shadow-neo-lg md:p-8">
@@ -285,6 +313,12 @@ export default function LegalPage() {
 							className={cn(currentTab !== 'privacy' && 'hidden')}
 						>
 							<SectionList sections={privacySections} />
+						</TabsContent>
+						<TabsContent
+							value="data-deletion"
+							className={cn(currentTab !== 'data-deletion' && 'hidden')}
+						>
+							<SectionList sections={dataDeletionSections} />
 						</TabsContent>
 					</div>
 				</Tabs>
