@@ -17,7 +17,7 @@ import { useDragDrop } from '@/hooks/use-drag-drop';
 import { AttachmentPickerDropdown } from '@/components/attachment-picker-dropdown';
 import { ImageAttachmentPreview } from '@/components/image-attachment-preview';
 import { toast } from 'sonner';
-import { Shuffle } from 'lucide-react';
+import { Box, Layers2, Shuffle } from 'lucide-react';
 
 const SURPRISE_PROMPTS = [
 	"A 'This is Fine' dog meme but the user can drag a fire extinguisher to save the room or a gasoline can to make it worse.",
@@ -83,6 +83,7 @@ const SURPRISE_PROMPTS = [
 ];
 
 const PENDING_MEDIA_STORAGE_PREFIX = 'buzzplay-pending-media:';
+type PlayableType = '2d' | '3d';
 
 function createPendingMediaKey(): string {
 	const randomId = globalThis.crypto?.randomUUID?.() ?? Math.random().toString(36).slice(2);
@@ -109,6 +110,7 @@ export default function Home() {
 	const textareaRef = useRef<HTMLTextAreaElement>(null);
 	const lastSurprisePromptIndex = useRef<number | null>(null);
 	const [projectMode, setProjectMode] = useState<ProjectType>('app');
+	const [playableType, setPlayableType] = useState<PlayableType>('2d');
 	const [query, setQuery] = useState('');
 	const { isLoadingCapabilities, capabilities, getEnabledFeatures } = useFeature();
 
@@ -168,6 +170,11 @@ export default function Home() {
 	const [isPlaceholderTyping, setIsPlaceholderTyping] = useState(true);
 
 	const handleCreateApp = (query: string, mode: ProjectType) => {
+		if (playableType !== '2d') {
+			toast.info('3D playable posts are coming soon.');
+			return;
+		}
+
 		if (query.length > MAX_AGENT_QUERY_LENGTH) {
 			toast.error(
 				`Prompt too large (${query.length} characters). Maximum allowed is ${MAX_AGENT_QUERY_LENGTH} characters.`,
@@ -373,95 +380,132 @@ export default function Home() {
 						</p>
 					</div>
 
-					<form
-						method="POST"
-						onSubmit={(e) => {
-							e.preventDefault();
-							const query = textareaRef.current!.value;
-							handleCreateApp(query, projectMode);
-						}}
-						className="flex z-10 flex-col w-full min-h-[140px] bg-bg-4 border-3 border-[var(--neo-border-color)] rounded-2xl shadow-[6px_6px_0px_0px_var(--neo-border-color)] p-5 transition-all duration-200 focus-within:shadow-[8px_8px_0px_0px_var(--neo-border-color)] focus-within:-translate-x-[1px] focus-within:-translate-y-[1px]"
-					>
-						<div
-							className={clsx(
-								"flex-1 flex flex-col relative",
-								isDragging && "ring-2 ring-neo-cyan ring-offset-2 rounded-lg"
-							)}
-							{...dragHandlers}
-						>
-							{isDragging && (
-								<div className="absolute inset-0 flex items-center justify-center bg-neo-cyan/20 backdrop-blur-sm rounded-lg z-30 pointer-events-none border-2 border-dashed border-[var(--neo-border-color)]">
-									<p className="text-[#1a1a1a] font-bold">Drop images, audio, or video here</p>
-								</div>
-							)}
-							<textarea
-								className="w-full resize-none ring-0 z-20 outline-0 placeholder:text-text-tertiary text-text-primary font-medium bg-transparent"
-								name="query"
-								value={query}
-								placeholder={`Create a ${currentPlaceholderText}`}
-								ref={textareaRef}
-								onChange={(e) => {
-									setQuery(e.target.value);
-									adjustTextareaHeight();
-								}}
-								onInput={adjustTextareaHeight}
-								onKeyDown={(e) => {
-									if (e.key === 'Enter' && !e.shiftKey) {
-										e.preventDefault();
-										const query = textareaRef.current!.value;
-										handleCreateApp(query, projectMode);
-									}
-								}}
-							/>
-							{images.length > 0 && (
-								<div className="mt-3">
-									<ImageAttachmentPreview
-										images={images}
-										onRemove={removeImage}
-									/>
-								</div>
-							)}
-						</div>
-						<div className="flex items-center justify-between mt-4 pt-1 gap-3">
-							<div className="flex min-w-0 flex-1 items-center gap-2">
+					<div className="group z-10 w-full transition-all duration-200 focus-within:-translate-x-[1px] focus-within:-translate-y-[1px]">
+						<div className="relative z-20 mb-[-3px] ml-3 flex">
+							<div
+								className="inline-flex items-center gap-1 rounded-t-xl border-3 border-b-0 border-[var(--neo-border-color)] bg-bg-4 px-1 py-1"
+								aria-label="Playable type"
+							>
 								<button
 									type="button"
-									onClick={handleSurprisePrompt}
-									className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border-2 border-[var(--neo-border-color)] bg-neo-cyan px-2.5 py-1.5 text-xs font-black text-[#1a1a1a] shadow-[2px_2px_0px_0px_var(--neo-border-color)] transition-all duration-150 hover:shadow-[3px_3px_0px_0px_var(--neo-border-color)] hover:-translate-x-[0.5px] hover:-translate-y-[0.5px] active:translate-x-[1px] active:translate-y-[1px] active:shadow-[1px_1px_0px_0px_var(--neo-border-color)]"
-									aria-label="Fill with a surprise prompt"
+									onClick={() => setPlayableType('2d')}
+									aria-pressed={playableType === '2d'}
+									className={clsx(
+										'inline-flex h-8 items-center gap-1 rounded-lg px-3 text-xs font-black transition-all',
+										playableType === '2d'
+											? 'bg-neo-yellow text-[#1a1a1a] shadow-[1px_1px_0px_0px_var(--neo-border-color)]'
+											: 'bg-transparent text-text-primary/60 hover:text-text-primary'
+									)}
+									title="Build a 2D playable with the current Phaser template"
 								>
-									<Shuffle className="size-3.5" />
-									<span>Surprise</span>
+									<Layers2 className="size-3.5" />
+									2D
 								</button>
-
-								{showModeSelector && (
-									<ProjectModeSelector
-										value={projectMode}
-										onChange={setProjectMode}
-										modes={modeOptions}
-										className="flex-1"
-									/>
-								)}
-							</div>
-
-							<div className="flex shrink-0 items-center gap-2">
-								<AttachmentPickerDropdown
-									onFilesSelected={(files) => {
-										void addImages(files);
-									}}
-									disabled={isProcessing}
-									triggerClassName="p-1.5 rounded-lg border-2 border-[var(--neo-border-color)] shadow-[2px_2px_0px_0px_var(--neo-border-color)] bg-bg-4 hover:bg-bg-3 text-[#1a1a1a] dark:text-text-primary dark:hover:text-white transition-all duration-150 disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-0.5"
-								/>
 								<button
-									type="submit"
-									disabled={!query.trim()}
-									className="bg-neo-orange text-[#1a1a1a] p-1.5 rounded-lg border-2 border-[var(--neo-border-color)] shadow-[3px_3px_0px_0px_var(--neo-border-color)] hover:shadow-[4px_4px_0px_0px_var(--neo-border-color)] hover:-translate-x-[0.5px] hover:-translate-y-[0.5px] active:translate-x-[1px] active:translate-y-[1px] active:shadow-[1px_1px_0px_0px_var(--neo-border-color)] *:size-5 transition-all duration-150 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:shadow-[3px_3px_0px_0px_var(--neo-border-color)] disabled:hover:translate-x-0 disabled:hover:translate-y-0"
+									type="button"
+									disabled
+									className="inline-flex h-8 cursor-not-allowed items-center gap-1 rounded-lg bg-transparent px-2.5 text-xs font-black text-text-primary/35"
+									aria-label="3D Coming soon"
+									title="3D playable posts are coming soon"
 								>
-									<ArrowRight />
+									<Box className="size-3.5" />
+									3D
+									<span className="hidden rounded-full bg-text-primary/10 px-1.5 py-0.5 text-[9px] font-black uppercase leading-none text-text-primary/45 sm:inline">
+										Coming soon
+									</span>
 								</button>
 							</div>
 						</div>
-					</form>
+						<form
+							method="POST"
+							onSubmit={(e) => {
+								e.preventDefault();
+								const query = textareaRef.current!.value;
+								handleCreateApp(query, projectMode);
+							}}
+							className="relative z-10 flex min-h-[140px] w-full flex-col rounded-2xl border-3 border-[var(--neo-border-color)] bg-bg-4 p-5 shadow-[6px_6px_0px_0px_var(--neo-border-color)] transition-shadow duration-200 group-focus-within:shadow-[8px_8px_0px_0px_var(--neo-border-color)]"
+						>
+							<div
+								className={clsx(
+									'flex-1 flex flex-col relative',
+									isDragging && 'ring-2 ring-neo-cyan ring-offset-2 rounded-lg'
+								)}
+								{...dragHandlers}
+							>
+								{isDragging && (
+									<div className="absolute inset-0 flex items-center justify-center bg-neo-cyan/20 backdrop-blur-sm rounded-lg z-30 pointer-events-none border-2 border-dashed border-[var(--neo-border-color)]">
+										<p className="text-[#1a1a1a] font-bold">Drop images, audio, or video here</p>
+									</div>
+								)}
+								<textarea
+									className="w-full resize-none ring-0 z-20 outline-0 placeholder:text-text-tertiary text-text-primary font-medium bg-transparent"
+									name="query"
+									value={query}
+									placeholder={`Create a ${currentPlaceholderText}`}
+									ref={textareaRef}
+									onChange={(e) => {
+										setQuery(e.target.value);
+										adjustTextareaHeight();
+									}}
+									onInput={adjustTextareaHeight}
+									onKeyDown={(e) => {
+										if (e.key === 'Enter' && !e.shiftKey) {
+											e.preventDefault();
+											const query = textareaRef.current!.value;
+											handleCreateApp(query, projectMode);
+										}
+									}}
+								/>
+								{images.length > 0 && (
+									<div className="mt-3">
+										<ImageAttachmentPreview
+											images={images}
+											onRemove={removeImage}
+										/>
+									</div>
+								)}
+							</div>
+							<div className="flex items-center justify-between mt-4 pt-1 gap-3">
+								<div className="flex min-w-0 flex-1 items-center gap-2">
+									<button
+										type="button"
+										onClick={handleSurprisePrompt}
+										className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border-2 border-[var(--neo-border-color)] bg-neo-cyan px-2.5 py-1.5 text-xs font-black text-[#1a1a1a] shadow-[2px_2px_0px_0px_var(--neo-border-color)] transition-all duration-150 hover:shadow-[3px_3px_0px_0px_var(--neo-border-color)] hover:-translate-x-[0.5px] hover:-translate-y-[0.5px] active:translate-x-[1px] active:translate-y-[1px] active:shadow-[1px_1px_0px_0px_var(--neo-border-color)]"
+										aria-label="Fill with a surprise prompt"
+									>
+										<Shuffle className="size-3.5" />
+										<span>Surprise</span>
+									</button>
+
+									{showModeSelector && (
+										<ProjectModeSelector
+											value={projectMode}
+											onChange={setProjectMode}
+											modes={modeOptions}
+											className="flex-1"
+										/>
+									)}
+								</div>
+
+								<div className="flex shrink-0 items-center gap-2">
+									<AttachmentPickerDropdown
+										onFilesSelected={(files) => {
+											void addImages(files);
+										}}
+										disabled={isProcessing}
+										triggerClassName="p-1.5 rounded-lg border-2 border-[var(--neo-border-color)] shadow-[2px_2px_0px_0px_var(--neo-border-color)] bg-bg-4 hover:bg-bg-3 text-[#1a1a1a] dark:text-text-primary dark:hover:text-white transition-all duration-150 disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-0.5"
+									/>
+									<button
+										type="submit"
+										disabled={!query.trim()}
+										className="bg-neo-orange text-[#1a1a1a] p-1.5 rounded-lg border-2 border-[var(--neo-border-color)] shadow-[3px_3px_0px_0px_var(--neo-border-color)] hover:shadow-[4px_4px_0px_0px_var(--neo-border-color)] hover:-translate-x-[0.5px] hover:-translate-y-[0.5px] active:translate-x-[1px] active:translate-y-[1px] active:shadow-[1px_1px_0px_0px_var(--neo-border-color)] *:size-5 transition-all duration-150 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:shadow-[3px_3px_0px_0px_var(--neo-border-color)] disabled:hover:translate-x-0 disabled:hover:translate-y-0"
+									>
+										<ArrowRight />
+									</button>
+								</div>
+							</div>
+						</form>
+					</div>
 				</div>
 			</div>
 
