@@ -68,6 +68,38 @@ export function isOriginAllowed(env: Env, origin: string): boolean {
     return allowedOrigins.includes(origin);
 }
 
+function getUrlOrigin(value?: string): string | null {
+    const trimmed = value?.trim();
+    if (!trimmed) {
+        return null;
+    }
+
+    try {
+        return new URL(trimmed).origin;
+    } catch {
+        return null;
+    }
+}
+
+function getClerkCspOrigins(env: Env): string[] {
+    const origins = new Set([
+        "https://*.clerk.accounts.dev",
+        "https://*.clerk.com",
+    ]);
+
+    const issuerOrigin = getUrlOrigin(env.CLERK_JWT_ISSUER);
+    if (issuerOrigin) {
+        origins.add(issuerOrigin);
+    }
+
+    const jwksOrigin = getUrlOrigin(env.CLERK_JWKS_URL);
+    if (jwksOrigin) {
+        origins.add(jwksOrigin);
+    }
+
+    return [...origins];
+}
+
 /**
  * CORS Configuration
  * Strict origin validation with environment-aware settings
@@ -151,6 +183,7 @@ interface SecureHeadersConfig {
  */
 export function getSecureHeadersConfig(env: Env): SecureHeadersConfig {
     const isDevelopment = isDev(env);
+    const clerkCspOrigins = getClerkCspOrigins(env);
     
     return {
         // Content Security Policy - strict by default
@@ -160,8 +193,7 @@ export function getSecureHeadersConfig(env: Env): SecureHeadersConfig {
                 "'self'",
                 // Allow inline scripts with nonce (Hono will add nonce automatically)
                 "'strict-dynamic'",
-                "https://*.clerk.accounts.dev",
-                "https://*.clerk.com",
+                ...clerkCspOrigins,
                 "https://challenges.cloudflare.com",
                 // Development only - for hot reload
                 ...(isDevelopment ? ["'unsafe-eval'"] : [])
@@ -182,6 +214,7 @@ export function getSecureHeadersConfig(env: Env): SecureHeadersConfig {
                 "blob:",
                 "https://api.dicebear.com", // Generated user avatars
                 "https://img.clerk.com", // Clerk-managed user images
+                ...clerkCspOrigins,
                 "https://lh3.googleusercontent.com", // Google avatars
                 "https://*.cloudflare.com" // Cloudflare assets
             ],
@@ -194,13 +227,11 @@ export function getSecureHeadersConfig(env: Env): SecureHeadersConfig {
                 // API endpoints
                 "https://api.cloudflare.com",
                 "https://api.clerk.com",
-                "https://*.clerk.accounts.dev",
-                "https://*.clerk.com",
+                ...clerkCspOrigins,
                 "https://challenges.cloudflare.com"
             ],
             frameSrc: [
-                "https://*.clerk.accounts.dev",
-                "https://*.clerk.com",
+                ...clerkCspOrigins,
                 "https://challenges.cloudflare.com"
             ],
             objectSrc: ["'none'"],
