@@ -78,6 +78,8 @@ interface ClerkUserProfile {
     emailVerified: boolean;
     identifier: string;
     hasEmailAddress: boolean;
+    hasPhoneNumber: boolean;
+    isPhoneOnly: boolean;
 }
 
 const CLERK_PHONE_EMAIL_DOMAIN = 'clerk-phone.buzzplay.internal';
@@ -112,6 +114,15 @@ function getClerkFallbackEmail(clerkUserId: string): string {
         .replace(/[^a-z0-9.!#$%&'*+/=?^_`{|}~-]/g, '-');
 
     return `${safeId}@${CLERK_PHONE_EMAIL_DOMAIN}`;
+}
+
+function getDefaultBuzzUsername(userId: string): string {
+    return `buzz_${userId.replace(/-/g, '').toLowerCase().slice(0, 10)}`;
+}
+
+function isPhoneNumberLike(value?: string | null): boolean {
+    const normalized = value?.trim() || '';
+    return /^\+[1-9]\d{6,14}$/.test(normalized);
 }
 
 function getCachedClerkJwks(jwksUrl: string) {
@@ -602,9 +613,8 @@ export class AuthService extends BaseService {
         const displayName =
             nameParts.join(' ') ||
             clerkUser.username?.trim() ||
-            phoneNumber ||
             realEmail.split('@')[0] ||
-            'BuzzPlay user';
+            'Buzz user';
 
         return {
             clerkUserId,
@@ -615,6 +625,8 @@ export class AuthService extends BaseService {
                 primaryPhone?.verification?.status === 'verified',
             identifier: realEmail || phoneNumber || clerkUserId,
             hasEmailAddress: !!realEmail,
+            hasPhoneNumber: !!phoneNumber,
+            isPhoneOnly: !realEmail && !!phoneNumber,
         };
     }
 
@@ -673,11 +685,13 @@ export class AuthService extends BaseService {
         if (!user) {
             const userId = generateId();
             const now = new Date();
+            const username = profile.isPhoneOnly ? getDefaultBuzzUsername(userId) : undefined;
 
             await this.database.insert(schema.users).values({
                 id: userId,
                 email: profile.email,
                 displayName: profile.displayName,
+                username,
                 avatarUrl: getDiceBearAvatarUrl(`${userId}:${profile.email}`),
                 emailVerified: profile.emailVerified,
                 provider: 'clerk',
@@ -717,12 +731,21 @@ export class AuthService extends BaseService {
             const avatarUrl = shouldAssignDiceBearAvatar(user.avatarUrl)
                 ? getDiceBearAvatarUrl(`${user.id}:${nextEmail}`)
                 : user.avatarUrl;
+            const shouldUseDefaultBuzzIdentity =
+                profile.isPhoneOnly && (!user.username || isPhoneNumberLike(user.displayName));
+            const nextDisplayName = shouldUseDefaultBuzzIdentity
+                ? 'Buzz user'
+                : profile.displayName || user.displayName;
+            const nextUsername = shouldUseDefaultBuzzIdentity && !user.username
+                ? getDefaultBuzzUsername(user.id)
+                : user.username;
 
             await this.database
                 .update(schema.users)
                 .set({
                     email: nextEmail,
-                    displayName: profile.displayName || user.displayName,
+                    displayName: nextDisplayName,
+                    username: nextUsername,
                     avatarUrl,
                     provider: 'clerk',
                     providerId: profile.clerkUserId,
