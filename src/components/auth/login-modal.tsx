@@ -6,8 +6,9 @@
 import { useEffect, useState } from 'react';
 import { useSignIn, useSignUp } from '@clerk/react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, AlertCircle, Check, ChevronDown, Eye, EyeOff } from 'lucide-react';
+import { X, AlertCircle, Check, ChevronDown, Eye, EyeOff, MessageCircle } from 'lucide-react';
 import { createPortal } from 'react-dom';
+import { Link } from 'react-router';
 import clsx from 'clsx';
 import { useAuth } from '@/contexts/auth-context';
 // import {
@@ -18,6 +19,7 @@ import { useAuth } from '@/contexts/auth-context';
 
 const TERMS_URL = '/legal?tab=terms';
 const PRIVACY_URL = '/legal?tab=privacy';
+const DISCORD_INVITE_URL = 'https://discord.gg/bYdVPGqEsf';
 
 interface LoginModalProps {
 	isOpen: boolean;
@@ -469,6 +471,35 @@ function ClerkAuthPanel({
 						</button>
 					</form>
 				)}
+
+				<div className="mt-5 w-full">
+					<div className="flex items-center gap-3 text-[11px] font-medium text-zinc-400">
+						<div className="h-px flex-1 bg-zinc-200" />
+						<span>Trouble logging in?</span>
+						<div className="h-px flex-1 bg-zinc-200" />
+					</div>
+					<a
+						href={DISCORD_INVITE_URL}
+						target="_blank"
+						rel="noreferrer"
+						className="mx-auto mt-3 flex h-8 w-fit items-center gap-2 rounded-full bg-[#5865F2]/10 px-4 text-xs font-semibold text-[#5865F2] transition hover:bg-[#5865F2]/15"
+					>
+						<MessageCircle className="h-4 w-4" />
+						Contact us on Discord
+					</a>
+				</div>
+
+				<p className="mt-4 text-center text-[11px] leading-5 text-zinc-500">
+					By continuing, you agree to our{' '}
+					<Link to={TERMS_URL} className="font-medium text-zinc-700 underline underline-offset-2">
+						Terms
+					</Link>{' '}
+					and{' '}
+					<Link to={PRIVACY_URL} className="font-medium text-zinc-700 underline underline-offset-2">
+						Privacy Policy
+					</Link>
+					.
+				</p>
 			</div>
 		</div>
 	);
