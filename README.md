@@ -1,4 +1,4 @@
-# Buzz
+# Buzz 
 
 > AI-powered interactive creative content platform — generate games, visual stories, interactive art, and rich visual experiences through natural conversation.
 
