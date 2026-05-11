@@ -87,6 +87,8 @@ interface Board {
 	iconUrl?: string | null;
 }
 
+type SidebarNavigate = (href: string) => void;
+
 // Reusable AppMenuItem component for consistent app display
 interface AppMenuItemProps {
 	app: App;
@@ -184,7 +186,7 @@ function DiscoverSidebar({
 	navigate,
 }: {
 	isCollapsed: boolean;
-	navigate: ReturnType<typeof useNavigate>;
+	navigate: SidebarNavigate;
 }) {
 	const pathname = location.pathname;
 	const { requireAuth } = useAuthGuard();
@@ -307,7 +309,7 @@ function BuildSidebar({
 	getAppHref,
 }: {
 	isCollapsed: boolean;
-	navigate: ReturnType<typeof useNavigate>;
+	navigate: SidebarNavigate;
 	recentApps: App[];
 	moreAvailable: boolean;
 	favoriteApps: App[];
@@ -610,8 +612,14 @@ export function AppSidebar() {
 		'apps',
 		'boards',
 	]);
-	const { state } = useSidebar();
-	const isCollapsed = state === 'collapsed';
+	const { state, isMobile, setOpenMobile } = useSidebar();
+	const isCollapsed = !isMobile && state === 'collapsed';
+	const navigateAndClose = React.useCallback((href: string) => {
+		navigate(href);
+		if (isMobile) {
+			setOpenMobile(false);
+		}
+	}, [isMobile, navigate, setOpenMobile]);
 
 	// Fetch real data from API
 	const { apps: recentApps, moreAvailable } = useRecentApps();
@@ -684,11 +692,11 @@ export function AppSidebar() {
 
 				<SidebarContent>
 					{isDiscoverContext ? (
-						<DiscoverSidebar isCollapsed={isCollapsed} navigate={navigate} />
+						<DiscoverSidebar isCollapsed={isCollapsed} navigate={navigateAndClose} />
 					) : (
 						<BuildSidebar
 							isCollapsed={isCollapsed}
-							navigate={navigate}
+							navigate={navigateAndClose}
 							recentApps={recentApps}
 							moreAvailable={moreAvailable}
 							favoriteApps={favoriteApps}
@@ -788,7 +796,7 @@ export function AppSidebar() {
 										</SidebarMenuButton>
 									</DropdownMenuTrigger>
 									<DropdownMenuContent side="top" align="end">
-										<DropdownMenuItem onClick={() => navigate('/settings')} className="cursor-pointer">
+										<DropdownMenuItem onClick={() => navigateAndClose('/settings')} className="cursor-pointer">
 											<Settings className="size-5" />
 											Settings
 										</DropdownMenuItem>

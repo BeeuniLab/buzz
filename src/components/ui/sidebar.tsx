@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input"
 import { Separator } from "@/components/ui/separator"
 import {
   Sheet,
+  SheetClose,
   SheetContent,
   SheetDescription,
   SheetHeader,
@@ -24,6 +25,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
+import { XIcon } from "lucide-react"
 
 const SIDEBAR_COOKIE_NAME = "sidebar_state"
 const SIDEBAR_COOKIE_MAX_AGE = 60 * 60 * 24 * 7
@@ -187,7 +189,7 @@ function Sidebar({
           data-sidebar="sidebar"
           data-slot="sidebar"
           data-mobile="true"
-          className="bg-bg-2 text-sidebar-foreground w-(--sidebar-width) p-0 [&>button]:hidden"
+          className="bg-bg-2 text-sidebar-foreground w-(--sidebar-width) p-0"
           style={
             {
               "--sidebar-width": SIDEBAR_WIDTH_MOBILE,
@@ -199,6 +201,10 @@ function Sidebar({
             <SheetTitle>Sidebar</SheetTitle>
             <SheetDescription>Displays the mobile sidebar.</SheetDescription>
           </SheetHeader>
+          <SheetClose className="absolute right-3 top-3 z-10 rounded-lg border-2 border-[var(--neo-border-color)] bg-bg-4 p-1 text-text-primary shadow-[2px_2px_0px_0px_var(--neo-border-color)]">
+            <XIcon className="size-4" />
+            <span className="sr-only">Close sidebar</span>
+          </SheetClose>
           <div className="flex h-full w-full flex-col">{children}</div>
         </SheetContent>
       </Sheet>
