@@ -207,13 +207,13 @@ export function UserMessage({
 	const shouldRenderText = sanitizedMessage.trim() !== '' && !(attachments.length > 0 && sanitizedMessage.trim() === '(Attached media)');
 	
 	return (
-		<div className="flex gap-3">
-			<div className="align-text-top pl-1">
+		<div className="flex min-w-0 gap-3 overflow-hidden">
+			<div className="shrink-0 align-text-top pl-1">
 				<div className="size-6 flex items-center justify-center rounded-full bg-accent text-text-on-brand">
 					<span className="text-xs">U</span>
 				</div>
 			</div>
-			<div className="flex flex-col gap-2 min-w-0">
+			<div className="flex min-w-0 flex-1 flex-col gap-2">
 				<div className="font-medium text-text-50">You</div>
 				{shouldRenderText && (
 					<Markdown className="text-text-primary/80">{sanitizedMessage}</Markdown>
@@ -233,20 +233,20 @@ type ContentItem =
 
 function JsonRenderer({ data }: { data: unknown }) {
 	if (typeof data !== 'object' || data === null) {
-		return <span className="text-text-primary whitespace-pre-wrap">{String(data)}</span>;
+		return <span className="text-text-primary whitespace-pre-wrap break-words [overflow-wrap:anywhere]">{String(data)}</span>;
 	}
 
 	return (
-		<div className="flex flex-col gap-1">
+		<div className="flex min-w-0 max-w-full flex-col gap-1 overflow-hidden">
 			{Object.entries(data).map(([key, value]) => (
-				<div key={key} className="flex gap-2">
-					<span className="text-accent font-medium flex-shrink-0">{key}:</span>
+				<div key={key} className="flex min-w-0 gap-2">
+					<span className="max-w-[40%] flex-shrink-0 truncate text-accent font-medium" title={key}>{key}:</span>
 					{typeof value === 'object' && value !== null ? (
-						<div className="flex-1">
+						<div className="min-w-0 flex-1">
 							<JsonRenderer data={value} />
 						</div>
 					) : (
-						<span className="text-text-primary flex-1 whitespace-pre-wrap break-words">
+						<span className="min-w-0 flex-1 whitespace-pre-wrap break-words text-text-primary [overflow-wrap:anywhere]">
 							{String(value)}
 						</span>
 					)}
@@ -515,7 +515,7 @@ function ToolResultRenderer({ result, toolName }: { result: string; toolName: st
 		
 		return <JsonRenderer data={parsed} />;
 	} catch {
-		return <div className="whitespace-pre-wrap break-words">{result}</div>;
+		return <div className="max-w-full whitespace-pre-wrap break-words [overflow-wrap:anywhere]">{result}</div>;
 	}
 }
 
@@ -543,26 +543,26 @@ export function ToolStatusIndicator({
 	const iconClass = event.status === 'start' ? 'size-3 animate-spin' : 'size-3';
 	
 	return (
-		<div className="flex flex-col gap-2">
+		<div className="flex min-w-0 max-w-full flex-col gap-2 overflow-hidden">
 			<button
 				onClick={() => hasResult && setIsExpanded(!isExpanded)}
 				className={clsx(
-					'flex items-center gap-1.5 text-xs',
+					'flex min-w-0 items-center gap-1.5 text-xs',
 					presentation.accent ? 'text-accent font-medium' : 'text-text-tertiary',
 					hasResult && 'cursor-pointer hover:text-text-secondary transition-colors'
 				)}
 				disabled={!hasResult}
 			>
-				<StatusIcon className={iconClass} />
-				<span className="tracking-tight">{statusText}</span>
+				<StatusIcon className={clsx(iconClass, 'shrink-0')} />
+				<span className="min-w-0 truncate tracking-tight">{statusText}</span>
 				{hasResult && (
-					isExpanded ? <ChevronDown className="size-3" /> : <ChevronRight className="size-3" />
+					isExpanded ? <ChevronDown className="size-3 shrink-0" /> : <ChevronRight className="size-3 shrink-0" />
 				)}
 			</button>
 			
 			{isExpanded && hasResult && event.result && (
 				<div className={clsx(
-					'p-3 rounded-md text-xs font-mono border overflow-auto',
+					'max-w-full overflow-auto rounded-md border p-3 text-xs font-mono',
 					event.name === 'deep_debug'
 						? 'bg-surface-tertiary/30 border-accent/20 max-h-[600px]'
 						: 'bg-surface-secondary border-border max-h-96'
@@ -693,11 +693,11 @@ export function AIMessage({
 	}
 	
 	return (
-		<div className="flex gap-3">
-			<div className="align-text-top pl-1">
+		<div className="flex min-w-0 gap-3 overflow-hidden">
+			<div className="shrink-0 align-text-top pl-1">
 				<AIAvatar className="size-6" />
 			</div>
-			<div className="flex flex-col gap-2 min-w-0">
+			<div className="flex min-w-0 flex-1 flex-col gap-2">
 				<div className="font-mono font-medium text-text-50">Buzz</div>
 				
 				{/* Message content with inline tool events (from streaming) */}
@@ -744,12 +744,27 @@ interface MarkdownProps extends React.ComponentProps<'article'> {
 export function Markdown({ children, className, ...props }: MarkdownProps) {
 	return (
 		<article
-			className={clsx('prose prose-sm prose-teal', className)}
+			className={clsx('prose prose-sm prose-teal min-w-0 max-w-full overflow-hidden break-words [overflow-wrap:anywhere] [&_*]:max-w-full [&_a]:break-words [&_a]:[overflow-wrap:anywhere] [&_code]:whitespace-pre-wrap [&_table]:w-full [&_td]:break-words [&_th]:break-words', className)}
 			{...props}
 		>
 			<ReactMarkdown
 				remarkPlugins={[remarkGfm]}
 				rehypePlugins={[[rehypeExternalLinks, { target: '_blank' }]]}
+				components={{
+					pre: ({ children: preChildren, className: preClassName, ...preProps }) => (
+						<pre
+							className={clsx('max-w-full overflow-x-auto whitespace-pre', preClassName)}
+							{...preProps}
+						>
+							{preChildren}
+						</pre>
+					),
+					table: ({ children: tableChildren, ...tableProps }) => (
+						<div className="max-w-full overflow-x-auto">
+							<table {...tableProps}>{tableChildren}</table>
+						</div>
+					),
+				}}
 			>
 				{children}
 			</ReactMarkdown>

@@ -723,12 +723,12 @@ export default function Chat() {
 					</AnimatePresence>
 						<div
 							className={clsx(
-								'flex-1 overflow-y-auto min-h-0 chat-messages-scroll',
+								'flex-1 overflow-y-auto overflow-x-hidden min-h-0 chat-messages-scroll',
 								isDebugging && 'animate-debug-pulse'
 							)}
 							ref={messagesContainerRef}
 						>
-							<div className="pt-5 px-4 pb-4 text-sm flex flex-col gap-5">
+							<div className="min-w-0 max-w-full pt-5 px-4 pb-4 text-sm flex flex-col gap-5 overflow-x-hidden">
 								{appLoading ? (
 									<div className="flex items-center gap-2 text-text-tertiary">
 										<LoaderCircle className="size-4 animate-spin" />

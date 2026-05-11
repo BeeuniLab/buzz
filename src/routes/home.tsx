@@ -214,14 +214,10 @@ export default function Home() {
 		goToChat();
 	};
 
-	// Auto-resize textarea based on content
+	// Keep the composer fixed-height; long prompts scroll inside the textarea.
 	const adjustTextareaHeight = () => {
 		if (textareaRef.current) {
-			textareaRef.current.style.height = 'auto';
-			const scrollHeight = textareaRef.current.scrollHeight;
-			const maxHeight = 300; // Maximum height in pixels
-			textareaRef.current.style.height =
-				Math.min(scrollHeight, maxHeight) + 'px';
+			textareaRef.current.style.height = '';
 		}
 	};
 
@@ -367,7 +363,7 @@ export default function Home() {
 			</div>
 
 			<div className="rounded-md w-full max-w-2xl overflow-hidden">
-				<div className="px-4 md:px-6 p-8 flex flex-col items-center z-10 mt-[10vh] sm:mt-[16vh] md:mt-[24vh]">
+				<div className="px-4 md:px-6 p-8 flex flex-col items-center z-10 mt-[6vh] sm:mt-[10vh] md:mt-[14vh]">
 					{/* Neo-Brutalism Heading */}
 					<div className="w-full mb-6 flex flex-col items-center">
 						<div className="bg-neo-yellow border-3 border-[var(--neo-border-color)] rounded-2xl px-6 py-3 shadow-[6px_6px_0px_0px_var(--neo-border-color)] mb-3 inline-block">
@@ -423,11 +419,11 @@ export default function Home() {
 								const query = textareaRef.current!.value;
 								handleCreateApp(query, projectMode);
 							}}
-							className="relative z-10 flex min-h-[140px] w-full flex-col rounded-2xl border-3 border-[var(--neo-border-color)] bg-bg-4 p-5 shadow-[6px_6px_0px_0px_var(--neo-border-color)] transition-shadow duration-200 group-focus-within:shadow-[8px_8px_0px_0px_var(--neo-border-color)]"
+							className="relative z-10 flex h-[240px] w-full flex-col rounded-2xl border-3 border-[var(--neo-border-color)] bg-bg-4 p-5 shadow-[6px_6px_0px_0px_var(--neo-border-color)] transition-shadow duration-200 group-focus-within:shadow-[8px_8px_0px_0px_var(--neo-border-color)] sm:h-[260px]"
 						>
 							<div
 								className={clsx(
-									'flex-1 flex flex-col relative',
+									'flex min-h-0 flex-1 flex-col overflow-hidden relative',
 									isDragging && 'ring-2 ring-neo-cyan ring-offset-2 rounded-lg'
 								)}
 								{...dragHandlers}
@@ -438,7 +434,7 @@ export default function Home() {
 									</div>
 								)}
 								<textarea
-									className="w-full resize-none ring-0 z-20 outline-0 placeholder:text-text-tertiary text-text-primary font-medium bg-transparent"
+									className="z-20 min-h-0 w-full flex-1 resize-none overflow-y-auto bg-transparent font-medium text-text-primary outline-0 ring-0 placeholder:text-text-tertiary"
 									name="query"
 									value={query}
 									placeholder={`Create a ${currentPlaceholderText}`}
