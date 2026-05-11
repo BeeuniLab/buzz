@@ -452,6 +452,13 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
                 }
                 break;
             }
+            case 'app_cover_updated': {
+                const appId = message.agentId || deps.urlChatId;
+                if (appId && appId !== 'new') {
+                    appEvents.emitAppUpdated(appId, { screenshotUrl: message.screenshotUrl });
+                }
+                break;
+            }
             case 'agent_connected': {
                 const { state, templateDetails, previewUrl } = message;
                 if (!isInitialStateRestored) {

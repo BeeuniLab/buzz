@@ -60,6 +60,7 @@ export const WebSocketMessageResponses: Record<string, WebSocketMessageType> = {
     CONVERSATION_STATE: 'conversation_state',
     PROJECT_NAME_UPDATED: 'project_name_updated',
     APP_TITLE_UPDATED: 'app_title_updated',
+    APP_COVER_UPDATED: 'app_cover_updated',
     BLUEPRINT_UPDATED: 'blueprint_updated',
     BLUEPRINT_CHUNK: 'blueprint_chunk',
     TEMPLATE_UPDATED: 'template_updated',

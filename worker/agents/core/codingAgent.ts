@@ -59,6 +59,7 @@ import { toInitialUserAttachment } from '../../types/image-attachment';
 import { generateNanoId } from '../../utils/idGenerator';
 import { updatePackageJson } from '../utils/packageSyncer';
 import type { BaseSandboxService } from '../../services/sandbox/BaseSandboxService';
+import { generateCoverImage } from '../assistants/coverGenerator';
 import {
     UserTaskConcurrencyLimitError,
     UserTaskConcurrencyService,
@@ -119,6 +120,19 @@ const truncatePostValidationContext = (context: string): string =>
 const ACTIVE_WORKFLOW_STALE_MS = 30 * 60 * 1000;
 const OFFLINE_PREVIEW_RELEASE_GRACE_SECONDS = 120;
 const USER_UPLOADED_MEDIA_HISTORY_MARKER = '[User-uploaded media - also listed in project assets / src/asset_map]';
+
+function getCoverExtension(contentType: string): 'webp' | 'png' | 'jpg' {
+    switch (contentType.toLowerCase()) {
+        case 'image/png':
+            return 'png';
+        case 'image/jpeg':
+        case 'image/jpg':
+            return 'jpg';
+        case 'image/webp':
+        default:
+            return 'webp';
+    }
+}
 
 interface OfflinePreviewReleasePayload {
     instanceId?: string;
@@ -292,6 +306,8 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
         });
         
         await this.saveToDatabase();
+
+        this.trackBackgroundTask('cover_generation', this.generateProjectCover());
         
         return this.state;
     }
@@ -2268,6 +2284,66 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
                 this.logger().error(`Background task failed: ${label}`, error);
             })
         );
+    }
+
+    private async generateProjectCover(): Promise<void> {
+        if (this.isDeleted()) {
+            this.logger().info('Skipping cover generation for deleted project');
+            return;
+        }
+
+        if (this.state.projectType !== 'app') {
+            this.logger().info('Skipping cover generation for non-app project', {
+                projectType: this.state.projectType,
+            });
+            return;
+        }
+
+        const blueprint = this.state.blueprint as PhasicBlueprint | undefined;
+        if (!blueprint?.title) {
+            this.logger().warn('Skipping cover generation: no blueprint title');
+            return;
+        }
+
+        try {
+            this.logger().info('Generating project cover image');
+            const result = await generateCoverImage(this.env, blueprint);
+            const agentId = this.getAgentId();
+            const coverExtension = getCoverExtension(result.contentType);
+            const r2Key = `screenshots/${agentId}/latest.${coverExtension}`;
+
+            await this.env.TEMPLATES_BUCKET.put(r2Key, result.imageBytes, {
+                httpMetadata: { contentType: result.contentType },
+            });
+
+            const screenshotUrl = `/api/${r2Key}`;
+            const appService = new AppService(this.env);
+            const updated = await appService.updateApp(agentId, {
+                screenshotUrl,
+                screenshotCapturedAt: new Date(),
+            });
+
+            if (!updated) {
+                this.logger().warn('Generated project cover but failed to update app record', {
+                    agentId,
+                    screenshotUrl,
+                });
+                return;
+            }
+
+            this.broadcast(WebSocketMessageResponses.APP_COVER_UPDATED, {
+                agentId,
+                screenshotUrl,
+            });
+            this.logger().info('Project cover image generated and stored', {
+                r2Key,
+                contentType: result.contentType,
+            });
+        } catch (error) {
+            this.logger().warn('Cover generation failed; continuing without generated cover', {
+                error: error instanceof Error ? error.message : String(error),
+            });
+        }
     }
 
     handleVaultUnlocked(): void {
