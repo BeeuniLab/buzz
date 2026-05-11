@@ -1,5 +1,5 @@
 import React from 'react';
-import { Code2, Play, Loader2 } from 'lucide-react';
+import { Play, Loader2 } from 'lucide-react';
 import { apiClient } from '@/lib/api-client';
 import { toast } from 'sonner';
 import type { AppWithUserAndStats } from '@/api-types';
@@ -10,6 +10,7 @@ import { useNavigate } from 'react-router';
 // Game design resolution — iframe renders at this size, then scales to fit
 const GAME_WIDTH = 720;
 const GAME_HEIGHT = 1280;
+const DEFAULT_APP_COVER_URL = '/game_cover.png';
 
 export interface FeedItemHandle {
 	play: () => void;
@@ -176,7 +177,7 @@ export const FeedItem = React.forwardRef<FeedItemHandle, FeedItemProps>(
 			isPlaying: () => playing,
 		}));
 
-		const hasImage = app.screenshotUrl && !imgError;
+		const coverUrl = !imgError && app.screenshotUrl ? app.screenshotUrl : DEFAULT_APP_COVER_URL;
 		const warmFrameActive = Boolean(previewUrl && isActive && shouldWarmFrame && !playing);
 		const shouldRenderPreviewFrame = Boolean(previewUrl && isActive && (playing || shouldWarmFrame));
 		const creatorName = app.userName || 'Creator';
@@ -185,9 +186,6 @@ export const FeedItem = React.forwardRef<FeedItemHandle, FeedItemProps>(
 		const posterClassName = warmFrameActive
 			? 'absolute left-1/2 top-1/2 z-10 aspect-[9/16] w-[44%] max-w-[220px] -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-white/25 object-cover shadow-[0_20px_70px_rgba(0,0,0,0.55)]'
 			: 'absolute inset-0 h-full w-full object-cover';
-		const fallbackClassName = warmFrameActive
-			? 'absolute left-1/2 top-1/2 z-10 aspect-[9/16] w-[44%] max-w-[220px] -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-white/25 bg-gradient-to-br from-bg-3 to-bg-2 flex items-center justify-center shadow-[0_20px_70px_rgba(0,0,0,0.55)]'
-			: 'absolute inset-0 bg-gradient-to-br from-bg-3 to-bg-2 flex items-center justify-center';
 
 		return (
 			<div className="h-full w-full snap-start snap-always relative flex-shrink-0 bg-black">
@@ -227,19 +225,13 @@ export const FeedItem = React.forwardRef<FeedItemHandle, FeedItemProps>(
 								<div className="absolute inset-0 z-[5] bg-black/25 transition-opacity duration-500" />
 							)}
 
-							{hasImage ? (
-								<img
-									src={app.screenshotUrl!}
-									alt={app.title}
-									className={posterClassName}
-									onError={() => setImgError(true)}
-									loading="lazy"
-								/>
-							) : (
-								<div className={fallbackClassName}>
-									<Code2 className="h-16 w-16 text-text-tertiary/30" />
-								</div>
-							)}
+							<img
+								src={coverUrl}
+								alt={app.title}
+								className={posterClassName}
+								onError={() => setImgError(true)}
+								loading="lazy"
+							/>
 
 							{/* Play button overlay */}
 							<div className="absolute inset-0 z-20 flex items-center justify-center bg-black/0 transition-colors group-hover:bg-black/20">

@@ -17,9 +17,15 @@ type AppPreviewFields = AppWithUserAndStats & {
 	previewUrl?: string | null;
 };
 
+const DEFAULT_APP_COVER_URL = '/game_cover.png';
+
 function getKnownPreviewUrl(app: AppWithUserAndStats | null | undefined) {
 	const previewApp = app as AppPreviewFields | null | undefined;
 	return previewApp?.cloudflareUrl || previewApp?.previewUrl || null;
+}
+
+function getAppCoverUrl(app: AppWithUserAndStats | null | undefined) {
+	return app?.screenshotUrl || DEFAULT_APP_COVER_URL;
 }
 
 export default function FeedPage() {
@@ -355,12 +361,17 @@ export default function FeedPage() {
 			<DialogContent className="sm:max-w-xs" showCloseButton={false} aria-describedby={undefined}>
 				<DialogTitle className="sr-only">Share</DialogTitle>
 				<div className="flex flex-col gap-3">
-					{currentApp?.screenshotUrl && (
+					{currentApp && (
 						<div className="rounded-lg overflow-hidden border-2 border-[var(--neo-border-color)]">
 							<img
-								src={currentApp.screenshotUrl}
+								src={getAppCoverUrl(currentApp)}
 								alt={currentApp.title || 'App preview'}
 								className="w-full aspect-video object-cover"
+								onError={(e) => {
+									const target = e.currentTarget;
+									if (target.src.endsWith(DEFAULT_APP_COVER_URL)) return;
+									target.src = DEFAULT_APP_COVER_URL;
+								}}
 							/>
 						</div>
 					)}
