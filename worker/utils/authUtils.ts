@@ -7,6 +7,36 @@ import type { User } from '../database/schema';
 import { createLogger } from '../logger';
 
 const logger = createLogger('AuthUtils');
+const CLERK_PHONE_EMAIL_DOMAIN = 'clerk-phone.buzzplay.internal';
+
+function getDefaultBuzzDisplayName(userId: string): string {
+	return `buzz#${userId.replace(/-/g, '').toLowerCase().slice(0, 6)}`;
+}
+
+function isPhoneOnlyFallbackEmail(email: string): boolean {
+	return email.toLowerCase().endsWith(`@${CLERK_PHONE_EMAIL_DOMAIN}`);
+}
+
+function isGenericBuzzDisplayName(value?: string | null): boolean {
+	return (value?.trim().toLowerCase() || '') === 'buzz user';
+}
+
+function isPhoneNumberLike(value?: string | null): boolean {
+	const normalized = value?.trim() || '';
+	return /^\+[1-9]\d{6,14}$/.test(normalized);
+}
+
+function getMappedDisplayName(user: Partial<User> & { id: string; email: string }): string | undefined {
+	const displayName = typeof user.displayName === 'string' ? user.displayName.trim() : '';
+	if (
+		isPhoneOnlyFallbackEmail(user.email) &&
+		(isGenericBuzzDisplayName(displayName) || isPhoneNumberLike(displayName))
+	) {
+		return getDefaultBuzzDisplayName(user.id);
+	}
+
+	return displayName || undefined;
+}
 
 /**
  * Extract sessionId from cookie
@@ -269,7 +299,7 @@ export function mapUserResponse(
 	return {
 		id: dbUser.id,
 		email: dbUser.email,
-		displayName: dbUser.displayName || undefined,
+		displayName: getMappedDisplayName(dbUser),
 		username: dbUser.username || undefined,
 		avatarUrl: dbUser.avatarUrl || undefined,
 		bio: dbUser.bio || undefined,
@@ -327,4 +357,3 @@ export function validateRedirectUrl(redirectUrl: string, request: Request): stri
 		return null;
 	}
 }
-

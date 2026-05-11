@@ -120,6 +120,14 @@ function getDefaultBuzzUsername(userId: string): string {
     return `buzz_${userId.replace(/-/g, '').toLowerCase().slice(0, 10)}`;
 }
 
+function getDefaultBuzzDisplayName(userId: string): string {
+    return `buzz#${userId.replace(/-/g, '').toLowerCase().slice(0, 6)}`;
+}
+
+function isGenericBuzzDisplayName(value?: string | null): boolean {
+    return (value?.trim().toLowerCase() || '') === 'buzz user';
+}
+
 function isPhoneNumberLike(value?: string | null): boolean {
     const normalized = value?.trim() || '';
     return /^\+[1-9]\d{6,14}$/.test(normalized);
@@ -686,11 +694,15 @@ export class AuthService extends BaseService {
             const userId = generateId();
             const now = new Date();
             const username = profile.isPhoneOnly ? getDefaultBuzzUsername(userId) : undefined;
+            const displayName =
+                profile.isPhoneOnly && isGenericBuzzDisplayName(profile.displayName)
+                    ? getDefaultBuzzDisplayName(userId)
+                    : profile.displayName;
 
             await this.database.insert(schema.users).values({
                 id: userId,
                 email: profile.email,
-                displayName: profile.displayName,
+                displayName,
                 username,
                 avatarUrl: getDiceBearAvatarUrl(`${userId}:${profile.email}`),
                 emailVerified: profile.emailVerified,
@@ -732,9 +744,13 @@ export class AuthService extends BaseService {
                 ? getDiceBearAvatarUrl(`${user.id}:${nextEmail}`)
                 : user.avatarUrl;
             const shouldUseDefaultBuzzIdentity =
-                profile.isPhoneOnly && (!user.username || isPhoneNumberLike(user.displayName));
+                profile.isPhoneOnly && (
+                    !user.username ||
+                    isPhoneNumberLike(user.displayName) ||
+                    isGenericBuzzDisplayName(user.displayName)
+                );
             const nextDisplayName = shouldUseDefaultBuzzIdentity
-                ? 'Buzz user'
+                ? getDefaultBuzzDisplayName(user.id)
                 : profile.displayName || user.displayName;
             const nextUsername = shouldUseDefaultBuzzIdentity && !user.username
                 ? getDefaultBuzzUsername(user.id)
