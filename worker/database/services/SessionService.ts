@@ -15,6 +15,27 @@ import { BaseService } from './BaseService';
 
 const logger = createLogger('SessionService');
 
+function maskSessionIp(ipAddress: string | null | undefined): string {
+    if (!ipAddress || ipAddress === 'unknown' || ipAddress === 'Unknown') {
+        return 'Unknown location';
+    }
+
+    if (/^\d{1,3}(?:\.\d{1,3}){3}$/.test(ipAddress)) {
+        const parts = ipAddress.split('.');
+        return `${parts[0]}.${parts[1]}.***.***`;
+    }
+
+    if (ipAddress.includes(':')) {
+        const segments = ipAddress.split(':').filter(Boolean);
+        if (segments.length <= 2) {
+            return `${segments[0] ?? 'IPv6'}:…`;
+        }
+        return `${segments.slice(0, 2).join(':')}:…`;
+    }
+
+    return 'Masked location';
+}
+
 /**
  * Session configuration
  */
@@ -245,7 +266,7 @@ export class SessionService extends BaseService {
             return sessions.map(session => ({
                 id: session.id,
                 userAgent: session.userAgent || 'Unknown',
-                ipAddress: session.ipAddress || 'Unknown',
+                ipAddress: maskSessionIp(session.ipAddress),
                 lastActivity: session.lastActivity || new Date(),
                 createdAt: session.createdAt || new Date()
             }));

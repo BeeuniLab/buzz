@@ -27,6 +27,24 @@ import {
 import { toast } from 'sonner';
 import { apiClient } from '@/lib/api-client';
 
+function maskSessionAddress(address: string | null | undefined): string {
+	if (!address || address === 'Unknown' || address === 'unknown') {
+		return 'Unknown location';
+	}
+	if (address.includes('*') || address.includes('…') || address === 'Current location') {
+		return address;
+	}
+	if (/^\d{1,3}(?:\.\d{1,3}){3}$/.test(address)) {
+		const parts = address.split('.');
+		return `${parts[0]}.${parts[1]}.***.***`;
+	}
+	if (address.includes(':')) {
+		const segments = address.split(':').filter(Boolean);
+		return segments.length > 1 ? `${segments.slice(0, 2).join(':')}:…` : `${segments[0] ?? 'IPv6'}:…`;
+	}
+	return 'Masked location';
+}
+
 export default function SettingsPage() {
 	const { user, deleteAccount } = useAuth();
 	const accountIdentifier =
@@ -143,6 +161,9 @@ export default function SettingsPage() {
 		}
 	}, [user]);
 
+	const formatSessionDate = (value: Date | string | number) =>
+		new Date(value).toLocaleDateString();
+
 	return (
 		<div className="min-h-screen bg-bg-3 relative">
 			<main className="container mx-auto px-4 py-8 max-w-4xl">
@@ -205,25 +226,23 @@ export default function SettingsPage() {
 									activeSessions.sessions.map((session) => (
 										<div
 											key={session.id}
-											className="flex items-center justify-between"
+											className="flex min-w-0 items-center justify-between gap-3"
 										>
-											<div className="flex items-center gap-3">
-												<Smartphone className="h-5 w-5 text-text-tertiary" />
-												<div>
+											<div className="flex min-w-0 items-center gap-3">
+												<Smartphone className="h-5 w-5 shrink-0 text-text-tertiary" />
+												<div className="min-w-0">
 													<p className="font-medium text-sm">
 														{session.isCurrent
 															? 'Current Session'
 															: 'Other Session'}
 													</p>
-													<p className="text-sm text-text-tertiary">
-														{session.ipAddress} •{' '}
-														{new Date(
-															session.lastActivity,
-														).toLocaleDateString()}
+													<p className="max-w-[52vw] truncate text-sm text-text-tertiary sm:max-w-none">
+														{maskSessionAddress(session.ipAddress)} •{' '}
+														{formatSessionDate(session.lastActivity)}
 													</p>
 												</div>
 											</div>
-											<div className="flex items-center gap-2">
+											<div className="flex shrink-0 items-center gap-2">
 												{session.isCurrent ? (
 													<div className="bg-green-400 size-3 rounded-full ring-green-200 ring-2 animate-pulse"></div>
 												) : (
