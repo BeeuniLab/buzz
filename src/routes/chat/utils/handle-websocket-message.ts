@@ -281,6 +281,7 @@ export interface HandleMessageDeps {
     setIsPreviewPaused: React.Dispatch<React.SetStateAction<boolean>>;
     setTotalFiles: React.Dispatch<React.SetStateAction<number | undefined>>;
     setIsRedeployReady: React.Dispatch<React.SetStateAction<boolean>>;
+    setHasCompletedPlayable: React.Dispatch<React.SetStateAction<boolean>>;
     setIsPreviewDeploying: React.Dispatch<React.SetStateAction<boolean>>;
     setPreviewQueuePosition: React.Dispatch<React.SetStateAction<number | undefined>>;
     setIsGeneratingBlueprint: React.Dispatch<React.SetStateAction<boolean>>;
@@ -389,6 +390,7 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
             setIsPreviewPaused,
             setTotalFiles,
             setIsRedeployReady,
+            setHasCompletedPlayable,
             setIsPreviewDeploying,
             setPreviewQueuePosition,
             setIsGeneratingBlueprint,
@@ -454,6 +456,7 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
                 const { state, templateDetails, previewUrl } = message;
                 if (!isInitialStateRestored) {
                     logger.debug('📥 Performing initial state restoration');
+                    setHasCompletedPlayable(hasCompletedPlayable(state));
 
                     if (urlChatId && urlChatId !== 'new') {
                         appEvents.emitAppUpdated(urlChatId, {
@@ -638,6 +641,7 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
             case 'cf_agent_state': {
                 const { state } = message;
                 logger.debug('🔄 Agent state update received:', state);
+                setHasCompletedPlayable(hasCompletedPlayable(state));
                 
                 // Sync projectType from backend if it changed
                 if (state.projectType) {

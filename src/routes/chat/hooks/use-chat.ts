@@ -123,6 +123,7 @@ export function useChat({
 	
 	// Redeployment state - tracks when redeploy button should be enabled
 	const [isRedeployReady, setIsRedeployReady] = useState(false);
+	const [hasCompletedPlayable, setHasCompletedPlayable] = useState(false);
 	// const [lastDeploymentPhaseCount, setLastDeploymentPhaseCount] = useState(0);
 	const [isGenerationPaused, setIsGenerationPaused] = useState(false);
 	const [isGenerating, setIsGenerating] = useState(false);
@@ -200,6 +201,7 @@ export function useChat({
 		setIsDeploying(false);
 		setCloudflareDeploymentUrl('');
 		setDeploymentError(undefined);
+		setHasCompletedPlayable(false);
 		setRuntimeErrorCount(0);
 		setStaticIssueCount(0);
 		setIsDebugging(false);
@@ -261,6 +263,7 @@ export function useChat({
 			setIsPreviewPaused,
 			setTotalFiles,
 			setIsRedeployReady,
+			setHasCompletedPlayable,
 			setIsPreviewDeploying,
 			setPreviewQueuePosition,
 			setIsGeneratingBlueprint,
@@ -854,6 +857,7 @@ export function useChat({
 		cloudflareDeploymentUrl,
 		deploymentError,
 		isRedeployReady,
+		hasCompletedPlayable,
 		isGenerationPaused,
 		isGenerating,
 		isConversationProcessing,

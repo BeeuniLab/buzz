@@ -8,6 +8,7 @@ interface UpdatePlayableActionProps {
 	isUpdateAvailable: boolean;
 	canUpdate: boolean;
 	deploymentError?: string;
+	unavailableTitle?: string;
 	showLabelOnMobile?: boolean;
 	onUpdate: () => void;
 }
@@ -19,6 +20,7 @@ export function UpdatePlayableAction({
 	isUpdateAvailable,
 	canUpdate,
 	deploymentError,
+	unavailableTitle,
 	showLabelOnMobile = false,
 	onUpdate,
 }: UpdatePlayableActionProps) {
@@ -45,7 +47,7 @@ export function UpdatePlayableAction({
 		: isTaskRunning
 			? 'Please wait for the current task to finish before posting'
 			: !canUpdate
-			? 'Preview needs to be ready first'
+			? unavailableTitle || 'Preview needs to be ready first'
 			: isReady
 				? 'Playable is up to date'
 				: hasStablePlayable

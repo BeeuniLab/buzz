@@ -165,6 +165,7 @@ export default function Chat() {
 		cloudflareDeploymentUrl,
 		deploymentError,
 		isRedeployReady,
+		hasCompletedPlayable,
 		isConversationProcessing,
 		handleStopGeneration,
 		handleResumeGeneration,
@@ -417,6 +418,7 @@ export default function Chat() {
 	const canUpdatePlayable = Boolean(
 		chatId &&
 		isProjectInteractionReady &&
+		hasCompletedPlayable &&
 		previewAvailable &&
 		previewUrl &&
 		!isBootstrapping &&
@@ -429,6 +431,9 @@ export default function Chat() {
 		!isDeploying &&
 		!isSendLockActive,
 	);
+	const updatePlayableUnavailableTitle = !hasCompletedPlayable
+		? 'Create the playable before posting'
+		: undefined;
 
 	const showMainView = useMemo(() => {
 		// For agentic mode: show preview panel when files exist or preview URL exists
@@ -703,6 +708,7 @@ export default function Chat() {
 											isUpdateAvailable={playableUpdateAvailable || !hasStablePlayable}
 											canUpdate={canUpdatePlayable}
 											deploymentError={deploymentError}
+											unavailableTitle={updatePlayableUnavailableTitle}
 											showLabelOnMobile
 											onUpdate={handleUpdatePlayable}
 										/>
@@ -737,6 +743,7 @@ export default function Chat() {
 														isUpdateAvailable={playableUpdateAvailable || !hasStablePlayable}
 														canUpdate={canUpdatePlayable}
 														deploymentError={deploymentError}
+														unavailableTitle={updatePlayableUnavailableTitle}
 														showLabelOnMobile
 														onUpdate={handleUpdatePlayable}
 													/>
@@ -939,6 +946,7 @@ export default function Chat() {
 								isRedeployReady={playableUpdateAvailable}
 								canUpdatePlayable={canUpdatePlayable}
 								deploymentError={deploymentError}
+								updatePlayableUnavailableTitle={updatePlayableUnavailableTitle}
 								onUpdatePlayable={handleUpdatePlayable}
 								behaviorType={behaviorType}
 								websocket={websocket}

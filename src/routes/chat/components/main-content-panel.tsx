@@ -167,6 +167,7 @@ interface MainContentPanelProps {
 	isRedeployReady: boolean;
 	canUpdatePlayable: boolean;
 	deploymentError?: string;
+	updatePlayableUnavailableTitle?: string;
 	onUpdatePlayable?: () => void;
 
 	// Template metadata
@@ -207,6 +208,7 @@ export function MainContentPanel(props: MainContentPanelProps) {
 		isRedeployReady,
 		canUpdatePlayable,
 		deploymentError,
+		updatePlayableUnavailableTitle,
 		onUpdatePlayable,
 		behaviorType,
 		websocket,
@@ -377,6 +379,7 @@ export function MainContentPanel(props: MainContentPanelProps) {
 						isUpdateAvailable={isRedeployReady || !hasStablePlayable}
 						canUpdate={canUpdateCurrentPreview}
 						deploymentError={deploymentError}
+						unavailableTitle={updatePlayableUnavailableTitle}
 						onUpdate={onUpdatePlayable}
 					/>
 				)}

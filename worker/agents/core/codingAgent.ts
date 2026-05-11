@@ -2494,8 +2494,13 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
         }
 
         const generatedFileCount = Object.keys(this.state.generatedFilesMap ?? {}).length;
-        if (generatedFileCount === 0) {
-            const message = 'Create the playable before updating it.';
+        const hasPlayableProject = Boolean(
+            this.state.mvpGenerated ||
+            this.state.lastPlayableDeploymentId ||
+            this.state.lastPlayableDeploymentUrl
+        );
+        if (generatedFileCount === 0 || !hasPlayableProject) {
+            const message = 'Create the playable before posting it.';
             this.broadcast(WebSocketMessageResponses.CLOUDFLARE_DEPLOYMENT_ERROR, {
                 message,
                 instanceId: this.state.sandboxInstanceId ?? this.state.sessionId ?? '',
