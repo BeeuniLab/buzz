@@ -1,11 +1,13 @@
 #!/usr/bin/env bun
 /**
- * Import legacy local Google users into the configured test Clerk instance.
+ * Import legacy Google users into the configured Clerk instance.
  *
  * Usage:
  *   bun scripts/import-local-google-users-to-clerk.ts --dry-run
  *   bun scripts/import-local-google-users-to-clerk.ts --apply
  *   bun scripts/import-local-google-users-to-clerk.ts --apply --email user@example.com
+ *   bun scripts/import-local-google-users-to-clerk.ts --remote --dry-run --allow-production
+ *   bun scripts/import-local-google-users-to-clerk.ts --remote --apply --allow-production
  */
 
 import { Database } from 'bun:sqlite';
@@ -42,7 +44,7 @@ type ClerkUser = {
 	email_addresses?: ClerkEmailAddress[];
 };
 
-type ClerkListResponse = {
+type ClerkListResponse = ClerkUser[] | {
 	data?: ClerkUser[];
 };
 
@@ -58,8 +60,16 @@ type Options = {
 	apply: boolean;
 	allowProduction: boolean;
 	dbPath?: string;
+	databaseName: string;
 	email?: string;
 	limit?: number;
+	remote: boolean;
+};
+
+type D1ExecuteResult<T> = {
+	results?: T[];
+	success?: boolean;
+	error?: string;
 };
 
 function parseOptions(): Options {
@@ -67,6 +77,8 @@ function parseOptions(): Options {
 	const options: Options = {
 		apply: false,
 		allowProduction: false,
+		databaseName: 'buzz-db',
+		remote: false,
 	};
 
 	for (let i = 0; i < args.length; i++) {
@@ -78,11 +90,17 @@ function parseOptions(): Options {
 			case '--dry-run':
 				options.apply = false;
 				break;
+			case '--remote':
+				options.remote = true;
+				break;
 			case '--allow-production':
 				options.allowProduction = true;
 				break;
 			case '--db':
 				options.dbPath = args[++i];
+				break;
+			case '--database':
+				options.databaseName = args[++i] || options.databaseName;
 				break;
 			case '--email':
 				options.email = args[++i]?.toLowerCase();
@@ -93,6 +111,8 @@ function parseOptions(): Options {
 			default:
 				if (arg.startsWith('--db=')) {
 					options.dbPath = arg.slice('--db='.length);
+				} else if (arg.startsWith('--database=')) {
+					options.databaseName = arg.slice('--database='.length);
 				} else if (arg.startsWith('--email=')) {
 					options.email = arg.slice('--email='.length).toLowerCase();
 				} else if (arg.startsWith('--limit=')) {
@@ -108,6 +128,57 @@ function parseOptions(): Options {
 	}
 
 	return options;
+}
+
+function sqlString(value: string): string {
+	return `'${value.replace(/'/g, "''")}'`;
+}
+
+function stripAnsi(value: string): string {
+	return value.replace(/\x1B\[[0-?]*[ -/]*[@-~]/g, '');
+}
+
+function parseWranglerJson<T>(stdout: string): T {
+	const clean = stripAnsi(stdout).trim();
+	const jsonStart = clean.search(/[\[{]/);
+	if (jsonStart < 0) {
+		throw new Error(`Wrangler did not return JSON: ${clean.slice(0, 500)}`);
+	}
+
+	return JSON.parse(clean.slice(jsonStart)) as T;
+}
+
+function executeRemoteD1<T>(databaseName: string, command: string): T[] {
+	const result = Bun.spawnSync({
+		cmd: [
+			'npx',
+			'wrangler',
+			'd1',
+			'execute',
+			databaseName,
+			'--remote',
+			'--json',
+			'--command',
+			command,
+		],
+		cwd: ROOT_DIR,
+		stdout: 'pipe',
+		stderr: 'pipe',
+	});
+	const stdout = new TextDecoder().decode(result.stdout);
+	const stderr = new TextDecoder().decode(result.stderr);
+
+	if (result.exitCode !== 0) {
+		throw new Error(`Remote D1 command failed:\n${stderr || stdout}`);
+	}
+
+	const payload = parseWranglerJson<Array<D1ExecuteResult<T>>>(stdout);
+	const failed = payload.find((entry) => entry.success === false);
+	if (failed) {
+		throw new Error(`Remote D1 query failed: ${failed.error || JSON.stringify(failed)}`);
+	}
+
+	return payload.flatMap((entry) => entry.results || []);
 }
 
 function parseDevVars(): Record<string, string> {
@@ -217,6 +288,38 @@ function loadLocalUsers(dbPath: string, options: Options): LocalUser[] {
 	return rows;
 }
 
+function loadRemoteUsers(options: Options): LocalUser[] {
+	const where = [
+		"lower(provider) = 'google'",
+		"(deleted_at is null or deleted_at = '')",
+		"(clerk_user_id is null or clerk_user_id = '')",
+	];
+
+	if (options.email) {
+		where.push(`lower(email) = ${sqlString(options.email)}`);
+	}
+
+	const limit = options.limit ? ` limit ${Math.floor(options.limit)}` : '';
+	return executeRemoteD1<LocalUser>(
+		options.databaseName,
+		`
+			select
+				id,
+				lower(email) as email,
+				display_name,
+				avatar_url,
+				provider,
+				provider_id,
+				email_verified,
+				clerk_user_id
+			from users
+			where ${where.join(' and ')}
+			order by created_at asc
+			${limit}
+		`,
+	);
+}
+
 function splitName(displayName: string): { firstName?: string; lastName?: string } {
 	const parts = displayName.trim().split(/\s+/).filter(Boolean);
 	if (parts.length === 0) return {};
@@ -260,12 +363,26 @@ async function clerkRequest<T>(
 }
 
 async function findClerkUserByEmail(secretKey: string, email: string): Promise<ClerkUser | null> {
+	const getUsers = (response: ClerkListResponse): ClerkUser[] =>
+		Array.isArray(response) ? response : response.data || [];
 	const queryParams = new URLSearchParams();
+	queryParams.append('email_address', email);
+	queryParams.set('limit', '10');
+
+	const exact = await clerkRequest<ClerkListResponse>(secretKey, `/users?${queryParams}`);
+	const exactMatch = getUsers(exact).find((user) =>
+		user.email_addresses?.some((address) => address.email_address?.toLowerCase() === email),
+	) || null;
+	if (exactMatch) {
+		return exactMatch;
+	}
+
+	queryParams.delete('email_address');
 	queryParams.set('query', email);
 	queryParams.set('limit', '10');
 
 	const queried = await clerkRequest<ClerkListResponse>(secretKey, `/users?${queryParams}`);
-	return queried.data?.find((user) =>
+	return getUsers(queried).find((user) =>
 		user.email_addresses?.some((address) => address.email_address?.toLowerCase() === email),
 	) || null;
 }
@@ -323,6 +440,31 @@ function updateLocalClerkUserId(dbPath: string, localUserId: string, clerkUserId
 	db.close();
 }
 
+function updateRemoteClerkUserIds(options: Options, mappings: Array<{ localUserId: string; clerkUserId: string }>) {
+	if (mappings.length === 0) {
+		return;
+	}
+
+	const cases = mappings
+		.map(({ localUserId, clerkUserId }) => `when ${sqlString(localUserId)} then ${sqlString(clerkUserId)}`)
+		.join('\n');
+	const ids = mappings.map(({ localUserId }) => sqlString(localUserId)).join(', ');
+
+	executeRemoteD1(
+		options.databaseName,
+		`
+			update users
+			set
+				clerk_user_id = case id
+					${cases}
+					else clerk_user_id
+				end,
+				updated_at = cast(strftime('%s', 'now') as integer)
+			where id in (${ids})
+		`,
+	);
+}
+
 function isEmailVerified(clerkUser: ClerkUser, email: string): boolean {
 	return !!clerkUser.email_addresses?.some(
 		(address) =>
@@ -349,10 +491,10 @@ async function main() {
 		throw new Error('Refusing to import into a non-test Clerk instance. Pass --allow-production to override.');
 	}
 
-	const dbPath = options.dbPath || findLocalD1Database();
-	const users = loadLocalUsers(dbPath, options);
+	const dbPath = options.remote ? undefined : options.dbPath || findLocalD1Database();
+	const users = options.remote ? loadRemoteUsers(options) : loadLocalUsers(dbPath!, options);
 
-	console.log(`Local D1: ${dbPath}`);
+	console.log(options.remote ? `Remote D1: ${options.databaseName}` : `Local D1: ${dbPath}`);
 	console.log(`Mode: ${options.apply ? 'apply' : 'dry-run'}`);
 	console.log(`Eligible legacy Google users: ${users.length}`);
 
@@ -371,6 +513,7 @@ async function main() {
 	let linkedExisting = 0;
 	let updatedLocal = 0;
 	let warnings = 0;
+	const remoteUpdates: Array<{ localUserId: string; clerkUserId: string }> = [];
 
 	for (const user of users) {
 		process.stdout.write(`Importing ${user.email}... `);
@@ -385,15 +528,26 @@ async function main() {
 			process.stdout.write(`created ${clerkUser.id}`);
 		}
 
-		updateLocalClerkUserId(dbPath, user.id, clerkUser.id);
-		updatedLocal++;
+		if (options.remote) {
+			remoteUpdates.push({ localUserId: user.id, clerkUserId: clerkUser.id });
+		} else {
+			updateLocalClerkUserId(dbPath!, user.id, clerkUser.id);
+			updatedLocal++;
+		}
 
 		if (!isEmailVerified(clerkUser, user.email)) {
 			warnings++;
-			console.log(' (local updated, warning: Clerk email is not verified)');
+			console.log(options.remote ? ' (queued, warning: Clerk email is not verified)' : ' (local updated, warning: Clerk email is not verified)');
 		} else {
-			console.log(' (local updated)');
+			console.log(options.remote ? ' (queued)' : ' (local updated)');
 		}
+	}
+
+	if (options.remote) {
+		process.stdout.write(`Writing ${remoteUpdates.length} Clerk id(s) back to remote D1... `);
+		updateRemoteClerkUserIds(options, remoteUpdates);
+		updatedLocal = remoteUpdates.length;
+		console.log('done');
 	}
 
 	console.log('\nDone');
