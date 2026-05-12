@@ -2,7 +2,6 @@ import { AIAvatar } from '../../../components/icons/logos';
 import clsx from 'clsx';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import rehypeExternalLinks from 'rehype-external-links';
 import {
 	LoaderCircle,
 	Check,
@@ -749,8 +748,8 @@ export function Markdown({ children, className, ...props }: MarkdownProps) {
 		>
 			<ReactMarkdown
 				remarkPlugins={[remarkGfm]}
-				rehypePlugins={[[rehypeExternalLinks, { target: '_blank' }]]}
 				components={{
+					a: ({ children: linkChildren }) => <span>{linkChildren}</span>,
 					pre: ({ children: preChildren, className: preClassName, ...preProps }) => (
 						<pre
 							className={clsx('max-w-full overflow-x-auto whitespace-pre', preClassName)}
