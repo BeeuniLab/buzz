@@ -69,9 +69,12 @@
 - Treat asset_map keys such as `images/name.png` as lookup keys, not guaranteed local filesystem paths.
 - Use helpers from `src/playable-assets.ts` to find images/audio/video.
 - For image assets, load URLs in a scene `preload()` with `this.load.image("key", asset.url)`.
+- Do not load images/audio/video directly from external website URLs in gameplay code. Browser CORS can block Phaser loaders and break preview.
+- If web-sourced media is needed, download it into `public/assets/generated/` and reference it with a local URL such as `/assets/generated/court-lady.webp`.
+- User-uploaded media should stay as `src/asset_map` URLs; do not copy or replace uploaded assets unless the creator asks.
 - Do not assume a texture key exists just because a file exists in `public/assets` or `src/asset_map`. Load it before creating sprites/images, and keep a simple shape fallback for optional media.
 - Static bundled files live in `public/assets` and are referenced as `assets/name.png`.
-- Always provide a shape/color fallback when an asset is missing or fails to load.
+- When a requested uploaded asset is missing or fails to load, fall back in this order: another suitable `src/asset_map` asset, a bundled starter asset from `public/assets`, then a simple shape/color placeholder.
 - Browsers lock WebAudio until a user gesture. Do not autoplay required sounds on scene start; start or resume important audio from tap/key input, and keep gameplay understandable when audio is unavailable.
 
 ## Game Recipe Hints
