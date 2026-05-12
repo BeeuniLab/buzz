@@ -102,13 +102,6 @@ export interface PhaseExecutionResult {
     userContext?: UserContext;
 }
 
-/**
- * Result type for deep debug operations
- */
-export type DeepDebugResult = 
-    | { success: true; transcript: string }
-    | { success: false; error: string };
-
 export type DeploymentTarget = 'platform' | 'user';
 
 export interface DeployResult {

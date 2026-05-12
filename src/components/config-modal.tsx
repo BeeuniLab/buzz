@@ -63,18 +63,8 @@ const hasUserKeyForModel = (modelName: string, byokProviders: Array<{ provider: 
 // Model recommendations by agent
 const getModelRecommendation = (agentAction: string) => {
   const recommendations: Record<string, string> = {
-    templateSelection: 'Recommended: Fast models for quick template selection',
-    blueprint: 'Recommended: Creative models for architecture design',
-    projectSetup: 'Recommended: Reliable models for precise setup',
-    phaseGeneration: 'Recommended: Large context models for comprehensive planning',
-    firstPhaseImplementation: 'Recommended: High-capability models for foundation development',
-    phaseImplementation: 'Recommended: Strong coding models for implementation',
-    realtimeCodeFixer: 'Recommended: Fast debugging models',
-    fastCodeFixer: 'Recommended: Ultra-fast models for quick fixes',
     conversationalResponse: 'Recommended: Balanced models for natural conversation',
-    codeReview: 'Recommended: Analytical models with large context',
-    fileRegeneration: 'Recommended: Pure coding models',
-    screenshotAnalysis: 'Recommended: Vision-capable models for image analysis'
+    assetMediaCaption: 'Recommended: Fast multimodal models for uploaded asset captions',
   };
   return recommendations[agentAction] || '';
 };

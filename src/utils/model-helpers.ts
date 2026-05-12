@@ -45,27 +45,10 @@ export function categorizeAgent(agentKey: string): string {
 	// Specific agent mappings first (highest priority)
 	const specificMappings: Record<string, string> = {
 		// Quick Start - Most commonly used
-		'templateSelection': 'quickstart',
 		'conversationalResponse': 'quickstart',
-		'blueprint': 'quickstart',
-
-		// Planning - Project planning and setup
-		'phaseGeneration': 'planning',
-		'projectSetup': 'planning',
-
-		// Coding - Development and implementation
-		'phaseImplementation': 'coding',
-		'firstPhaseImplementation': 'coding',
-		'fileRegeneration': 'coding',
-
-		// Debugging - Code fixing and review
-		'realtimeCodeFixer': 'debugging',
-		'fastCodeFixer': 'debugging',
-		'codeReview': 'debugging',
-		'deepDebugger': 'debugging',
 
 		// Advanced
-		'screenshotAnalysis': 'advanced',
+		'assetMediaCaption': 'advanced',
 	};
 
 	// Check specific mappings first

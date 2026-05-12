@@ -126,6 +126,40 @@ const PLAYABLE_FILE_EXTENSIONS = new Set([
 	'.yaml',
 	'.yml',
 ]);
+const PLAYABLE_ASSET_EXTENSIONS = new Set([
+	'.png',
+	'.jpg',
+	'.jpeg',
+	'.webp',
+	'.gif',
+	'.svg',
+	'.avif',
+	'.mp3',
+	'.wav',
+	'.ogg',
+	'.m4a',
+	'.mp4',
+	'.webm',
+]);
+const BINARY_FILE_EXTENSIONS = new Set([
+	'.png',
+	'.jpg',
+	'.jpeg',
+	'.webp',
+	'.gif',
+	'.avif',
+	'.ico',
+	'.mp3',
+	'.wav',
+	'.ogg',
+	'.m4a',
+	'.mp4',
+	'.webm',
+	'.ttf',
+	'.otf',
+	'.woff',
+	'.woff2',
+]);
 const NON_PLAYABLE_PROJECT_PATHS = new Set([
 	'.bootstrap.js',
 	'.bootstrap-complete',
@@ -193,7 +227,12 @@ function isPlayableProjectPath(path: string): boolean {
 	if (!PLAYABLE_SOURCE_PREFIXES.some((prefix) => normalized.startsWith(prefix))) {
 		return false;
 	}
-	return PLAYABLE_FILE_EXTENSIONS.has(fileExtension(normalized));
+	const extension = fileExtension(normalized);
+	return PLAYABLE_FILE_EXTENSIONS.has(extension) || PLAYABLE_ASSET_EXTENSIONS.has(extension);
+}
+
+function isBinaryProjectPath(path: string): boolean {
+	return BINARY_FILE_EXTENSIONS.has(fileExtension(path));
 }
 
 function uniquePlayableChangedPaths(changedFiles: FileOutputType[], deletedPaths: string[]): string[] {
@@ -987,16 +1026,43 @@ export class CodexGenerationManager<TState extends BaseProjectState = BaseProjec
 	): Promise<FileOutputType[]> {
 		if (changedPaths.length === 0) return [];
 
-		const filesResult = await client.getFiles(instanceId, changedPaths);
+		const textPaths = changedPaths.filter((path) => !isBinaryProjectPath(path));
+		const binaryPaths = changedPaths.filter(isBinaryProjectPath);
+		const filesResult = await client.getFiles(instanceId, textPaths);
 		if (!filesResult.success) {
 			throw new Error(`Failed to read background changed files: ${filesResult.error || 'unknown error'}`);
 		}
 
-		return filesResult.files.map((file) => ({
+		const textFiles = filesResult.files.map((file) => ({
 			filePath: file.filePath,
 			fileContents: file.fileContents,
 			filePurpose: 'Generated or modified by background generation',
 		}));
+
+		if (binaryPaths.length === 0) return textFiles;
+
+		const readBinaryCommands = binaryPaths.map((path) => {
+			const quotedPath = shellQuote(path);
+			return `if [ -f ${quotedPath} ]; then printf 'base64:' && base64 -w 0 ${quotedPath}; fi`;
+		});
+		const binaryResult = await client.executeCommands(instanceId, readBinaryCommands, 60_000);
+		if (!binaryResult.success) {
+			throw new Error(`Failed to read background binary files: ${binaryResult.error || 'unknown error'}`);
+		}
+
+		const binaryFiles = binaryPaths.map((path, index) => {
+			const run = binaryResult.results[index];
+			if (!run?.success || !run.output?.startsWith('base64:')) {
+				throw new Error(`Failed to read background binary file ${path}: ${run?.error || 'empty output'}`);
+			}
+			return {
+				filePath: path,
+				fileContents: run.output.trim(),
+				filePurpose: 'Generated binary asset by background generation',
+			};
+		});
+
+		return [...textFiles, ...binaryFiles];
 	}
 
 	private buildPrompt(request: CodexGenerationRequest): string {
@@ -1025,6 +1091,7 @@ export class CodexGenerationManager<TState extends BaseProjectState = BaseProjec
 			'Respect the existing template, framework, and file structure. Do not edit files under .buzz, .codex, .git, .wrangler, node_modules, dist, or build.',
 			'Do not modify files listed in .donttouch_files.json if that file exists.',
 			'Uploaded user media, if any, is listed in src/asset_map. Use those asset entries directly; inspect image URLs when needed, and use descriptions for audio or video assets when present.',
+			'Do not hotlink external image/media URLs in playable code. For user-uploaded media, use src/asset_map URLs. For web-sourced media, download it into public/assets/generated/ and reference it with a local /assets/generated/... URL. Always keep a simple fallback if an asset fails to load.',
 			'Prefer focused, working code over broad rewrites. Run lightweight checks only when useful.',
 			'',
 			`Workflow kind: ${request.kind}`,

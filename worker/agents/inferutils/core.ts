@@ -279,23 +279,9 @@ function isValidApiKey(apiKey: string): boolean {
 }
 
 function normalizeParsedSchemaContent(
-    actionKey: AgentActionKey | 'testModelConfig',
+    _actionKey: AgentActionKey | 'testModelConfig',
     parsedContent: unknown,
 ): unknown {
-    if (
-        actionKey === 'templateSelection' &&
-        parsedContent &&
-        typeof parsedContent === 'object' &&
-        !Array.isArray(parsedContent)
-    ) {
-        const data = parsedContent as Record<string, unknown>;
-        return {
-            ...data,
-            selectedTemplateName: data.selectedTemplateName ?? data.template ?? data.templateName ?? data.selectedTemplate,
-            styleSelection: data.styleSelection ?? data.style ?? data.styleName,
-        };
-    }
-
     return parsedContent;
 }
 

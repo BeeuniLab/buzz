@@ -428,20 +428,7 @@ export interface ModelConfig {
 }
 
 export interface AgentConfig {
-    templateSelection: ModelConfig;
-    blueprint: ModelConfig;
-    projectSetup: ModelConfig;
-    phaseGeneration: ModelConfig;
-    phaseImplementation: ModelConfig;
-    firstPhaseImplementation: ModelConfig;
-    fileRegeneration: ModelConfig;
-    screenshotAnalysis: ModelConfig;
-    realtimeCodeFixer: ModelConfig;
-    fastCodeFixer: ModelConfig;
     conversationalResponse: ModelConfig;
-    deepDebugger: ModelConfig;
-    agenticProjectBuilder: ModelConfig;
-    /** Legacy configurable action for user asset captions; current caption path uses Vercel AI Gateway directly. */
     assetMediaCaption: ModelConfig;
 }
 

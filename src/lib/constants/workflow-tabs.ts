@@ -15,14 +15,14 @@ export const WORKFLOW_TABS = {
 		label: 'Quick Start',
 		icon: Rocket,
 		description: 'Most commonly customized settings',
-		patterns: ['template', 'blueprint', 'conversational'],
+		patterns: ['conversational'],
 	},
 	planning: {
 		id: 'planning',
 		label: 'Planning',
 		icon: Brain,
 		description: 'Project planning and setup',
-		patterns: ['phase', 'project', 'suggestion', 'generation'],
+		patterns: ['project', 'suggestion', 'generation'],
 	},
 	coding: {
 		id: 'coding',
@@ -43,7 +43,7 @@ export const WORKFLOW_TABS = {
 		label: 'Advanced',
 		icon: Settings,
 		description: 'Specialized operations',
-		patterns: ['screenshot', 'analysis', 'vision'],
+		patterns: ['asset', 'caption', 'media', 'analysis', 'vision'],
 	},
 } as const;
 

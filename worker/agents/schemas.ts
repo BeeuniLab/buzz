@@ -46,16 +46,6 @@ export const FileGenerationOutput = FileOutputSchema.extend({
     format: z.enum(['full_content', 'unified_diff']).describe('`full_content` for full, raw file contents, `unified_diff` for unified diff'),
 })
 
-export const PhaseConceptGenerationSchema = PhaseConceptSchema.extend({
-    installCommands: z.array(z.string()).describe('Commands to install any additional **STRICTLY NECESESARY** dependencies for this phase. Should be used very rarely! Stick to the already installed dependencies!'),
-})
-
-export const PhaseImplementationSchema = z.object({
-    files: z.array(FileOutputSchema).describe('Files that need to be written in this stage (new or modified existing), including paths and purposes of each source/code file.'),
-    deploymentNeeded: z.boolean().describe('Whether deployment is needed for this phase'),
-    commands: z.array(z.string()).describe('Commands to run for deployment'),
-})
-
 /**
  * Schema for code documentation fetch output
  */
@@ -158,8 +148,6 @@ export type FileConceptType = z.infer<typeof FileConceptSchema>;
 export type PhaseConceptType = z.infer<typeof PhaseConceptSchema>;
 export type PhaseConceptLiteType = z.infer<typeof PhaseConceptLiteSchema>;
 export type FileOutputType = z.infer<typeof FileOutputSchema>
-export type PhaseConceptGenerationSchemaType = z.infer<typeof PhaseConceptGenerationSchema>;
-export type PhaseImplementationSchemaType = z.infer<typeof PhaseImplementationSchema>;
 export type FileGenerationOutputType = z.infer<typeof FileGenerationOutput>;
 export type DocumentationOutputType = z.infer<typeof DocumentationOutput>;
 export type CodeReviewOutputType = z.infer<typeof CodeReviewOutput>;

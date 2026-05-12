@@ -34,10 +34,10 @@ export function formatUploadedAssetContext(
 		? ''
 		: `\n\nRules for uploaded assets:
 - If the creator explicitly says how to use an uploaded asset, that usage is mandatory.
-- Latest explicit asset usage wins over older blueprint, phase, or chat instructions.
+- Latest explicit asset usage wins over older planning, generated code, or chat instructions.
 - Treat asset_map keys as lookup keys in src/asset_map, not guaranteed local filesystem paths.
 - For Phaser playable projects, use uploaded assets through src/asset_map URLs and src/playable-assets.ts.
-- Do not replace explicitly requested uploaded assets with shapes, emoji, external media, or starter assets except as missing/loading fallbacks.`;
+- Use explicitly requested uploaded assets first. If one is missing or fails to load, fall back in this order: another suitable src/asset_map asset, a bundled starter asset, then a simple shape/color placeholder.`;
 
 	return `<${title}>\n${lines}${rules}\n</${title}>`;
 }
