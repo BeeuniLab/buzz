@@ -76,6 +76,11 @@ export function ChatInput({
 			return;
 		}
 
+		const nativeEvent = e.nativeEvent as KeyboardEvent & { isComposing?: boolean };
+		if (nativeEvent.isComposing || nativeEvent.keyCode === 229) {
+			return;
+		}
+
 		if (e.key === 'Enter') {
 			if (!e.shiftKey) {
 				// Submit on Enter without Shift

@@ -445,6 +445,11 @@ export default function Home() {
 									}}
 									onInput={adjustTextareaHeight}
 									onKeyDown={(e) => {
+										const nativeEvent = e.nativeEvent as KeyboardEvent & { isComposing?: boolean };
+										if (nativeEvent.isComposing || nativeEvent.keyCode === 229) {
+											return;
+										}
+
 										if (e.key === 'Enter' && !e.shiftKey) {
 											e.preventDefault();
 											const query = textareaRef.current!.value;
