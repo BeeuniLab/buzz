@@ -150,6 +150,10 @@ export function useChat({
 		updateStage('bootstrap', { status: 'completed' });
 	}, [updateStage]);
 
+	const clearFailedWorkflowProgress = useCallback(() => {
+		updateStage('code', { status: 'pending', queuePosition: undefined });
+	}, [updateStage]);
+
 	const clearEdit = useCallback(() => {
 		setEdit(undefined);
 	}, []);
@@ -765,9 +769,10 @@ export function useChat({
 			});
 			return;
 		}
+		clearFailedWorkflowProgress();
 		setIsGenerating(true);
 		setIsGenerationPaused(false);
-	}, [websocket]);
+	}, [clearFailedWorkflowProgress, websocket]);
 
 	const restartPreview = useCallback(() => {
 		if (!sendWebSocketMessage(websocket, 'preview')) {
@@ -852,6 +857,7 @@ export function useChat({
 		projectStages,
 		isThinking,
 		onCompleteBootstrap,
+		clearFailedWorkflowProgress,
 		// Deployment and generation control
 		isDeploying,
 		cloudflareDeploymentUrl,

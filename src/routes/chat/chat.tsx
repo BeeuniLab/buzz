@@ -170,6 +170,7 @@ export default function Chat() {
 		handleStopGeneration,
 		handleResumeGeneration,
 		handleRetryLastFailedWorkflow,
+		clearFailedWorkflowProgress,
 		handleDeployToCloudflare,
 		// Preview refresh control
 		shouldRefreshPreview,
@@ -638,6 +639,9 @@ export default function Chat() {
 
 			const text = newMessage.trim();
 			setIsSendLockActive(true);
+			if (showProgressRetryAction) {
+				clearFailedWorkflowProgress();
+			}
 			websocket?.send(
 				JSON.stringify({
 					type: 'user_suggestion',
@@ -657,7 +661,17 @@ export default function Chat() {
 			// Ensure we scroll after sending our own message
 			requestAnimationFrame(() => scrollToBottom());
 		},
-		[newMessage, websocket, sendUserMessage, isChatDisabled, scrollToBottom, images, clearImages],
+		[
+			newMessage,
+			websocket,
+			sendUserMessage,
+			isChatDisabled,
+			scrollToBottom,
+			images,
+			clearImages,
+			showProgressRetryAction,
+			clearFailedWorkflowProgress,
+		],
 	);
 
 	const taskRuntimeEstimate = useMemo(() => {
