@@ -452,6 +452,16 @@ export default function Chat() {
 	}, [behaviorType, blueprint, files.length, previewUrl, streamedBootstrapFiles.length]);
 
 	const [mainMessage, ...otherMessages] = useMemo(() => messages, [messages]);
+	const showProgressRetryAction = useMemo(
+		() => projectStages.some(stage => stage.id === 'code' && stage.status === 'error'),
+		[projectStages],
+	);
+	const getMessageAction = useCallback((message: typeof messages[number]) => {
+		if (showProgressRetryAction && message.action?.type === 'retry_last_failed_workflow') {
+			return undefined;
+		}
+		return message.action;
+	}, [showProgressRetryAction]);
 
 	const { scrollToBottom } = useAutoScroll(messagesContainerRef, { behavior: 'smooth', watch: [messages] });
 
@@ -767,7 +777,7 @@ export default function Chat() {
 									message={mainMessage.content}
 									isThinking={mainMessage.ui?.isThinking}
 									toolEvents={mainMessage.ui?.toolEvents}
-									action={mainMessage.action}
+									action={getMessageAction(mainMessage)}
 									onAction={handleMessageAction}
 									actionDisabled={isRunning}
 								/>
@@ -809,7 +819,7 @@ export default function Chat() {
 											message={message.content}
 											isThinking={true}
 											toolEvents={message.ui?.toolEvents}
-											action={message.action}
+											action={getMessageAction(message)}
 											onAction={handleMessageAction}
 											actionDisabled={isRunning}
 										/>
@@ -838,6 +848,8 @@ export default function Chat() {
 									isGenerating={isGenerating}
 									isThinking={isThinking}
 									taskRuntimeEstimate={taskRuntimeEstimate}
+									onRetryFailedWorkflow={handleRetryLastFailedWorkflow}
+									retryFailedWorkflowDisabled={isRunning}
 								/>
 							)}
 
@@ -872,7 +884,7 @@ export default function Chat() {
 												message={message.content}
 												isThinking={message.ui?.isThinking}
 												toolEvents={message.ui?.toolEvents}
-												action={message.action}
+												action={getMessageAction(message)}
 												onAction={handleMessageAction}
 												actionDisabled={isRunning}
 											/>

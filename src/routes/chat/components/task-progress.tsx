@@ -1,5 +1,5 @@
 import clsx from 'clsx';
-import { Loader, AlertCircle } from 'lucide-react';
+import { Loader, AlertCircle, RefreshCcw } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
 import type { FileType } from '@/api-types';
 import { ThinkingIndicator } from './thinking-indicator';
@@ -121,6 +121,8 @@ interface TaskProgressProps {
 	isGenerating?: boolean;
 	isThinking?: boolean;
 	taskRuntimeEstimate?: string;
+	onRetryFailedWorkflow?: () => void;
+	retryFailedWorkflowDisabled?: boolean;
 }
 
 export function TaskProgress({
@@ -133,12 +135,15 @@ export function TaskProgress({
 	isDebugging = false,
 	isGenerating = false,
 	isThinking = false,
-	taskRuntimeEstimate
+	taskRuntimeEstimate,
+	onRetryFailedWorkflow,
+	retryFailedWorkflowDisabled = false
 }: TaskProgressProps) {
 	const codeStage = projectStages.find(stage => stage.id === 'code');
 	const queuePosition = codeStage?.queuePosition;
 	const showFileSummary = files.length > 0 && codeStage?.status !== 'pending';
 	const isCreatingPlayable = codeStage?.status === 'active' || isGenerating || isThinking || isPreviewDeploying || files.some(f => f.isGenerating);
+	const canRetryFailedWorkflow = codeStage?.status === 'error' && onRetryFailedWorkflow;
 
 	return (
 		<motion.div
@@ -251,13 +256,31 @@ export function TaskProgress({
 
 											{/* File count summary for generated content */}
 											{showFileSummary && (
-												<div className="text-xs text-text-tertiary px-2 py-1">
-													{codeStage?.status === 'error'
-														? 'Playable version was not completed'
-														: isCreatingPlayable
-															? 'Creating your playable...'
-															: 'Playable content created'
-													}
+												<div className="flex flex-wrap items-center gap-2 px-2 py-1 text-xs text-text-tertiary">
+													<span>
+														{codeStage?.status === 'error'
+															? 'Playable version was not completed'
+															: isCreatingPlayable
+																? 'Creating your playable...'
+																: 'Playable content created'
+														}
+													</span>
+													{canRetryFailedWorkflow && (
+														<button
+															type="button"
+															onClick={onRetryFailedWorkflow}
+															disabled={retryFailedWorkflowDisabled}
+															className={clsx(
+																'inline-flex h-7 items-center gap-1 rounded-md border border-border-primary bg-bg-2 px-2 text-xs font-medium text-text-primary transition-colors',
+																retryFailedWorkflowDisabled
+																	? 'cursor-not-allowed opacity-50'
+																	: 'hover:border-accent/60 hover:bg-bg-1',
+															)}
+														>
+															<RefreshCcw className="size-3" />
+															Retry
+														</button>
+													)}
 												</div>
 											)}
 									</div>
