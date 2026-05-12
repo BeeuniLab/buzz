@@ -4,7 +4,6 @@ import {
 	Settings,
 	Plus,
 	ChevronRight,
-	Search,
 	Globe,
 	Lock,
 	Users2,
@@ -23,7 +22,7 @@ import {
 	Instagram,
 } from 'lucide-react';
 import './sidebar-overrides.css';
-import { useRecentApps, useFavoriteApps, useApps } from '@/hooks/use-apps';
+import { useRecentApps, useFavoriteApps } from '@/hooks/use-apps';
 import {
 	Sidebar,
 	SidebarContent,
@@ -39,7 +38,6 @@ import {
 	SidebarTrigger,
 	useSidebar,
 } from '@/components/ui/sidebar';
-import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useAuth } from '@/contexts/auth-context';
 import { useNavigate } from 'react-router';
@@ -296,13 +294,8 @@ function BuildSidebar({
 	isCollapsed,
 	navigate,
 	recentApps,
-	moreAvailable,
 	favoriteApps,
-	allApps,
-	allAppsLoading,
 	boards,
-	searchQuery,
-	setSearchQuery,
 	expandedGroups,
 	toggleGroup,
 	getVisibilityIcon,
@@ -311,26 +304,14 @@ function BuildSidebar({
 	isCollapsed: boolean;
 	navigate: SidebarNavigate;
 	recentApps: App[];
-	moreAvailable: boolean;
 	favoriteApps: App[];
-	allApps: App[];
-	allAppsLoading: boolean;
 	boards: Board[];
-	searchQuery: string;
-	setSearchQuery: (q: string) => void;
 	expandedGroups: string[];
 	toggleGroup: (group: string) => void;
 	getVisibilityIcon: (visibility: App['visibility']) => React.ReactNode;
 	getAppHref: (app: App) => string;
 }) {
-	const searchResults = React.useMemo(() => {
-		if (!searchQuery.trim()) return [];
-		return allApps.filter((app) =>
-			app.title.toLowerCase().includes(searchQuery.toLowerCase().trim()),
-		);
-	}, [allApps, searchQuery]);
-
-	const isSearching = searchQuery.trim().length > 0;
+	const hasApps = recentApps.length > 0;
 
 	return (
 		<>
@@ -388,17 +369,18 @@ function BuildSidebar({
 
 			{!isCollapsed && (
 				<>
-					{expandedGroups.includes('apps') && (
+					{expandedGroups.includes('apps') && hasApps && (
 						<SidebarGroup className="shrink-0">
 							<SidebarGroupContent>
-								<div className="relative mt-2 pr-2 pb-1">
-									<Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-tertiary z-10" />
-									<Input
-										placeholder="Search apps..."
-										value={searchQuery}
-										onChange={(e) => setSearchQuery(e.target.value)}
-										className="h-10 w-full pl-9 placeholder:text-text-tertiary"
-									/>
+								<div className="mt-2 px-1 pb-4">
+									<button
+										type="button"
+										onClick={() => navigate('/apps')}
+										className="group flex h-10 w-full items-center justify-center gap-2 rounded-lg border-2 border-[var(--neo-border-color)] bg-bg-4 px-3 text-sm font-bold text-text-primary shadow-[3px_3px_0px_0px_var(--neo-border-color)] transition-all hover:-translate-x-[0.5px] hover:-translate-y-[0.5px] hover:bg-neo-yellow/40 hover:shadow-[4px_4px_0px_0px_var(--neo-border-color)] active:translate-x-[1px] active:translate-y-[1px] active:shadow-[1px_1px_0px_0px_var(--neo-border-color)]"
+									>
+										<span>View All</span>
+										<ChevronRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+									</button>
 								</div>
 							</SidebarGroupContent>
 						</SidebarGroup>
@@ -409,76 +391,18 @@ function BuildSidebar({
 						{expandedGroups.includes('apps') && (
 							<SidebarGroupContent>
 								<SidebarMenu>
-									{isSearching ? (
-										<>
-											{allAppsLoading ? (
-												<SidebarMenuItem>
-													<div className="flex items-center justify-center py-4">
-														<div className="text-sm text-text-tertiary">Searching...</div>
-													</div>
-												</SidebarMenuItem>
-											) : searchResults.length > 0 ? (
-												<>
-													<SidebarMenuItem>
-														<div className="px-2 py-1 text-xs text-text-tertiary">
-															Found {searchResults.length} app{searchResults.length !== 1 ? 's' : ''}
-														</div>
-													</SidebarMenuItem>
-													{searchResults.map((app) => (
-														<AppMenuItem
-															key={app.id}
-															app={app}
-															href={getAppHref(app)}
-															onNavigate={(href) => navigate(href)}
-															variant={app.status === 'generating' ? 'running' : 'recent'}
-															showActions={true}
-															isCollapsed={isCollapsed}
-															getVisibilityIcon={getVisibilityIcon}
-														/>
-													))}
-												</>
-											) : (
-												<SidebarMenuItem>
-													<div className="flex items-center justify-center py-4">
-														<div className="text-sm text-text-tertiary">
-															No apps found for "{searchQuery}"
-														</div>
-													</div>
-												</SidebarMenuItem>
-											)}
-										</>
-									) : (
-										<>
-											{recentApps.map((app) => (
-												<AppMenuItem
-													key={app.id}
-													app={app}
-													href={getAppHref(app)}
-													onNavigate={(href) => navigate(href)}
-													variant={app.status === 'generating' ? 'running' : 'recent'}
-													showActions={true}
-													isCollapsed={isCollapsed}
-													getVisibilityIcon={getVisibilityIcon}
-												/>
-											))}
-											{moreAvailable && (
-												<SidebarMenuItem>
-													<SidebarMenuButton
-														onClick={() => navigate('/apps')}
-														tooltip="View all apps"
-														className="text-text-tertiary hover:text-text-primary view-all-button"
-													>
-														<ChevronRight className="h-4 w-4" />
-														{!isCollapsed && (
-															<span className="font-medium text-text-primary/80">
-																View all apps →
-															</span>
-														)}
-													</SidebarMenuButton>
-												</SidebarMenuItem>
-											)}
-										</>
-									)}
+									{recentApps.map((app) => (
+										<AppMenuItem
+											key={app.id}
+											app={app}
+											href={getAppHref(app)}
+											onNavigate={(href) => navigate(href)}
+											variant={app.status === 'generating' ? 'running' : 'recent'}
+											showActions={true}
+											isCollapsed={isCollapsed}
+											getVisibilityIcon={getVisibilityIcon}
+										/>
+									))}
 								</SidebarMenu>
 							</SidebarGroupContent>
 						)}
@@ -615,7 +539,6 @@ function BuildSidebar({
 export function AppSidebar() {
 	const { user, isLoading: authLoading, loginWithEmail, register, logout, error: authError, clearError } = useAuth();
 	const navigate = useNavigate();
-	const [searchQuery, setSearchQuery] = React.useState('');
 	const [expandedGroups, setExpandedGroups] = React.useState<string[]>([
 		'apps',
 		'boards',
@@ -630,9 +553,8 @@ export function AppSidebar() {
 	}, [isMobile, navigate, setOpenMobile]);
 
 	// Fetch real data from API
-	const { apps: recentApps, moreAvailable } = useRecentApps();
+	const { apps: recentApps } = useRecentApps();
 	const { apps: favoriteApps } = useFavoriteApps();
-	const { apps: allApps, loading: allAppsLoading } = useApps();
 
 	const getAppHref = React.useCallback((app: App) => {
 		return app.status === 'generating' ? `/chat/${app.id}` : `/app/${app.id}`;
@@ -706,13 +628,8 @@ export function AppSidebar() {
 							isCollapsed={isCollapsed}
 							navigate={navigateAndClose}
 							recentApps={recentApps}
-							moreAvailable={moreAvailable}
 							favoriteApps={favoriteApps}
-							allApps={allApps}
-							allAppsLoading={allAppsLoading}
 							boards={boards}
-							searchQuery={searchQuery}
-							setSearchQuery={setSearchQuery}
 							expandedGroups={expandedGroups}
 							toggleGroup={toggleGroup}
 							getVisibilityIcon={getVisibilityIcon}

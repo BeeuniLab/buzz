@@ -16,6 +16,7 @@ import { useImageUpload } from '@/hooks/use-image-upload';
 import { useDragDrop } from '@/hooks/use-drag-drop';
 import { AttachmentPickerDropdown } from '@/components/attachment-picker-dropdown';
 import { ImageAttachmentPreview } from '@/components/image-attachment-preview';
+import { getClipboardFiles } from '@/utils/clipboard-files';
 import { toast } from 'sonner';
 import { Box, Layers2, Shuffle } from 'lucide-react';
 
@@ -153,6 +154,16 @@ export default function Home() {
 		onFilesDropped: addImages,
 		accept: [...SUPPORTED_CHAT_MEDIA_MIME_TYPES],
 	});
+
+	const handlePasteAttachments = (event: React.ClipboardEvent<HTMLTextAreaElement>) => {
+		if (isProcessing) return;
+
+		const files = getClipboardFiles(event.clipboardData, SUPPORTED_CHAT_MEDIA_MIME_TYPES);
+		if (files.length === 0) return;
+
+		event.preventDefault();
+		void addImages(files);
+	};
 
 
 	const placeholderPhrases = useMemo(() => [
@@ -444,6 +455,7 @@ export default function Home() {
 										adjustTextareaHeight();
 									}}
 									onInput={adjustTextareaHeight}
+									onPaste={handlePasteAttachments}
 									onKeyDown={(e) => {
 										const nativeEvent = e.nativeEvent as KeyboardEvent & { isComposing?: boolean };
 										if (nativeEvent.isComposing || nativeEvent.keyCode === 229) {

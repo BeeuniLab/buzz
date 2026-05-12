@@ -1,8 +1,9 @@
-import { type FormEvent, type RefObject } from 'react';
+import { type ClipboardEvent, type FormEvent, type RefObject } from 'react';
 import { CircleStop, SendHorizontal } from 'lucide-react';
 import { ImageAttachmentPreview } from '@/components/image-attachment-preview';
 import { AttachmentPickerDropdown } from '@/components/attachment-picker-dropdown';
-import { type ImageAttachment } from '@/api-types';
+import { SUPPORTED_CHAT_MEDIA_MIME_TYPES, type ImageAttachment } from '@/api-types';
+import { getClipboardFiles } from '@/utils/clipboard-files';
 
 const MAX_WORDS = 4000;
 const countWords = (text: string): number => {
@@ -95,6 +96,16 @@ export function ChatInput({
 		onStopCurrentTask();
 	};
 
+	const handlePaste = (e: ClipboardEvent<HTMLTextAreaElement>) => {
+		if (attachDisabled) return;
+
+		const files = getClipboardFiles(e.clipboardData, SUPPORTED_CHAT_MEDIA_MIME_TYPES);
+		if (files.length === 0) return;
+
+		e.preventDefault();
+		onAddImages(files);
+	};
+
 	const placeholder = isDebugging
 		? 'Deep debugging in progress... Please abort to continue'
 		: isConversationProcessing
@@ -138,6 +149,7 @@ export function ChatInput({
 						ta.style.height = Math.min(ta.scrollHeight, 144) + 'px';
 					}}
 					onKeyDown={handleKeyDown}
+					onPaste={handlePaste}
 					disabled={isChatDisabled}
 					placeholder={placeholder}
 					rows={2}

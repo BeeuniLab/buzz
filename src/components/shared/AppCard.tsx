@@ -179,6 +179,7 @@ interface AppCardProps {
 	app: AppCardData;
 	onClick: (appId: string) => void;
 	onToggleFavorite?: (appId: string) => void;
+	href?: string;
 	showStats?: boolean;
 	showUser?: boolean;
 	showActions?: boolean;
@@ -389,6 +390,7 @@ export const AppCard = React.memo<AppCardProps>(
 	({
 		app,
 		onClick,
+		href,
 		showUser = false,
 		showActions = false,
 		showAuthor = true,
@@ -396,6 +398,7 @@ export const AppCard = React.memo<AppCardProps>(
 	}) => {
 		const layoutConfig = getLayoutConfig(showUser, showActions);
 		const deploymentStatus = getDeploymentStatusInfo(app);
+		const appHref = href ?? (showUser ? `/feed/${app.id}` : `/app/${app.id}`);
 
 		const itemVariants = {
 			hidden: { y: 10, opacity: 0 },
@@ -430,7 +433,7 @@ export const AppCard = React.memo<AppCardProps>(
 					className={className}
 				>
 					<a
-						href={`/feed/${app.id}`}
+						href={appHref}
 						onClick={(e) => {
 							e.preventDefault();
 							onClick(app.id);
@@ -503,7 +506,7 @@ export const AppCard = React.memo<AppCardProps>(
 			>
 				{/* Anchor wrapper for right-click context menu support */}
 				<a
-					href={`/app/${app.id}`}
+					href={appHref}
 					onClick={(e) => {
 						e.preventDefault();
 						onClick(app.id);

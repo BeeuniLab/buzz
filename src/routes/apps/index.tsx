@@ -1,24 +1,22 @@
-import { useNavigate, useSearchParams } from 'react-router';
+import { useNavigate } from 'react-router';
 import { motion } from 'framer-motion';
-import { toggleFavorite } from '@/hooks/use-apps';
 import { usePaginatedApps } from '@/hooks/use-paginated-apps';
 import { AppListContainer } from '@/components/shared/AppListContainer';
 import { AppFiltersForm } from '@/components/shared/AppFiltersForm';
-import { AppSortTabs } from '@/components/shared/AppSortTabs';
 import { VisibilityFilter } from '@/components/shared/VisibilityFilter';
-import type { AppSortOption } from '@/api-types';
+
+const titleLetters = [
+	{ char: 'M', className: 'text-neo-pink' },
+	{ char: 'Y', className: 'text-neo-orange' },
+	{ char: ' ', className: 'w-4 sm:w-6' },
+	{ char: 'A', className: 'text-neo-cyan' },
+	{ char: 'P', className: 'text-neo-green' },
+	{ char: 'P', className: 'text-neo-purple' },
+	{ char: 'S', className: 'text-neo-yellow' },
+];
 
 export default function AppsPage() {
 	const navigate = useNavigate();
-	const [searchParams, setSearchParams] = useSearchParams();
-
-	// Derive initial sort from URL or localStorage, fallback to 'recent'
-	const allowedSorts: AppSortOption[] = ['recent', 'popular', 'trending', 'starred'];
-	const sortParam = searchParams.get('sort') as AppSortOption | null;
-	const savedSort = (typeof localStorage !== 'undefined' ? localStorage.getItem('apps.sort') : null) as AppSortOption | null;
-	const initialSort: AppSortOption = (sortParam && allowedSorts.includes(sortParam))
-		? sortParam
-		: (savedSort && allowedSorts.includes(savedSort) ? savedSort : 'recent');
 
 	const {
 		// Filter state
@@ -39,7 +37,6 @@ export default function AppsPage() {
 
 		// Form handlers
 		handleSearchSubmit,
-		handleSortChange,
 		handlePeriodChange,
 		handleFrameworkChange,
 		handleVisibilityChange,
@@ -49,19 +46,10 @@ export default function AppsPage() {
 		loadMore,
 	} = usePaginatedApps({
 		type: 'user',
-		defaultSort: initialSort,
+		defaultSort: 'recent',
 		includeVisibility: true,
 		limit: 20,
 	});
-
-	const handleToggleFavorite = async (appId: string) => {
-		try {
-			await toggleFavorite(appId);
-			refetch();
-		} catch (error) {
-			console.error('Failed to toggle favorite:', error);
-		}
-	};
 
 	return (
 		<div className="min-h-screen bg-bg-3">
@@ -73,8 +61,22 @@ export default function AppsPage() {
 				>
 					{/* Header */}
 					<div className="mb-8">
-						<h1 className="text-6xl font-bold mb-3 font-[departureMono] text-accent">
-							MY APPS
+						<h1
+							aria-label="MY APPS"
+							className="mb-3 flex flex-wrap items-center gap-x-1.5 font-[departureMono] text-5xl font-bold leading-none tracking-normal sm:gap-x-2 sm:text-6xl"
+						>
+							{titleLetters.map((letter, index) => (
+								<span
+									key={`${letter.char}-${index}`}
+									aria-hidden="true"
+									className={letter.className}
+									style={{
+										textShadow: letter.char === ' ' ? undefined : '2px 2px 0 var(--neo-border-color)',
+									}}
+								>
+									{letter.char}
+								</span>
+							))}
 						</h1>
 						<p className="text-text-tertiary text-lg">
 							{loading
@@ -91,7 +93,7 @@ export default function AppsPage() {
 							/>
 						</div>
 						
-						<div className="flex items-start gap-4 justify-between">
+						<div>
 							{/* Search and Filters */}
 							<AppFiltersForm
 								searchQuery={searchQuery}
@@ -107,21 +109,6 @@ export default function AppsPage() {
 								onPeriodChange={handlePeriodChange}
 								sortBy={sortBy}
 							/>
-
-							<AppSortTabs
-								value={sortBy}
-								onValueChange={(v) => {
-									handleSortChange(v);
-									// Persist to URL and localStorage
-									try { localStorage.setItem('apps.sort', v); } catch {
-                                        console.error('Failed to persist sort to localStorage');
-									}
-									const next = new URLSearchParams(searchParams);
-									next.set('sort', v);
-									setSearchParams(next, { replace: true });
-								}}
-								availableSorts={['recent', 'popular', 'trending', 'starred']}
-							/>
 						</div>
 					</div>
 
@@ -135,12 +122,14 @@ export default function AppsPage() {
 						totalCount={totalCount}
 						sortBy={sortBy}
 						onAppClick={(appId) => navigate(`/app/${appId}`)}
-						onToggleFavorite={handleToggleFavorite}
+						getAppHref={(appId) => `/app/${appId}`}
 						onLoadMore={loadMore}
 						onRetry={refetch}
-						showUser={false}
+						showUser={true}
 						showStats={true}
-						showActions={true}
+						showActions={false}
+						showAuthor={false}
+						gridClassName="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-7 gap-3"
 						infiniteScroll={true}
 						emptyState={
 							!searchQuery &&

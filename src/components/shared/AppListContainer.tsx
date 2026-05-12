@@ -19,9 +19,11 @@ interface AppListContainerProps {
   onToggleFavorite?: (appId: string) => void;
   onLoadMore: () => void;
   onRetry: () => void;
+  getAppHref?: (appId: string) => string;
   showUser?: boolean;
   showStats?: boolean;
   showActions?: boolean;
+  showAuthor?: boolean;
   infiniteScroll?: boolean;
   emptyState?: {
     title?: string;
@@ -29,6 +31,7 @@ interface AppListContainerProps {
     action?: React.ReactNode;
   };
   className?: string;
+  gridClassName?: string;
 }
 
 const containerVariants = {
@@ -88,12 +91,15 @@ export const AppListContainer: React.FC<AppListContainerProps> = ({
   onToggleFavorite,
   onLoadMore,
   onRetry,
+  getAppHref,
   showUser = false,
   showStats = true,
   showActions = false,
+  showAuthor = true,
   infiniteScroll = true,
   emptyState,
-  className = ""
+  className = "",
+  gridClassName = "grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 xl:grid-cols-7 gap-3"
 }) => {
   const defaultEmptyState = getEmptyStateDefaults(sortBy, totalCount);
   
@@ -153,7 +159,7 @@ export const AppListContainer: React.FC<AppListContainerProps> = ({
         variants={containerVariants}
         initial="hidden"
         animate="visible"
-        className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 xl:grid-cols-7 gap-3"
+        className={gridClassName}
       >
         <AnimatePresence mode="popLayout">
           {apps.map(app => (
@@ -162,9 +168,11 @@ export const AppListContainer: React.FC<AppListContainerProps> = ({
               app={app}
               onClick={onAppClick}
               onToggleFavorite={onToggleFavorite}
+              href={getAppHref?.(app.id)}
               showStats={showStats}
               showUser={showUser}
               showActions={showActions}
+              showAuthor={showAuthor}
             />
           ))}
         </AnimatePresence>
