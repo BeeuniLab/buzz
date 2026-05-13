@@ -78,10 +78,15 @@ export const FeedItem = React.forwardRef<FeedItemHandle, FeedItemProps>(
 
 		// Stop audio when game becomes inactive — blank the iframe src before React unmounts it
 		React.useEffect(() => {
-			if (!isActive && playing && iframeRef.current) {
-				iframeRef.current.src = 'about:blank';
+			if (!isActive && playing) {
+				if (iframeRef.current) {
+					iframeRef.current.src = 'about:blank';
+				}
+				setPlaying(false);
+				setIframeLoaded(false);
+				onPlayStateChange?.(false);
 			}
-		}, [isActive, playing]);
+		}, [isActive, onPlayStateChange, playing]);
 
 		// Calculate scale to fit game resolution into container
 		React.useEffect(() => {

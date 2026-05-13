@@ -18,6 +18,9 @@ type AppPreviewFields = AppWithUserAndStats & {
 };
 
 const DEFAULT_APP_COVER_URL = '/game_cover.png';
+const FEED_PAGE_SIZE = 10;
+const FEED_PREFETCH_REMAINING_ITEMS = 4;
+const PREVIEW_WARM_AHEAD_COUNT = 3;
 
 function getKnownPreviewUrl(app: AppWithUserAndStats | null | undefined) {
 	const previewApp = app as AppPreviewFields | null | undefined;
@@ -35,7 +38,6 @@ export default function FeedPage() {
 	const [apps, setApps] = React.useState<AppWithUserAndStats[]>([]);
 	const [loading, setLoading] = React.useState(true);
 	const [loadingMore, setLoadingMore] = React.useState(false);
-	const [page, setPage] = React.useState(1);
 	const [hasMore, setHasMore] = React.useState(true);
 	const [currentIndex, setCurrentIndex] = React.useState(0);
 	const [initialAppLoaded, setInitialAppLoaded] = React.useState(!appId);
@@ -52,6 +54,12 @@ export default function FeedPage() {
 	const prevAppIdRef = React.useRef(appId);
 	const [refreshKey, setRefreshKey] = React.useState(0);
 	const previewUrlCacheRef = React.useRef<Record<string, string>>({});
+	const previewPrefetchUrlsRef = React.useRef<Set<string>>(new Set());
+	const coverPrefetchUrlsRef = React.useRef<Set<string>>(new Set());
+	const pageRef = React.useRef(1);
+	const hasMoreRef = React.useRef(true);
+	const loadingRef = React.useRef(true);
+	const loadingMoreRef = React.useRef(false);
 
 	const storePreviewUrl = React.useCallback((appId: string, url: string | null | undefined) => {
 		if (!url || previewUrlCacheRef.current[appId] === url) return;
@@ -65,10 +73,26 @@ export default function FeedPage() {
 	}, []);
 
 	const warmPreview = React.useCallback((app: AppWithUserAndStats) => {
-		if (previewUrlCacheRef.current[app.id]) return;
 		const knownPreviewUrl = getKnownPreviewUrl(app);
 		if (knownPreviewUrl) {
 			storePreviewUrl(app.id, knownPreviewUrl);
+
+			if (!previewPrefetchUrlsRef.current.has(knownPreviewUrl)) {
+				previewPrefetchUrlsRef.current.add(knownPreviewUrl);
+				const link = document.createElement('link');
+				link.rel = 'prefetch';
+				link.as = 'document';
+				link.href = knownPreviewUrl;
+				document.head.appendChild(link);
+			}
+		}
+
+		const coverUrl = getAppCoverUrl(app);
+		if (!coverPrefetchUrlsRef.current.has(coverUrl)) {
+			coverPrefetchUrlsRef.current.add(coverUrl);
+			const image = new Image();
+			image.decoding = 'async';
+			image.src = coverUrl;
 		}
 	}, [storePreviewUrl]);
 
@@ -82,12 +106,18 @@ export default function FeedPage() {
 			feedSeedRef.current = Math.floor(Math.random() * 1000000);
 			setApps([]);
 			appsRef.current = [];
-			setPage(1);
+			pageRef.current = 1;
 			setCurrentIndex(0);
 			setHasMore(true);
+			hasMoreRef.current = true;
 			setLoading(true);
+			loadingRef.current = true;
+			setLoadingMore(false);
+			loadingMoreRef.current = false;
 			setInitialAppLoaded(true);
 			previewUrlCacheRef.current = {};
+			previewPrefetchUrlsRef.current.clear();
+			coverPrefetchUrlsRef.current.clear();
 			setPreviewUrlCache({});
 			setRefreshKey((k) => k + 1);
 		}
@@ -102,6 +132,9 @@ export default function FeedPage() {
 
 	// Keep ref in sync with state for use in memoized callbacks
 	React.useEffect(() => { appsRef.current = apps; }, [apps]);
+	React.useEffect(() => { hasMoreRef.current = hasMore; }, [hasMore]);
+	React.useEffect(() => { loadingRef.current = loading; }, [loading]);
+	React.useEffect(() => { loadingMoreRef.current = loadingMore; }, [loadingMore]);
 
 	// Load the specific app first if appId is provided
 	React.useEffect(() => {
@@ -143,8 +176,15 @@ export default function FeedPage() {
 	}, [appId]);
 
 	const fetchApps = React.useCallback(async (pageNum: number) => {
-		if (pageNum === 1 && !appId) setLoading(true);
-		else setLoadingMore(true);
+		if (pageNum > 1 && loadingMoreRef.current) return;
+
+		if (pageNum === 1 && !appId) {
+			loadingRef.current = true;
+			setLoading(true);
+		} else {
+			loadingMoreRef.current = true;
+			setLoadingMore(true);
+		}
 
 		try {
 			// On subsequent pages, exclude already-loaded app IDs so we get fresh content
@@ -153,7 +193,7 @@ export default function FeedPage() {
 
 			const res = await apiClient.getPublicApps({
 				sort: 'feed',
-				limit: 10,
+				limit: FEED_PAGE_SIZE,
 				page: 1, // Always page 1 — excludeIds handles continuation
 				seed: feedSeedRef.current,
 				excludeIds,
@@ -166,15 +206,27 @@ export default function FeedPage() {
 					const deduped = newApps.filter((a) => !existingIds.has(a.id));
 					return [...prev, ...deduped];
 				});
-				setHasMore(newApps.length === 10);
+				const nextHasMore = Boolean(res.data.pagination?.hasMore) || newApps.length === FEED_PAGE_SIZE;
+				hasMoreRef.current = nextHasMore;
+				setHasMore(nextHasMore);
 			}
 		} catch {
 			// silently handle
 		} finally {
+			loadingRef.current = false;
+			loadingMoreRef.current = false;
 			setLoading(false);
 			setLoadingMore(false);
 		}
 	}, [appId]);
+
+	const requestNextPage = React.useCallback(() => {
+		if (!hasMoreRef.current || loadingRef.current || loadingMoreRef.current) return;
+
+		const nextPage = pageRef.current + 1;
+		pageRef.current = nextPage;
+		void fetchApps(nextPage);
+	}, [fetchApps]);
 
 	React.useEffect(() => {
 		if (!initialAppLoaded) return;
@@ -187,13 +239,13 @@ export default function FeedPage() {
 
 		observerRef.current = new IntersectionObserver(
 			(entries) => {
-				if (entries[0]?.isIntersecting && hasMore && !loadingMore) {
-					const nextPage = page + 1;
-					setPage(nextPage);
-					fetchApps(nextPage);
-				}
+				if (entries[0]?.isIntersecting) requestNextPage();
 			},
-			{ threshold: 0.5 },
+			{
+				root: containerRef.current,
+				rootMargin: '150% 0px',
+				threshold: 0.01,
+			},
 		);
 
 		if (lastItemRef.current) {
@@ -201,7 +253,16 @@ export default function FeedPage() {
 		}
 
 		return () => observerRef.current?.disconnect();
-	}, [apps.length, hasMore, loadingMore, page, fetchApps]);
+	}, [apps.length, requestNextPage]);
+
+	React.useEffect(() => {
+		if (apps.length === 0) return;
+
+		const remainingItems = apps.length - currentIndex - 1;
+		if (remainingItems <= FEED_PREFETCH_REMAINING_ITEMS) {
+			requestNextPage();
+		}
+	}, [apps.length, currentIndex, requestNextPage]);
 
 	// Track current index from scroll position
 	React.useEffect(() => {
@@ -225,8 +286,7 @@ export default function FeedPage() {
 		if (apps.length === 0) return;
 
 		const timer = window.setTimeout(() => {
-			const targetIndexes = [currentIndex, currentIndex + 1];
-			for (const index of targetIndexes) {
+			for (let index = currentIndex; index <= currentIndex + PREVIEW_WARM_AHEAD_COUNT; index += 1) {
 				const app = apps[index];
 				if (app) void warmPreview(app);
 			}
@@ -505,7 +565,7 @@ export default function FeedPage() {
 			{apps.map((app, i) => (
 				<div
 					key={app.id}
-					ref={i === apps.length - 2 ? lastItemRef : undefined}
+					ref={i === Math.max(apps.length - FEED_PREFETCH_REMAINING_ITEMS, 0) ? lastItemRef : undefined}
 					className="h-full"
 				>
 					<FeedItem
