@@ -26,9 +26,7 @@ export function createQueueRequestTool(
 			const normalizedRequest = changeScope === 'major'
 				? `CURRENT PRODUCT DIRECTION OVERRIDE: ${modificationRequest}\nThis supersedes any conflicting older prompt, blueprint, or phase plan. Preserve the user's new direction and do not revert to the previous core concept.`
 				: modificationRequest;
-			const assetContext = formatUploadedAssetContext(currentUploadedAssets, {
-				title: 'CURRENT_UPLOADED_ASSET_REQUIREMENTS',
-			});
+			const assetContext = formatUploadedAssetContext(currentUploadedAssets);
 			const requestWithAssets = assetContext
 				? `${normalizedRequest}\n\n${assetContext}`
 				: normalizedRequest;

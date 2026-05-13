@@ -13,23 +13,28 @@ function formatAssetLine(attachment: ProcessedImageAttachment): string {
 	const filename = attachment.filename || assetKey.split('/').pop() || 'upload';
 	const category = attachment.mimeType.split('/')[0] || 'media';
 	const dimensions = attachment.dimensions
-		? `, ${attachment.dimensions.width}x${attachment.dimensions.height}`
+		? `; dimensions: ${attachment.dimensions.width}x${attachment.dimensions.height}`
 		: '';
+	const uploadedAt = attachment.uploadedAt ? `; uploadedAt: ${attachment.uploadedAt}` : '; uploadedAt: unknown';
 
-	return `- asset_map key: ${assetKey}; category: ${category}; mime: ${attachment.mimeType}${dimensions}; filename: ${filename}; URL: ${attachment.publicUrl}`;
+	return `- key: ${assetKey}; filename: ${filename}; kind: ${category}${dimensions}${uploadedAt}`;
 }
 
 export function formatUploadedAssetContext(
 	attachments?: ProcessedImageAttachment[],
 	options?: {
-		title?: string;
 		includeRules?: boolean;
 	},
 ): string {
 	if (!attachments || attachments.length === 0) return '';
 
-	const title = options?.title ?? 'UPLOADED_ASSETS';
-	const lines = attachments.map(formatAssetLine).join('\n');
+	const sortedAttachments = [...attachments].sort((a, b) => {
+		const aTime = a.uploadedAt ? Date.parse(a.uploadedAt) : Number.POSITIVE_INFINITY;
+		const bTime = b.uploadedAt ? Date.parse(b.uploadedAt) : Number.POSITIVE_INFINITY;
+		if (aTime !== bTime) return aTime - bTime;
+		return getUploadedAssetKey(a).localeCompare(getUploadedAssetKey(b));
+	});
+	const lines = sortedAttachments.map(formatAssetLine).join('\n');
 	const rules = options?.includeRules === false
 		? ''
 		: `\n\nRules for uploaded assets:
@@ -39,5 +44,5 @@ export function formatUploadedAssetContext(
 - For Phaser playable projects, use uploaded assets through src/asset_map URLs and src/playable-assets.ts.
 - Use explicitly requested uploaded assets first. If one is missing or fails to load, fall back in this order: another suitable src/asset_map asset, a bundled starter asset, then a simple shape/color placeholder.`;
 
-	return `<${title}>\n${lines}${rules}\n</${title}>`;
+	return `${lines}${rules}`;
 }

@@ -45,6 +45,7 @@ export interface ProcessedImageAttachment {
 	r2Key: string;
 	publicUrl: string;
 	hash: string;
+	uploadedAt?: string;
 	size?: number;
 	dimensions?: {
 		width: number;
@@ -57,10 +58,11 @@ export interface InitialUserAttachment {
 	mimeType: SupportedChatMediaMimeType;
 	assetKey: string;
 	publicUrl: string;
+	uploadedAt?: string;
 }
 
 export function toInitialUserAttachment(
-	attachment: Pick<ProcessedImageAttachment, 'filename' | 'mimeType' | 'r2Key' | 'publicUrl'>,
+	attachment: Pick<ProcessedImageAttachment, 'filename' | 'mimeType' | 'r2Key' | 'publicUrl' | 'uploadedAt'>,
 ): InitialUserAttachment {
 	const assetKey = attachment.r2Key.startsWith('assets/')
 		? attachment.r2Key.split('/').slice(2).join('/')
@@ -72,6 +74,7 @@ export function toInitialUserAttachment(
 		mimeType: attachment.mimeType,
 		assetKey,
 		publicUrl: attachment.publicUrl,
+		uploadedAt: attachment.uploadedAt,
 	};
 }
 

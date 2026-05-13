@@ -2,4 +2,5 @@
 export interface AssetMapEntry {
 	url: string;
 	description?: string;
+	uploadedAt?: string;
 }

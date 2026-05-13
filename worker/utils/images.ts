@@ -63,6 +63,7 @@ export async function uploadImageAsAgentAsset(
 	image: ImageAttachment,
 	relativePath: string,
 ): Promise<ProcessedImageAttachment> {
+	const uploadedAt = new Date().toISOString();
 	const hashPromise = hashImageB64url(image.base64Data!);
 	const bytes = base64ToUint8Array(image.base64Data!);
 
@@ -84,7 +85,7 @@ export async function uploadImageAsAgentAsset(
 	const r2Key = `assets/${agentId}/${relativePath}`;
 	await env.TEMPLATES_BUCKET.put(r2Key, bytes, {
 		httpMetadata: { contentType: image.mimeType },
-		customMetadata: { cfImagesUrl: cfImagesUrl || '' },
+		customMetadata: { cfImagesUrl: cfImagesUrl || '', uploadedAt },
 	});
 
 	const url = getAgentAssetFilePublicUrl(env, agentId, relativePath);
@@ -96,6 +97,7 @@ export async function uploadImageAsAgentAsset(
 		hash,
 		mimeType: image.mimeType,
 		r2Key,
+		uploadedAt,
 	};
 }
 
@@ -144,6 +146,7 @@ export async function downloadR2Image(env: Env, r2Key: string) : Promise<Process
     const mimeType = response.httpMetadata!.contentType! as SupportedChatMediaMimeType;
     const customMetadata = response.customMetadata;
     const cfImagesUrl = customMetadata?.cfImagesUrl;
+    const uploadedAt = customMetadata?.uploadedAt || response.uploaded.toISOString();
     const base64 = Buffer.from(arrayBuffer).toString('base64');
     // Get the filename and mimeType from response
     return {
@@ -152,5 +155,6 @@ export async function downloadR2Image(env: Env, r2Key: string) : Promise<Process
         publicUrl: cfImagesUrl || getPublicUrlForBucketKey(env, r2Key),
         hash: await hashImageB64url(base64),
         mimeType,
+        uploadedAt,
     };
 }

@@ -2986,7 +2986,7 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
             if (!t) continue;
             const entry = map[rel];
             if (entry?.url) {
-                map[rel] = { url: entry.url, description: t };
+                map[rel] = { ...entry, description: t };
             }
         }
         const result = await this.updateAssetMap(JSON.stringify(map, null, 2));

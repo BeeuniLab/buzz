@@ -4,6 +4,7 @@ export type PlayableAsset = {
 	path: string;
 	url: string;
 	description?: string;
+	uploadedAt?: string;
 };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -29,6 +30,9 @@ function parseAssetMap(raw: string): PlayableAsset[] {
 			const asset: PlayableAsset = { path, url: value.url };
 			if (typeof value.description === "string") {
 				asset.description = value.description;
+			}
+			if (typeof value.uploadedAt === "string") {
+				asset.uploadedAt = value.uploadedAt;
 			}
 			return [asset];
 		});

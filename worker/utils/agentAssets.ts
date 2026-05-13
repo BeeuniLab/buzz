@@ -20,10 +20,13 @@ export function parseAssetMapJson(raw: string | null | undefined): Record<string
 				continue;
 			}
 			if (v && typeof v === 'object' && typeof (v as { url?: unknown }).url === 'string') {
-				const o = v as { url: string; description?: unknown };
+				const o = v as { url: string; description?: unknown; uploadedAt?: unknown };
 				const entry: AssetMapEntry = { url: o.url };
 				if (typeof o.description === 'string' && o.description.trim() !== '') {
 					entry.description = o.description.trim();
+				}
+				if (typeof o.uploadedAt === 'string' && o.uploadedAt.trim() !== '') {
+					entry.uploadedAt = o.uploadedAt.trim();
 				}
 				out[key] = entry;
 			}
@@ -64,7 +67,7 @@ function isTemplateStarterAssetUrl(url: string): boolean {
 /**
  * Build asset_map JSON from R2 listing. Preserves local template starter assets and
  * `description` for uploaded paths that still exist in R2.
- * Values are always `{ url }` or `{ url, description? }` (scheme A).
+ * Values are always `{ url, uploadedAt? }` plus optional `description`.
  */
 export async function computeAgentAssetMapJson(
 	env: Env,
@@ -79,21 +82,33 @@ export async function computeAgentAssetMapJson(
 	const baseUrl = `${protocol}://${env.CUSTOM_DOMAIN}/api/projects/${agentId}/assets/file`;
 
 	const assetMap: Record<string, AssetMapEntry> = {};
-	for (const [relativePath, entry] of Object.entries(existing)) {
-		if (isTemplateStarterAssetUrl(entry.url)) {
-			assetMap[relativePath] = entry;
-		}
-	}
 
-	for (const obj of listed.objects) {
+	const getUploadedTime = (obj: R2Object): number => {
+		const metadataTime = obj.customMetadata?.uploadedAt
+			? Date.parse(obj.customMetadata.uploadedAt)
+			: NaN;
+		return Number.isFinite(metadataTime) ? metadataTime : obj.uploaded.getTime();
+	};
+	const uploadedObjects = [...listed.objects].sort((a, b) => {
+		const byTime = getUploadedTime(a) - getUploadedTime(b);
+		return byTime !== 0 ? byTime : a.key.localeCompare(b.key);
+	});
+	for (const obj of uploadedObjects) {
 		const relativePath = obj.key.replace(prefix, '');
 		const url = `${baseUrl}/${relativePath}`;
 		const prev = existing[relativePath];
+		const uploadedAt = obj.customMetadata?.uploadedAt || obj.uploaded.toISOString();
+		const entry: AssetMapEntry = { url, uploadedAt };
 		if (prev?.description) {
-			assetMap[relativePath] = { url, description: prev.description };
-		} else {
-			assetMap[relativePath] = { url };
+			entry.description = prev.description;
 		}
+		assetMap[relativePath] = entry;
+	}
+
+	const starterEntries = Object.entries(existing).filter(([, entry]) => isTemplateStarterAssetUrl(entry.url));
+	starterEntries.sort(([a], [b]) => a.localeCompare(b));
+	for (const [relativePath, entry] of starterEntries) {
+		assetMap[relativePath] = entry;
 	}
 
 	return JSON.stringify(assetMap, null, 2);

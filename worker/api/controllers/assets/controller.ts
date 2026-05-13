@@ -120,7 +120,7 @@ export class AssetController extends BaseController {
 					size: obj.size,
 					type: contentType,
 					category: categorizeByStoredPath(relativePath, contentType),
-					uploadedAt: obj.uploaded.toISOString(),
+					uploadedAt: obj.customMetadata?.uploadedAt || obj.uploaded.toISOString(),
 				};
 			});
 
@@ -171,9 +171,11 @@ export class AssetController extends BaseController {
 
 			const relativePath = `${requestedCategory}/${filename}`;
 			const r2Key = `assets/${agentId}/${relativePath}`;
+			const uploadedAt = new Date().toISOString();
 
 			await env.TEMPLATES_BUCKET.put(r2Key, await file.arrayBuffer(), {
 				httpMetadata: { contentType },
+				customMetadata: { uploadedAt },
 			});
 
 			const asset: AssetItem = {
@@ -182,7 +184,7 @@ export class AssetController extends BaseController {
 				size: file.size,
 				type: contentType,
 				category: requestedCategory,
-				uploadedAt: new Date().toISOString(),
+				uploadedAt,
 			};
 
 			// Sync asset_map to agent in the background
