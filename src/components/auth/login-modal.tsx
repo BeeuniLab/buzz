@@ -53,7 +53,6 @@ type ClerkAuthProviderFlags = {
 	email: boolean;
 };
 
-type PhoneFlowMode = 'signIn' | 'signUp';
 type PhoneStep = 'input' | 'code';
 
 const PHONE_COUNTRIES = [
@@ -110,16 +109,12 @@ function getClerkErrorMessage(error: unknown): string {
 	return clerkError?.longMessage || clerkError?.message || 'Authentication failed. Please try again.';
 }
 
-function isMissingPhoneAccountError(error: unknown): boolean {
-	const clerkError = error as { code?: string; longMessage?: string; message?: string } | null;
-	const text = `${clerkError?.code || ''} ${clerkError?.longMessage || ''} ${clerkError?.message || ''}`.toLowerCase();
-	return (
-		text.includes('not_found') ||
-		text.includes('not found') ||
-		text.includes('no account') ||
-		text.includes('couldn') ||
-		text.includes('doesn')
-	);
+function getClerkErrorCode(error: unknown): string | undefined {
+	const clerkError = error as {
+		code?: string;
+		errors?: Array<{ code?: string }>;
+	} | null;
+	return clerkError?.errors?.[0]?.code || clerkError?.code;
 }
 
 function normalizePhoneNumber(countryDialCode: string, value: string): string {
@@ -170,7 +165,6 @@ function ClerkAuthPanel({
 	const [phone, setPhone] = useState('');
 	const [verificationCode, setVerificationCode] = useState('');
 	const [phoneStep, setPhoneStep] = useState<PhoneStep>('input');
-	const [phoneFlowMode, setPhoneFlowMode] = useState<PhoneFlowMode>('signIn');
 	const [phoneError, setPhoneError] = useState<string | null>(null);
 	const [busy, setBusy] = useState<string | null>(null);
 	const [countryMenuOpen, setCountryMenuOpen] = useState(false);
@@ -225,8 +219,8 @@ function ClerkAuthPanel({
 		setBusy(strategy);
 
 		try {
-			const result = await signUp.sso({
-				strategy,
+			const result = await signIn.sso({
+				strategy: strategy as Parameters<typeof signIn.sso>[0]['strategy'],
 				redirectCallbackUrl: '/sso-callback',
 				redirectUrl: authRedirectUrl || '/',
 			});
@@ -234,20 +228,9 @@ function ClerkAuthPanel({
 				throw result.error;
 			}
 		} catch (error) {
-			try {
-				const result = await signIn.sso({
-					strategy: strategy as Parameters<typeof signIn.sso>[0]['strategy'],
-					redirectCallbackUrl: '/sso-callback',
-					redirectUrl: authRedirectUrl || '/',
-				});
-				if (result.error) {
-					throw result.error;
-				}
-			} catch (fallbackError) {
-				console.error(`${label} sign-in error:`, fallbackError);
-				setPhoneError(getClerkErrorMessage(fallbackError));
-				setBusy(null);
-			}
+			console.error(`${label} sign-in error:`, error);
+			setPhoneError(getClerkErrorMessage(error));
+			setBusy(null);
 		}
 	};
 
@@ -263,44 +246,37 @@ function ClerkAuthPanel({
 
 		setBusy('phone');
 		try {
-			const signInResult = await signIn.phoneCode.sendCode({
-				phoneNumber: e164Phone,
-				channel: 'sms',
+			const createResult = await signIn.create({
+				identifier: e164Phone,
+				signUpIfMissing: true,
 			});
-
-			if (signInResult.error) {
-				throw signInResult.error;
+			if (createResult.error) {
+				throw createResult.error;
 			}
 
-			setPhoneFlowMode('signIn');
+			const sendResult = await signIn.phoneCode.sendCode({ channel: 'sms' });
+			if (sendResult.error) {
+				throw sendResult.error;
+			}
+
 			setPhoneStep('code');
-		} catch (signInError) {
-			if (!isMissingPhoneAccountError(signInError)) {
-				console.error('Phone sign-in error:', signInError);
-				setPhoneError(getClerkErrorMessage(signInError));
-				setBusy(null);
-				return;
-			}
-
-			try {
-				const signUpResult = await signUp.create({ phoneNumber: e164Phone });
-				if (signUpResult.error) {
-					throw signUpResult.error;
-				}
-
-				const sendResult = await signUp.verifications.sendPhoneCode({ channel: 'sms' });
-				if (sendResult.error) {
-					throw sendResult.error;
-				}
-
-				setPhoneFlowMode('signUp');
-				setPhoneStep('code');
-			} catch (signUpError) {
-				console.error('Phone sign-up error:', signUpError);
-				setPhoneError(getClerkErrorMessage(signUpError));
-			}
+		} catch (error) {
+			console.error('Phone sign-in error:', error);
+			setPhoneError(getClerkErrorMessage(error));
 		} finally {
 			setBusy(null);
+		}
+	};
+
+	const transferPhoneSignUp = async () => {
+		const result = await signUp.create({ transfer: true, legalAccepted: true });
+		if (result.error) {
+			throw result.error;
+		}
+
+		const finalizeResult = await signUp.finalize(finalizeNavigate);
+		if (finalizeResult.error) {
+			throw finalizeResult.error;
 		}
 	};
 
@@ -316,19 +292,15 @@ function ClerkAuthPanel({
 
 		setBusy('code');
 		try {
-			if (phoneFlowMode === 'signIn') {
-				const result = await signIn.phoneCode.verifyCode({ code });
-				if (result.error) {
-					throw result.error;
+			const result = await signIn.phoneCode.verifyCode({ code });
+			if (result.error) {
+				if (getClerkErrorCode(result.error) === 'sign_up_if_missing_transfer') {
+					await transferPhoneSignUp();
+					return;
 				}
-				await signIn.finalize(finalizeNavigate);
-			} else {
-				const result = await signUp.verifications.verifyPhoneCode({ code });
-				if (result.error) {
-					throw result.error;
-				}
-				await signUp.finalize(finalizeNavigate);
+				throw result.error;
 			}
+			await signIn.finalize(finalizeNavigate);
 		} catch (error) {
 			console.error('Phone verification error:', error);
 			setPhoneError(getClerkErrorMessage(error));
