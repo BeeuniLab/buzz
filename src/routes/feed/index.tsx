@@ -557,8 +557,8 @@ export default function FeedPage() {
 		<div
 			ref={containerRef}
 			className={cn(
-				'h-full overflow-y-auto',
-				isMobile && isPlaying ? 'overflow-hidden' : 'snap-y snap-mandatory',
+				'h-full',
+				isPlaying ? 'overflow-hidden' : 'overflow-y-auto snap-y snap-mandatory',
 			)}
 			style={{ scrollbarWidth: 'none' }}
 		>
@@ -573,8 +573,8 @@ export default function FeedPage() {
 						isActive={i === currentIndex}
 						preloadedPreviewUrl={previewUrlCache[app.id] ?? getKnownPreviewUrl(app)}
 						shouldWarmFrame={i === currentIndex}
-						onPlayStateChange={isMobile ? (playing) => setIsPlaying(playing) : undefined}
-						containMode={isMobile && (isPlaying || i === currentIndex)}
+						onPlayStateChange={setIsPlaying}
+						containMode={isPlaying || i === currentIndex}
 						ref={(handle) => {
 							if (handle) feedItemRefs.current.set(i, handle);
 							else feedItemRefs.current.delete(i);
