@@ -83,21 +83,22 @@ export async function computeAgentAssetMapJson(
 
 	const assetMap: Record<string, AssetMapEntry> = {};
 
-	const getUploadedTime = (obj: R2Object): number => {
-		const metadataTime = obj.customMetadata?.uploadedAt
-			? Date.parse(obj.customMetadata.uploadedAt)
-			: NaN;
-		return Number.isFinite(metadataTime) ? metadataTime : obj.uploaded.getTime();
-	};
-	const uploadedObjects = [...listed.objects].sort((a, b) => {
-		const byTime = getUploadedTime(a) - getUploadedTime(b);
-		return byTime !== 0 ? byTime : a.key.localeCompare(b.key);
+	const uploadedObjects = await Promise.all(listed.objects.map(async (obj) => {
+		const metadata = obj.customMetadata ?? (await env.TEMPLATES_BUCKET.head(obj.key))?.customMetadata;
+		const uploadedAt = metadata?.uploadedAt || obj.uploaded.toISOString();
+		const uploadedTime = Number.isFinite(Date.parse(uploadedAt))
+			? Date.parse(uploadedAt)
+			: obj.uploaded.getTime();
+		return { obj, uploadedAt, uploadedTime };
+	}));
+	uploadedObjects.sort((a, b) => {
+		const byTime = a.uploadedTime - b.uploadedTime;
+		return byTime !== 0 ? byTime : a.obj.key.localeCompare(b.obj.key);
 	});
-	for (const obj of uploadedObjects) {
+	for (const { obj, uploadedAt } of uploadedObjects) {
 		const relativePath = obj.key.replace(prefix, '');
 		const url = `${baseUrl}/${relativePath}`;
 		const prev = existing[relativePath];
-		const uploadedAt = obj.customMetadata?.uploadedAt || obj.uploaded.toISOString();
 		const entry: AssetMapEntry = { url, uploadedAt };
 		if (prev?.description) {
 			entry.description = prev.description;
