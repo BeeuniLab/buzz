@@ -203,6 +203,7 @@ export default function DiscoverPage() {
 							onRetry={refetch}
 							showUser={true}
 							showStats={true}
+							showTotalCount={false}
 							infiniteScroll={true}
 						/>
 					</div>
