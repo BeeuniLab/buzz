@@ -165,7 +165,8 @@ export class AppService extends BaseService {
                 order,
                 limit,
                 offset,
-                seed
+                seed,
+                userId
             ).catch((error: unknown) => {
                 this.logger.error('executeRankedQuery failed', {
                     errorMessage: error instanceof Error ? error.message : String(error),
@@ -1074,43 +1075,47 @@ export class AppService extends BaseService {
         order: string,
         limit: number,
         offset: number,
-        seed?: number
+        seed?: number,
+        userId?: string
     ): Promise<RankedAppQueryResult[]> {
         // Use subquery-based sorting for memory efficiency
         // This allows D1 to apply LIMIT during index scan instead of after GROUP BY
         if (sort === 'feed') {
-            // Feed algorithm: time-decayed popularity + seeded randomness
-            // score = popularity_score / age_decay + random_shuffle
-            // - popularity: (views*1 + stars*3) gives base ranking
-            // - age_decay: 1 + (days_old / 7)^1.5 — newer content ranks higher
-            // - random_shuffle: seeded hash for stable ordering within a session
+            // Feed algorithm for early-stage content pools:
+            // - smooth popularity rewards real engagement without letting sparse data dominate
+            // - freshness gives new playable apps an initial chance to be seen
+            // - small seeded shuffle breaks ties without turning the feed into pure random
+            // - viewed penalty keeps logged-in users from seeing the same apps too often
             const feedSeed = seed || 42;
             const viewCountSubquery = sql<number>`(SELECT COUNT(*) FROM ${schema.appViews} WHERE ${schema.appViews.appId} = ${schema.apps.id})`;
             const starCountSubquery = sql<number>`(SELECT COUNT(*) FROM ${schema.stars} WHERE ${schema.stars.appId} = ${schema.apps.id})`;
             const forkCountSubquery = sql<number>`(SELECT COUNT(*) FROM ${schema.apps} AS forks WHERE forks.parent_app_id = ${schema.apps.id})`;
+            const userViewCountSubquery = userId
+                ? sql<number>`(SELECT COUNT(*) FROM ${schema.appViews} WHERE ${schema.appViews.appId} = ${schema.apps.id} AND ${schema.appViews.userId} = ${userId})`
+                : sql<number>`0`;
+            const createdAgeDays = sql`MAX((strftime('%s', 'now') - COALESCE(${schema.apps.createdAt}, ${schema.apps.updatedAt}, strftime('%s', 'now'))) / 86400.0, 0)`;
+            const updatedAgeDays = sql`MAX((strftime('%s', 'now') - COALESCE(${schema.apps.updatedAt}, ${schema.apps.createdAt}, strftime('%s', 'now'))) / 86400.0, 0)`;
 
-            // Feed score: decayed popularity + seeded random component
-            // Both components scaled to similar ranges (~0-10000) so randomness
-            // can actually shuffle the ordering. Without this, popular apps always
-            // dominate regardless of seed.
-            // Uses UNICODE of id chars for a simple deterministic hash
             const orderByExpression = sql`(
-                CAST(
-                    (${viewCountSubquery} * ${this.RANKING_WEIGHTS.VIEWS} + ${starCountSubquery} * ${this.RANKING_WEIGHTS.STARS} + 1.0)
-                    / (1.0 + (MAX((strftime('%s', 'now') - ${schema.apps.updatedAt}) / 604800.0, 0))
-                            * SQRT(MAX((strftime('%s', 'now') - ${schema.apps.updatedAt}) / 604800.0, 0.001)))
-                    * 100
-                AS INTEGER)
+                (${viewCountSubquery} * 12)
+                + (${starCountSubquery} * 120)
+                + (${forkCountSubquery} * ${this.RANKING_WEIGHTS.FORKS} * 20)
+                + CAST(1400 / (1.0 + (${createdAgeDays} / 2.0)) AS INTEGER)
+                + CAST(500 / (1.0 + (${updatedAgeDays} / 7.0)) AS INTEGER)
                 + ABS(
                     (UNICODE(SUBSTR(${schema.apps.id}, 1, 1)) * 31
                      + UNICODE(SUBSTR(${schema.apps.id}, 10, 1)) * 37
                      + UNICODE(SUBSTR(${schema.apps.id}, 15, 1)) * 41
                      + UNICODE(SUBSTR(${schema.apps.id}, 20, 1)) * 43
                     ) * ${feedSeed}
-                  ) % 10000
+                  ) % 400
+                - CASE
+                    WHEN ${userViewCountSubquery} > 0 THEN 1800 + (${userViewCountSubquery} * 120)
+                    ELSE 0
+                  END
             ) DESC`;
 
-            return db
+            const rows = await db
                 .select({
                     app: schema.apps,
                     userName: schema.users.displayName,
@@ -1125,6 +1130,8 @@ export class AppService extends BaseService {
                 .orderBy(orderByExpression)
                 .limit(limit)
                 .offset(offset);
+
+            return this.diversifyFeedRows(rows);
         } else if (sort === 'trending' || sort === 'popular') {
             const periodThreshold = sort === 'trending' ? this.getTimePeriodThreshold(period) : null;
             const periodUnixTimestamp = periodThreshold ? Math.floor(periodThreshold.getTime() / 1000) : 0;
@@ -1208,6 +1215,33 @@ export class AppService extends BaseService {
                 .limit(limit)
                 .offset(offset);
         }
+    }
+
+    private diversifyFeedRows(rows: RankedAppQueryResult[]): RankedAppQueryResult[] {
+        if (rows.length < 3) return rows;
+
+        const remaining = [...rows];
+        const diversified: RankedAppQueryResult[] = [];
+        let lastAuthorKey: string | null = null;
+
+        while (remaining.length > 0) {
+            let nextIndex = remaining.findIndex((row) => {
+                const authorKey = row.app.userId ?? row.app.id;
+                return authorKey !== lastAuthorKey;
+            });
+
+            if (nextIndex < 0 || remaining.length <= 2) {
+                nextIndex = 0;
+            }
+
+            const [next] = remaining.splice(nextIndex, 1);
+            if (!next) break;
+
+            diversified.push(next);
+            lastAuthorKey = next.app.userId ?? next.app.id;
+        }
+
+        return diversified;
     }
 
     private getCountSubqueries() {
