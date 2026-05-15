@@ -22,6 +22,10 @@ const commonTransitions = {
 	smoothInOut: { duration: 0.3, ease: 'easeInOut' as const },
 };
 
+function toSafeCount(value: number | undefined): number {
+	return Number.isFinite(value) ? Math.max(0, Math.trunc(value ?? 0)) : 0;
+}
+
 // Consolidated status-specific loader components
 interface StatusLoaderProps {
 	size?: 'sm' | 'md';
@@ -141,6 +145,8 @@ export function TaskProgress({
 	retryFailedWorkflowDisabled = false
 }: TaskProgressProps) {
 	const { t } = useAppI18n();
+	const safeRuntimeErrorCount = toSafeCount(runtimeErrorCount);
+	const safeStaticIssueCount = toSafeCount(staticIssueCount);
 	const codeStage = projectStages.find(stage => stage.id === 'code');
 	const queuePosition = codeStage?.queuePosition;
 	const showFileSummary = files.length > 0 && codeStage?.status !== 'pending';
@@ -179,7 +185,7 @@ export function TaskProgress({
 								</span>
 
 								{/* Subtle inline issue indicator for completed code stage */}
-								{stage.id === 'code' && stage.status === 'completed' && (runtimeErrorCount > 0 || staticIssueCount > 0) && (
+								{stage.id === 'code' && stage.status === 'completed' && (safeRuntimeErrorCount > 0 || safeStaticIssueCount > 0) && (
 									<motion.span
 										initial={{ opacity: 0, scale: 0.9 }}
 										animate={{ opacity: 1, scale: 1 }}
@@ -187,19 +193,19 @@ export function TaskProgress({
 										className="inline-flex items-center gap-1.5 ml-1.5 text-xs"
 									>
 										<span className="text-zinc-300">&bull;</span>
-										{runtimeErrorCount > 0 && (
+										{safeRuntimeErrorCount > 0 && (
 											<span className="inline-flex items-center gap-1">
 												<div className="w-1.5 h-1.5 rounded-full bg-red-400" />
-												<span className="text-red-400/80">{t(runtimeErrorCount > 1 ? '{count} errors' : '{count} error', { count: runtimeErrorCount })}</span>
+												<span className="text-red-400/80">{t(safeRuntimeErrorCount > 1 ? '{count} errors' : '{count} error', { count: safeRuntimeErrorCount })}</span>
 											</span>
 										)}
-										{runtimeErrorCount > 0 && staticIssueCount > 0 && (
+										{safeRuntimeErrorCount > 0 && safeStaticIssueCount > 0 && (
 											<span className="text-text-tertiary/50">,</span>
 										)}
-										{staticIssueCount > 0 && (
+										{safeStaticIssueCount > 0 && (
 											<span className="inline-flex items-center gap-1">
 												<div className="w-1.5 h-1.5 rounded-full bg-orange-400" />
-												<span className="text-orange-400/80">{t(staticIssueCount > 1 ? '{count} warnings' : '{count} warning', { count: staticIssueCount })}</span>
+												<span className="text-orange-400/80">{t(safeStaticIssueCount > 1 ? '{count} warnings' : '{count} warning', { count: safeStaticIssueCount })}</span>
 											</span>
 										)}
 									</motion.span>

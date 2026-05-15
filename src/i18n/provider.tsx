@@ -9,6 +9,7 @@ import {
 } from './catalogs';
 
 const STORAGE_KEY = 'buzzplay-locale';
+const SIMPLE_PLACEHOLDER_PATTERN = /\{([A-Za-z_][A-Za-z0-9_]*)\}/g;
 
 const i18n = setupI18n({
 	locale: DEFAULT_LOCALE,
@@ -44,6 +45,16 @@ function activateLocale(locale: AppLocale) {
 	}
 }
 
+function interpolateSimplePlaceholders(message: string, values?: Record<string, unknown>): string {
+	if (!values) return message;
+
+	return message.replace(SIMPLE_PLACEHOLDER_PATTERN, (match, key: string) => {
+		if (!Object.prototype.hasOwnProperty.call(values, key)) return match;
+		const value = values[key];
+		return value == null ? '' : String(value);
+	});
+}
+
 export function AppI18nProvider({ children }: { children: React.ReactNode }) {
 	const [locale, setLocaleState] = React.useState<AppLocale>(() => {
 		const initialLocale = getInitialLocale();
@@ -63,7 +74,7 @@ export function AppI18nProvider({ children }: { children: React.ReactNode }) {
 	const value = React.useMemo<AppI18nContextValue>(() => ({
 		locale,
 		setLocale,
-		t: (id, values) => i18n._(id, values),
+		t: (id, values) => interpolateSimplePlaceholders(i18n._(id, values), values),
 	}), [locale, setLocale]);
 
 	return (
