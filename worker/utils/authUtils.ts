@@ -7,31 +7,34 @@ import type { User } from '../database/schema';
 import { createLogger } from '../logger';
 
 const logger = createLogger('AuthUtils');
-const CLERK_PHONE_EMAIL_DOMAIN = 'clerk-phone.buzzplay.internal';
+export const CLERK_PHONE_EMAIL_DOMAIN = 'clerk-phone.buzzplay.internal';
 
-function getDefaultBuzzDisplayName(userId: string): string {
-	return `buzz#${userId.replace(/-/g, '').toLowerCase().slice(0, 6)}`;
+export function getDefaultBuzzDisplayName(userId: string): string {
+	return `Buzz user #${userId.replace(/-/g, '').toLowerCase().slice(0, 6)}`;
 }
 
 function isPhoneOnlyFallbackEmail(email: string): boolean {
 	return email.toLowerCase().endsWith(`@${CLERK_PHONE_EMAIL_DOMAIN}`);
 }
 
-function isGenericBuzzDisplayName(value?: string | null): boolean {
+export function isGenericBuzzDisplayName(value?: string | null): boolean {
 	return (value?.trim().toLowerCase() || '') === 'buzz user';
 }
 
-function isPhoneNumberLike(value?: string | null): boolean {
+export function isPhoneNumberLike(value?: string | null): boolean {
 	const normalized = value?.trim() || '';
 	return /^\+[1-9]\d{6,14}$/.test(normalized);
 }
 
-function getMappedDisplayName(user: Partial<User> & { id: string; email: string }): string | undefined {
+export function getMappedDisplayName(user: Partial<User> & { id: string; email?: string | null }): string | undefined {
 	const displayName = typeof user.displayName === 'string' ? user.displayName.trim() : '';
-	if (
-		isPhoneOnlyFallbackEmail(user.email) &&
-		(isGenericBuzzDisplayName(displayName) || isPhoneNumberLike(displayName))
-	) {
+	const email = user.email || '';
+	const shouldUseDefaultName =
+		isGenericBuzzDisplayName(displayName) ||
+		isPhoneNumberLike(displayName) ||
+		(Boolean(email) && isPhoneOnlyFallbackEmail(email) && !displayName);
+
+	if (shouldUseDefaultName) {
 		return getDefaultBuzzDisplayName(user.id);
 	}
 

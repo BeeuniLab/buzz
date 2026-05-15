@@ -7,6 +7,7 @@ import { BaseService } from './BaseService';
 import * as schema from '../schema';
 import { eq, and, sql, lt, ne, desc, inArray, isNull } from 'drizzle-orm';
 import { generateId } from '../../utils/idGenerator';
+import { getMappedDisplayName } from '../../utils/authUtils';
 
 /**
  * User Service Class
@@ -169,6 +170,17 @@ export class UserService extends BaseService {
             theme?: 'light' | 'dark' | 'system';
         }
     ): Promise<{ success: boolean; message: string }> {
+        if (profileData.displayName !== undefined) {
+            const displayName = profileData.displayName.trim();
+            if (displayName.length < 1 || displayName.length > 40) {
+                return {
+                    success: false,
+                    message: 'Display name must be between 1 and 40 characters'
+                };
+            }
+            profileData.displayName = displayName;
+        }
+
         // Validate username if provided
         if (profileData.username) {
             const { username } = profileData;
@@ -346,6 +358,7 @@ export class UserService extends BaseService {
                 followerId: schema.userFollows.followerId,
                 followedAt: schema.userFollows.createdAt,
                 followerName: schema.users.displayName,
+                followerEmail: schema.users.email,
                 followerUsername: schema.users.username,
                 followerAvatar: schema.users.avatarUrl,
             })
@@ -370,8 +383,13 @@ export class UserService extends BaseService {
             followingBackRows.forEach(row => followingBackIds.add(row.followingId));
         }
 
-        return rows.map(row => ({
+        return rows.map(({ followerEmail, ...row }) => ({
             ...row,
+            followerName: getMappedDisplayName({
+                id: row.followerId,
+                email: followerEmail ?? undefined,
+                displayName: row.followerName ?? undefined,
+            }) ?? row.followerName,
             isFollowingBack: followingBackIds.has(row.followerId),
         }));
     }

@@ -8,6 +8,7 @@ import { eq, ne, and, or, desc, asc, sql, isNull, isNotNull, inArray, notInArray
 import { generateId } from '../../utils/idGenerator';
 import { formatRelativeTime } from '../../utils/timeFormatter';
 import { normalizeStoredInternalApiUrl } from '../../utils/urls';
+import { getMappedDisplayName } from '../../utils/authUtils';
 import type {
     EnhancedAppData,
     AppWithFavoriteStatus,
@@ -34,6 +35,7 @@ type WhereCondition =
 type RankedAppQueryResult = {
     app: typeof schema.apps.$inferSelect;
     userName: string | null;
+    userEmail: string | null;
     userAvatar: string | null;
     viewCount: number;
     starCount: number;
@@ -55,6 +57,15 @@ export class AppService extends BaseService {
             screenshotUrl: normalizeStoredInternalApiUrl(app.screenshotUrl) ?? null,
             iconUrl: normalizeStoredInternalApiUrl(app.iconUrl) ?? null,
         };
+    }
+
+    private getAuthorDisplayName(row: { app: Pick<typeof schema.apps.$inferSelect, 'userId'>; userName: string | null; userEmail?: string | null }): string | null {
+        if (!row.app.userId) return row.userName;
+        return getMappedDisplayName({
+            id: row.app.userId,
+            email: row.userEmail ?? undefined,
+            displayName: row.userName ?? undefined,
+        }) ?? row.userName;
     }
 
     private buildActiveAppFilter(): WhereCondition {
@@ -227,7 +238,7 @@ export class AppService extends BaseService {
                 
                 return {
                     ...this.normalizeAppUrls(row.app),
-                    userName: row.userName,
+                    userName: this.getAuthorDisplayName(row),
                     userAvatar: row.userAvatar,
                     viewCount: row.viewCount || 0,
                     starCount: row.starCount || 0,
@@ -721,6 +732,7 @@ export class AppService extends BaseService {
             .select({
                 app: schema.apps,
                 userName: schema.users.displayName,
+                userEmail: schema.users.email,
                 userAvatar: schema.users.avatarUrl,
             })
             .from(schema.apps)
@@ -795,7 +807,7 @@ export class AppService extends BaseService {
         
         const result = {
             ...this.normalizeAppUrls(app),
-            userName: appResult.userName,
+            userName: this.getAuthorDisplayName(appResult),
             userAvatar: appResult.userAvatar,
             starCount,
             userStarred: userHasStarred,
@@ -887,6 +899,7 @@ export class AppService extends BaseService {
             .select({
                 app: schema.apps,
                 userName: schema.users.displayName,
+                userEmail: schema.users.email,
                 userAvatar: schema.users.avatarUrl,
                 lastViewedAt,
                 ...this.getCountSubqueries(),
@@ -930,7 +943,7 @@ export class AppService extends BaseService {
 
         return rows.map(row => ({
             ...this.normalizeAppUrls(row.app),
-            userName: row.userName,
+            userName: this.getAuthorDisplayName(row),
             userAvatar: row.userAvatar,
             viewCount: row.viewCount || 0,
             starCount: row.starCount || 0,
@@ -974,6 +987,7 @@ export class AppService extends BaseService {
                 .select({
                     app: schema.apps,
                     userName: schema.users.displayName,
+                    userEmail: schema.users.email,
                     userAvatar: schema.users.avatarUrl,
                     ...this.getCountSubqueries()
                 })
@@ -987,7 +1001,7 @@ export class AppService extends BaseService {
                 
             const starredApps = results.map(r => ({
                 ...r.app,
-                userName: r.userName,
+                userName: this.getAuthorDisplayName(r),
                 userAvatar: r.userAvatar,
                 viewCount: r.viewCount || 0,
                 starCount: r.starCount || 0,
@@ -1019,7 +1033,7 @@ export class AppService extends BaseService {
         
         const normalApps = basicApps.map((row: RankedAppQueryResult) => ({
             ...this.normalizeAppUrls(row.app),
-            userName: row.userName,
+            userName: this.getAuthorDisplayName(row),
             userAvatar: row.userAvatar,
             viewCount: row.viewCount || 0,
             starCount: row.starCount || 0,
@@ -1119,6 +1133,7 @@ export class AppService extends BaseService {
                 .select({
                     app: schema.apps,
                     userName: schema.users.displayName,
+                    userEmail: schema.users.email,
                     userAvatar: schema.users.avatarUrl,
                     viewCount: viewCountSubquery,
                     starCount: starCountSubquery,
@@ -1152,6 +1167,7 @@ export class AppService extends BaseService {
                     .select({
                         app: schema.apps,
                         userName: schema.users.displayName,
+                        userEmail: schema.users.email,
                         userAvatar: schema.users.avatarUrl,
                         viewCount: viewCountSubquery,
                         starCount: starCountSubquery,
@@ -1180,6 +1196,7 @@ export class AppService extends BaseService {
                     .select({
                         app: schema.apps,
                         userName: schema.users.displayName,
+                        userEmail: schema.users.email,
                         userAvatar: schema.users.avatarUrl,
                         viewCount: viewCountSubquery,
                         starCount: starCountSubquery,
@@ -1205,6 +1222,7 @@ export class AppService extends BaseService {
                 .select({
                     app: schema.apps,
                     userName: schema.users.displayName,
+                    userEmail: schema.users.email,
                     userAvatar: schema.users.avatarUrl,
                     ...this.getCountSubqueries(),
                 })

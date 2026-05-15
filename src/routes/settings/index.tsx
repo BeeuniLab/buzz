@@ -5,12 +5,14 @@ import {
 	Lock,
 	Settings,
 	Languages,
+	UserRound,
 } from 'lucide-react';
 import type {
 	ActiveSessionsData,
 } from '@/api-types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
 import { Separator } from '@/components/ui/separator';
 import { useAuth } from '@/contexts/auth-context';
 import { Badge } from '@/components/ui/badge';
@@ -55,55 +57,50 @@ function maskSessionAddress(address: string | null | undefined): string {
 }
 
 export default function SettingsPage() {
-	const { user, deleteAccount } = useAuth();
+	const { user, deleteAccount, refreshUser } = useAuth();
 	const { locale, setLocale, t } = useAppI18n();
 	const accountIdentifier =
 		user?.email?.endsWith('@clerk-phone.buzzplay.internal')
 			? user.displayName || t('Phone account')
 			: user?.email || t('Signed in account');
 	const [isDeletingAccount, setIsDeletingAccount] = useState(false);
+	const [displayName, setDisplayName] = useState(user?.displayName || '');
+	const [isSavingProfile, setIsSavingProfile] = useState(false);
 	// Active sessions state
 	const [activeSessions, setActiveSessions] = useState<
 		ActiveSessionsData & { loading: boolean }
 	>({ sessions: [], loading: true });
 
-	// const handleSaveProfile = async () => {
-	// 	if (isSaving) return;
+	React.useEffect(() => {
+		setDisplayName(user?.displayName || '');
+	}, [user?.displayName]);
 
-	// 	try {
-	// 		setIsSaving(true);
+	const trimmedDisplayName = displayName.trim();
+	const hasDisplayNameChange = trimmedDisplayName !== (user?.displayName || '');
+	const canSaveProfile = trimmedDisplayName.length > 0 && trimmedDisplayName.length <= 40 && hasDisplayNameChange && !isSavingProfile;
 
-	// 		const response = await fetch('/api/auth/profile', {
-	// 			method: 'PUT',
-	// 			credentials: 'include',
-	// 			headers: {
-	// 				'Content-Type': 'application/json',
-	// 			},
-	// 			body: JSON.stringify({
-	// 				...profileData,
-	// 				theme: currentTheme,
-	// 			}),
-	// 		});
+	const handleSaveProfile = async () => {
+		if (!canSaveProfile) return;
 
-	// 		const data = await response.json();
+		try {
+			setIsSavingProfile(true);
+			const response = await apiClient.updateProfile({
+				displayName: trimmedDisplayName,
+			});
 
-	// 		if (response.ok && data.success) {
-	// 			toast.success('Profile settings saved');
-	// 			// Theme context is already updated by handleThemeChange
-	// 			// Refresh user data in auth context
-	// 			await refreshUser();
-	// 		} else {
-	// 			toast.error(
-	// 				data.error?.message || 'Failed to save profile settings',
-	// 			);
-	// 		}
-	// 	} catch (error) {
-	// 		console.error('Profile save error:', error);
-	// 		toast.error('Failed to save profile settings');
-	// 	} finally {
-	// 		setIsSaving(false);
-	// 	}
-	// };
+			if (response.success) {
+				toast.success(t('Profile updated'));
+				await refreshUser();
+			} else {
+				toast.error(response.error?.message || t('Failed to update profile'));
+			}
+		} catch (error) {
+			console.error('Profile save error:', error);
+			toast.error(error instanceof Error ? error.message : t('Failed to update profile'));
+		} finally {
+			setIsSavingProfile(false);
+		}
+	};
 
 	const handleDeleteAccount = async () => {
 		if (isDeletingAccount) return;
@@ -199,6 +196,46 @@ export default function SettingsPage() {
 							{t('Manage your account settings and preferences')}
 						</p>
 					</div>
+
+					<Card id="profile">
+						<CardHeader variant="minimal">
+							<div className="flex items-center gap-3 border-b w-full py-3 text-text-primary">
+								<UserRound className="h-5 w-5" />
+								<div>
+									<CardTitle className="text-lg">
+										{t('Profile')}
+									</CardTitle>
+								</div>
+							</div>
+						</CardHeader>
+						<CardContent className="space-y-3 mt-2 px-6">
+							<div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+								<div className="min-w-0 flex-1">
+									<label className="text-sm font-medium text-text-primary" htmlFor="display-name">
+										{t('Display name')}
+									</label>
+									<p className="mb-2 text-sm text-text-tertiary">
+										{t('This name is shown on your profile and apps.')}
+									</p>
+									<Input
+										id="display-name"
+										value={displayName}
+										maxLength={40}
+										onChange={(event) => setDisplayName(event.target.value)}
+										placeholder={t('Display name')}
+										aria-invalid={displayName.length > 40 || trimmedDisplayName.length === 0}
+									/>
+								</div>
+								<Button
+									onClick={handleSaveProfile}
+									disabled={!canSaveProfile}
+									className="sm:w-28"
+								>
+									{isSavingProfile ? t('Saving') : t('Save')}
+								</Button>
+							</div>
+						</CardContent>
+					</Card>
 
 					<Card id="preferences">
 						<CardHeader variant="minimal">

@@ -7,6 +7,7 @@ import { Visibility, AppSortOption, SortOrder, TimePeriod } from '../../../datab
 import { UserAppsData, ProfileUpdateData, UserFollowData, FollowerInboxData, PublicUserProfileData } from './types';
 import { createLogger } from '../../../logger';
 import { getAgentStubLightweight } from '../../../agents';
+import { getMappedDisplayName } from '../../../utils/authUtils';
 
 const logger = createLogger('UserController');
 const MAX_RECONCILE_APPS_PER_LIST_REQUEST = 5;
@@ -167,7 +168,7 @@ export class UserController extends BaseController {
 
             return UserController.createSuccessResponse({
                 id: targetUser.id,
-                displayName: targetUser.displayName,
+                displayName: getMappedDisplayName(targetUser) ?? targetUser.displayName,
                 username: targetUser.username,
                 avatarUrl: targetUser.avatarUrl,
                 bio: targetUser.bio,

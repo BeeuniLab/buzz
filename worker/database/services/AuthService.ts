@@ -16,7 +16,12 @@ import {
 import { AuthResult, AuthUserSession } from '../../types/auth-types';
 import { generateId } from '../../utils/idGenerator';
 import { AuthUser } from '../../types/auth-types';
-import { mapUserResponse } from '../../utils/authUtils';
+import {
+    getDefaultBuzzDisplayName,
+    isGenericBuzzDisplayName,
+    isPhoneNumberLike,
+    mapUserResponse
+} from '../../utils/authUtils';
 import { createLogger } from '../../logger';
 import { validateEmail, validatePassword } from '../../utils/validationUtils';
 import { extractRequestMetadata } from '../../utils/authUtils';
@@ -118,19 +123,6 @@ function getClerkFallbackEmail(clerkUserId: string): string {
 
 function getDefaultBuzzUsername(userId: string): string {
     return `buzz_${userId.replace(/-/g, '').toLowerCase().slice(0, 10)}`;
-}
-
-function getDefaultBuzzDisplayName(userId: string): string {
-    return `buzz#${userId.replace(/-/g, '').toLowerCase().slice(0, 6)}`;
-}
-
-function isGenericBuzzDisplayName(value?: string | null): boolean {
-    return (value?.trim().toLowerCase() || '') === 'buzz user';
-}
-
-function isPhoneNumberLike(value?: string | null): boolean {
-    const normalized = value?.trim() || '';
-    return /^\+[1-9]\d{6,14}$/.test(normalized);
 }
 
 function getCachedClerkJwks(jwksUrl: string) {
@@ -749,9 +741,16 @@ export class AuthService extends BaseService {
                     isPhoneNumberLike(user.displayName) ||
                     isGenericBuzzDisplayName(user.displayName)
                 );
+            const shouldKeepExistingDisplayName =
+                profile.isPhoneOnly && (
+                    isPhoneNumberLike(profile.displayName) ||
+                    isGenericBuzzDisplayName(profile.displayName)
+                );
             const nextDisplayName = shouldUseDefaultBuzzIdentity
                 ? getDefaultBuzzDisplayName(user.id)
-                : profile.displayName || user.displayName;
+                : shouldKeepExistingDisplayName
+                    ? user.displayName
+                    : profile.displayName || user.displayName;
             const nextUsername = shouldUseDefaultBuzzIdentity && !user.username
                 ? getDefaultBuzzUsername(user.id)
                 : user.username;
