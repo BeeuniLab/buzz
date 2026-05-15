@@ -18,6 +18,7 @@
 
 - Choose a visual style that fits the subject instead of relying on a default palette.
 - Use contrast, scale, spacing, and motion to guide attention to the content.
+- Keep every readable label legible in the 9:16 mobile preview without zooming. At 720x1280 canvas resolution, use at least 34px for status text, at least 40px for instructions and button labels, and at least 56px for titles, result messages, or primary calls to action. Shorten copy before reducing type size.
 - Use assets, generated shapes, canvas drawing, or media deliberately; avoid filler imagery.
 - Add lightweight sound only when it improves feedback or atmosphere, and keep it optional or non-disruptive.
 

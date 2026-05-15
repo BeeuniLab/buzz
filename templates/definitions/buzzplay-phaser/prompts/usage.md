@@ -26,6 +26,7 @@
 - Do not rely on keyboard-only, hover-only, or tiny desktop controls.
 - Keep action zones large and edge-aware. Primary play should stay prominent and reachable across container sizes.
 - Avoid text-heavy instructions. Use short labels and visual cues.
+- Keep every readable label legible in the 9:16 mobile preview without zooming. At 720x1280 design resolution, use at least 34px for HUD/status text, at least 40px for instructions and button labels, and at least 56px for titles, result messages, or primary calls to action. Shorten copy before reducing type size.
 - Keep frame logic lightweight; do not add large external assets unless the user provided them.
 
 ## Files To Edit First
