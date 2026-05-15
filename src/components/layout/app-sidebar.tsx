@@ -64,6 +64,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { LoginModal } from '@/components/auth/login-modal';
 import { useTheme } from '@/contexts/theme-context';
+import { useAppI18n } from '@/i18n';
 
 interface App {
 	id: string;
@@ -188,6 +189,7 @@ function DiscoverSidebar({
 }) {
 	const pathname = location.pathname;
 	const { requireAuth } = useAuthGuard();
+	const { t } = useAppI18n();
 
 	return (
 		<>
@@ -209,7 +211,7 @@ function DiscoverSidebar({
 										<Plus className="h-4 w-4 text-[#1a1a1a]" />
 										{!isCollapsed && (
 											<span className="font-bold text-[#1a1a1a]">
-												Create
+												{t('Create')}
 											</span>
 										)}
 									</button>
@@ -226,27 +228,27 @@ function DiscoverSidebar({
 						<SidebarMenuItem>
 							<SidebarMenuButton
 								onClick={() => navigate('/')}
-								tooltip="Home"
+								tooltip={t('Home')}
 								className={cn(
 									'group hover:cursor-pointer transition-all duration-200 h-10 text-[15px]',
 									(pathname === '/' || pathname.startsWith('/feed')) && 'bg-neo-yellow/40 font-bold',
 								)}
 							>
 								<PlaySquare className="h-5 w-5" />
-								{!isCollapsed && <span>Home</span>}
+								{!isCollapsed && <span>{t('Home')}</span>}
 							</SidebarMenuButton>
 						</SidebarMenuItem>
 						<SidebarMenuItem>
 							<SidebarMenuButton
 								onClick={() => navigate('/discover')}
-								tooltip="Discover"
+								tooltip={t('Discover')}
 								className={cn(
 									'group hover:cursor-pointer transition-all duration-200 h-10 text-[15px]',
 																	pathname.startsWith('/discover') && 'bg-neo-yellow/40 font-bold',
 								)}
 							>
 								<Compass className="h-5 w-5" />
-								{!isCollapsed && <span>Discover</span>}
+								{!isCollapsed && <span>{t('Discover')}</span>}
 							</SidebarMenuButton>
 						</SidebarMenuItem>
 						<SidebarMenuItem>
@@ -256,14 +258,14 @@ function DiscoverSidebar({
 										navigate('/inbox');
 									}
 								}}
-								tooltip="Inbox"
+								tooltip={t('Inbox')}
 								className={cn(
 									'group hover:cursor-pointer transition-all duration-200 h-10 text-[15px]',
 									pathname.startsWith('/inbox') && 'bg-neo-yellow/40 font-bold',
 								)}
 							>
 								<Inbox className="h-5 w-5" />
-								{!isCollapsed && <span>Inbox</span>}
+								{!isCollapsed && <span>{t('Inbox')}</span>}
 							</SidebarMenuButton>
 						</SidebarMenuItem>
 						<SidebarMenuItem>
@@ -273,14 +275,14 @@ function DiscoverSidebar({
 										navigate('/profile');
 									}
 								}}
-								tooltip="Profile"
+								tooltip={t('Profile')}
 								className={cn(
 									'group hover:cursor-pointer transition-all duration-200 h-10 text-[15px]',
 									pathname === '/profile' && 'bg-neo-yellow/40 font-bold',
 								)}
 							>
 								<User className="h-5 w-5" />
-								{!isCollapsed && <span>Profile</span>}
+								{!isCollapsed && <span>{t('Profile')}</span>}
 							</SidebarMenuButton>
 						</SidebarMenuItem>
 					</SidebarMenu>
@@ -312,6 +314,7 @@ function BuildSidebar({
 	getAppHref: (app: App) => string;
 }) {
 	const hasApps = recentApps.length > 0;
+	const { t } = useAppI18n();
 
 	return (
 		<>
@@ -334,7 +337,7 @@ function BuildSidebar({
 										<PlaySquare className="h-4 w-4 text-[#1a1a1a]" />
 										{!isCollapsed && (
 											<span className="font-bold text-[#1a1a1a]">
-												Home
+												{t('Home')}
 											</span>
 										)}
 									</button>
@@ -356,7 +359,7 @@ function BuildSidebar({
 										<Plus className="h-4 w-4 text-[#1a1a1a]" />
 										{!isCollapsed && (
 											<span className="font-bold text-[#1a1a1a]">
-												Create
+												{t('Create')}
 											</span>
 										)}
 									</button>
@@ -378,7 +381,7 @@ function BuildSidebar({
 										onClick={() => navigate('/apps')}
 										className="group flex h-10 w-full items-center justify-center gap-2 rounded-lg border-2 border-[var(--neo-border-color)] bg-bg-4 px-3 text-sm font-bold text-text-primary shadow-[3px_3px_0px_0px_var(--neo-border-color)] transition-all hover:-translate-x-[0.5px] hover:-translate-y-[0.5px] hover:bg-neo-yellow/40 hover:shadow-[4px_4px_0px_0px_var(--neo-border-color)] active:translate-x-[1px] active:translate-y-[1px] active:shadow-[1px_1px_0px_0px_var(--neo-border-color)]"
 									>
-										<span>View All</span>
+										<span>{t('View All')}</span>
 										<ChevronRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
 									</button>
 								</div>
@@ -419,7 +422,7 @@ function BuildSidebar({
 										isCollapsed && 'justify-center px-0',
 									)}
 								>
-									{!isCollapsed && 'Bookmarked'}
+									{!isCollapsed && t('Bookmarked')}
 									<Bookmark className="h-5 w-5 fill-yellow-500 text-yellow-500" />
 								</SidebarGroupLabel>
 								<SidebarGroupContent>
@@ -596,6 +599,7 @@ export function AppSidebar() {
 	};
 
 	const { setTheme } = useTheme();
+	const { t } = useAppI18n();
 
 	return (
 		<>
@@ -693,11 +697,11 @@ export function AppSidebar() {
 						<SidebarMenuItem>
 							{authLoading ? (
 								<SidebarMenuButton
-									tooltip="Signing in"
+									tooltip={t('Signing in')}
 									className="cursor-default text-text-tertiary"
 								>
 									<Loader2 className="h-5 w-5 animate-spin" />
-									{!isCollapsed && <span className="font-medium">Signing in</span>}
+									{!isCollapsed && <span className="font-medium">{t('Signing in')}</span>}
 								</SidebarMenuButton>
 							) : user ? (
 								<DropdownMenu>
@@ -714,7 +718,7 @@ export function AppSidebar() {
 											</Avatar>
 											{!isCollapsed && (
 												<div className="flex-1 min-w-0 text-left">
-													<p className="text-sm font-medium truncate">{user.displayName || user.username || 'User'}</p>
+													<p className="text-sm font-medium truncate">{user.displayName || user.username || t('User')}</p>
 												</div>
 											)}
 											{!isCollapsed && <ChevronsUpDown className="h-3.5 w-3.5 text-text-tertiary shrink-0" />}
@@ -723,44 +727,44 @@ export function AppSidebar() {
 									<DropdownMenuContent side="top" align="end">
 										<DropdownMenuItem onClick={() => navigateAndClose('/settings')} className="cursor-pointer">
 											<Settings className="size-5" />
-											Settings
+											{t('Settings')}
 										</DropdownMenuItem>
 										<DropdownMenuSub>
 											<DropdownMenuSubTrigger className="cursor-pointer">
 												<Sun className="size-5" />
-												Theme
+												{t('Theme')}
 											</DropdownMenuSubTrigger>
 											<DropdownMenuPortal>
 												<DropdownMenuSubContent>
 													<DropdownMenuItem onClick={() => setTheme('light')} className="cursor-pointer">
 														<Sun className="size-5" />
-														Light
+														{t('Light')}
 													</DropdownMenuItem>
 													<DropdownMenuItem onClick={() => setTheme('dark')} className="cursor-pointer">
 														<Moon className="size-5" />
-														Dark
+														{t('Dark')}
 													</DropdownMenuItem>
 													<DropdownMenuItem onClick={() => setTheme('system')} className="cursor-pointer">
 														<Monitor className="size-5" />
-														System
+														{t('System')}
 													</DropdownMenuItem>
 												</DropdownMenuSubContent>
 											</DropdownMenuPortal>
 										</DropdownMenuSub>
 										<DropdownMenuItem onClick={() => logout()} className="cursor-pointer text-destructive focus:text-destructive">
 											<LogOut className="size-5" />
-											Sign Out
+											{t('Sign Out')}
 										</DropdownMenuItem>
 									</DropdownMenuContent>
 								</DropdownMenu>
 							) : (
 								<SidebarMenuButton
-									tooltip="Sign In"
+									tooltip={t('Sign In')}
 									className="hover:bg-bg-1/50 cursor-pointer"
 									onClick={() => setShowLoginModal(true)}
 								>
 									<LogIn className="h-5 w-5" />
-									{!isCollapsed && <span className="font-medium">Sign In</span>}
+									{!isCollapsed && <span className="font-medium">{t('Sign In')}</span>}
 								</SidebarMenuButton>
 							)}
 						</SidebarMenuItem>

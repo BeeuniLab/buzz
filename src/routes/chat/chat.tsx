@@ -46,6 +46,7 @@ import {
 	type ChatAttachmentPreview,
 	type ChatAssetSelectionTarget,
 } from './utils/chat-attachments';
+import { useAppI18n } from '@/i18n';
 
 type CanvasView = 'editor' | 'preview' | 'docs' | 'blueprint' | 'presentation' | 'assets';
 
@@ -67,6 +68,7 @@ function parsePendingMedia(raw: string | null): ImageAttachment[] | undefined {
 
 export default function Chat() {
 	const { chatId: urlChatId } = useParams();
+	const { t } = useAppI18n();
 
 	const [searchParams] = useSearchParams();
 	const location = useLocation();
@@ -98,7 +100,7 @@ export default function Chat() {
 	// If we have an existing app, use its data
 	const displayQuery = app ? app.originalPrompt || app.title : userQuery || '';
 	const appTitle = app?.title;
-	const chatHeaderTitle = appTitle || displayQuery || (urlChatId && urlChatId !== 'new' ? 'Untitled playable' : 'New playable');
+	const chatHeaderTitle = appTitle || displayQuery || (urlChatId && urlChatId !== 'new' ? t('Untitled playable') : t('New playable'));
 
 	// Manual refresh trigger for preview
 	const [manualRefreshTrigger, setManualRefreshTrigger] = useState(0);
@@ -436,7 +438,7 @@ export default function Chat() {
 		!isSendLockActive,
 	);
 	const updatePlayableUnavailableTitle = !hasCompletedPlayable
-		? 'Create the playable before posting'
+		? t('Create the playable before sharing')
 		: undefined;
 
 	const showMainView = useMemo(() => {
@@ -676,9 +678,9 @@ export default function Chat() {
 
 	const taskRuntimeEstimate = useMemo(() => {
 		return hasCompletedPlayable || isConversationProcessing
-			? 'Estimated update time: 4-8 min.'
-			: 'Estimated run time: 6-20 min.';
-	}, [hasCompletedPlayable, isConversationProcessing]);
+			? t('Estimated update time: 4-8 min.')
+			: t('Estimated run time: 6-20 min.');
+	}, [hasCompletedPlayable, isConversationProcessing, t]);
 
 	if (import.meta.env.DEV) {
 		logger.debug({
@@ -755,7 +757,7 @@ export default function Chat() {
 								{appLoading ? (
 									<div className="flex items-center gap-2 text-text-tertiary">
 										<LoaderCircle className="size-4 animate-spin" />
-										Loading app...
+										{t('Loading app...')}
 									</div>
 								) : (
 									<>
@@ -805,7 +807,7 @@ export default function Chat() {
 													className="hover:bg-bg-3/80 cursor-pointer"
 												>
 													<MoreHorizontal className="h-4 w-4" />
-													<span className="sr-only">Chat actions</span>
+													<span className="sr-only">{t('Chat actions')}</span>
 												</Button>
 											</DropdownMenuTrigger>
 											<DropdownMenuContent align="end" className="w-56">
@@ -816,7 +818,7 @@ export default function Chat() {
 														}}
 												>
 													<RotateCcw className="h-4 w-4 mr-2" />
-													Reset conversation
+													{t('Reset conversation')}
 												</DropdownMenuItem>
 											</DropdownMenuContent>
 										</DropdownMenu>
@@ -843,7 +845,7 @@ export default function Chat() {
 							{isThinking && !otherMessages.some(m => m.ui?.isThinking) && (
 								<div className="mb-4">
 									<AIMessage
-										message="Planning the next update..."
+										message={t('Planning the next update...')}
 										isThinking={true}
 									/>
 								</div>
@@ -871,9 +873,9 @@ export default function Chat() {
 								<div className="mb-4 rounded-xl border border-orange-300/30 bg-orange-500/10 px-3 py-3 text-sm text-text-primary">
 									<div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
 											<div>
-												<div className="font-medium">Build paused</div>
+												<div className="font-medium">{t('Build paused')}</div>
 												<div className="text-xs text-text-tertiary">
-													Resume when you're ready.
+													{t("Resume when you're ready.")}
 												</div>
 											</div>
 										<Button
@@ -881,7 +883,7 @@ export default function Chat() {
 											onClick={handleResumeGeneration}
 											className="h-8 shrink-0 bg-accent text-text-primary hover:bg-neo-yellow"
 										>
-											Resume
+											{t('Resume')}
 										</Button>
 									</div>
 								</div>
@@ -1004,7 +1006,7 @@ export default function Chat() {
 							)}
 						>
 							<MessageSquare className="h-3.5 w-3.5" />
-							Chat
+							{t('Chat')}
 						</button>
 						<button
 							onClick={() => setMobilePanel('preview')}
@@ -1016,7 +1018,7 @@ export default function Chat() {
 							)}
 						>
 							<Eye className="h-3.5 w-3.5" />
-							Preview
+							{t('Preview')}
 						</button>
 					</div>
 				</div>

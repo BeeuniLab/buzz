@@ -4,6 +4,7 @@ import {
 	Trash2,
 	Lock,
 	Settings,
+	Languages,
 } from 'lucide-react';
 import type {
 	ActiveSessionsData,
@@ -13,6 +14,14 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { useAuth } from '@/contexts/auth-context';
 import { Badge } from '@/components/ui/badge';
+import {
+	Select,
+	SelectContent,
+	SelectItem,
+	SelectTrigger,
+	SelectValue,
+} from '@/components/ui/select';
+import { LOCALE_LABELS, SUPPORTED_LOCALES, type AppLocale, useAppI18n } from '@/i18n';
 import {
 	AlertDialog,
 	AlertDialogAction,
@@ -29,7 +38,7 @@ import { apiClient } from '@/lib/api-client';
 
 function maskSessionAddress(address: string | null | undefined): string {
 	if (!address || address === 'Unknown' || address === 'unknown') {
-		return 'Unknown location';
+		return 'unknown';
 	}
 	if (address.includes('*') || address.includes('…') || address === 'Current location') {
 		return address;
@@ -42,15 +51,16 @@ function maskSessionAddress(address: string | null | undefined): string {
 		const segments = address.split(':').filter(Boolean);
 		return segments.length > 1 ? `${segments.slice(0, 2).join(':')}:…` : `${segments[0] ?? 'IPv6'}:…`;
 	}
-	return 'Masked location';
+	return 'masked';
 }
 
 export default function SettingsPage() {
 	const { user, deleteAccount } = useAuth();
+	const { locale, setLocale, t } = useAppI18n();
 	const accountIdentifier =
 		user?.email?.endsWith('@clerk-phone.buzzplay.internal')
-			? user.displayName || 'Phone account'
-			: user?.email || 'Signed in account';
+			? user.displayName || t('Phone account')
+			: user?.email || t('Signed in account');
 	const [isDeletingAccount, setIsDeletingAccount] = useState(false);
 	// Active sessions state
 	const [activeSessions, setActiveSessions] = useState<
@@ -101,10 +111,10 @@ export default function SettingsPage() {
 		try {
 			setIsDeletingAccount(true);
 			await deleteAccount();
-			toast.success('Account deleted');
+			toast.success(t('Account deleted'));
 		} catch (error) {
 			console.error('Delete account error:', error);
-			toast.error('Could not delete account. Please try again.');
+			toast.error(t('Could not delete account. Please try again.'));
 			setIsDeletingAccount(false);
 		}
 	};
@@ -147,11 +157,11 @@ export default function SettingsPage() {
 	const handleRevokeSession = async (sessionId: string) => {
 		try {
 			await apiClient.revokeSession(sessionId);
-			toast.success('Session revoked successfully');
+			toast.success(t('Session revoked successfully'));
 			loadActiveSessions();
 		} catch (error) {
 			console.error('Error revoking session:', error);
-			toast.error('Failed to revoke session');
+			toast.error(t('Failed to revoke session'));
 		}
 	};
 
@@ -162,7 +172,15 @@ export default function SettingsPage() {
 	}, [user]);
 
 	const formatSessionDate = (value: Date | string | number) =>
-		new Date(value).toLocaleDateString();
+		new Date(value).toLocaleDateString(locale);
+
+	const formatSessionAddress = (address: string | null | undefined) => {
+		const masked = maskSessionAddress(address);
+		if (masked === 'unknown') return t('Unknown location');
+		if (masked === 'masked') return t('Masked location');
+		if (masked === 'Current location') return t('Current location');
+		return masked;
+	};
 
 	return (
 		<div className="min-h-screen bg-bg-3 relative">
@@ -173,14 +191,49 @@ export default function SettingsPage() {
 						<div className="inline-flex items-center gap-3">
 							<div className="bg-neo-orange border-3 border-[var(--neo-border-color)] rounded-xl px-5 py-2.5 shadow-[5px_5px_0px_0px_var(--neo-border-color)] inline-block">
 								<h1 className="text-3xl font-black font-[departureMono] text-[#1a1a1a] tracking-wider">
-									⚙ SETTINGS
+									⚙ {t('SETTINGS')}
 								</h1>
 							</div>
 						</div>
 						<p className="text-text-secondary font-bold text-sm tracking-wide pl-1">
-							Manage your account settings and preferences
+							{t('Manage your account settings and preferences')}
 						</p>
 					</div>
+
+					<Card id="preferences">
+						<CardHeader variant="minimal">
+							<div className="flex items-center gap-3 border-b w-full py-3 text-text-primary">
+								<Languages className="h-5 w-5" />
+								<div>
+									<CardTitle className="text-lg">
+										{t('Preferences')}
+									</CardTitle>
+								</div>
+							</div>
+						</CardHeader>
+						<CardContent className="space-y-3 mt-2 px-6">
+							<div className="flex items-center justify-between gap-4">
+								<div>
+									<h4 className="font-medium">{t('Language')}</h4>
+									<p className="text-sm text-text-tertiary">
+										{t('Choose the language used across BuzzPlay.')}
+									</p>
+								</div>
+								<Select value={locale} onValueChange={(value) => setLocale(value as AppLocale)}>
+									<SelectTrigger className="w-36">
+										<SelectValue />
+									</SelectTrigger>
+									<SelectContent>
+										{SUPPORTED_LOCALES.map((item) => (
+											<SelectItem key={item} value={item}>
+												{LOCALE_LABELS[item]}
+											</SelectItem>
+										))}
+									</SelectContent>
+								</Select>
+							</div>
+						</CardContent>
+					</Card>
 
 						{/* Security Section */}
 					<Card id="security">
@@ -189,7 +242,7 @@ export default function SettingsPage() {
 								<Lock className="h-5 w-5" />
 								<div>
 									<CardTitle className="text-lg">
-										Security
+										{t('Security')}
 									</CardTitle>
 								</div>
 							</div>
@@ -198,7 +251,7 @@ export default function SettingsPage() {
 							{/* Connected Accounts */}
 							<div className="space-y-2">
 								<h4 className="font-medium">
-									Connected Accounts
+									{t('Connected Accounts')}
 								</h4>
 								<div className="flex items-center justify-between">
 									<div>
@@ -206,7 +259,7 @@ export default function SettingsPage() {
 											{accountIdentifier}
 										</p>
 									</div>
-									<Badge variant="secondary">Connected</Badge>
+									<Badge variant="secondary">{t('Connected')}</Badge>
 								</div>
 							</div>
 
@@ -214,12 +267,12 @@ export default function SettingsPage() {
 
 							{/* Active Sessions */}
 							<div className="space-y-2">
-								<h4 className="font-medium">Active Sessions</h4>
+								<h4 className="font-medium">{t('Active Sessions')}</h4>
 								{activeSessions.loading ? (
 									<div className="flex items-center gap-3">
 										<Settings className="h-5 w-5 animate-spin text-text-tertiary" />
 										<span className="text-sm text-text-tertiary">
-											Loading active sessions...
+											{t('Loading active sessions...')}
 										</span>
 									</div>
 								) : (
@@ -233,11 +286,11 @@ export default function SettingsPage() {
 												<div className="min-w-0">
 													<p className="font-medium text-sm">
 														{session.isCurrent
-															? 'Current Session'
-															: 'Other Session'}
+															? t('Current Session')
+															: t('Other Session')}
 													</p>
 													<p className="max-w-[52vw] truncate text-sm text-text-tertiary sm:max-w-none">
-														{maskSessionAddress(session.ipAddress)} •{' '}
+														{formatSessionAddress(session.ipAddress)} •{' '}
 														{formatSessionDate(session.lastActivity)}
 													</p>
 												</div>
@@ -256,7 +309,7 @@ export default function SettingsPage() {
 														}
 														className="text-destructive hover:text-destructive"
 													>
-														Revoke
+														{t('Revoke')}
 													</Button>
 												)}
 											</div>
@@ -269,14 +322,14 @@ export default function SettingsPage() {
 
 					<div className="space-y-4 p-3">
 						<h4 className="font-medium text-destructive">
-							Danger Zone
+							{t('Danger Zone')}
 						</h4>
 
 						<div className="flex items-center justify-between">
 							<div>
-								<p className="font-medium text-text-primary">Delete Account</p>
+								<p className="font-medium text-text-primary">{t('Delete Account')}</p>
 								<p className="text-sm text-text-tertiary">
-									Delete your account and hide your projects
+									{t('Delete your account and hide your projects')}
 								</p>
 							</div>
 							<AlertDialog>
@@ -286,28 +339,28 @@ export default function SettingsPage() {
 										className="gap-2"
 									>
 										<Trash2 className="h-4 w-4" />
-										Delete Account
+										{t('Delete Account')}
 									</Button>
 								</AlertDialogTrigger>
 								<AlertDialogContent>
 									<AlertDialogHeader>
 										<AlertDialogTitle>
-											Delete account?
+											{t('Delete account?')}
 										</AlertDialogTitle>
 										<AlertDialogDescription>
-											Your account info will be deleted. Your projects will be hidden from the app.
+											{t('Your account info will be deleted. Your projects will be hidden from the app.')}
 										</AlertDialogDescription>
 									</AlertDialogHeader>
 									<AlertDialogFooter>
 										<AlertDialogCancel>
-											Cancel
+											{t('Cancel')}
 										</AlertDialogCancel>
 										<AlertDialogAction
 											onClick={handleDeleteAccount}
 											disabled={isDeletingAccount}
 											className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
 										>
-											{isDeletingAccount ? 'Deleting...' : 'Delete'}
+											{isDeletingAccount ? `${t('Deleting')}...` : t('Delete')}
 										</AlertDialogAction>
 									</AlertDialogFooter>
 								</AlertDialogContent>

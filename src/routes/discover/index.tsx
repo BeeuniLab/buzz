@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input';
 import { apiClient } from '@/lib/api-client';
 import { cn } from '@/lib/utils';
 import type { AppWithUserAndStats } from '@/api-types';
+import { useAppI18n } from '@/i18n';
 
 const CATEGORIES = [
 	'All',
@@ -16,6 +17,7 @@ const CATEGORIES = [
 
 export default function DiscoverPage() {
 	const navigate = useNavigate();
+	const { t } = useAppI18n();
 	const [popularApps, setPopularApps] = React.useState<AppWithUserAndStats[]>([]);
 	const [trendingApps, setTrendingApps] = React.useState<AppWithUserAndStats[]>([]);
 	const [recentApps, setRecentApps] = React.useState<AppWithUserAndStats[]>([]);
@@ -106,14 +108,14 @@ export default function DiscoverPage() {
 					inputMode="search"
 					value={manualSearchQuery}
 					onChange={(event) => handleManualSearchChange(event.target.value)}
-					placeholder="Search games or creators"
+					placeholder={t('Search games or creators')}
 					className="h-11 rounded-full border-2 border-border-primary bg-bg-4 pl-10 pr-11 text-sm shadow-neo-sm"
 				/>
 				{manualSearchQuery && (
 					<button
 						type="button"
 						onClick={clearManualSearch}
-						aria-label="Clear search"
+						aria-label={t('Clear search')}
 						className="absolute right-2 top-1/2 inline-flex size-7 -translate-y-1/2 items-center justify-center rounded-full text-text-tertiary transition-colors hover:bg-bg-3 hover:text-text-primary"
 					>
 						<X className="size-4" />
@@ -141,7 +143,7 @@ export default function DiscoverPage() {
 					{/* Recent Section */}
 					{!isTextSearching && recentApps.length > 0 && (
 						<AppCarouselSection
-							title="Recent"
+							title={t('Recent')}
 							apps={recentApps}
 							loading={carouselLoading}
 							onAppClick={handleAppClick}
@@ -152,7 +154,7 @@ export default function DiscoverPage() {
 					{/* Popular Section */}
 					{!isTextSearching && (
 						<AppCarouselSection
-							title="Popular"
+							title={t('Popular')}
 							apps={popularApps}
 							loading={carouselLoading}
 							onAppClick={handleAppClick}
@@ -163,7 +165,7 @@ export default function DiscoverPage() {
 					{/* Trending Section */}
 					{!isTextSearching && (
 						<AppCarouselSection
-							title="Trending"
+							title={t('Trending')}
 							apps={trendingApps}
 							loading={carouselLoading}
 							onAppClick={handleAppClick}
@@ -185,7 +187,7 @@ export default function DiscoverPage() {
 									)}
 									onClick={() => handleCategoryChange(cat)}
 								>
-									{cat}
+									{t(cat)}
 								</button>
 							))}
 						</div>}

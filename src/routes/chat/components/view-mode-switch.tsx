@@ -2,6 +2,7 @@ import clsx from 'clsx';
 import { Eye, Presentation, Image } from 'lucide-react';
 import { featureRegistry } from '@/features';
 import type { ProjectType } from '@/api-types';
+import { useAppI18n } from '@/i18n';
 
 // Map icon names to components
 const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
@@ -20,6 +21,7 @@ export function ViewModeSwitch({
 	previewAvailable: boolean;
 	projectType?: ProjectType;
 }) {
+	const { t } = useAppI18n();
 	// Get feature definition to determine icon and label
 	const featureDefinition = projectType ? featureRegistry.getDefinition(projectType) : null;
 
@@ -49,7 +51,7 @@ export function ViewModeSwitch({
 							? 'bg-bg-4 text-text-primary'
 							: 'text-text-50/70 hover:text-text-primary hover:bg-accent',
 					)}
-					title={featureDefinition?.name ?? 'Preview'}
+					title={featureDefinition?.name ? t(featureDefinition.name) : t('Preview')}
 				>
 					<PreviewIcon className="size-4" />
 				</button>
@@ -64,7 +66,7 @@ export function ViewModeSwitch({
 							? 'bg-bg-4 text-text-primary'
 							: 'text-text-50/70 hover:text-text-primary hover:bg-accent',
 					)}
-					title="Assets"
+					title={t('Assets')}
 				>
 					<Image className="size-4" />
 				</button>

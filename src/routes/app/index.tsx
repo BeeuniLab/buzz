@@ -24,8 +24,9 @@ import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/contexts/auth-context';
 import { toggleFavorite } from '@/hooks/use-apps';
 import { toast } from 'sonner';
-import { capitalizeFirstLetter, getPreviewUrl } from '@/lib/utils';
+import { getPreviewUrl } from '@/lib/utils';
 import { ConfirmDeleteDialog } from '@/components/shared/ConfirmDeleteDialog';
+import { useAppI18n } from '@/i18n';
 
 // Use proper types from API types
 type AppDetails = AppDetailsData;
@@ -59,6 +60,7 @@ const ACTION_MAP: Record<PendingAction, string> = {
 	remix: 'fork',
 };
 export default function AppView() {
+	const { t } = useAppI18n();
 	const { id } = useParams();
 	const navigate = useNavigate();
 	const [searchParams, setSearchParams] = useSearchParams();
@@ -89,26 +91,26 @@ export default function AppView() {
 				setApp(appData);
 			} else {
 				throw new Error(
-					appResponse.error?.message || 'Failed to fetch app details',
+					appResponse.error?.message || t('Failed to fetch app details'),
 				);
 			}
 		} catch (err) {
 			console.error('Error fetching app:', err);
 			if (err instanceof ApiError) {
 				if (err.status === 404) {
-					setError('App not found');
+					setError(t('App not found'));
 				} else {
-					setError(`Failed to load app: ${err.message}`);
+					setError(t('Failed to load app: {message}', { message: err.message }));
 				}
 			} else {
 				setError(
-					err instanceof Error ? err.message : 'Failed to load app',
+					err instanceof Error ? err.message : t('Failed to load app'),
 				);
 			}
 		} finally {
 			setLoading(false);
 		}
-	}, [id]);
+	}, [id, t]);
 
 	useEffect(() => {
 		fetchAppDetails();
@@ -140,11 +142,11 @@ export default function AppView() {
 					);
 					toast.success(
 						newState
-							? 'Added to bookmarks'
-							: 'Removed from bookmarks',
+							? t('Added to bookmarks')
+							: t('Removed from bookmarks'),
 					);
 				},
-				errorMessage: 'Failed to update bookmarks',
+				errorMessage: t('Failed to update bookmarks'),
 			},
 			star: {
 				action: 'star',
@@ -163,13 +165,13 @@ export default function AppView() {
 								: null,
 						);
 						toast.success(
-							response.data.isStarred ? 'Starred!' : 'Unstarred',
+							response.data.isStarred ? t('Starred!') : t('Unstarred'),
 						);
 					} else {
-						throw new Error(response.error?.message || 'Failed to star app');
+						throw new Error(response.error?.message || t('Failed to star app'));
 					}
 				},
-				errorMessage: 'Failed to update star',
+				errorMessage: t('Failed to update star'),
 			},
 			// fork: {
 			// 	action: 'fork',
@@ -201,7 +203,7 @@ export default function AppView() {
 			// 	errorMessage: 'Failed to remix app',
 			// },
 		}),
-		[app],
+		[app, t],
 	);
 
 	// const handleFork = useMemo(
@@ -285,7 +287,7 @@ export default function AppView() {
 
 		try {
 			setIsDeploying(true);
-			setDeploymentProgress('Connecting to agent...');
+			setDeploymentProgress(t('Connecting to agent...'));
             const response = await apiClient.deployPreview(app.id);
             if (response.success && response.data) {
                 const data = response.data;
@@ -303,21 +305,21 @@ export default function AppView() {
                                 }
                             : null,
                     );
-                    setDeploymentProgress('Deployment complete!');
+                    setDeploymentProgress(t('Deployment complete!'));
                 }
             }
             setIsDeploying(false);
 		} catch (error) {
 			console.error('Error starting deployment:', error);
-			setDeploymentProgress('Failed to start deployment');
+			setDeploymentProgress(t('Failed to start deployment'));
 			setIsDeploying(false);
-			toast.error('Failed to start deployment');
+			toast.error(t('Failed to start deployment'));
 		}
 	};
 
 	const handleToggleVisibility = async () => {
 		if (!app || !user || !isOwner) {
-			toast.error('You can only change visibility of your own apps');
+			toast.error(t('You can only change visibility of your own apps'));
 			return;
 		}
 
@@ -338,26 +340,27 @@ export default function AppView() {
 				);
 
 				toast.success(
-					response.data.message ||
-						`App is now ${newVisibility === 'private' ? 'private' : 'public'}`,
+					newVisibility === 'private'
+						? t('App is now private')
+						: t('App is now public'),
 				);
 			} else {
 				throw new Error(
-					response.error?.message || 'Failed to update visibility',
+					response.error?.message || t('Failed to update visibility'),
 				);
 			}
 		} catch (error) {
 			console.error('Error updating app visibility:', error);
 			const message = error instanceof Error
 				? error.message
-				: 'Failed to update visibility';
+				: t('Failed to update visibility');
 			const needsPlayableUpdate = newVisibility === 'public'
 				&& message.toLowerCase().includes('prepare playable');
 
-			toast.error(needsPlayableUpdate ? 'Prepare playable first' : message, needsPlayableUpdate ? {
-				description: 'Open chat to update it.',
+			toast.error(needsPlayableUpdate ? t('Prepare playable first') : message, needsPlayableUpdate ? {
+				description: t('Open chat to update it.'),
 				action: {
-					label: 'Open chat',
+					label: t('Open chat'),
 					onClick: () => navigate(`/chat/${app.id}`),
 				},
 			} : undefined);
@@ -374,7 +377,7 @@ export default function AppView() {
 			const response = await apiClient.deleteApp(app.id);
 
 			if (response.success) {
-				toast.success('App deleted successfully');
+				toast.success(t('App deleted successfully'));
 				setIsDeleteDialogOpen(false);
 
 				// Emit global app deleted event
@@ -384,7 +387,7 @@ export default function AppView() {
 			}
 		} catch (error) {
 			console.error('Error deleting app:', error);
-			toast.error('An unexpected error occurred while deleting the app');
+			toast.error(t('An unexpected error occurred while deleting the app'));
 		} finally {
 			setIsDeleting(false);
 		}
@@ -395,7 +398,7 @@ export default function AppView() {
 			<div className="min-h-screen bg-bg-3 flex items-center justify-center">
 				<div className="text-center">
 					<Loader2 className="h-8 w-8 animate-spin mx-auto mb-4 text-text-tertiary" />
-					<p className="text-text-tertiary">Loading app...</p>
+					<p className="text-text-tertiary">{t('Loading app...')}</p>
 				</div>
 			</div>
 		);
@@ -408,15 +411,15 @@ export default function AppView() {
 					<CardContent className="pt-6">
 						<div className="text-center">
 							<h2 className="text-xl font-semibold mb-2">
-								App not found
+								{t('App not found')}
 							</h2>
 							<p className="text-text-tertiary mb-4">
 								{error ||
-									"The app you're looking for doesn't exist."}
+									t("The app you're looking for doesn't exist.")}
 							</p>
 							<Button onClick={() => navigate('/build')}>
 								<ChevronLeft className="mr-2 h-4 w-4" />
-								Back to Build
+								{t('Back to Build')}
 							</Button>
 						</div>
 					</CardContent>
@@ -428,6 +431,8 @@ export default function AppView() {
 	const isOwner = app.userId === user?.id;
 	const appUrl = getAppUrl();
 	const feedUrl = app.visibility === 'public' ? `/feed/${app.id}` : undefined;
+	const visibilityLabel = app.visibility === 'private' ? t('Private') : t('Public');
+	const nextVisibilityLabel = app.visibility === 'private' ? t('Public') : t('Private');
 
 	return (
 		<div className="min-h-screen bg-bg-3 flex flex-col">
@@ -452,7 +457,7 @@ export default function AppView() {
 											className="gap-2 bg-text-primary text-bg-4 border-bg-4 border"
 										>
 											<Code2 className="h-4 w-4" />
-											Editing
+											{t('Editing')}
 										</Button>
 										<Button
 											variant="outline"
@@ -463,7 +468,7 @@ export default function AppView() {
 											className="gap-2 text-text-on-brand !border-0 bg-destructive hover:opacity-90 transition-colors"
 										>
 											<Trash2 className="h-4 w-4" />
-											Delete
+											{t('Delete')}
 										</Button>
 									</>
 								)
@@ -496,7 +501,7 @@ export default function AppView() {
 								<div className="flex items-center gap-2 border border-border-primary rounded-xl">
 									<Badge variant={'default'}>
 										<Globe />
-										{capitalizeFirstLetter(app.visibility)}
+										{visibilityLabel}
 									</Badge>
 									{isOwner && (
 										<Button
@@ -505,7 +510,7 @@ export default function AppView() {
 											onClick={handleToggleVisibility}
 											disabled={isUpdatingVisibility}
 											className="h-6 w-6 p-0 hover:bg-bg-3/50 -ml-1.5 !mr-1.5"
-											title={`Make ${app.visibility === 'private' ? 'public' : 'private'}`}
+											title={t('Make {visibility}', { visibility: nextVisibilityLabel })}
 										>
 											{isUpdatingVisibility ? (
 												<Loader2 className="h-3 w-3 animate-spin text-text-primary" />
@@ -523,10 +528,10 @@ export default function AppView() {
 										size="sm"
 										onClick={() => navigate(feedUrl)}
 										className="gap-2 border-border-primary bg-bg-4 text-text-primary hover:bg-bg-1"
-										title="Open in Feed"
+										title={t('Open in Feed')}
 									>
 										<Play className="h-4 w-4" />
-										Feed
+										{t('Feed')}
 									</Button>
 								)}
 							</div>
@@ -563,10 +568,10 @@ export default function AppView() {
 								<div className="relative w-full flex-1 bg-gray-50 flex items-center justify-center">
 									<div className="text-center">
 										<h3 className="text-xl font-semibold mb-2 text-gray-700">
-											Live Preview
+											{t('Live Preview')}
 										</h3>
 										<p className="text-gray-500 mb-4 max-w-md">
-											Run the app to see a live preview.
+											{t('Run the app to see a live preview.')}
 										</p>
 										{deploymentProgress && (
 											<p className="text-sm text-gray-800 mb-4">
@@ -581,12 +586,12 @@ export default function AppView() {
 											{isDeploying ? (
 												<>
 													<Loader2 className="h-4 w-4 animate-spin" />
-													Loading...
+													{t('Loading...')}
 												</>
 											) : (
 												<>
 													<Play className="h-4 w-4" />
-													Run Preview
+													{t('Run Preview')}
 												</>
 											)}
 										</Button>

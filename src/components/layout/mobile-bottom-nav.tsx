@@ -2,6 +2,7 @@ import { useLocation, useNavigate } from 'react-router';
 import { Home, Compass, Plus, User, Inbox } from 'lucide-react';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { cn } from '@/lib/utils';
+import { useAppI18n } from '@/i18n';
 
 const NAV_ITEMS = [
 	{ icon: Home, label: 'Home', path: '/', isCreate: false },
@@ -15,6 +16,7 @@ export function MobileBottomNav() {
 	const isMobile = useIsMobile();
 	const location = useLocation();
 	const navigate = useNavigate();
+	const { t } = useAppI18n();
 
 	if (!isMobile) return null;
 
@@ -39,7 +41,7 @@ export function MobileBottomNav() {
 							<div className="bg-neo-orange rounded-full p-2.5 border-2 border-[var(--neo-border-color)] shadow-[2px_2px_0px_0px_var(--neo-border-color)]">
 								<Icon className="h-5 w-5 text-[#1a1a1a]" />
 							</div>
-							<span className="text-[10px] font-medium text-text-tertiary">{label}</span>
+							<span className="text-[10px] font-medium text-text-tertiary">{t(label)}</span>
 						</button>
 					);
 				}
@@ -57,7 +59,7 @@ export function MobileBottomNav() {
 						<span className={cn(
 							'text-[10px] font-medium transition-colors',
 							isActive ? 'text-accent' : 'text-text-tertiary',
-						)}>{label}</span>
+						)}>{t(label)}</span>
 					</button>
 				);
 			})}

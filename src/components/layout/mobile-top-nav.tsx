@@ -3,12 +3,14 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import { useLocation } from 'react-router';
 import { SidebarTrigger } from '@/components/ui/sidebar';
 import { useAuthModal } from '@/components/auth/AuthModalProvider';
+import { useAppI18n } from '@/i18n';
 
 export function MobileTopNav() {
 	const isMobile = useIsMobile();
 	const { user, isLoading } = useAuth();
 	const { pathname } = useLocation();
 	const { showAuthModal } = useAuthModal();
+	const { t } = useAppI18n();
 
 	// Only show on mobile, for unauthenticated users, on discover-context pages
 	if (!isMobile || user || isLoading) return null;
@@ -38,7 +40,7 @@ export function MobileTopNav() {
 				onClick={() => showAuthModal()}
 				className="px-3 py-1.5 text-xs font-bold rounded-lg border-2 border-[var(--neo-border-color)] bg-neo-orange text-[#1a1a1a] shadow-[2px_2px_0px_0px_var(--neo-border-color)] hover:shadow-[3px_3px_0px_0px_var(--neo-border-color)] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none transition-all"
 			>
-				Sign In
+				{t('Sign In')}
 			</button>
 		</div>
 	);

@@ -11,6 +11,7 @@ import { CommentsDrawer } from '@/components/comments/CommentsDrawer';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useAuthGuard } from '@/hooks/useAuthGuard';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
+import { useAppI18n } from '@/i18n';
 
 type AppPreviewFields = AppWithUserAndStats & {
 	cloudflareUrl?: string | null;
@@ -35,6 +36,7 @@ export default function FeedPage() {
 	const { appId } = useParams<{ appId?: string }>();
 	const isMobile = useIsMobile();
 	const { requireAuth } = useAuthGuard();
+	const { t } = useAppI18n();
 	const [apps, setApps] = React.useState<AppWithUserAndStats[]>([]);
 	const [loading, setLoading] = React.useState(true);
 	const [loadingMore, setLoadingMore] = React.useState(false);
@@ -419,7 +421,7 @@ export default function FeedPage() {
 	const shareDialog = (
 		<Dialog open={shareDialogOpen} onOpenChange={setShareDialogOpen}>
 			<DialogContent className="sm:max-w-xs" showCloseButton={false} aria-describedby={undefined}>
-				<DialogTitle className="sr-only">Share</DialogTitle>
+				<DialogTitle className="sr-only">{t('Share')}</DialogTitle>
 				<div className="flex flex-col gap-3">
 					{currentApp && (
 						<div className="rounded-lg overflow-hidden border-2 border-[var(--neo-border-color)]">
@@ -443,7 +445,7 @@ export default function FeedPage() {
 						)}
 					>
 						{linkCopied ? <Check className="h-4 w-4" /> : <Link2 className="h-4 w-4" />}
-						{linkCopied ? 'Copied' : 'Copy Link'}
+						{linkCopied ? t('Copied') : t('Copy Link')}
 					</button>
 				</div>
 			</DialogContent>
@@ -485,7 +487,7 @@ export default function FeedPage() {
 		return (
 			<div className="h-full flex items-center justify-center bg-bg-1">
 				{seoIntro}
-				<p className="text-text-tertiary">No apps to show</p>
+				<p className="text-text-tertiary">{t('No apps to show')}</p>
 			</div>
 		);
 	}
@@ -497,13 +499,13 @@ export default function FeedPage() {
 				<div className={cn('rounded-full transition-colors', isMobile ? 'bg-black/40 backdrop-blur-sm text-white p-3' : 'bg-bg-3 text-text-primary group-hover:bg-bg-3/80 p-2.5')}>
 					<RotateCcw className={cn(isMobile ? 'h-5 w-5' : 'h-[18px] w-[18px]')} />
 				</div>
-				<span className={cn(isMobile ? 'text-xs text-white/80' : 'text-[11px] text-text-tertiary')}>Replay</span>
+				<span className={cn(isMobile ? 'text-xs text-white/80' : 'text-[11px] text-text-tertiary')}>{t('Replay')}</span>
 			</button>
 			<button onClick={handleShare} className="flex flex-col items-center gap-1 group">
 				<div className={cn('rounded-full transition-colors', isMobile ? 'bg-black/40 backdrop-blur-sm text-white p-3' : 'bg-bg-3 text-text-primary group-hover:bg-bg-3/80 p-2.5')}>
 					<Send className={cn(isMobile ? 'h-5 w-5' : 'h-[18px] w-[18px]')} />
 				</div>
-				<span className={cn(isMobile ? 'text-xs text-white/80' : 'text-[11px] text-text-tertiary')}>Share</span>
+				<span className={cn(isMobile ? 'text-xs text-white/80' : 'text-[11px] text-text-tertiary')}>{t('Share')}</span>
 			</button>
 			<button onClick={() => { if (requireAuth({ actionContext: 'to comment' })) setCommentsOpen(true); }} className="flex flex-col items-center gap-1 group">
 				<div className={cn('rounded-full transition-colors', isMobile ? 'bg-black/40 backdrop-blur-sm text-white p-3' : 'bg-bg-3 text-text-primary group-hover:bg-bg-3/80 p-2.5')}>
@@ -533,7 +535,7 @@ export default function FeedPage() {
 				)}>
 					<Bookmark className={cn(isMobile ? 'h-5 w-5' : 'h-[18px] w-[18px]', currentApp?.userFavorited && 'fill-current')} />
 				</div>
-				<span className={cn(isMobile ? 'text-xs text-white/80' : 'text-[11px] text-text-tertiary')}>Favorite</span>
+				<span className={cn(isMobile ? 'text-xs text-white/80' : 'text-[11px] text-text-tertiary')}>{t('Favorite')}</span>
 			</button>
 			{currentApp && (
 				<button
@@ -627,13 +629,13 @@ export default function FeedPage() {
 								<div className="rounded-full p-3 bg-black/60 backdrop-blur-sm text-white">
 									<RotateCcw className="h-5 w-5" />
 								</div>
-								<span className="text-[10px] text-white/70">Replay</span>
+								<span className="text-[10px] text-white/70">{t('Replay')}</span>
 							</button>
 							<button onClick={handleShare} className="flex flex-col items-center gap-1">
 								<div className="rounded-full p-3 bg-black/60 backdrop-blur-sm text-white">
 									<Send className="h-5 w-5" />
 								</div>
-								<span className="text-[10px] text-white/70">Share</span>
+								<span className="text-[10px] text-white/70">{t('Share')}</span>
 							</button>
 							<button onClick={() => { if (requireAuth({ actionContext: 'to comment' })) setCommentsOpen(true); }} className="flex flex-col items-center gap-1">
 								<div className="rounded-full p-3 bg-black/60 backdrop-blur-sm text-white">
@@ -651,7 +653,7 @@ export default function FeedPage() {
 								<div className={cn('rounded-full p-3', currentApp?.userFavorited ? 'bg-accent/20 text-accent' : 'bg-black/60 backdrop-blur-sm text-white')}>
 									<Bookmark className={cn('h-5 w-5', currentApp?.userFavorited && 'fill-current')} />
 								</div>
-								<span className="text-[10px] text-white/70">Favorite</span>
+								<span className="text-[10px] text-white/70">{t('Favorite')}</span>
 							</button>
 							{currentApp && (
 								<button

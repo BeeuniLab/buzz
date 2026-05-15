@@ -12,6 +12,7 @@ import { apiClient } from '@/lib/api-client';
 import { toast } from 'sonner';
 import { appEvents } from '@/lib/app-events';
 import { useLocation, useNavigate } from 'react-router';
+import { useAppI18n } from '@/i18n';
 
 interface AppActionsDropdownProps {
   appId: string;
@@ -32,6 +33,7 @@ export function AppActionsDropdown({
   size = 'icon',
   showOnHover = false
 }: AppActionsDropdownProps) {
+  const { t } = useAppI18n();
   const location = useLocation();
   const navigate = useNavigate();
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
@@ -56,7 +58,7 @@ export function AppActionsDropdown({
       const response = await apiClient.deleteApp(appId);
       
       if (response.success) {
-        toast.success('App deleted successfully');
+        toast.success(t('App deleted successfully'));
         setIsDeleteDialogOpen(false);
 
         appEvents.emitAppDeleted(appId);
@@ -68,7 +70,7 @@ export function AppActionsDropdown({
       }
     } catch (error) {
       console.error('Error deleting app:', error);
-      toast.error('An unexpected error occurred while deleting the app');
+      toast.error(t('An unexpected error occurred while deleting the app'));
     } finally {
       setIsDeleting(false);
     }
@@ -92,7 +94,7 @@ export function AppActionsDropdown({
             }}
           >
             <MoreVertical className="h-4 w-4" />
-            <span className="sr-only">App actions</span>
+            <span className="sr-only">{t('App actions')}</span>
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-48">
@@ -105,7 +107,7 @@ export function AppActionsDropdown({
             className="text-destructive focus:text-destructive focus:bg-destructive/10"
           >
             <Trash2 className="h-4 w-4 mr-2" />
-            Delete app
+            {t('Delete app')}
           </DropdownMenuItem>
 
         </DropdownMenuContent>

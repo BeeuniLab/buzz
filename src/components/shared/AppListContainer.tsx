@@ -6,6 +6,7 @@ import { AppCard } from './AppCard';
 import type { AppListData } from '@/hooks/use-paginated-apps';
 import type { AppSortOption } from '@/api-types';
 import { useInfiniteScroll } from '@/hooks/use-infinite-scroll';
+import { useAppI18n } from '@/i18n';
 
 interface AppListContainerProps {
   apps: AppListData[];
@@ -103,6 +104,7 @@ export const AppListContainer: React.FC<AppListContainerProps> = ({
   className = "",
   gridClassName = "grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 xl:grid-cols-7 gap-3"
 }) => {
+  const { t } = useAppI18n();
   const defaultEmptyState = getEmptyStateDefaults(sortBy, totalCount);
   
   const { triggerRef } = useInfiniteScroll({
@@ -116,7 +118,7 @@ export const AppListContainer: React.FC<AppListContainerProps> = ({
       <div className="flex items-center py-20">
         <div className="text-center">
           <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4 text-text-tertiary" />
-          <p className="text-neutral-50">Loading apps...</p>
+          <p className="text-neutral-50">{t('Loading apps...')}</p>
         </div>
       </div>
     );
@@ -128,11 +130,11 @@ export const AppListContainer: React.FC<AppListContainerProps> = ({
         <div className="rounded-full bg-destructive/10 p-3 mb-4 inline-flex">
           <X className="h-6 w-6 text-destructive" />
         </div>
-        <h3 className="text-xl text-text-secondary font-semibold mb-2">Failed to load apps</h3>
+        <h3 className="text-xl text-text-secondary font-semibold mb-2">{t('Failed to load apps')}</h3>
         <p className="text-text-tertiary mb-6">{error}</p>
         <Button onClick={onRetry} variant="outline">
           <RefreshCw className="h-4 w-4 mr-2" />
-          Retry
+          {t('Retry')}
         </Button>
       </div>
     );
@@ -145,10 +147,10 @@ export const AppListContainer: React.FC<AppListContainerProps> = ({
       <div className="text-center py-20">
         <Code2 className="h-16 w-16 mx-auto mb-4 text-text-tertiary" />
         <h3 className="text-xl font-semibold mb-2 text-text-secondary">
-          {emptyStateContent.title}
+          {emptyStateContent.title ? t(emptyStateContent.title) : emptyStateContent.title}
         </h3>
         <p className="text-text-tertiary mb-6">
-          {emptyStateContent.description}
+          {emptyStateContent.description ? t(emptyStateContent.description) : emptyStateContent.description}
         </p>
         {'action' in emptyStateContent && emptyStateContent.action}
       </div>
@@ -197,7 +199,7 @@ export const AppListContainer: React.FC<AppListContainerProps> = ({
               <div className="flex items-center justify-center py-4">
                 <div className="flex items-center gap-3 px-4 py-2 rounded-full bg-surface-elevated/60 backdrop-blur-sm border border-border/30">
                   <Loader2 className="h-4 w-4 animate-spin text-accent" />
-                  <span className="text-sm text-text-tertiary">Loading more amazing apps...</span>
+                  <span className="text-sm text-text-tertiary">{t('Loading more amazing apps...')}</span>
                 </div>
               </div>
               
@@ -222,7 +224,7 @@ export const AppListContainer: React.FC<AppListContainerProps> = ({
         <div className="flex justify-center mt-8">
           <div className="flex items-center gap-2 text-text-tertiary">
             <Loader2 className="h-4 w-4 animate-spin" />
-            <span className="text-sm">Loading more apps...</span>
+            <span className="text-sm">{t('Loading more apps...')}</span>
           </div>
         </div>
       )}
@@ -238,11 +240,11 @@ export const AppListContainer: React.FC<AppListContainerProps> = ({
             {loadingMore ? (
               <>
                 <Loader2 className="h-4 w-4 animate-spin" />
-                Loading more...
+                {t('Loading more apps...')}
               </>
             ) : (
               <>
-                Load more apps
+                {t('Load more apps')}
               </>
             )}
           </Button>
@@ -252,7 +254,7 @@ export const AppListContainer: React.FC<AppListContainerProps> = ({
       {/* Show total count */}
       {showTotalCount && totalCount > 0 && (
         <div className="text-center mt-6 text-sm text-text-tertiary">
-          Showing {apps.length} of {totalCount} apps
+          {t('Showing {shown} of {total} apps', { shown: apps.length, total: totalCount })}
         </div>
       )}
     </div>

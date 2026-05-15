@@ -19,6 +19,7 @@ import { ImageAttachmentPreview } from '@/components/image-attachment-preview';
 import { getClipboardFiles } from '@/utils/clipboard-files';
 import { toast } from 'sonner';
 import { Box, Layers2, Shuffle } from 'lucide-react';
+import { useAppI18n } from '@/i18n';
 
 const SURPRISE_PROMPTS = [
 	"A 'This is Fine' dog meme but the user can drag a fire extinguisher to save the room or a gasoline can to make it worse.",
@@ -83,6 +84,69 @@ const SURPRISE_PROMPTS = [
 	"Create a 'do not press the button' toy where every tap makes the button more dramatic until it reveals your chaos level.",
 ];
 
+const SURPRISE_PROMPTS_ZH = [
+	'做一个“房间都着火了还说没事”的互动小游戏，玩家可以拖动灭火器救场，也可以拖动汽油桶让场面更失控。',
+	'帮一只胆小的小猫穿过满是黄瓜的房间。黄瓜移动时，玩家要点击让小猫停住。',
+	'做一个“三心二意男友”的互动短剧，玩家可以把不同标签拖到角色身上，看男友做出夸张反应。',
+	'设计一个 30 秒电梯求生小游戏，玩家要点击“点头”或“微笑”，让理智值不要归零。',
+	'做一个“梦中约会对象”生成器，玩家把 3 个随机物品拖进传送门，最后得到一张离谱人设卡。',
+	'做一个红色按钮两难选择小游戏，出现两个不可能的选择，并显示其他玩家选择相同答案的比例。',
+	'做一个暴躁 AI 厨师小游戏，玩家把奇怪食材拖进锅里，厨师会做出动画反应。',
+	'做一个红毯换装小游戏，每件装扮都会改变背景音乐和观众欢呼程度。',
+	'做一个偷宝石小游戏，玩家要在沉睡的巨龙醒来前尽量多拿宝石，并分享自己的贪心分数。',
+	'做一个 2026 幸运饼干小游戏，玩家摇晃手机打开饼干，看到 AI 生成的专属祝福。',
+	'做一个迷你解压房，玩家通过滑动砸碎坏消息标题，最后得到一张“今天也撑过去了”成绩卡。',
+	'做一个地铁跑酷小游戏，角色要躲开飞来的账单，并收集咖啡获得连击分数。',
+	'做一个“你是群聊里的哪种朋友”小游戏，玩家点击不断消失的可疑消息，最后得到一张混乱角色卡。',
+	'做一个桌面整理限时挑战，玩家要在老板走过来前，把零食、线缆和神秘杂物拖进抽屉。',
+	'做一个心情股票小游戏，玩家要在倒计时结束前买入或卖出“开心”“慌张”等情绪。',
+	'做一个反应测试小游戏，闹钟变红时才能拍掉它，最后分享自己的起床困难户等级。',
+	'做一个坏选择抓娃娃机，玩家移动爪子抓取一个选择，然后得到一句犀利占卜。',
+	'做一个主角出场节奏游戏，玩家按节拍点击，躲开尴尬对视和掉落的通知。',
+	'做一个零食潜入小游戏，玩家点击阴影躲避摄像头，偷偷收集便利店零食。',
+	'做一个室友模拟器，玩家选择洗碗、无视或留纸条，然后观察公寓混乱值变化。',
+	'做一个“回复还是装没看见”的聊天小游戏，玩家要在输入气泡爆炸前快速选择回复。',
+	'做一个生日蜡烛挑战，玩家通过吹气、点击或摇晃熄灭会不断复燃的蜡烛。',
+	'做一个可爱幽灵约会小游戏，玩家在日出前拖动礼物赢得幽灵好感。',
+	'做一个“选择你的反派起源故事”小游戏，玩家点击三个小烦恼，得到戏剧化漫画结果。',
+	'做一个食堂托盘平衡游戏，玩家通过拖动或倾斜，避免汤、薯条和八卦洒出来。',
+	'做一个迷你法庭小游戏，玩家把证据拖到可疑面包旁，法官会根据证据做反应。',
+	'做一个节日红包小游戏，玩家点击幸运红包，同时避开会偷走分数的整蛊红包。',
+	'做一个“你能养活这盆植物吗”小游戏，玩家拖动阳光、水和夸奖，避免植物情绪崩溃。',
+	'做一个卡拉 OK 手忙脚乱挑战，玩家按节奏点击歌词，同时控制观众评价值。',
+	'做一个停车场 Boss 战，玩家把小车拖进不可能的车位，同时躲开路锥攻击。',
+	'做一个“选择你的周一装备”换装小游戏，每件物品都会改变体力、混乱值和咖啡依赖。',
+	'做一个情侣默契街机小游戏，两名玩家按相同节奏点击爱心，最后得到一个离谱组合称号。',
+	'做一个家庭聚餐求生小游戏，玩家点击安全话题，躲开关于工资、恋爱和人生规划的问题。',
+	'做一个遛狗混乱小游戏，玩家拖动牵引绳收集零食，同时避开水坑和各种分心事件。',
+	'做一个“评评我的冰箱”小游戏，玩家把随机剩菜拖进搅拌机，得到一份可疑食谱评分。',
+	'做一个女巫药水挑战，玩家按时机投放材料，最后揭晓一种个性诅咒。',
+	'做一个办公室打印机 Boss 战，玩家可以猛按、拍打或温柔鼓励打印机，让它在会议前工作。',
+	'做一个“你是哪种累”小游戏，玩家接住掉落的借口，最后得到一张疲惫人格卡。',
+	'做一个咖啡店高峰期小游戏，玩家要在顾客耐心值耗尽前把订单拖给对应顾客。',
+	'做一个“帮我收行李”旅行挑战，玩家在出租车到达前选择 5 件物品，最后得到灾难预报。',
+	'做一个迷你健身挑战，玩家点击举起小道具，解锁冠军姿势。',
+	'做一个闹鬼电梯小游戏，玩家选择楼层、躲开异常事件，最后得到通勤灵异评分。',
+	'做一个“要不要发这封危险邮件”小游戏，玩家把短语拖进邮件，观察老板、朋友或同事的反应。',
+	'做一个网络热梗博物馆，玩家点击画作改写标题，并解锁馆长的毒舌点评。',
+	'做一个失恋恢复街机游戏，玩家滑走伤感歌曲，收集零食补满体面值。',
+	'做一个迷你龙咖啡馆，玩家把宝石、茶或烤焦吐司拖给顾客，同时控制火灾风险值。',
+	'做一个“猜哪句是假话”派对小游戏，玩家在倒计时结束前点击三句话中的假话，并获得识破分数。',
+	'做一个健身动力小游戏，玩家躲开借口、收集蛋白饮料，最后解锁“猛练还是补觉”结果。',
+	'做一个学校走廊潜行小游戏，玩家点击储物柜躲开突击测验，并收集八卦纸条。',
+	'做一个“你是哪件神秘宝物”小游戏，玩家从宝藏堆里选择发光物品，得到一张可分享结果卡。',
+	'做一个天气神模拟器，玩家把云、太阳和闪电拖到城市上，尽量提高混乱或幸福指数。',
+	'做一个约会红旗探测器，玩家在浪漫值下降前点击可疑行为。',
+	'做一个睡猫节奏小游戏，玩家按呼噜节拍点击，让猫继续做梦并解锁奇怪梦境。',
+	'做一个产品发布会彩带小游戏，玩家点击 bug，别让它们冲上舞台毁掉演示。',
+	'做一个评论区求生小游戏，玩家滑走恶意评论，并置顶友善回复获得护盾。',
+	'做一个商场扶梯小游戏，玩家在完美时机点击上扶梯，避开购物袋连环撞击。',
+	'做一个迷你房租谈判小游戏，玩家拖动理由、租金和小礼物，降低房东怒气值。',
+	'做一个新年计划转盘，玩家旋转、接住一个习惯，并得到一句犀利的 2026 预测。',
+	'做一个好友心灵感应小游戏，两名玩家选择相同的零食、心情和借口，最后得到同步分数。',
+	'做一个“不要按这个按钮”的互动玩具，每点一次按钮都会更戏剧化，直到揭晓你的混乱等级。',
+];
+
 const PENDING_MEDIA_STORAGE_PREFIX = 'buzzplay-pending-media:';
 type PlayableType = '2d' | '3d';
 
@@ -106,6 +170,7 @@ function storePendingMedia(attachments: ImageAttachment[]): string | null {
 
 export default function Home() {
 	const navigate = useNavigate();
+	const { locale, t } = useAppI18n();
 	const { requireAuth } = useAuthGuard();
 	const { requireInviteCode } = useInviteCode();
 	const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -166,23 +231,42 @@ export default function Home() {
 	};
 
 
-	const placeholderPhrases = useMemo(() => [
-		"multiplayer trivia quiz",
-		"retro pixel art maker",
-		"choose-your-own-adventure story",
-		"music beat pad with effects",
-		"virtual pet that learns tricks",
-		"emoji recipe guessing game",
-		"space invaders with boss fights",
-		"interactive comic strip builder",
-	], []);
+	const placeholderPhrases = useMemo(() => {
+		if (locale === 'zh-CN') {
+			return [
+				'多人答题小游戏',
+				'复古像素画生成器',
+				'互动冒险故事',
+				'音乐节奏垫',
+				'会成长的虚拟伙伴',
+				'表情菜谱猜谜游戏',
+				'太空射击 Boss 战',
+				'互动漫画生成器',
+			];
+		}
+
+		return [
+			'multiplayer trivia quiz',
+			'retro pixel art maker',
+			'choose-your-own-adventure story',
+			'music beat pad with effects',
+			'virtual pet that learns tricks',
+			'emoji recipe guessing game',
+			'space invaders with boss fights',
+			'interactive comic strip builder',
+		];
+	}, [locale]);
 	const [currentPlaceholderPhraseIndex, setCurrentPlaceholderPhraseIndex] = useState(0);
 	const [currentPlaceholderText, setCurrentPlaceholderText] = useState("");
 	const [isPlaceholderTyping, setIsPlaceholderTyping] = useState(true);
+	const currentSurprisePrompts = locale === 'zh-CN' ? SURPRISE_PROMPTS_ZH : SURPRISE_PROMPTS;
+	const composerPlaceholder = locale === 'zh-CN'
+		? `创建${currentPlaceholderText || '一个小游戏'}`
+		: `Create a ${currentPlaceholderText || 'playable game'}`;
 
 	const handleCreateApp = (query: string, mode: ProjectType) => {
 		if (playableType !== '2d') {
-			toast.info('3D playable posts are coming soon.');
+			toast.info(t('3D playable posts are coming soon.'));
 			return;
 		}
 
@@ -233,17 +317,17 @@ export default function Home() {
 	};
 
 	const handleSurprisePrompt = () => {
-		let nextIndex = Math.floor(Math.random() * SURPRISE_PROMPTS.length);
+		let nextIndex = Math.floor(Math.random() * currentSurprisePrompts.length);
 		if (
-			SURPRISE_PROMPTS.length > 1 &&
+			currentSurprisePrompts.length > 1 &&
 			lastSurprisePromptIndex.current !== null &&
 			nextIndex === lastSurprisePromptIndex.current
 		) {
-			nextIndex = (nextIndex + 1) % SURPRISE_PROMPTS.length;
+			nextIndex = (nextIndex + 1) % currentSurprisePrompts.length;
 		}
 
 		lastSurprisePromptIndex.current = nextIndex;
-		setQuery(SURPRISE_PROMPTS[nextIndex]);
+		setQuery(currentSurprisePrompts[nextIndex]);
 		requestAnimationFrame(() => {
 			textareaRef.current?.focus();
 			adjustTextareaHeight();
@@ -253,6 +337,13 @@ export default function Home() {
 	useEffect(() => {
 		adjustTextareaHeight();
 	}, []);
+
+	useEffect(() => {
+		setCurrentPlaceholderPhraseIndex(0);
+		setCurrentPlaceholderText('');
+		setIsPlaceholderTyping(true);
+		lastSurprisePromptIndex.current = null;
+	}, [locale]);
 
 	// Typewriter effect
 	useEffect(() => {
@@ -379,11 +470,11 @@ export default function Home() {
 					<div className="w-full mb-6 flex flex-col items-center">
 						<div className="bg-neo-yellow border-3 border-[var(--neo-border-color)] rounded-2xl px-6 py-3 shadow-[6px_6px_0px_0px_var(--neo-border-color)] mb-3 inline-block">
 							<h1 className="text-3xl sm:text-4xl font-black text-[#1a1a1a] tracking-tight text-center leading-tight">
-								Make it playable.
+								{t('Make it playable.')}
 							</h1>
 						</div>
 						<p className="text-text-secondary font-bold text-sm tracking-wide">
-							Turn any idea, meme, or character into a playable post you can share
+							{t('Turn any idea, meme, or character into a playable post you can share')}
 						</p>
 					</div>
 
@@ -391,7 +482,7 @@ export default function Home() {
 						<div className="relative z-20 mb-[-3px] ml-3 flex">
 							<div
 								className="inline-flex items-center gap-1 rounded-t-xl border-3 border-b-0 border-[var(--neo-border-color)] bg-bg-4 px-1 py-1"
-								aria-label="Playable type"
+								aria-label={t('Playable type')}
 							>
 								<button
 									type="button"
@@ -403,7 +494,7 @@ export default function Home() {
 											? 'bg-neo-yellow text-[#1a1a1a] shadow-[1px_1px_0px_0px_var(--neo-border-color)]'
 											: 'bg-transparent text-text-primary/60 hover:text-text-primary'
 									)}
-									title="Build a 2D playable with the current Phaser template"
+									title={t('Build a 2D playable with the current Phaser template')}
 								>
 									<Layers2 className="size-3.5" />
 									2D
@@ -412,13 +503,13 @@ export default function Home() {
 									type="button"
 									disabled
 									className="inline-flex h-8 cursor-not-allowed items-center gap-1 rounded-lg bg-transparent px-2.5 text-xs font-black text-text-primary/35"
-									aria-label="3D Coming soon"
-									title="3D playable posts are coming soon"
+									aria-label={t('3D Coming soon')}
+									title={t('3D playable posts are coming soon.')}
 								>
 									<Box className="size-3.5" />
 									3D
 									<span className="hidden rounded-full bg-text-primary/10 px-1.5 py-0.5 text-[9px] font-black uppercase leading-none text-text-primary/45 sm:inline">
-										Coming soon
+										{t('Coming soon')}
 									</span>
 								</button>
 							</div>
@@ -441,14 +532,14 @@ export default function Home() {
 							>
 								{isDragging && (
 									<div className="absolute inset-0 flex items-center justify-center bg-neo-cyan/20 backdrop-blur-sm rounded-lg z-30 pointer-events-none border-2 border-dashed border-[var(--neo-border-color)]">
-										<p className="text-[#1a1a1a] font-bold">Drop images, audio, or video here</p>
+										<p className="text-[#1a1a1a] font-bold">{t('Drop images, audio, or video here')}</p>
 									</div>
 								)}
 								<textarea
 									className="z-20 min-h-0 w-full flex-1 resize-none overflow-y-auto bg-transparent font-medium text-text-primary outline-0 ring-0 placeholder:text-text-tertiary"
 									name="query"
 									value={query}
-									placeholder={`Create a ${currentPlaceholderText}`}
+									placeholder={composerPlaceholder}
 									ref={textareaRef}
 									onChange={(e) => {
 										setQuery(e.target.value);
@@ -484,10 +575,10 @@ export default function Home() {
 										type="button"
 										onClick={handleSurprisePrompt}
 										className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border-2 border-[var(--neo-border-color)] bg-neo-cyan px-2.5 py-1.5 text-xs font-black text-[#1a1a1a] shadow-[2px_2px_0px_0px_var(--neo-border-color)] transition-all duration-150 hover:shadow-[3px_3px_0px_0px_var(--neo-border-color)] hover:-translate-x-[0.5px] hover:-translate-y-[0.5px] active:translate-x-[1px] active:translate-y-[1px] active:shadow-[1px_1px_0px_0px_var(--neo-border-color)]"
-										aria-label="Fill with a surprise prompt"
+										aria-label={t('Fill with a surprise prompt')}
 									>
 										<Shuffle className="size-3.5" />
-										<span>Surprise</span>
+										<span>{t('Surprise')}</span>
 									</button>
 
 									{showModeSelector && (

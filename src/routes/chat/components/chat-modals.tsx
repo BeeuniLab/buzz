@@ -8,6 +8,7 @@ import {
 	AlertDialogHeader,
 	AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import { useAppI18n } from '@/i18n';
 
 interface ChatModalsProps {
 	isResetDialogOpen: boolean;
@@ -20,20 +21,21 @@ export function ChatModals({
 	onResetDialogChange,
 	onResetConversation,
 }: ChatModalsProps) {
+	const { t } = useAppI18n();
 	return (
 		<>
 			<AlertDialog open={isResetDialogOpen} onOpenChange={onResetDialogChange}>
 				<AlertDialogContent className="sm:max-w-[425px]">
 					<AlertDialogHeader>
-						<AlertDialogTitle>Reset conversation?</AlertDialogTitle>
+						<AlertDialogTitle>{t('Reset conversation?')}</AlertDialogTitle>
 						<AlertDialogDescription>
-							This will clear the chat history for this app. Generated files and preview are not affected.
+							{t('This will clear the chat history for this app. Generated files and preview are not affected.')}
 						</AlertDialogDescription>
 					</AlertDialogHeader>
 					<AlertDialogFooter>
-						<AlertDialogCancel>Cancel</AlertDialogCancel>
+						<AlertDialogCancel>{t('Cancel')}</AlertDialogCancel>
 						<AlertDialogAction onClick={onResetConversation} className="bg-bg-2 hover:bg-bg-2/80 text-text-primary">
-							Reset
+							{t('Reset')}
 						</AlertDialogAction>
 					</AlertDialogFooter>
 				</AlertDialogContent>

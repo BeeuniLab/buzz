@@ -6,6 +6,7 @@ import type { AppWithUserAndStats } from '@/api-types';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useAuthGuard } from '@/hooks/useAuthGuard';
 import { useNavigate } from 'react-router';
+import { useAppI18n } from '@/i18n';
 
 // Game design resolution — iframe renders at this size, then scales to fit
 const GAME_WIDTH = 720;
@@ -49,6 +50,7 @@ export const FeedItem = React.forwardRef<FeedItemHandle, FeedItemProps>(
 		const [followLoading, setFollowLoading] = React.useState(false);
 		const navigate = useNavigate();
 		const { user, requireAuth } = useAuthGuard();
+		const { t } = useAppI18n();
 
 		React.useEffect(() => {
 			if (preloadedPreviewUrl) {
@@ -271,7 +273,7 @@ export const FeedItem = React.forwardRef<FeedItemHandle, FeedItemProps>(
 										</Avatar>
 										<div className="min-w-0">
 											<div className="truncate text-base font-black leading-tight">{creatorName}</div>
-											<div className="truncate text-xs font-semibold text-white/75">Browse their games</div>
+											<div className="truncate text-xs font-semibold text-white/75">{t('Browse their games')}</div>
 										</div>
 									</button>
 									<button
@@ -283,7 +285,7 @@ export const FeedItem = React.forwardRef<FeedItemHandle, FeedItemProps>(
 										{followLoading ? (
 											<Loader2 className="h-4 w-4 animate-spin" />
 										) : (
-											'Follow'
+											t('Follow')
 										)}
 									</button>
 								</div>

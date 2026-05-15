@@ -3,6 +3,7 @@ import { Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import type { TimePeriod, AppSortOption } from '@/api-types';
+import { useAppI18n } from '@/i18n';
 
 interface AppFiltersFormProps {
   // Search props
@@ -39,6 +40,7 @@ export const AppFiltersForm: React.FC<AppFiltersFormProps> = ({
   showSearchButton = false,
   className = ''
 }) => {
+  const { t } = useAppI18n();
 
   return (
     <div className={`max-w-4xl mb-8 ${className}`}>
@@ -47,7 +49,7 @@ export const AppFiltersForm: React.FC<AppFiltersFormProps> = ({
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-text-tertiary" />
           <Input
             type="text"
-            placeholder={searchPlaceholder}
+            placeholder={t(searchPlaceholder)}
             value={searchQuery}
             onChange={(e) => onSearchChange(e.target.value)}
             className="pl-10 bg-bg-4 w-90"
@@ -57,7 +59,7 @@ export const AppFiltersForm: React.FC<AppFiltersFormProps> = ({
 
         {showSearchButton && (
           <Button type="submit">
-            Search
+            {t('Search')}
           </Button>
         )}
       </form>

@@ -22,6 +22,7 @@ import type { ConversationAction, ConversationMessage } from '@/api-types';
 import { useState, useEffect, useRef } from 'react';
 import { DebugSessionBubble } from './debug-session-bubble';
 import type { ChatAttachmentPreview } from '../utils/chat-attachments';
+import { useAppI18n } from '@/i18n';
 
 type ToolPresentation = {
 	start: string;
@@ -82,6 +83,7 @@ function UserMessageImageAttachmentCard({
 	attachment: ChatAttachmentPreview;
 	onClick?: (attachment: ChatAttachmentPreview) => void;
 }) {
+	const { t } = useAppI18n();
 	return (
 		<button
 			type="button"
@@ -109,7 +111,7 @@ function UserMessageImageAttachmentCard({
 						{attachment.filename}
 					</p>
 					<p className="text-[10px] text-text-secondary">
-						Open in assets
+						{t('Open in assets')}
 					</p>
 				</div>
 			</div>
@@ -124,8 +126,9 @@ function UserMessageFileAttachmentCard({
 	attachment: ChatAttachmentPreview;
 	onClick?: (attachment: ChatAttachmentPreview) => void;
 }) {
+	const { t } = useAppI18n();
 	const Icon = getAttachmentIcon(attachment);
-	const label = getAttachmentLabel(attachment);
+	const label = t(getAttachmentLabel(attachment));
 
 	return (
 		<button
@@ -146,7 +149,7 @@ function UserMessageFileAttachmentCard({
 					</span>
 				</div>
 				<p className="text-[10px] text-text-secondary">
-					Open in assets
+					{t('Open in assets')}
 				</p>
 			</div>
 		</button>
@@ -202,6 +205,7 @@ export function UserMessage({
 	attachments?: ChatAttachmentPreview[];
 	onAttachmentClick?: (attachment: ChatAttachmentPreview) => void;
 }) {
+	const { t } = useAppI18n();
 	const sanitizedMessage = sanitizeMessageForDisplay(message);
 	const shouldRenderText = sanitizedMessage.trim() !== '' && !(attachments.length > 0 && sanitizedMessage.trim() === '(Attached media)');
 	
@@ -213,7 +217,7 @@ export function UserMessage({
 				</div>
 			</div>
 			<div className="flex min-w-0 flex-1 flex-col gap-2">
-				<div className="font-medium text-text-50">You</div>
+				<div className="font-medium text-text-50">{t('You')}</div>
 				{shouldRenderText && (
 					<Markdown className="text-text-primary/80">{sanitizedMessage}</Markdown>
 				)}
@@ -263,12 +267,6 @@ function extractTextContent(content: unknown): string {
 			.join('');
 	}
 	return '';
-}
-
-function humanizeToolName(name: string): string {
-	return name
-		.replace(/_/g, ' ')
-		.replace(/\b\w/g, char => char.toUpperCase());
 }
 
 function getPlaytestToolPresentation(toolName: string): ToolPresentation {
@@ -385,11 +383,10 @@ function getToolPresentation(toolName: string, variant: ToolLabelVariant = 'defa
 				accent: true,
 			};
 		default: {
-			const displayName = humanizeToolName(toolName);
 			return {
-				start: `Running ${displayName}`,
-				success: `Completed ${displayName}`,
-				error: `Error in ${displayName}`,
+				start: 'Working on this step',
+				success: 'Step completed',
+				error: 'Step failed',
 				showResult: true,
 			};
 		}
@@ -424,6 +421,7 @@ export function MessageContentRenderer({
 	allowToolDetails?: boolean;
 	toolLabelVariant?: ToolLabelVariant;
 }) {
+	const { t } = useAppI18n();
 	const inlineToolEvents = toolEvents.filter(ev => ev.contentLength !== undefined)
 		.sort((a, b) => (a.contentLength ?? 0) - (b.contentLength ?? 0));
 	
@@ -444,6 +442,7 @@ export function MessageContentRenderer({
 							event={item.event}
 							allowDetails={allowToolDetails}
 							labelVariant={toolLabelVariant}
+							t={t}
 						/>
 					</div>
 				)
@@ -453,6 +452,7 @@ export function MessageContentRenderer({
 }
 
 function DeepDebugTranscript({ transcript }: { transcript: ConversationMessage[] }) {
+	const { t } = useAppI18n();
 	// Build map of tool results by tool_call_id for matching
 	const toolResultsMap = new Map<string, ToolEvent>();
 	transcript.forEach((msg, idx) => {
@@ -469,7 +469,7 @@ function DeepDebugTranscript({ transcript }: { transcript: ConversationMessage[]
 		<div className="flex flex-col gap-3 p-3 rounded-md bg-surface-tertiary/50 border-l-2 border-accent/30">
 			<div className="flex items-center gap-2 text-xs font-medium text-accent">
 				<MessageSquare className="size-3" />
-				<span>Deep Debugger Transcript</span>
+				<span>{t('Deep Debugger Transcript')}</span>
 			</div>
 			{transcript.map((msg, idx) => {
 				if (msg.role === 'tool') return null; // Tool results rendered with assistant messages
@@ -522,11 +522,15 @@ export function ToolStatusIndicator({
 	event,
 	allowDetails = true,
 	labelVariant = 'default',
+	t: translate,
 }: {
 	event: ToolEvent;
 	allowDetails?: boolean;
 	labelVariant?: ToolLabelVariant;
+	t?: (id: string, values?: Record<string, unknown>) => string;
 }) {
+	const i18n = useAppI18n();
+	const t = translate ?? i18n.t;
 	const [isExpanded, setIsExpanded] = useState(false);
 	const presentation = getToolPresentation(event.name, labelVariant);
 	const hasResult = allowDetails && event.status === 'success' && presentation.showResult !== false && isDisplayableToolResult(event.result);
@@ -534,6 +538,7 @@ export function ToolStatusIndicator({
 	const statusText = event.status === 'start' ? presentation.start :
 	                   event.status === 'success' ? presentation.success :
 	                   presentation.error;
+	const translatedStatusText = t(statusText);
 	
 	const StatusIcon = event.status === 'start' ? LoaderCircle : 
 	                   event.status === 'success' ? Check : 
@@ -553,7 +558,7 @@ export function ToolStatusIndicator({
 				disabled={!hasResult}
 			>
 				<StatusIcon className={clsx(iconClass, 'shrink-0')} />
-				<span className="min-w-0 truncate tracking-tight">{statusText}</span>
+				<span className="min-w-0 truncate tracking-tight">{translatedStatusText}</span>
 				{hasResult && (
 					isExpanded ? <ChevronDown className="size-3 shrink-0" /> : <ChevronRight className="size-3 shrink-0" />
 				)}
@@ -617,6 +622,7 @@ export function AIMessage({
 	onAction?: (action: ConversationAction) => void;
 	actionDisabled?: boolean;
 }) {
+	const { t } = useAppI18n();
 	const sanitizedMessage = sanitizeMessageForDisplay(message);
 	
 	// Check if this is a debug session (active or just completed in this session)
@@ -710,7 +716,7 @@ export function AIMessage({
 				{topToolEvents.length > 0 && (
 					<div className="flex flex-col gap-1.5 mt-1">
 						{topToolEvents.map((ev) => (
-							<ToolStatusIndicator key={`${ev.name}-${ev.timestamp}`} event={ev} />
+							<ToolStatusIndicator key={`${ev.name}-${ev.timestamp}`} event={ev} t={t} />
 						))}
 					</div>
 				)}

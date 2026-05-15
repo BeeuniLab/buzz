@@ -8,26 +8,29 @@ import { Toaster } from './components/ui/sonner';
 import { AppLayout } from './components/layout/app-layout';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { FeatureProvider } from './features';
+import { AppI18nProvider } from './i18n';
 
 export default function App() {
   return (
     <ErrorBoundary>
-      <ThemeProvider>
-        <FeatureProvider>
-          <AuthProvider>
-            <VaultProvider>
-              <AuthModalProvider>
-                <InviteCodeProvider>
-                <AppLayout>
-                  <Outlet />
-                </AppLayout>
-                <Toaster richColors position="top-right" />
-                </InviteCodeProvider>
-              </AuthModalProvider>
-            </VaultProvider>
-          </AuthProvider>
-        </FeatureProvider>
-      </ThemeProvider>
+      <AppI18nProvider>
+        <ThemeProvider>
+          <FeatureProvider>
+            <AuthProvider>
+              <VaultProvider>
+                <AuthModalProvider>
+                  <InviteCodeProvider>
+                  <AppLayout>
+                    <Outlet />
+                  </AppLayout>
+                  <Toaster richColors position="top-right" />
+                  </InviteCodeProvider>
+                </AuthModalProvider>
+              </VaultProvider>
+            </AuthProvider>
+          </FeatureProvider>
+        </ThemeProvider>
+      </AppI18nProvider>
     </ErrorBoundary>
   );
 }

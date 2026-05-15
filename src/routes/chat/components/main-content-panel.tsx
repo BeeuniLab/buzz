@@ -13,6 +13,7 @@ import { featureRegistry } from '@/features';
 import type { FileType, BlueprintType, BehaviorType, TemplateDetails, ProjectType } from '@/api-types';
 import type { Edit } from '../hooks/use-chat';
 import type { ChatAssetSelectionTarget } from '../utils/chat-attachments';
+import { useAppI18n } from '@/i18n';
 
 const GAME_WIDTH = 720;
 const GAME_HEIGHT = 1280;
@@ -68,16 +69,17 @@ function PreviewLoadingPlaceholder({
 	isGeneratingBlueprint: boolean;
 	queuePosition?: number;
 }) {
+	const { t } = useAppI18n();
 	const title = queuePosition
-		? 'Waiting for Preview'
-		: isGeneratingBlueprint ? 'Shaping Your Idea' : 'Loading Preview';
+		? t('Waiting for Preview')
+		: isGeneratingBlueprint ? t('Shaping Your Idea') : t('Loading Preview');
 	const statusText = queuePosition
-			? `You're #${queuePosition} in line.`
+			? t("You're #{position} in line.", { position: queuePosition })
 		: isGeneratingBlueprint
-			? 'Turning the idea into a playable direction.'
+			? t('Turning the idea into a playable direction.')
 		: isActive
-			? 'Making your preview playable.'
-			: 'Preview will load here as soon as it is ready.';
+			? t('Making your preview playable.')
+			: t('Preview will load here as soon as it is ready.');
 
 	return (
 		<div className="flex-1 flex items-center justify-center bg-bg-3" role="status" aria-live="polite">
@@ -109,6 +111,7 @@ function PreviewPausedPlaceholder({
 }: {
 	onRestartPreview: () => void;
 }) {
+	const { t } = useAppI18n();
 	return (
 		<div className="flex-1 flex items-center justify-center bg-bg-3" role="status" aria-live="polite">
 			<div className="text-center p-8 max-w-sm">
@@ -116,17 +119,17 @@ function PreviewPausedPlaceholder({
 					<Play className="ml-0.5 size-7 text-accent" />
 				</div>
 				<h3 className="text-2xl font-semibold text-text-primary mb-2">
-					Preview paused
+					{t('Preview paused')}
 				</h3>
 				<p className="text-text-primary/70 text-sm mb-5">
-					This preview was paused to free workspace resources.
+					{t('This preview was paused to free workspace resources.')}
 				</p>
 				<Button
 					type="button"
 					onClick={onRestartPreview}
 				>
 					<Play className="size-4" />
-					Restart preview
+					{t('Restart preview')}
 				</Button>
 			</div>
 		</div>
@@ -185,6 +188,7 @@ interface MainContentPanelProps {
 }
 
 export function MainContentPanel(props: MainContentPanelProps) {
+	const { t } = useAppI18n();
 	const {
 		view,
 		onViewChange,
@@ -311,7 +315,7 @@ export function MainContentPanel(props: MainContentPanelProps) {
 				src={previewUrl}
 				ref={previewRef}
 				className="flex-1 w-full h-full border-0"
-				title="Preview"
+				title={t('Preview')}
 				shouldRefreshPreview={shouldRefreshPreview}
 				manualRefreshTrigger={manualRefreshTrigger}
 				webSocket={websocket}
@@ -367,7 +371,7 @@ export function MainContentPanel(props: MainContentPanelProps) {
 					<button
 						className="p-1 hover:bg-bg-2 rounded transition-colors"
 						onClick={onManualRefresh}
-						title="Refresh preview"
+						title={t('Refresh preview')}
 					>
 						<RefreshCw className="size-4 text-text-primary/50" />
 					</button>

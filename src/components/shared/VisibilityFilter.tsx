@@ -2,6 +2,7 @@ import React from 'react';
 import { Globe, Lock, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { motion } from 'framer-motion';
+import { useAppI18n } from '@/i18n';
 
 interface VisibilityFilterProps {
   value: string;
@@ -38,6 +39,8 @@ export const VisibilityFilter: React.FC<VisibilityFilterProps> = ({
   onChange,
   className
 }) => {
+  const { t } = useAppI18n();
+
   return (
     <div className={cn(
       "inline-flex items-center rounded-lg bg-bg-4 p-0.5",
@@ -80,7 +83,7 @@ export const VisibilityFilter: React.FC<VisibilityFilterProps> = ({
                 "h-3 w-3 transition-colors duration-200",
                 isActive && "text-accent"
               )} />
-              <span>{option.label}</span>
+              <span>{t(option.label)}</span>
             </span>
           </motion.button>
         );

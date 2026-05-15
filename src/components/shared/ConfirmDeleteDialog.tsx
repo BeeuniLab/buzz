@@ -9,6 +9,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { Trash2, AlertTriangle, Loader2 } from 'lucide-react';
+import { useAppI18n } from '@/i18n';
 
 interface ConfirmDeleteDialogProps {
   open: boolean;
@@ -24,14 +25,16 @@ export function ConfirmDeleteDialog({
   open,
   onOpenChange,
   onConfirm,
-  title = "Delete app?",
+  title,
   description,
   isLoading = false,
   appTitle
 }: ConfirmDeleteDialogProps) {
-  const defaultDescription = appTitle 
-    ? `"${appTitle}" will be permanently removed.`
-    : 'This app will be permanently removed.';
+  const { t } = useAppI18n();
+  const dialogTitle = title ?? t('Delete app?');
+  const defaultDescription = appTitle
+    ? t('"{appTitle}" will be permanently removed.', { appTitle })
+    : t('This app will be permanently removed.');
 
   const handleConfirm = async (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -49,7 +52,7 @@ export function ConfirmDeleteDialog({
               <AlertTriangle className="h-5 w-5 text-destructive" />
             </div>
             <div className="flex-1">
-              <AlertDialogTitle className="text-left">{title}</AlertDialogTitle>
+              <AlertDialogTitle className="text-left">{dialogTitle}</AlertDialogTitle>
             </div>
           </div>
           <AlertDialogDescription className="text-left pt-2">
@@ -58,7 +61,7 @@ export function ConfirmDeleteDialog({
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel disabled={isLoading}>
-            Cancel
+            {t('Cancel')}
           </AlertDialogCancel>
           <AlertDialogAction
             onClick={handleConfirm}
@@ -68,12 +71,12 @@ export function ConfirmDeleteDialog({
             {isLoading ? (
               <>
                 <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                Deleting...
+                {t('Deleting...')}
               </>
             ) : (
               <>
                 <Trash2 className="h-4 w-4 mr-2" />
-                Delete
+                {t('Delete')}
               </>
             )}
           </AlertDialogAction>

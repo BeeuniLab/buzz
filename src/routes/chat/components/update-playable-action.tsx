@@ -1,5 +1,6 @@
 import clsx from 'clsx';
 import { AlertCircle, CheckCircle2, LoaderCircle, Play, Upload } from 'lucide-react';
+import { useAppI18n } from '@/i18n';
 
 interface UpdatePlayableActionProps {
 	isDeploying: boolean;
@@ -24,6 +25,7 @@ export function UpdatePlayableAction({
 	showLabelOnMobile = false,
 	onUpdate,
 }: UpdatePlayableActionProps) {
+	const { t } = useAppI18n();
 	const isReady = hasStablePlayable && !isUpdateAvailable && !deploymentError;
 	const disabled = isDeploying || isTaskRunning || !canUpdate || isReady;
 	const Icon = isDeploying
@@ -36,23 +38,23 @@ export function UpdatePlayableAction({
 					? Upload
 					: Play;
 	const label = isDeploying
-		? 'Updating'
+		? t('Sharing')
 		: isReady
-			? 'Ready'
+			? t('Shared')
 			: hasStablePlayable
-				? 'Update'
-				: 'Post';
+				? t('Update')
+				: t('Share');
 	const title = isDeploying
-		? 'Updating playable'
+		? t('Sharing playable')
 		: isTaskRunning
-			? 'Please wait for the current task to finish before posting'
+			? t('Please wait for the current task to finish before sharing')
 			: !canUpdate
-			? unavailableTitle || 'Preview needs to be ready first'
+			? unavailableTitle || t('Preview needs to be ready first')
 			: isReady
-				? 'Playable is up to date'
+				? t('Playable is already shared')
 				: hasStablePlayable
-					? 'Update playable'
-					: 'Post playable';
+					? t('Update playable')
+					: t('Share playable');
 
 	return (
 		<button

@@ -4,6 +4,7 @@ import { usePaginatedApps } from '@/hooks/use-paginated-apps';
 import { AppListContainer } from '@/components/shared/AppListContainer';
 import { AppFiltersForm } from '@/components/shared/AppFiltersForm';
 import { VisibilityFilter } from '@/components/shared/VisibilityFilter';
+import { useAppI18n } from '@/i18n';
 
 const titleLetters = [
 	{ char: 'M', className: 'text-neo-pink' },
@@ -17,6 +18,7 @@ const titleLetters = [
 
 export default function AppsPage() {
 	const navigate = useNavigate();
+	const { t } = useAppI18n();
 
 	const {
 		// Filter state
@@ -80,8 +82,8 @@ export default function AppsPage() {
 						</h1>
 						<p className="text-text-tertiary text-lg">
 							{loading
-								? 'Loading...'
-								: `${totalCount} app${totalCount !== 1 ? 's' : ''} in your workspace`}
+								? t('Loading...')
+								: t(totalCount === 1 ? '{count} app in your workspace' : '{count} apps in your workspace', { count: totalCount })}
 						</p>
 					</div>
 

@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef, forwardRef, useCallback } from 'react';
 import { RefreshCw, AlertCircle } from 'lucide-react';
 import { WebSocket } from 'partysocket';
+import { useAppI18n } from '@/i18n';
 
 interface PreviewIframeProps {
     src: string;
@@ -65,6 +66,7 @@ const appendPreviewCacheBuster = (url: string, attempt: number): string => {
 
 export const PreviewIframe = forwardRef<HTMLIFrameElement, PreviewIframeProps>(
 	({ src, className = '', title = 'Preview', shouldRefreshPreview = false, manualRefreshTrigger, webSocket }, ref) => {
+		const { t } = useAppI18n();
 		
 		const [loadState, setLoadState] = useState<LoadState>({
 			status: 'idle',
@@ -154,7 +156,7 @@ export const PreviewIframe = forwardRef<HTMLIFrameElement, PreviewIframeProps>(
 					status: 'error',
 					attempt,
 					loadedSrc: null,
-					errorMessage: 'Preview failed to load after multiple attempts',
+					errorMessage: t('Preview failed to load after multiple attempts'),
 				});
 				return;
 			}
@@ -351,7 +353,7 @@ export const PreviewIframe = forwardRef<HTMLIFrameElement, PreviewIframeProps>(
 						setLoadState(prev => ({
 							...prev,
 							status: 'error',
-							errorMessage: 'Preview failed to render',
+							errorMessage: t('Preview failed to render'),
 						}));
 					}}
 				/>
@@ -378,7 +380,7 @@ export const PreviewIframe = forwardRef<HTMLIFrameElement, PreviewIframeProps>(
                                 setLoadState(prev => ({
                                     ...prev,
                                     status: 'error',
-                                    errorMessage: 'Preview failed to render',
+                                    errorMessage: t('Preview failed to render'),
                                 }));
                             }}
                         />
@@ -386,21 +388,25 @@ export const PreviewIframe = forwardRef<HTMLIFrameElement, PreviewIframeProps>(
 					<div className="text-center p-8 max-w-md">
 						<RefreshCw className="size-8 text-accent animate-spin mx-auto mb-4" />
 						<h3 className="text-lg font-medium text-text-primary mb-2">
-							Loading Preview
+							{t('Loading Preview')}
 						</h3>
 						<p className="text-text-primary/70 text-sm mb-4">
 							{loadState.attempt === 0
-								? 'Checking if your deployed preview is ready...'
-								: `Preview not ready yet. Retrying in ${delaySeconds}s... (attempt ${loadState.attempt}/${MAX_RETRIES})`
+								? t('Checking if your deployed preview is ready...')
+								: t('Preview not ready yet. Retrying in {seconds}s... (attempt {attempt}/{max})', {
+									seconds: delaySeconds,
+									attempt: loadState.attempt,
+									max: MAX_RETRIES,
+								})
 							}
 						</p>
 						{loadState.attempt >= REDEPLOY_AFTER_ATTEMPT && (
 							<p className="text-xs text-accent/70">
-								Auto-redeployment triggered to refresh the preview
+								{t('Auto-redeployment triggered to refresh the preview')}
 							</p>
 						)}
 						<div className="text-xs text-text-primary/50 mt-2">
-							Preview URLs may take a moment to become available after deployment
+							{t('Preview URLs may take a moment to become available after sharing')}
 						</div>
 					</div>
 				</div>
@@ -413,10 +419,10 @@ export const PreviewIframe = forwardRef<HTMLIFrameElement, PreviewIframeProps>(
 				<div className="text-center p-8 max-w-md">
 					<AlertCircle className="size-8 text-orange-500 mx-auto mb-4" />
 					<h3 className="text-lg font-medium text-text-primary mb-2">
-						Preview Not Available
+						{t('Preview Not Available')}
 					</h3>
 					<p className="text-text-primary/70 text-sm mb-6">
-						{loadState.errorMessage || 'The preview failed to load after multiple attempts.'}
+						{loadState.errorMessage || t('The preview failed to load after multiple attempts.')}
 					</p>
 					<div className="space-y-3">
 						<button
@@ -424,10 +430,10 @@ export const PreviewIframe = forwardRef<HTMLIFrameElement, PreviewIframeProps>(
 							className="flex items-center justify-center gap-2 px-6 py-3 bg-accent hover:bg-accent/90 text-white rounded-lg transition-colors text-sm mx-auto font-medium w-full"
 						>
 							<RefreshCw className="size-4" />
-							Try Again
+							{t('Try Again')}
 						</button>
 						<p className="text-xs text-text-primary/60">
-							If the issue persists, please describe the problem in chat so I can help diagnose and fix it.
+							{t('If the issue persists, please describe the problem in chat so I can help diagnose and fix it.')}
 						</p>
 					</div>
 				</div>

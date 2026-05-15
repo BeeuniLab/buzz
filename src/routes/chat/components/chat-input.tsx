@@ -4,6 +4,7 @@ import { ImageAttachmentPreview } from '@/components/image-attachment-preview';
 import { AttachmentPickerDropdown } from '@/components/attachment-picker-dropdown';
 import { SUPPORTED_CHAT_MEDIA_MIME_TYPES, type ImageAttachment } from '@/api-types';
 import { getClipboardFiles } from '@/utils/clipboard-files';
+import { useAppI18n } from '@/i18n';
 
 const MAX_WORDS = 4000;
 const countWords = (text: string): number => {
@@ -61,6 +62,7 @@ export function ChatInput({
 	onStopCurrentTask,
 	chatFormRef,
 }: ChatInputProps) {
+	const { t } = useAppI18n();
 	const attachDisabled = isChatDisabled || isProcessing;
 
 	const handleTextChange = (newValue: string) => {
@@ -107,16 +109,16 @@ export function ChatInput({
 	};
 
 	const placeholder = isDebugging
-		? 'Deep debugging in progress... Please abort to continue'
+		? t('Deep debugging in progress... Please stop to continue')
 		: isConversationProcessing
-			? 'Working on your message... Stop or wait to continue'
+			? t('Working on your message... Stop or wait to continue')
 			: isChatDisabled
 				? isRunning
-					? 'Task running... Stop or wait to continue'
-					: 'Please wait for setup to finish...'
+					? t('Task running... Stop or wait to continue')
+					: t('Please wait for setup to finish...')
 				: isRunning
-					? 'Chat with AI while generating...'
-					: 'Chat with AI...';
+					? t('Chat with AI while generating...')
+					: t('Chat with AI...');
 
 	return (
 		<form
@@ -128,7 +130,7 @@ export function ChatInput({
 			<div className="relative rounded-[22px] border border-text-primary/10 bg-bg-2/95 shadow-[0_16px_40px_rgba(0,0,0,0.08)] transition-colors focus-within:border-text-primary/25">
 				{isChatDragging && (
 					<div className="absolute inset-0 flex items-center justify-center bg-accent/10 backdrop-blur-sm rounded-[22px] z-50 pointer-events-none">
-						<p className="text-accent font-medium">Drop images, audio, or video here</p>
+						<p className="text-accent font-medium">{t('Drop images, audio, or video here')}</p>
 					</div>
 				)}
 				{images.length > 0 && (
@@ -172,12 +174,12 @@ export function ChatInput({
 							type="button"
 							onClick={handleStopGeneration}
 							className="group relative grid size-8 place-items-center rounded-full text-red-500 transition-all duration-200 hover:bg-red-500/10"
-							aria-label="Stop generation"
-							title="Stop generation"
+							aria-label={t('Stop generation')}
+							title={t('Stop generation')}
 						>
 							<CircleStop className="size-5" strokeWidth={2.1} />
 							<span className="absolute -top-8 right-0 px-2 py-1 bg-bg-1 border border-border-primary rounded text-xs text-text-secondary whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
-								Stop
+								{t('Stop')}
 							</span>
 						</button>
 					)}
@@ -194,8 +196,8 @@ export function ChatInput({
 						type="submit"
 						disabled={(!newMessage.trim() && images.length === 0) || isChatDisabled}
 						className="group/send grid size-8 place-items-center rounded-full border border-text-primary bg-accent text-text-primary shadow-neo-sm transition-all duration-200 hover:-translate-y-0.5 hover:bg-neo-yellow hover:shadow-neo disabled:translate-y-0 disabled:cursor-not-allowed disabled:border-text-primary/10 disabled:bg-bg-3/70 disabled:text-text-primary/30 disabled:shadow-none"
-						aria-label="Send message"
-						title="Send message"
+						aria-label={t('Send message')}
+						title={t('Send message')}
 					>
 						<SendHorizontal className="size-4 transition-transform duration-200 group-hover/send:translate-x-0.5" strokeWidth={2.4} />
 					</button>

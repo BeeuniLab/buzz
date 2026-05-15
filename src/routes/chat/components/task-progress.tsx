@@ -3,6 +3,7 @@ import { Loader, AlertCircle, RefreshCcw } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
 import type { FileType } from '@/api-types';
 import { ThinkingIndicator } from './thinking-indicator';
+import { useAppI18n } from '@/i18n';
 
 import type { ProjectStage } from '../utils/project-stage-helpers';
 
@@ -139,6 +140,7 @@ export function TaskProgress({
 	onRetryFailedWorkflow,
 	retryFailedWorkflowDisabled = false
 }: TaskProgressProps) {
+	const { t } = useAppI18n();
 	const codeStage = projectStages.find(stage => stage.id === 'code');
 	const queuePosition = codeStage?.queuePosition;
 	const showFileSummary = files.length > 0 && codeStage?.status !== 'pending';
@@ -173,7 +175,7 @@ export function TaskProgress({
 										? 'text-text-tertiary'
 										: 'text-text-secondary'
 								)}>
-									{stage.title}
+									{t(stage.title)}
 								</span>
 
 								{/* Subtle inline issue indicator for completed code stage */}
@@ -188,7 +190,7 @@ export function TaskProgress({
 										{runtimeErrorCount > 0 && (
 											<span className="inline-flex items-center gap-1">
 												<div className="w-1.5 h-1.5 rounded-full bg-red-400" />
-												<span className="text-red-400/80">{runtimeErrorCount} error{runtimeErrorCount > 1 ? 's' : ''}</span>
+												<span className="text-red-400/80">{t(runtimeErrorCount > 1 ? '{count} errors' : '{count} error', { count: runtimeErrorCount })}</span>
 											</span>
 										)}
 										{runtimeErrorCount > 0 && staticIssueCount > 0 && (
@@ -197,7 +199,7 @@ export function TaskProgress({
 										{staticIssueCount > 0 && (
 											<span className="inline-flex items-center gap-1">
 												<div className="w-1.5 h-1.5 rounded-full bg-orange-400" />
-												<span className="text-orange-400/80">{staticIssueCount} warning{staticIssueCount > 1 ? 's' : ''}</span>
+												<span className="text-orange-400/80">{t(staticIssueCount > 1 ? '{count} warnings' : '{count} warning', { count: staticIssueCount })}</span>
 											</span>
 										)}
 									</motion.span>
@@ -211,7 +213,7 @@ export function TaskProgress({
 										transition={commonTransitions.premiumShort}
 										className="text-xs text-text-tertiary -mt-1"
 									>
-										{stage.queuePosition ? `You're #${stage.queuePosition} in line.` : taskRuntimeEstimate}
+										{stage.queuePosition ? t("You're #{position} in line.", { position: stage.queuePosition }) : taskRuntimeEstimate}
 									</motion.div>
 								)}
 
@@ -225,7 +227,7 @@ export function TaskProgress({
 														<StatusLoader size="sm" color="blue" />
 													</div>
 													<span className="text-sm font-medium text-text-50 flex-1 break-words">
-														Waiting for an available workspace
+														{t('Waiting for an available workspace')}
 													</span>
 												</div>
 											</div>
@@ -238,9 +240,9 @@ export function TaskProgress({
 													<div className="space-y-1 relative bg-orange-50/5 border border-orange-200/20 rounded-lg p-3">
 														<div className="flex items-center gap-2">
 															<StatusLoader size="sm" color="orange" />
-															<span className="text-sm font-medium text-orange-400">Preparing preview...</span>
+															<span className="text-sm font-medium text-orange-400">{t('Preparing preview...')}</span>
 														</div>
-														<span className="text-xs text-orange-300/80 ml-5">Getting it ready to play</span>
+														<span className="text-xs text-orange-300/80 ml-5">{t('Getting it ready to play')}</span>
 													</div>
 												);
 											}
@@ -259,10 +261,10 @@ export function TaskProgress({
 												<div className="flex flex-wrap items-center gap-2 px-2 py-1 text-xs text-text-tertiary">
 													<span>
 														{codeStage?.status === 'error'
-															? 'Playable version was not completed'
+															? t('Playable version was not completed')
 															: isCreatingPlayable
-																? 'Creating your playable...'
-																: 'Playable content created'
+																? t('Creating your playable...')
+																: t('Playable content created')
 														}
 													</span>
 													{canRetryFailedWorkflow && (
@@ -278,7 +280,7 @@ export function TaskProgress({
 															)}
 														>
 															<RefreshCcw className="size-3" />
-															Retry
+															{t('Retry')}
 														</button>
 													)}
 												</div>
@@ -328,7 +330,7 @@ export function TaskProgress({
 									<AnimatedStatusIndicator status="completed" />
 
 									<div className="flex flex-col gap-2 flex-1">
-										<span className="font-medium text-text-secondary">Ready to play</span>
+										<span className="font-medium text-text-secondary">{t('Ready to play')}</span>
 									</div>
 								</motion.div>
 							);
@@ -351,7 +353,7 @@ export function TaskProgress({
 									<AnimatedStatusIndicator status="active" />
 									
 									<div className="flex flex-col gap-2 flex-1">
-										<span className="font-medium text-text-secondary">Debugging in progress...</span>
+										<span className="font-medium text-text-secondary">{t('Debugging in progress...')}</span>
 									</div>
 								</motion.div>
 							);
