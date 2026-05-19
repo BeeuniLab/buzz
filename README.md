@@ -168,9 +168,9 @@ CLERK_JWT_ISSUER="..."
 CLERK_JWKS_URL="..."
 ```
 
-### KLIPY Meme Picker (Optional)
+### KLIPY Media Picker (Optional)
 
-The create composer can show a Meme button backed by KLIPY's Meme API (`static-memes`). Create a KLIPY API key, then set:
+The create composer can show a KLIPY media picker for GIFs, stickers, clips, static memes, and AI emojis. Create a KLIPY API key, then set:
 
 ```bash
 VITE_KLIPY_API_KEY="..."

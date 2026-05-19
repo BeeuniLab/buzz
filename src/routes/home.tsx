@@ -15,7 +15,7 @@ import clsx from 'clsx';
 import { useImageUpload } from '@/hooks/use-image-upload';
 import { useDragDrop } from '@/hooks/use-drag-drop';
 import { AttachmentPickerDropdown } from '@/components/attachment-picker-dropdown';
-import { KlipyMemePicker } from '@/components/klipy-meme-picker';
+import { KlipyMediaPicker } from '@/components/klipy-media-picker';
 import { ImageAttachmentPreview } from '@/components/image-attachment-preview';
 import { getClipboardFiles } from '@/utils/clipboard-files';
 import { toast } from 'sonner';
@@ -179,7 +179,7 @@ export default function Home() {
 	const [projectMode, setProjectMode] = useState<ProjectType>('app');
 	const [playableType, setPlayableType] = useState<PlayableType>('2d');
 	const [query, setQuery] = useState('');
-	const [isMemePickerOpen, setIsMemePickerOpen] = useState(false);
+	const [isKlipyMediaPickerOpen, setIsKlipyMediaPickerOpen] = useState(false);
 	const { isLoadingCapabilities, capabilities, getEnabledFeatures } = useFeature();
 
 	const modeOptions = useMemo<ProjectModeOption[]>(() => {
@@ -575,13 +575,13 @@ export default function Home() {
 								<div className="flex min-w-0 flex-1 items-center gap-2">
 									<button
 										type="button"
-										onClick={() => setIsMemePickerOpen(true)}
+										onClick={() => setIsKlipyMediaPickerOpen(true)}
 										disabled={isProcessing}
 										className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border-2 border-[var(--neo-border-color)] bg-neo-pink px-2.5 py-1.5 text-xs font-black text-[#1a1a1a] shadow-[2px_2px_0px_0px_var(--neo-border-color)] transition-all duration-150 hover:shadow-[3px_3px_0px_0px_var(--neo-border-color)] hover:-translate-x-[0.5px] hover:-translate-y-[0.5px] active:translate-x-[1px] active:translate-y-[1px] active:shadow-[1px_1px_0px_0px_var(--neo-border-color)] disabled:cursor-not-allowed disabled:opacity-40"
-										aria-label={t('Pick a meme from KLIPY')}
+										aria-label={t('Pick KLIPY media')}
 									>
 										<Laugh className="size-3.5" />
-										<span>{t('Meme')}</span>
+										<span>{t('Media')}</span>
 									</button>
 									<button
 										type="button"
@@ -625,9 +625,9 @@ export default function Home() {
 				</div>
 			</div>
 
-			<KlipyMemePicker
-				open={isMemePickerOpen}
-				onOpenChange={setIsMemePickerOpen}
+			<KlipyMediaPicker
+				open={isKlipyMediaPickerOpen}
+				onOpenChange={setIsKlipyMediaPickerOpen}
 				onFilesSelected={(files) => addImages(files)}
 				disabled={isProcessing}
 			/>
