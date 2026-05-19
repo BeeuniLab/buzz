@@ -553,8 +553,8 @@ export function KlipyMediaPicker({
 				</DrawerHeader>
 
 				<div className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden px-4 pb-3 pt-1 sm:px-5">
-					<div className="-mx-4 min-h-12 shrink-0 overflow-x-auto px-4 py-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:-mx-5 sm:px-5">
-						<div className="flex w-max items-center gap-2">
+					<div className="shrink-0 py-2">
+						<div className="grid grid-cols-3 gap-2 sm:flex sm:w-max sm:items-center">
 							{KLIPY_MEDIA_KINDS.map((kind) => {
 								const active = mediaKind === kind.value;
 								return (
@@ -563,20 +563,20 @@ export function KlipyMediaPicker({
 										type="button"
 										onClick={() => setMediaKind(kind.value)}
 										className={cn(
-											'inline-flex h-9 flex-none items-center gap-1.5 rounded-full border-2 border-[var(--neo-border-color)] bg-bg-3 px-3 text-xs font-black text-text-primary transition-all sm:text-sm',
+											'inline-flex h-9 min-w-0 items-center justify-center gap-1 rounded-full border-2 border-[var(--neo-border-color)] bg-bg-3 px-2 text-xs font-black text-text-primary transition-all sm:flex-none sm:gap-1.5 sm:px-3 sm:text-sm',
 											active && 'bg-neo-yellow text-[#1a1a1a] shadow-[2px_2px_0px_0px_var(--neo-border-color)]',
 										)}
 									>
 										{kind.value === 'clips' ? (
-											<Film className="size-4" />
+											<Film className="size-4 shrink-0" />
 										) : kind.value === 'stickers' ? (
-											<Sticker className="size-4" />
+											<Sticker className="size-4 shrink-0" />
 										) : kind.value === 'emojis' ? (
-											<Sparkles className="size-4" />
+											<Sparkles className="size-4 shrink-0" />
 										) : (
-											<ImageIcon className="size-4" />
+											<ImageIcon className="size-4 shrink-0" />
 										)}
-										{t(kind.label)}
+										<span className="min-w-0 truncate">{t(kind.label)}</span>
 									</button>
 								);
 							})}
