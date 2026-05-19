@@ -3,7 +3,7 @@
 
 interface ImportMetaEnv {
 	readonly VITE_CLERK_PUBLISHABLE_KEY?: string;
-	readonly VITE_GIPHY_API_KEY?: string;
+	readonly VITE_KLIPY_API_KEY?: string;
 }
 
 interface ImportMeta {
