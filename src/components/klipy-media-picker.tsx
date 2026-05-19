@@ -421,7 +421,7 @@ export function KlipyMediaPicker({
 
 			const assetUrl = getKlipyAssetUrl(item, mediaKind);
 			if (!assetUrl) {
-				toast.error(t('Could not load this KLIPY item'));
+				toast.error(t('Could not load this item'));
 				return;
 			}
 
@@ -433,7 +433,7 @@ export function KlipyMediaPicker({
 
 				const blob = await response.blob();
 				if (blob.size > MAX_KLIPY_FILE_BYTES) {
-					toast.error(t('This KLIPY item is too large to attach'));
+					toast.error(t('This item is too large to attach'));
 					return;
 				}
 
@@ -448,10 +448,10 @@ export function KlipyMediaPicker({
 				const file = new File([blob], getKlipyFilename(item, mediaKind, mimeType), { type: mimeType });
 				await onFilesSelected([file]);
 				onOpenChange(false);
-				toast.success(t('KLIPY item added'));
+				toast.success(t('Item added'));
 			} catch (error) {
 				console.error('Failed to import KLIPY media:', error);
-				toast.error(t('Could not add this KLIPY item'));
+				toast.error(t('Could not add this item'));
 			} finally {
 				setIsImporting(false);
 			}
@@ -483,7 +483,7 @@ export function KlipyMediaPicker({
 				)}
 			>
 				{items.length === 0 && !isLoading ? (
-					<div className="p-8 text-center text-sm font-medium text-text-tertiary">{t('No KLIPY items found')}</div>
+					<div className="p-8 text-center text-sm font-medium text-text-tertiary">{t('No items found')}</div>
 				) : (
 					<div>
 						<MediaMasonry columns={mobileMasonryColumns} kind={mediaKind} onSelectMedia={handleSelectMedia} className="grid sm:hidden" />
@@ -504,7 +504,7 @@ export function KlipyMediaPicker({
 					<div className="absolute inset-0 grid place-items-center rounded-2xl bg-bg-4/70 backdrop-blur-sm">
 						<div className="flex items-center gap-2 rounded-xl border-2 border-[var(--neo-border-color)] bg-neo-yellow px-4 py-2 text-sm font-black text-[#1a1a1a] shadow-[3px_3px_0px_0px_var(--neo-border-color)]">
 							{selectedItemId ? <Check className="size-4" /> : <Loader2 className="size-4 animate-spin" />}
-							{t('Adding KLIPY item...')}
+							{t('Adding item...')}
 						</div>
 					</div>
 				)}
