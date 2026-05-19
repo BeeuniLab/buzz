@@ -462,7 +462,7 @@ export function KlipyMediaPicker({
 	const content = useMemo(() => {
 		if (!isConfigured) {
 			return (
-				<div className="grid min-h-[360px] place-items-center rounded-2xl border-2 border-dashed border-[var(--neo-border-color)] bg-bg-3 p-6 text-center">
+				<div className="grid min-h-0 flex-1 place-items-center rounded-2xl border-2 border-dashed border-[var(--neo-border-color)] bg-bg-3 p-6 text-center">
 					<div>
 						<p className="text-lg font-black text-text-primary">{t('KLIPY is not configured')}</p>
 						<p className="mt-2 text-sm text-text-tertiary">
@@ -474,34 +474,36 @@ export function KlipyMediaPicker({
 		}
 
 		return (
-			<div
-				ref={scrollerRef}
-				onScroll={handleScrollerScroll}
-				className={cn(
-					'relative min-h-[360px] flex-1 overflow-y-auto rounded-b-2xl rounded-t-lg border-2 border-[var(--neo-border-color)] bg-bg-2 px-2 pb-2 pt-1',
-					isImporting && 'pointer-events-none opacity-80',
-				)}
-			>
-				{items.length === 0 && !isLoading ? (
-					<div className="p-8 text-center text-sm font-medium text-text-tertiary">{t('No items found')}</div>
-				) : (
-					<div>
-						<MediaMasonry columns={mobileMasonryColumns} kind={mediaKind} onSelectMedia={handleSelectMedia} className="grid sm:hidden" />
-						<MediaMasonry columns={desktopMasonryColumns} kind={mediaKind} onSelectMedia={handleSelectMedia} className="hidden sm:grid" />
-					</div>
-				)}
-				{hasMore && items.length > 0 && (
-					<div className="grid min-h-10 place-items-center py-3">
-						{isLoading ? <Loader2 className="size-5 animate-spin text-accent" /> : null}
-					</div>
-				)}
-				{isLoading && items.length === 0 && (
-					<div className="absolute inset-0 grid place-items-center rounded-2xl bg-bg-4/50">
-						<Loader2 className="size-7 animate-spin text-accent" />
-					</div>
-				)}
+			<div className="relative min-h-0 flex-1">
+				<div
+					ref={scrollerRef}
+					onScroll={handleScrollerScroll}
+					className={cn(
+						'h-full min-h-0 overflow-y-auto rounded-b-2xl rounded-t-lg border-2 border-[var(--neo-border-color)] bg-bg-2 px-2 pb-2 pt-1',
+						isImporting && 'pointer-events-none opacity-80',
+					)}
+				>
+					{items.length === 0 && !isLoading ? (
+						<div className="p-8 text-center text-sm font-medium text-text-tertiary">{t('No items found')}</div>
+					) : (
+						<div>
+							<MediaMasonry columns={mobileMasonryColumns} kind={mediaKind} onSelectMedia={handleSelectMedia} className="grid sm:hidden" />
+							<MediaMasonry columns={desktopMasonryColumns} kind={mediaKind} onSelectMedia={handleSelectMedia} className="hidden sm:grid" />
+						</div>
+					)}
+					{hasMore && items.length > 0 && (
+						<div className="grid min-h-10 place-items-center py-3">
+							{isLoading ? <Loader2 className="size-5 animate-spin text-accent" /> : null}
+						</div>
+					)}
+					{isLoading && items.length === 0 && (
+						<div className="absolute inset-0 grid place-items-center rounded-2xl bg-bg-4/50">
+							<Loader2 className="size-7 animate-spin text-accent" />
+						</div>
+					)}
+				</div>
 				{isImporting && (
-					<div className="absolute inset-0 grid place-items-center rounded-2xl bg-bg-4/70 backdrop-blur-sm">
+					<div className="absolute inset-0 z-10 grid place-items-center rounded-b-2xl rounded-t-lg border-2 border-[var(--neo-border-color)] bg-bg-4/70 backdrop-blur-sm">
 						<div className="flex items-center gap-2 rounded-xl border-2 border-[var(--neo-border-color)] bg-neo-yellow px-4 py-2 text-sm font-black text-[#1a1a1a] shadow-[3px_3px_0px_0px_var(--neo-border-color)]">
 							{selectedItemId ? <Check className="size-4" /> : <Loader2 className="size-4 animate-spin" />}
 							{t('Adding item...')}
@@ -527,8 +529,8 @@ export function KlipyMediaPicker({
 
 	return (
 		<Drawer open={open} onOpenChange={onOpenChange} direction="bottom">
-			<DrawerContent className="mx-auto max-h-[88vh] w-full max-w-4xl overflow-hidden rounded-t-3xl border-t-3 border-[var(--neo-border-color)] bg-bg-4">
-				<DrawerHeader className="px-4 pb-2 pt-4 sm:px-5">
+			<DrawerContent className="mx-auto h-[88dvh] max-h-[88dvh] w-full max-w-4xl overflow-hidden rounded-t-3xl border-t-3 border-[var(--neo-border-color)] bg-bg-4 data-[vaul-drawer-direction=bottom]:h-[88dvh] data-[vaul-drawer-direction=bottom]:max-h-[88dvh]">
+				<DrawerHeader className="shrink-0 px-4 pb-2 pt-4 sm:px-5">
 					<div className="flex items-center justify-between gap-3">
 						<div className="min-w-0">
 							<DrawerTitle className="flex items-center gap-2 text-xl sm:text-2xl">
@@ -550,8 +552,8 @@ export function KlipyMediaPicker({
 					</div>
 				</DrawerHeader>
 
-				<div className="flex min-h-0 flex-1 flex-col gap-3 px-4 pb-4 pt-1 sm:px-5">
-					<div className="-mx-4 min-h-12 overflow-x-auto px-4 py-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:-mx-5 sm:px-5">
+				<div className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden px-4 pb-3 pt-1 sm:px-5">
+					<div className="-mx-4 min-h-12 shrink-0 overflow-x-auto px-4 py-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:-mx-5 sm:px-5">
 						<div className="flex w-max items-center gap-2">
 							{KLIPY_MEDIA_KINDS.map((kind) => {
 								const active = mediaKind === kind.value;
@@ -580,7 +582,7 @@ export function KlipyMediaPicker({
 							})}
 						</div>
 					</div>
-					<div className="grid gap-2 sm:grid-cols-[auto_minmax(0,1fr)] sm:items-center">
+					<div className="grid shrink-0 gap-2 sm:grid-cols-[auto_minmax(0,1fr)] sm:items-center">
 						<div
 							className="inline-flex min-h-12 w-full items-center gap-1 rounded-xl border-2 border-[var(--neo-border-color)] bg-bg-2 p-1.5 text-text-primary shadow-[3px_3px_0px_0px_var(--neo-border-color)] sm:w-fit"
 							role="tablist"
@@ -631,7 +633,7 @@ export function KlipyMediaPicker({
 					</div>
 
 					{content}
-					<p className="text-center text-[11px] font-medium text-text-tertiary">{t('Powered by KLIPY')}</p>
+					<p className="shrink-0 text-center text-[11px] font-medium text-text-tertiary">{t('Powered by KLIPY')}</p>
 				</div>
 			</DrawerContent>
 		</Drawer>
