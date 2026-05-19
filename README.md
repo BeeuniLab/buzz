@@ -168,6 +168,14 @@ CLERK_JWT_ISSUER="..."
 CLERK_JWKS_URL="..."
 ```
 
+### GIPHY Meme Picker (Optional)
+
+The create composer can show a Meme button backed by the GIPHY Web SDK. Create a Web SDK key in GIPHY, then set:
+
+```bash
+VITE_GIPHY_API_KEY="..."
+```
+
 ## Deployment
 
 ```bash

@@ -15,10 +15,11 @@ import clsx from 'clsx';
 import { useImageUpload } from '@/hooks/use-image-upload';
 import { useDragDrop } from '@/hooks/use-drag-drop';
 import { AttachmentPickerDropdown } from '@/components/attachment-picker-dropdown';
+import { GiphyMemePicker } from '@/components/giphy-meme-picker';
 import { ImageAttachmentPreview } from '@/components/image-attachment-preview';
 import { getClipboardFiles } from '@/utils/clipboard-files';
 import { toast } from 'sonner';
-import { Box, Layers2, Shuffle } from 'lucide-react';
+import { Box, Laugh, Layers2, Shuffle } from 'lucide-react';
 import { useAppI18n } from '@/i18n';
 
 const SURPRISE_PROMPTS = [
@@ -178,6 +179,7 @@ export default function Home() {
 	const [projectMode, setProjectMode] = useState<ProjectType>('app');
 	const [playableType, setPlayableType] = useState<PlayableType>('2d');
 	const [query, setQuery] = useState('');
+	const [isMemePickerOpen, setIsMemePickerOpen] = useState(false);
 	const { isLoadingCapabilities, capabilities, getEnabledFeatures } = useFeature();
 
 	const modeOptions = useMemo<ProjectModeOption[]>(() => {
@@ -573,6 +575,16 @@ export default function Home() {
 								<div className="flex min-w-0 flex-1 items-center gap-2">
 									<button
 										type="button"
+										onClick={() => setIsMemePickerOpen(true)}
+										disabled={isProcessing}
+										className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border-2 border-[var(--neo-border-color)] bg-neo-pink px-2.5 py-1.5 text-xs font-black text-[#1a1a1a] shadow-[2px_2px_0px_0px_var(--neo-border-color)] transition-all duration-150 hover:shadow-[3px_3px_0px_0px_var(--neo-border-color)] hover:-translate-x-[0.5px] hover:-translate-y-[0.5px] active:translate-x-[1px] active:translate-y-[1px] active:shadow-[1px_1px_0px_0px_var(--neo-border-color)] disabled:cursor-not-allowed disabled:opacity-40"
+										aria-label={t('Pick a meme from GIPHY')}
+									>
+										<Laugh className="size-3.5" />
+										<span>{t('Meme')}</span>
+									</button>
+									<button
+										type="button"
 										onClick={handleSurprisePrompt}
 										className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border-2 border-[var(--neo-border-color)] bg-neo-cyan px-2.5 py-1.5 text-xs font-black text-[#1a1a1a] shadow-[2px_2px_0px_0px_var(--neo-border-color)] transition-all duration-150 hover:shadow-[3px_3px_0px_0px_var(--neo-border-color)] hover:-translate-x-[0.5px] hover:-translate-y-[0.5px] active:translate-x-[1px] active:translate-y-[1px] active:shadow-[1px_1px_0px_0px_var(--neo-border-color)]"
 										aria-label={t('Fill with a surprise prompt')}
@@ -612,6 +624,13 @@ export default function Home() {
 					</div>
 				</div>
 			</div>
+
+			<GiphyMemePicker
+				open={isMemePickerOpen}
+				onOpenChange={setIsMemePickerOpen}
+				onFilesSelected={(files) => addImages(files)}
+				disabled={isProcessing}
+			/>
 
 			</div>
 		);
