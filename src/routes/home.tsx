@@ -263,8 +263,8 @@ export default function Home() {
 	const [isPlaceholderTyping, setIsPlaceholderTyping] = useState(true);
 	const currentSurprisePrompts = locale === 'zh-CN' ? SURPRISE_PROMPTS_ZH : SURPRISE_PROMPTS;
 	const composerPlaceholder = locale === 'zh-CN'
-		? `创建${currentPlaceholderText || '一个小游戏'}`
-		: `Create a ${currentPlaceholderText || 'playable game'}`;
+		? `创建${currentPlaceholderText || '一个互动内容'}`
+		: `Create a ${currentPlaceholderText || 'playable experience'}`;
 
 	const handleCreateApp = (query: string, mode: ProjectType) => {
 		if (playableType !== '2d') {
