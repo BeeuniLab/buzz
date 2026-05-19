@@ -2460,8 +2460,13 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
 
         for (const att of uploaded) {
             if (!att.r2Key.startsWith(prefix)) continue;
-            if (att.mimeType.startsWith('image/')) continue;
             const rel = att.r2Key.slice(prefix.length);
+            const providedDescription = typeof att.description === 'string' ? att.description.trim() : '';
+            if (providedDescription) {
+                descriptions[rel] = providedDescription;
+                continue;
+            }
+            if (att.mimeType.startsWith('image/')) continue;
             try {
                 const text = await generateAssetMediaCaption(
                     this.env,
@@ -3106,7 +3111,8 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
             .filter((image) => image.mimeType && !image.mimeType.startsWith('image/'))
             .map((image) => {
                 const filename = image.filename || image.r2Key.split('/').pop() || 'attachment';
-                return `- ${filename} (${image.mimeType}): ${image.r2Key || image.publicUrl}`;
+                const description = image.description ? ` - ${image.description}` : '';
+                return `- ${filename} (${image.mimeType}): ${image.r2Key || image.publicUrl}${description}`;
             });
         const content = nonImageLines.length > 0
             ? `${text}\n\n${USER_UPLOADED_MEDIA_HISTORY_MARKER}\n${nonImageLines.join('\n')}`

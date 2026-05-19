@@ -8,6 +8,7 @@ export interface ChatAttachmentPreview {
 	previewUrl?: string;
 	assetKey?: string;
 	assetAgentId?: string;
+	description?: string;
 }
 
 export interface ChatAssetSelectionTarget {
@@ -133,6 +134,7 @@ export function buildOptimisticChatAttachments(images: ImageAttachment[]): ChatA
 		previewUrl: attachment.mimeType.startsWith('image/')
 			? `data:${attachment.mimeType};base64,${attachment.base64Data}`
 			: undefined,
+		description: attachment.description,
 	}));
 }
 
@@ -148,6 +150,7 @@ export function buildInitialChatAttachments(
 		previewUrl: buildAssetPreviewUrl(fallbackAgentId, attachment.assetKey, attachment.publicUrl),
 		assetKey: attachment.assetKey,
 		assetAgentId: fallbackAgentId,
+		description: attachment.description,
 	}));
 }
 

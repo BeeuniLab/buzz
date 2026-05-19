@@ -16,8 +16,9 @@ function formatAssetLine(attachment: ProcessedImageAttachment): string {
 		? `; dimensions: ${attachment.dimensions.width}x${attachment.dimensions.height}`
 		: '';
 	const uploadedAt = attachment.uploadedAt ? `; uploadedAt: ${attachment.uploadedAt}` : '; uploadedAt: unknown';
+	const description = attachment.description ? `; description: ${attachment.description}` : '';
 
-	return `- key: ${assetKey}; filename: ${filename}; kind: ${category}${dimensions}${uploadedAt}`;
+	return `- key: ${assetKey}; filename: ${filename}; kind: ${category}${dimensions}${uploadedAt}${description}`;
 }
 
 export function formatUploadedAssetContext(

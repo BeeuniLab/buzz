@@ -89,18 +89,21 @@ export async function computeAgentAssetMapJson(
 		const uploadedTime = Number.isFinite(Date.parse(uploadedAt))
 			? Date.parse(uploadedAt)
 			: obj.uploaded.getTime();
-		return { obj, uploadedAt, uploadedTime };
+		const description = typeof metadata?.description === 'string' ? metadata.description.trim() : '';
+		return { obj, uploadedAt, uploadedTime, description };
 	}));
 	uploadedObjects.sort((a, b) => {
 		const byTime = a.uploadedTime - b.uploadedTime;
 		return byTime !== 0 ? byTime : a.obj.key.localeCompare(b.obj.key);
 	});
-	for (const { obj, uploadedAt } of uploadedObjects) {
+	for (const { obj, uploadedAt, description } of uploadedObjects) {
 		const relativePath = obj.key.replace(prefix, '');
 		const url = `${baseUrl}/${relativePath}`;
 		const prev = existing[relativePath];
 		const entry: AssetMapEntry = { url, uploadedAt };
-		if (prev?.description) {
+		if (description) {
+			entry.description = description;
+		} else if (prev?.description) {
 			entry.description = prev.description;
 		}
 		assetMap[relativePath] = entry;

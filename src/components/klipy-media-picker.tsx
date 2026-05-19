@@ -11,6 +11,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { useAppI18n } from '@/i18n';
 import { cn } from '@/lib/utils';
+import type { UploadFileWithMetadata } from '@/hooks/use-image-upload';
 
 type KlipyMode = 'trending' | 'search';
 type KlipyMediaKind = 'gifs' | 'stickers' | 'clips' | 'static-memes' | 'emojis';
@@ -72,7 +73,7 @@ type KlipyApiResponse = {
 export interface KlipyMediaPickerProps {
 	open: boolean;
 	onOpenChange: (open: boolean) => void;
-	onFilesSelected: (files: File[]) => void | Promise<void>;
+	onFilesSelected: (files: UploadFileWithMetadata[]) => void | Promise<void>;
 	disabled?: boolean;
 }
 
@@ -146,6 +147,14 @@ function hasNextPage(response: KlipyApiResponse, itemCount: number): boolean {
 
 function getItemTitle(item: KlipyMediaItem, kind: KlipyMediaKind): string {
 	return item.title || item.name || item.description || `${getMediaKindConfig(kind).filenamePrefix}-${item.slug || item.id || Date.now()}`;
+}
+
+function getItemDescription(item: KlipyMediaItem, kind: KlipyMediaKind): string {
+	const parts = [item.title, item.name, item.description]
+		.map((part) => part?.trim())
+		.filter((part): part is string => Boolean(part));
+	const uniqueParts = Array.from(new Set(parts));
+	return uniqueParts.join(' - ') || getItemTitle(item, kind);
 }
 
 function normalizeFile(file: KlipyImageFile | string | undefined): KlipyImageFile | null {
@@ -445,7 +454,8 @@ export function KlipyMediaPicker({
 							: assetUrl.includes('.gif')
 								? 'image/gif'
 								: 'image/png');
-				const file = new File([blob], getKlipyFilename(item, mediaKind, mimeType), { type: mimeType });
+				const file = new File([blob], getKlipyFilename(item, mediaKind, mimeType), { type: mimeType }) as UploadFileWithMetadata;
+				file.description = getItemDescription(item, mediaKind);
 				await onFilesSelected([file]);
 				onOpenChange(false);
 				toast.success(t('Item added'));

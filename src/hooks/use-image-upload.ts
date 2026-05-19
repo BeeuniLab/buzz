@@ -13,6 +13,9 @@ import {
 } from '@/api-types';
 
 export type ChatUploadMode = 'images-only' | 'chat-media';
+export type UploadFileWithMetadata = File & {
+	description?: string;
+};
 
 export interface UseImageUploadOptions {
 	maxFiles?: number;
@@ -24,7 +27,7 @@ export interface UseImageUploadOptions {
 
 export interface UseImageUploadReturn {
 	images: ImageAttachment[];
-	addImages: (files: File[]) => Promise<void>;
+	addImages: (files: UploadFileWithMetadata[]) => Promise<void>;
 	removeImage: (id: string) => void;
 	clearImages: () => void;
 	isProcessing: boolean;
@@ -55,7 +58,7 @@ export function useImageUpload(options: UseImageUploadOptions = {}): UseImageUpl
 	const [isProcessing, setIsProcessing] = useState(false);
 
 	const processFile = useCallback(
-		async (file: File): Promise<ImageAttachment | null> => {
+		async (file: UploadFileWithMetadata): Promise<ImageAttachment | null> => {
 			if (!isAllowedMime(file.type, mode)) {
 				const allowed = supportedMimeTypes(mode)
 					.map((t) => t.split('/')[1] || t)
@@ -89,12 +92,14 @@ export function useImageUpload(options: UseImageUploadOptions = {}): UseImageUpl
 						const base64Data = result.split(',')[1];
 						const mimeType = file.type as ImageAttachment['mimeType'];
 
+						const description = typeof file.description === 'string' ? file.description.trim() : '';
 						const base: Omit<ImageAttachment, 'dimensions'> = {
 							id: `att-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`,
 							filename: file.name,
 							mimeType,
 							base64Data,
 							size: file.size,
+							...(description ? { description } : {}),
 						};
 
 						if (!mimeType.startsWith('image/')) {
@@ -129,7 +134,7 @@ export function useImageUpload(options: UseImageUploadOptions = {}): UseImageUpl
 	);
 
 	const addImages = useCallback(
-		async (files: File[]) => {
+		async (files: UploadFileWithMetadata[]) => {
 			setIsProcessing(true);
 
 			try {

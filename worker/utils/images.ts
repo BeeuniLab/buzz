@@ -83,9 +83,14 @@ export async function uploadImageAsAgentAsset(
 	}
 
 	const r2Key = `assets/${agentId}/${relativePath}`;
+	const description = typeof image.description === 'string' ? image.description.trim() : '';
 	await env.TEMPLATES_BUCKET.put(r2Key, bytes, {
 		httpMetadata: { contentType: image.mimeType },
-		customMetadata: { cfImagesUrl: cfImagesUrl || '', uploadedAt },
+		customMetadata: {
+			cfImagesUrl: cfImagesUrl || '',
+			uploadedAt,
+			...(description ? { description } : {}),
+		},
 	});
 
 	const url = getAgentAssetFilePublicUrl(env, agentId, relativePath);
@@ -147,6 +152,7 @@ export async function downloadR2Image(env: Env, r2Key: string) : Promise<Process
     const customMetadata = response.customMetadata;
     const cfImagesUrl = customMetadata?.cfImagesUrl;
     const uploadedAt = customMetadata?.uploadedAt || response.uploaded.toISOString();
+    const description = typeof customMetadata?.description === 'string' ? customMetadata.description.trim() : '';
     const base64 = Buffer.from(arrayBuffer).toString('base64');
     // Get the filename and mimeType from response
     return {
@@ -156,5 +162,6 @@ export async function downloadR2Image(env: Env, r2Key: string) : Promise<Process
         hash: await hashImageB64url(base64),
         mimeType,
         uploadedAt,
+        ...(description ? { description } : {}),
     };
 }
