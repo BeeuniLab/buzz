@@ -142,6 +142,7 @@ export type {
   CommentsListData,
   CommentCreateData,
   CommentLikeToggleData,
+  CommentMediaUploadData,
 } from 'worker/api/controllers/comments/types';
 
 // Template Types

@@ -15,16 +15,16 @@ function MediaBadge({ attachment, compact }: { attachment: ImageAttachment; comp
 			<img
 				src={`data:${attachment.mimeType};base64,${attachment.base64Data}`}
 				alt={attachment.filename}
-				className="w-full h-full object-cover"
+				className="h-full w-full object-cover"
 			/>
 		);
 	}
 	const Icon = attachment.mimeType.startsWith('video/') ? FileVideo : FileAudio;
 	return (
-		<div className="w-full h-full flex flex-col items-center justify-center gap-0.5 bg-bg-2 text-text-secondary p-1">
+		<div className="flex h-full w-full flex-col items-center justify-center gap-0.5 bg-bg-2 p-1 text-text-secondary">
 			<Icon className={compact ? 'size-5' : 'size-8'} strokeWidth={1.5} />
 			{!compact && (
-				<span className="text-[9px] leading-tight text-center truncate max-w-full px-0.5">
+				<span className="max-w-full truncate px-0.5 text-center text-[9px] leading-tight">
 					{attachment.filename}
 				</span>
 			)}
@@ -53,14 +53,14 @@ export function ImageAttachmentPreview({
 						animate={{ opacity: 1, scale: 1 }}
 						exit={{ opacity: 0, scale: 0.8 }}
 						transition={{ duration: 0.2 }}
-						className={`relative group ${compact ? 'w-14 h-14 rounded-xl' : 'w-20 h-20 rounded-lg'} overflow-hidden border border-border-primary bg-bg-3`}
+						className={`group relative ${compact ? 'h-14 w-14 rounded-xl' : 'h-20 w-20 rounded-lg'} overflow-hidden border border-border-primary bg-bg-3`}
 					>
 						<MediaBadge attachment={attachment} compact={compact} />
 						{onRemove && (
 							<button
 								type="button"
 								onClick={() => onRemove(attachment.id)}
-								className={`absolute top-1 right-1 p-0.5 rounded-full bg-bg-1/90 hover:bg-bg-1 text-text-primary transition-opacity ${compact ? 'opacity-90' : 'opacity-0 group-hover:opacity-100'}`}
+								className={`absolute right-1 top-1 grid size-5 place-items-center rounded-full border border-[var(--neo-border-color)] bg-bg-1/95 text-text-primary shadow-[1px_1px_0px_0px_var(--neo-border-color)] transition-opacity hover:bg-bg-1 ${compact ? 'opacity-95' : 'opacity-95 sm:opacity-0 sm:group-hover:opacity-100'}`}
 								aria-label={`Remove ${attachment.filename}`}
 							>
 								<X className="size-3" />

@@ -31,3 +31,12 @@ export interface CommentLikeToggleData {
 	liked: boolean;
 	likeCount: number;
 }
+
+export interface CommentMediaUploadData {
+	url: string;
+	key: string;
+	name: string;
+	size: number;
+	type: string;
+	uploadedAt: string;
+}

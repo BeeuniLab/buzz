@@ -4,16 +4,108 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { apiClient } from '@/lib/api-client';
 import { useAuth } from '@/contexts/auth-context';
 import { cn } from '@/lib/utils';
-import { X, Heart, ArrowUp, ChevronDown, ChevronUp, Trash2 } from 'lucide-react';
+import { X, Heart, ArrowUp, ChevronDown, ChevronUp, Trash2, SmilePlus } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { useNavigate } from 'react-router';
+import { toast } from 'sonner';
 import type { CommentData } from '@/api-types';
+import {
+	KlipyMediaPicker,
+	type KlipyMediaKind,
+	type KlipySelectedMedia,
+} from '@/components/klipy-media-picker';
 
 interface CommentsDrawerProps {
 	appId: string;
 	open: boolean;
 	onOpenChange: (open: boolean) => void;
 	direction?: 'right' | 'bottom';
+}
+
+const COMMENT_KLIPY_KINDS: KlipyMediaKind[] = ['gifs', 'stickers', 'static-memes', 'emojis'];
+const COMMENT_MEDIA_PATTERN = /\[buzzplay-media:([^\]\s]+)(?:\s+"([^"]*)")?\]/g;
+type CommentMediaSelection = Pick<KlipySelectedMedia, 'previewUrl' | 'url' | 'title'>;
+
+function isAllowedCommentMediaUrl(url: string): boolean {
+	if (url.startsWith('/api/comment-media/')) return true;
+	if (url.startsWith('/api/projects/') && url.includes('/assets/file/')) return true;
+	try {
+		const parsed = new URL(url, window.location.origin);
+		return parsed.origin === window.location.origin && (
+			parsed.pathname.startsWith('/api/comment-media/') ||
+			(parsed.pathname.startsWith('/api/projects/') && parsed.pathname.includes('/assets/file/'))
+		);
+	} catch {
+		return false;
+	}
+}
+
+function encodeCommentMedia(media: CommentMediaSelection): string {
+	const title = media.title.replace(/["\n\r]/g, ' ').trim().slice(0, 120);
+	return `[buzzplay-media:${encodeURIComponent(media.previewUrl || media.url)} "${title}"]`;
+}
+
+function buildCommentContent(text: string, media: CommentMediaSelection | null): string {
+	const trimmedText = text.trim();
+	if (!media) return trimmedText;
+	const encodedMedia = encodeCommentMedia(media);
+	return trimmedText ? `${trimmedText}\n${encodedMedia}` : encodedMedia;
+}
+
+function CommentContent({ content, compact = false }: { content: string; compact?: boolean }) {
+	const parts: React.ReactNode[] = [];
+	let lastIndex = 0;
+	let match: RegExpExecArray | null;
+
+	COMMENT_MEDIA_PATTERN.lastIndex = 0;
+	while ((match = COMMENT_MEDIA_PATTERN.exec(content)) !== null) {
+		const [raw, encodedUrl, rawTitle] = match;
+		const before = content.slice(lastIndex, match.index);
+		if (before) {
+			parts.push(
+				<span key={`text-${match.index}`} className="whitespace-pre-wrap break-words">
+					{before}
+				</span>,
+			);
+		}
+
+		try {
+			const url = decodeURIComponent(encodedUrl);
+			if (!isAllowedCommentMediaUrl(url)) {
+				parts.push(raw);
+				lastIndex = match.index + raw.length;
+				continue;
+			}
+			const title = rawTitle?.trim() || 'KLIPY media';
+			parts.push(
+				<img
+					key={`media-${match.index}`}
+					src={url}
+					alt={title}
+					loading="lazy"
+					className={cn(
+						'mt-2 block max-w-full rounded-xl border-2 border-[var(--neo-border-color)] bg-bg-2 object-contain shadow-[2px_2px_0px_0px_var(--neo-border-color)]',
+						compact ? 'max-h-28' : 'max-h-40',
+					)}
+				/>,
+			);
+		} catch {
+			parts.push(raw);
+		}
+
+		lastIndex = match.index + raw.length;
+	}
+
+	const rest = content.slice(lastIndex);
+	if (rest) {
+		parts.push(
+			<span key="text-rest" className="whitespace-pre-wrap break-words">
+				{rest}
+			</span>,
+		);
+	}
+
+	return <div className={cn('mt-1 text-sm', compact && 'text-xs')}>{parts}</div>;
 }
 
 export function CommentsDrawer({ appId, open, onOpenChange, direction = 'right' }: CommentsDrawerProps) {
@@ -24,6 +116,8 @@ export function CommentsDrawer({ appId, open, onOpenChange, direction = 'right' 
 	const [loading, setLoading] = React.useState(false);
 	const [submitting, setSubmitting] = React.useState(false);
 	const [inputValue, setInputValue] = React.useState('');
+	const [isKlipyPickerOpen, setIsKlipyPickerOpen] = React.useState(false);
+	const [selectedMedia, setSelectedMedia] = React.useState<CommentMediaSelection | null>(null);
 	const [replyingTo, setReplyingTo] = React.useState<{ commentId: string; authorName: string } | null>(null);
 	const [expandedReplies, setExpandedReplies] = React.useState<Map<string, CommentData[]>>(new Map());
 	const [loadingReplies, setLoadingReplies] = React.useState<Set<string>>(new Set());
@@ -50,15 +144,17 @@ export function CommentsDrawer({ appId, open, onOpenChange, direction = 'right' 
 			setExpandedReplies(new Map());
 			setReplyingTo(null);
 			setInputValue('');
+			setSelectedMedia(null);
 		}
 	}, [open, appId, fetchComments]);
 
 	const handleSubmit = async () => {
-		if (!inputValue.trim() || submitting || !user) return;
+		const content = buildCommentContent(inputValue, selectedMedia);
+		if (!content || submitting || !user) return;
 
 		setSubmitting(true);
 		try {
-			const res = await apiClient.createComment(appId, inputValue.trim(), replyingTo?.commentId);
+			const res = await apiClient.createComment(appId, content, replyingTo?.commentId);
 			if (res.success && res.data) {
 				const newComment = res.data.comment;
 				if (replyingTo) {
@@ -82,6 +178,7 @@ export function CommentsDrawer({ appId, open, onOpenChange, direction = 'right' 
 					setTotalCount((prev) => prev + 1);
 				}
 				setInputValue('');
+				setSelectedMedia(null);
 				setReplyingTo(null);
 			}
 		} catch {
@@ -188,6 +285,26 @@ export function CommentsDrawer({ appId, open, onOpenChange, direction = 'right' 
 		navigate(`/profile/${userId}`);
 	};
 
+	const handleKlipyMediaSelected = React.useCallback(async (media: KlipySelectedMedia) => {
+		if (!media.file) {
+			toast.error('Could not import this item');
+			return;
+		}
+
+		const res = await apiClient.uploadCommentMedia(appId, media.file, media.title);
+		if (!res.success || !res.data?.url) {
+			throw new Error(res.message || 'Failed to upload comment media');
+		}
+
+		setSelectedMedia({
+			previewUrl: res.data.url,
+			url: res.data.url,
+			title: media.title,
+		});
+	}, [appId]);
+
+	const canSubmit = Boolean(buildCommentContent(inputValue, selectedMedia)) && !submitting;
+
 	return (
 		<Drawer open={open} onOpenChange={onOpenChange} direction={direction}>
 			<DrawerContent
@@ -259,32 +376,64 @@ export function CommentsDrawer({ appId, open, onOpenChange, direction = 'right' 
 						</div>
 					)}
 					{user ? (
-						<div className="flex items-center gap-2">
-							<input
-								value={inputValue}
-								onChange={(e) => setInputValue(e.target.value)}
-								onKeyDown={(e) => {
-									if (e.key === 'Enter' && !e.shiftKey) {
-										e.preventDefault();
-										handleSubmit();
-									}
-								}}
-								placeholder="Write a comment..."
-								className="flex-1 bg-bg-4 rounded-lg border-2 border-[var(--neo-border-color)] px-4 py-2.5 text-sm font-medium text-text-primary placeholder:text-text-tertiary shadow-[2px_2px_0px_0px_var(--neo-border-color)] outline-none focus:shadow-[3px_3px_0px_0px_var(--neo-border-color)] transition-all"
-								disabled={submitting}
-							/>
-							<button
-								onClick={handleSubmit}
-								disabled={!inputValue.trim() || submitting}
-								className={cn(
-									'p-2.5 rounded-lg border-2 border-[var(--neo-border-color)] transition-all',
-									inputValue.trim()
-										? 'bg-neo-orange text-[#1a1a1a] shadow-[2px_2px_0px_0px_var(--neo-border-color)] hover:shadow-[3px_3px_0px_0px_var(--neo-border-color)] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none'
-										: 'bg-bg-2 text-text-tertiary',
-								)}
-							>
-								<ArrowUp className="h-4 w-4" />
-							</button>
+						<div className="space-y-2">
+							{selectedMedia && (
+								<div className="flex items-center gap-2 rounded-xl border-2 border-[var(--neo-border-color)] bg-bg-3 p-2 shadow-[2px_2px_0px_0px_var(--neo-border-color)]">
+									<img
+										src={selectedMedia.previewUrl || selectedMedia.url}
+										alt={selectedMedia.title}
+										className="size-14 rounded-lg border border-[var(--neo-border-color)] bg-bg-2 object-contain"
+									/>
+									<div className="min-w-0 flex-1">
+										<p className="truncate text-xs font-black text-text-primary">{selectedMedia.title}</p>
+										<p className="text-[11px] font-medium text-text-tertiary">KLIPY</p>
+									</div>
+									<button
+										type="button"
+										onClick={() => setSelectedMedia(null)}
+										className="grid size-7 place-items-center rounded-full border-2 border-[var(--neo-border-color)] bg-bg-4 text-text-primary shadow-[1px_1px_0px_0px_var(--neo-border-color)]"
+										aria-label="Remove KLIPY sticker"
+									>
+										<X className="size-3.5" />
+									</button>
+								</div>
+							)}
+							<div className="flex items-center gap-2">
+								<input
+									value={inputValue}
+									onChange={(e) => setInputValue(e.target.value)}
+									onKeyDown={(e) => {
+										if (e.key === 'Enter' && !e.shiftKey) {
+											e.preventDefault();
+											handleSubmit();
+										}
+									}}
+									placeholder="Write a comment..."
+									className="flex-1 bg-bg-4 rounded-lg border-2 border-[var(--neo-border-color)] px-4 py-2.5 text-sm font-medium text-text-primary placeholder:text-text-tertiary shadow-[2px_2px_0px_0px_var(--neo-border-color)] outline-none focus:shadow-[3px_3px_0px_0px_var(--neo-border-color)] transition-all"
+									disabled={submitting}
+								/>
+								<button
+									type="button"
+									onClick={() => setIsKlipyPickerOpen(true)}
+									disabled={submitting}
+									aria-label="Add KLIPY sticker"
+									className="rounded-lg border-2 border-[var(--neo-border-color)] bg-neo-pink p-2.5 text-[#1a1a1a] shadow-[2px_2px_0px_0px_var(--neo-border-color)] transition-all hover:shadow-[3px_3px_0px_0px_var(--neo-border-color)] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none disabled:opacity-50"
+								>
+									<SmilePlus className="h-4 w-4" />
+								</button>
+								<button
+									onClick={handleSubmit}
+									disabled={!canSubmit}
+									className={cn(
+										'p-2.5 rounded-lg border-2 border-[var(--neo-border-color)] transition-all',
+										canSubmit
+											? 'bg-neo-orange text-[#1a1a1a] shadow-[2px_2px_0px_0px_var(--neo-border-color)] hover:shadow-[3px_3px_0px_0px_var(--neo-border-color)] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none'
+											: 'bg-bg-2 text-text-tertiary',
+									)}
+								>
+									<ArrowUp className="h-4 w-4" />
+								</button>
+							</div>
 						</div>
 					) : (
 						<p className="text-center text-sm text-text-tertiary font-bold py-2">
@@ -292,6 +441,14 @@ export function CommentsDrawer({ appId, open, onOpenChange, direction = 'right' 
 						</p>
 					)}
 				</div>
+				<KlipyMediaPicker
+					open={isKlipyPickerOpen}
+					onOpenChange={setIsKlipyPickerOpen}
+					onMediaSelected={handleKlipyMediaSelected}
+					allowedKinds={COMMENT_KLIPY_KINDS}
+					initialKind="emojis"
+					disabled={submitting}
+				/>
 			</DrawerContent>
 		</Drawer>
 	);
@@ -355,7 +512,7 @@ function CommentItem({
 						</span>
 					</div>
 
-					<p className="text-sm mt-1 whitespace-pre-wrap break-words">{comment.content}</p>
+					<CommentContent content={comment.content} />
 
 					<div className="flex items-center gap-4 mt-2">
 						<button
@@ -468,7 +625,7 @@ function ReplyItem({ comment, currentUserId, onLike, onReply, onDelete, onAvatar
 					</span>
 				</div>
 
-				<p className="text-xs mt-0.5 whitespace-pre-wrap break-words">{comment.content}</p>
+				<CommentContent content={comment.content} compact />
 
 				<div className="flex items-center gap-3 mt-1.5">
 					<button

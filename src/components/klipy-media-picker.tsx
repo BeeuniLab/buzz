@@ -14,7 +14,7 @@ import { cn } from '@/lib/utils';
 import type { UploadFileWithMetadata } from '@/hooks/use-image-upload';
 
 type KlipyMode = 'trending' | 'search';
-type KlipyMediaKind = 'gifs' | 'stickers' | 'clips' | 'static-memes' | 'emojis';
+export type KlipyMediaKind = 'gifs' | 'stickers' | 'clips' | 'static-memes' | 'emojis';
 type KlipyFileFormat = 'mp4' | 'webp' | 'gif' | 'png' | 'url';
 type KlipySizeKey = 'xs' | 'sm' | 'md' | 'hd';
 
@@ -73,9 +73,21 @@ type KlipyApiResponse = {
 export interface KlipyMediaPickerProps {
 	open: boolean;
 	onOpenChange: (open: boolean) => void;
-	onFilesSelected: (files: UploadFileWithMetadata[]) => void | Promise<void>;
+	onFilesSelected?: (files: UploadFileWithMetadata[]) => void | Promise<void>;
+	onMediaSelected?: (media: KlipySelectedMedia) => void | Promise<void>;
 	disabled?: boolean;
+	allowedKinds?: KlipyMediaKind[];
+	initialKind?: KlipyMediaKind;
 }
+
+export type KlipySelectedMedia = {
+	url: string;
+	previewUrl: string;
+	title: string;
+	description: string;
+	kind: KlipyMediaKind;
+	file?: UploadFileWithMetadata;
+};
 
 const KLIPY_API_KEY = import.meta.env.VITE_KLIPY_API_KEY?.trim();
 const KLIPY_API_BASE = 'https://api.klipy.com/api/v1';
@@ -353,10 +365,13 @@ export function KlipyMediaPicker({
 	open,
 	onOpenChange,
 	onFilesSelected,
+	onMediaSelected,
 	disabled = false,
+	allowedKinds,
+	initialKind = 'static-memes',
 }: KlipyMediaPickerProps) {
 	const { t } = useAppI18n();
-	const [mediaKind, setMediaKind] = useState<KlipyMediaKind>('static-memes');
+	const [mediaKind, setMediaKind] = useState<KlipyMediaKind>(initialKind);
 	const [mode, setMode] = useState<KlipyMode>('trending');
 	const [searchTerm, setSearchTerm] = useState('');
 	const [items, setItems] = useState<KlipyMediaItem[]>([]);
@@ -369,11 +384,22 @@ export function KlipyMediaPicker({
 	const scrollerRef = useRef<HTMLDivElement | null>(null);
 
 	const query = searchTerm.trim();
+	const visibleKinds = useMemo(
+		() => KLIPY_MEDIA_KINDS.filter((kind) => !allowedKinds || allowedKinds.includes(kind.value)),
+		[allowedKinds],
+	);
 	const activeKind = getMediaKindConfig(mediaKind);
 	const gridKey = `${mediaKind}:${mode}:${query || 'recommended'}`;
 	const isConfigured = Boolean(KLIPY_API_KEY);
 	const desktopMasonryColumns = useMemo(() => buildMasonryColumns(items, DESKTOP_MASONRY_COLUMN_COUNT, mediaKind), [items, mediaKind]);
 	const mobileMasonryColumns = useMemo(() => buildMasonryColumns(items, MOBILE_MASONRY_COLUMN_COUNT, mediaKind), [items, mediaKind]);
+
+	useEffect(() => {
+		if (visibleKinds.length === 0) return;
+		if (!visibleKinds.some((kind) => kind.value === mediaKind)) {
+			setMediaKind(visibleKinds[0].value);
+		}
+	}, [mediaKind, visibleKinds]);
 
 	const loadPage = useCallback(
 		async (nextPage: number, reset = false) => {
@@ -434,6 +460,8 @@ export function KlipyMediaPicker({
 				return;
 			}
 
+			if (!onMediaSelected && !onFilesSelected) return;
+
 			setSelectedItemId(item.id || assetUrl);
 			setIsImporting(true);
 			try {
@@ -455,8 +483,23 @@ export function KlipyMediaPicker({
 								? 'image/gif'
 								: 'image/png');
 				const file = new File([blob], getKlipyFilename(item, mediaKind, mimeType), { type: mimeType }) as UploadFileWithMetadata;
-				file.description = getItemDescription(item, mediaKind);
-				await onFilesSelected([file]);
+				const title = getItemTitle(item, mediaKind);
+				const description = getItemDescription(item, mediaKind);
+				file.description = description;
+
+				if (onMediaSelected) {
+					await onMediaSelected({
+						url: assetUrl,
+						previewUrl: getKlipyPreviewUrl(item, mediaKind) || assetUrl,
+						title,
+						description,
+						kind: mediaKind,
+						file,
+					});
+				} else if (onFilesSelected) {
+					await onFilesSelected([file]);
+				}
+
 				onOpenChange(false);
 				toast.success(t('Item added'));
 			} catch (error) {
@@ -466,7 +509,7 @@ export function KlipyMediaPicker({
 				setIsImporting(false);
 			}
 		},
-		[disabled, isImporting, mediaKind, onFilesSelected, onOpenChange, t],
+		[disabled, isImporting, mediaKind, onFilesSelected, onMediaSelected, onOpenChange, t],
 	);
 
 	const content = useMemo(() => {
@@ -539,7 +582,10 @@ export function KlipyMediaPicker({
 
 	return (
 		<Drawer open={open} onOpenChange={onOpenChange} direction="bottom">
-			<DrawerContent className="mx-auto h-[88dvh] max-h-[88dvh] w-full max-w-4xl overflow-hidden rounded-t-3xl border-t-3 border-[var(--neo-border-color)] bg-bg-4 data-[vaul-drawer-direction=bottom]:h-[88dvh] data-[vaul-drawer-direction=bottom]:max-h-[88dvh]">
+			<DrawerContent
+				className="z-[90] mx-auto h-[88dvh] max-h-[88dvh] w-full max-w-4xl overflow-hidden rounded-t-3xl border-t-3 border-[var(--neo-border-color)] bg-bg-4 data-[vaul-drawer-direction=bottom]:h-[88dvh] data-[vaul-drawer-direction=bottom]:max-h-[88dvh]"
+				overlayClassName="z-[85]"
+			>
 				<DrawerHeader className="shrink-0 px-4 pb-2 pt-4 sm:px-5">
 					<div className="flex items-center justify-between gap-3">
 						<div className="min-w-0">
@@ -565,7 +611,7 @@ export function KlipyMediaPicker({
 				<div className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden px-4 pb-3 pt-1 sm:px-5">
 					<div className="shrink-0 py-2">
 						<div className="grid grid-cols-3 gap-2 sm:flex sm:w-max sm:items-center">
-							{KLIPY_MEDIA_KINDS.map((kind) => {
+							{visibleKinds.map((kind) => {
 								const active = mediaKind === kind.value;
 								return (
 									<button

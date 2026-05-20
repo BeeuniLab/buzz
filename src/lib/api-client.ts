@@ -61,6 +61,7 @@ import type{
 	CommentsListData,
 	CommentCreateData,
 	CommentLikeToggleData,
+	CommentMediaUploadData,
 	AssetItem,
 	AssetListResponse,
 } from '@/api-types';
@@ -1277,6 +1278,21 @@ class ApiClient {
 			`/api/comments/${commentId}`,
 			{ method: 'DELETE' },
 		);
+	}
+
+	async uploadCommentMedia(
+		appId: string,
+		file: File,
+		title?: string,
+	): Promise<ApiResponse<CommentMediaUploadData>> {
+		const formData = new FormData();
+		formData.append('file', file);
+		if (title) formData.append('title', title);
+
+		return this.request<CommentMediaUploadData>(`/api/apps/${appId}/comments/media`, {
+			method: 'POST',
+			rawBody: formData,
+		});
 	}
 
 	// ========================================
