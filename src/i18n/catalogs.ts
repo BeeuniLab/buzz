@@ -10,7 +10,7 @@ export const LOCALE_LABELS: Record<AppLocale, string> = {
 	'zh-CN': '简体中文',
 };
 
-export const messages: Record<AppLocale, Messages> = {
+export const sourceMessages: Record<AppLocale, Messages> = {
 	en: {},
 	'zh-CN': {
 		Home: '首页',
@@ -74,6 +74,7 @@ export const messages: Record<AppLocale, Messages> = {
 		'Display name': '展示名称',
 		'This name is shown on your profile and apps.': '这个名称会显示在你的个人主页和应用上。',
 		Save: '保存',
+		Close: '关闭',
 		Saving: '保存中',
 		'Profile updated': '资料已更新',
 		'Failed to update profile': '资料更新失败',

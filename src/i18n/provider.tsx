@@ -5,8 +5,8 @@ import {
 	DEFAULT_LOCALE,
 	type AppLocale,
 	isAppLocale,
-	messages,
 } from './catalogs';
+import { compiledMessages } from './compiled-catalogs';
 
 const STORAGE_KEY = 'buzzplay-locale';
 const SIMPLE_PLACEHOLDER_PATTERN = /\{([A-Za-z_][A-Za-z0-9_]*)\}/g;
@@ -14,7 +14,7 @@ const SIMPLE_PLACEHOLDER_PATTERN = /\{([A-Za-z_][A-Za-z0-9_]*)\}/g;
 const i18n = setupI18n({
 	locale: DEFAULT_LOCALE,
 	messages: {
-		[DEFAULT_LOCALE]: messages[DEFAULT_LOCALE],
+		[DEFAULT_LOCALE]: compiledMessages[DEFAULT_LOCALE],
 	},
 });
 
@@ -38,7 +38,7 @@ function getInitialLocale(): AppLocale {
 }
 
 function activateLocale(locale: AppLocale) {
-	i18n.load(locale, messages[locale]);
+	i18n.load(locale, compiledMessages[locale]);
 	i18n.activate(locale);
 	if (typeof document !== 'undefined') {
 		document.documentElement.lang = locale;
