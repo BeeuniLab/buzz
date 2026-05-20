@@ -183,20 +183,6 @@ export function ChatInput({
 						>
 							<Laugh className="size-4" strokeWidth={2.1} />
 						</button>
-						<AttachmentPickerDropdown
-							onFilesSelected={(files) => {
-								void onAddImages(files);
-							}}
-							disabled={attachDisabled}
-							inputsDisabled={isChatDisabled}
-							showChevron={false}
-							triggerClassName="grid size-8 place-items-center rounded-full text-text-secondary transition-colors hover:bg-bg-3 hover:text-text-primary disabled:cursor-not-allowed disabled:opacity-45"
-						/>
-						<CameraCaptureButton
-							onPhotoCaptured={(files) => onAddImages(files)}
-							disabled={attachDisabled}
-							variant="ghost"
-						/>
 					</div>
 					<div className="flex shrink-0 items-center gap-1.5">
 						{canStopCurrentTask && (
@@ -213,6 +199,20 @@ export function ChatInput({
 								</span>
 							</button>
 						)}
+						<AttachmentPickerDropdown
+							onFilesSelected={(files) => {
+								void onAddImages(files);
+							}}
+							disabled={attachDisabled}
+							inputsDisabled={isChatDisabled}
+							showChevron={false}
+							triggerClassName="grid size-8 place-items-center rounded-full text-text-secondary transition-colors hover:bg-bg-3 hover:text-text-primary disabled:cursor-not-allowed disabled:opacity-45"
+						/>
+						<CameraCaptureButton
+							onPhotoCaptured={(files) => onAddImages(files)}
+							disabled={attachDisabled}
+							variant="ghost"
+						/>
 						<button
 							type="submit"
 							disabled={(!newMessage.trim() && images.length === 0) || isChatDisabled}
