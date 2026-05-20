@@ -20,8 +20,9 @@ type AppPreviewFields = AppWithUserAndStats & {
 
 const DEFAULT_APP_COVER_URL = '/game_cover.png';
 const FEED_PAGE_SIZE = 10;
-const FEED_PREFETCH_REMAINING_ITEMS = 4;
-const PREVIEW_WARM_AHEAD_COUNT = 3;
+const FEED_PREFETCH_REMAINING_ITEMS = 8;
+const PREVIEW_LINK_WARM_AHEAD_COUNT = 8;
+const PREVIEW_FRAME_WARM_AHEAD_COUNT = 4;
 
 function getKnownPreviewUrl(app: AppWithUserAndStats | null | undefined) {
 	const previewApp = app as AppPreviewFields | null | undefined;
@@ -57,6 +58,7 @@ export default function FeedPage() {
 	const [refreshKey, setRefreshKey] = React.useState(0);
 	const previewUrlCacheRef = React.useRef<Record<string, string>>({});
 	const previewPrefetchUrlsRef = React.useRef<Set<string>>(new Set());
+	const previewPreconnectOriginsRef = React.useRef<Set<string>>(new Set());
 	const coverPrefetchUrlsRef = React.useRef<Set<string>>(new Set());
 	const pageRef = React.useRef(1);
 	const hasMoreRef = React.useRef(true);
@@ -78,6 +80,20 @@ export default function FeedPage() {
 		const knownPreviewUrl = getKnownPreviewUrl(app);
 		if (knownPreviewUrl) {
 			storePreviewUrl(app.id, knownPreviewUrl);
+
+			try {
+				const origin = new URL(knownPreviewUrl, window.location.href).origin;
+				if (!previewPreconnectOriginsRef.current.has(origin)) {
+					previewPreconnectOriginsRef.current.add(origin);
+					const preconnect = document.createElement('link');
+					preconnect.rel = 'preconnect';
+					preconnect.href = origin;
+					preconnect.crossOrigin = 'anonymous';
+					document.head.appendChild(preconnect);
+				}
+			} catch {
+				// Ignore malformed preview URLs; the iframe path will still handle failures.
+			}
 
 			if (!previewPrefetchUrlsRef.current.has(knownPreviewUrl)) {
 				previewPrefetchUrlsRef.current.add(knownPreviewUrl);
@@ -119,6 +135,7 @@ export default function FeedPage() {
 			setInitialAppLoaded(true);
 			previewUrlCacheRef.current = {};
 			previewPrefetchUrlsRef.current.clear();
+			previewPreconnectOriginsRef.current.clear();
 			coverPrefetchUrlsRef.current.clear();
 			setPreviewUrlCache({});
 			setRefreshKey((k) => k + 1);
@@ -288,7 +305,7 @@ export default function FeedPage() {
 		if (apps.length === 0) return;
 
 		const timer = window.setTimeout(() => {
-			for (let index = currentIndex; index <= currentIndex + PREVIEW_WARM_AHEAD_COUNT; index += 1) {
+			for (let index = currentIndex; index <= currentIndex + PREVIEW_LINK_WARM_AHEAD_COUNT; index += 1) {
 				const app = apps[index];
 				if (app) void warmPreview(app);
 			}
@@ -574,9 +591,9 @@ export default function FeedPage() {
 						app={app}
 						isActive={i === currentIndex}
 						preloadedPreviewUrl={previewUrlCache[app.id] ?? getKnownPreviewUrl(app)}
-						shouldWarmFrame={i === currentIndex}
+						shouldWarmFrame={i >= currentIndex && i <= currentIndex + PREVIEW_FRAME_WARM_AHEAD_COUNT}
 						onPlayStateChange={setIsPlaying}
-						containMode={isPlaying || i === currentIndex}
+						containMode={isPlaying || i === currentIndex || (i > currentIndex && i <= currentIndex + PREVIEW_FRAME_WARM_AHEAD_COUNT)}
 						ref={(handle) => {
 							if (handle) feedItemRefs.current.set(i, handle);
 							else feedItemRefs.current.delete(i);

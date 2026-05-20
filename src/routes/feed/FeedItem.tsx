@@ -186,7 +186,7 @@ export const FeedItem = React.forwardRef<FeedItemHandle, FeedItemProps>(
 
 		const coverUrl = !imgError && app.screenshotUrl ? app.screenshotUrl : DEFAULT_APP_COVER_URL;
 		const warmFrameActive = Boolean(previewUrl && isActive && shouldWarmFrame && !playing);
-		const shouldRenderPreviewFrame = Boolean(previewUrl && isActive && (playing || shouldWarmFrame));
+		const shouldRenderPreviewFrame = Boolean(previewUrl && (playing || shouldWarmFrame));
 		const creatorName = app.userName || 'Creator';
 		const isOwnAuthor = Boolean(app.userId && app.userId === user?.id);
 		const showCreatorCta = Boolean(!playing && app.userId && !isOwnAuthor && !isFollowingAuthor);
@@ -224,6 +224,12 @@ export const FeedItem = React.forwardRef<FeedItemHandle, FeedItemProps>(
 								transition: 'opacity 420ms ease',
 							}}
 						/>
+					)}
+
+					{playing && !iframeLoaded && (
+						<div className="pointer-events-none absolute inset-0 z-30 flex items-center justify-center bg-black/45">
+							<Loader2 className="h-8 w-8 animate-spin text-white/80" />
+						</div>
 					)}
 
 					{!playing && (
