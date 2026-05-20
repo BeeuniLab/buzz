@@ -31,8 +31,7 @@ const PLAYABLE_TEXT_READABILITY_REQUIREMENTS = [
 	'Prefer fewer, larger labels over many small labels. If text must fit, shorten the copy before reducing the font size.',
 ].join('\n');
 const INTERACTIVE_MEDIA_AFFORDANCE_REQUIREMENTS = [
-	'When uploaded photos or arbitrary user media become tappable, draggable, or otherwise directly interactive, make the final interaction feel natural.',
-	'Use large invisible hit zones over meaningful subject/object regions instead of permanent visible handles on top of the media.',
+	"When uploaded images/media are directly interactive, prefer the Phaser template's src/game/asset-interactions.ts helpers to define normalized, large invisible hit zones over meaningful regions so tap/drag/drop feels natural.",
 	'Do not leave debug rings, bounding boxes, labels, crosshairs, coordinate overlays, or visible zone markers in the final playable unless the user explicitly asks for visible controls or the overlay is a deliberate game mechanic.',
 	'If the user needs guidance, use short instructions, a subtle first-use pulse, or a separate UI panel; keep permanent markers off the uploaded photo/asset.',
 ].join('\n');
