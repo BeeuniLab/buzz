@@ -32,7 +32,9 @@ const PLAYABLE_TEXT_READABILITY_REQUIREMENTS = [
 ].join('\n');
 const INTERACTIVE_MEDIA_AFFORDANCE_REQUIREMENTS = [
 	"When uploaded images/media are directly interactive, prefer the Phaser template's src/game/asset-interactions.ts helpers to define normalized, large invisible hit zones over meaningful regions so tap/drag/drop feels natural.",
-	'Do not leave debug rings, bounding boxes, labels, crosshairs, coordinate overlays, or visible zone markers in the final playable unless the user explicitly asks for visible controls or the overlay is a deliberate game mechanic.',
+	'When interaction depends on visible semantic regions in uploaded media, inspect the visible content and define standard AnnotatedMediaRegion[] entries with normalized 0..1 image coordinates, then convert them with the Phaser template\'s src/game/media-annotation-zones.ts helper. Prefer source: "visual-annotation" for targets such as mouth, eyes, nose, cheeks, hands, buttons, objects, products, stickers, or props.',
+	'Use those fixed zones for taps, drags, masks, cropping, tweens, scoring, and collisions. Do not add runtime image-recognition loops or run region detection in update() unless the user explicitly asks for live detection.',
+	'Do not leave debug rings, bounding boxes, labels, crosshairs, coordinate overlays, visible zone markers, replacement facial features, or fake mouths over user photos unless the user explicitly asks for visible controls or a cartoon overlay.',
 	'If the user needs guidance, use short instructions, a subtle first-use pulse, or a separate UI panel; keep permanent markers off the uploaded photo/asset.',
 ].join('\n');
 

@@ -185,6 +185,7 @@
         "CODE_GENERATION_BACKEND": "native",
         "CODEX_MODEL": "gpt-5.5",
         "CODEX_MODEL_PROVIDER": "crs",
+        "CODEX_MODEL_REASONING_EFFORT": "medium",
         "INVITE_CODE_REQUIRED": "false",
         "CLERK_JWT_ISSUER": "https://clerk.buzzplay.app",
         "CLERK_JWKS_URL": "https://clerk.buzzplay.app/.well-known/jwks.json"

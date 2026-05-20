@@ -7,6 +7,7 @@ Phaser 4 + React + Vite + TypeScript reference used by BuzzPlay playable templat
 - `src/game/scenes` - Phaser scenes for start, gameplay, preloader, and result states
 - `src/game/main.ts` - Phaser game configuration
 - `src/game/asset-interactions.ts` - optional helpers for turning uploaded photos/assets into invisible tap, drag, drop, and hit zones
+- `src/game/media-annotation-zones.ts` - standard normalized region annotations for uploaded media interactions
 - `src/App.tsx` and `src/PhaserGame.tsx` - thin fullscreen React host for the Phaser canvas
 - `src/playable-assets.ts` and `src/asset_map` - bundled starter assets plus uploaded media references used by BuzzPlay
 - `public/assets` - bundled starter sprites/images
@@ -26,6 +27,10 @@ npm run typecheck
 ```
 
 Runs strict TypeScript checks for the playable.
+
+## Media Interaction Zones
+
+When uploaded media needs direct interaction, inspect the visible content and define `AnnotatedMediaRegion[]` in normalized image coordinates, then convert with `defineMediaZoneSet()`. Use these fixed zones for face parts, hands, buttons, props, products, stickers, or other semantic regions. Do not add runtime recognition loops or call annotation helpers from the scene `update()` loop; map the returned fixed zones with `zoneToWorld()` or `zonesToWorld()` as the image layout changes.
 
 ## Distribution
 
