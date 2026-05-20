@@ -6,6 +6,7 @@ Phaser 4 + React + Vite + TypeScript reference used by BuzzPlay playable templat
 
 - `src/game/scenes` - Phaser scenes for start, gameplay, preloader, and result states
 - `src/game/main.ts` - Phaser game configuration
+- `src/game/asset-interactions.ts` - optional helpers for turning uploaded photos/assets into invisible tap, drag, drop, and hit zones
 - `src/App.tsx` and `src/PhaserGame.tsx` - thin fullscreen React host for the Phaser canvas
 - `src/playable-assets.ts` and `src/asset_map` - bundled starter assets plus uploaded media references used by BuzzPlay
 - `public/assets` - bundled starter sprites/images

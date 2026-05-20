@@ -73,6 +73,13 @@
 - Do not load images/audio/video directly from external website URLs in gameplay code. Browser CORS can block Phaser loaders and break preview.
 - If web-sourced media is needed, download it into `public/assets/generated/` and reference it with a local URL such as `/assets/generated/court-lady.webp`.
 - User-uploaded media should stay as `src/asset_map` URLs; do not copy or replace uploaded assets unless the creator asks.
+- For uploaded photos or arbitrary user assets that need tap/drag/drop interactions, use helpers from `src/game/asset-interactions.ts`.
+- `asset-interactions.ts` provides normalized interaction zones (`rect`, `circle`, `polygon`), fit-to-scene placement, world/image coordinate conversion, pointer hit testing, debug zone drawing, simple grid zones, and lightweight transparent-pixel bounds analysis.
+- Keep semantic interpretation prompt-specific. If the creator asks for a mouth, face, button, pet, object, sticker, product, or other special region, define a named `InteractionZone` for that role and let Phaser gameplay use that zone. Use image analysis only as a fallback for visible bounds and center; it does not understand image meaning by itself.
+- Prefer writing zones as normalized image coordinates from 0 to 1 so they survive responsive scaling and asset replacement.
+- For natural direct manipulation of uploaded photos or assets, use large invisible hit zones over the meaningful regions. Do not leave visible handles, rings, bounding boxes, labels, crosshairs, coordinate overlays, or debug zones on top of the user's media in the final playable unless the creator explicitly asks for visible controls or the overlay is a deliberate game mechanic.
+- If the interaction needs discovery help, prefer a short instruction, a subtle first-use pulse, or a separate UI panel. Keep permanent markers off the user's photo/asset.
+- Draw debug zones only while tuning; remove or hide them for the final playable unless the zone overlay is part of the game.
 - Do not assume a texture key exists just because a file exists in `public/assets` or `src/asset_map`. Load it before creating sprites/images, and keep a simple shape fallback for optional media.
 - Static bundled files live in `public/assets` and are referenced as `assets/name.png`.
 - When a requested uploaded asset is missing or fails to load, fall back in this order: another suitable `src/asset_map` asset, a bundled starter asset from `public/assets`, then a simple shape/color placeholder.
