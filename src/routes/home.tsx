@@ -15,6 +15,7 @@ import clsx from 'clsx';
 import { useImageUpload } from '@/hooks/use-image-upload';
 import { useDragDrop } from '@/hooks/use-drag-drop';
 import { AttachmentPickerDropdown } from '@/components/attachment-picker-dropdown';
+import { CameraCaptureButton } from '@/components/camera-capture-button';
 import { KlipyMediaPicker } from '@/components/klipy-media-picker';
 import { ImageAttachmentPreview } from '@/components/image-attachment-preview';
 import { getClipboardFiles } from '@/utils/clipboard-files';
@@ -610,6 +611,10 @@ export default function Home() {
 										}}
 										disabled={isProcessing}
 										triggerClassName="p-1.5 rounded-lg border-2 border-[var(--neo-border-color)] shadow-[2px_2px_0px_0px_var(--neo-border-color)] bg-bg-4 hover:bg-bg-3 text-[#1a1a1a] dark:text-text-primary dark:hover:text-white transition-all duration-150 disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-0.5"
+									/>
+									<CameraCaptureButton
+										onPhotoCaptured={(files) => addImages(files)}
+										disabled={isProcessing}
 									/>
 									<button
 										type="submit"
