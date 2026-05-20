@@ -162,6 +162,30 @@ export const compiledMessages: Record<AppLocale, Messages> = {
 		"Search": [
 			"Search"
 		],
+		"Application": [
+			"Application"
+		],
+		"Full-stack web applications": [
+			"Full-stack web applications"
+		],
+		"Presentation": [
+			"Presentation"
+		],
+		"Interactive slide presentations": [
+			"Interactive slide presentations"
+		],
+		"Workflow": [
+			"Workflow"
+		],
+		"Automated workflows and pipelines": [
+			"Automated workflows and pipelines"
+		],
+		"General": [
+			"General"
+		],
+		"General-purpose code generation": [
+			"General-purpose code generation"
+		],
 		"Feed": [
 			"Feed"
 		],
@@ -1117,6 +1141,30 @@ export const compiledMessages: Record<AppLocale, Messages> = {
 		],
 		"Search": [
 			"搜索"
+		],
+		"Application": [
+			"应用"
+		],
+		"Full-stack web applications": [
+			"全栈 Web 应用"
+		],
+		"Presentation": [
+			"演示文稿"
+		],
+		"Interactive slide presentations": [
+			"交互式演示文稿"
+		],
+		"Workflow": [
+			"工作流"
+		],
+		"Automated workflows and pipelines": [
+			"自动化工作流和流程管线"
+		],
+		"General": [
+			"通用"
+		],
+		"General-purpose code generation": [
+			"通用代码生成"
 		],
 		"Feed": [
 			"动态"
