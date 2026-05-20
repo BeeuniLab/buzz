@@ -16,6 +16,7 @@ export interface CameraCaptureButtonProps {
 	onPhotoCaptured: (files: File[]) => void | Promise<void>;
 	disabled?: boolean;
 	className?: string;
+	variant?: 'neo' | 'ghost';
 }
 
 function stopStream(stream: MediaStream | null) {
@@ -34,6 +35,7 @@ export function CameraCaptureButton({
 	onPhotoCaptured,
 	disabled = false,
 	className,
+	variant = 'neo',
 }: CameraCaptureButtonProps) {
 	const { t } = useAppI18n();
 	const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -150,7 +152,9 @@ export function CameraCaptureButton({
 				onClick={() => setOpen(true)}
 				disabled={disabled}
 				className={cn(
-					'grid size-9 place-items-center rounded-lg border-2 border-[var(--neo-border-color)] bg-bg-4 text-[#1a1a1a] shadow-[2px_2px_0px_0px_var(--neo-border-color)] transition-all duration-150 hover:-translate-x-[0.5px] hover:-translate-y-[0.5px] hover:bg-bg-3 hover:shadow-[3px_3px_0px_0px_var(--neo-border-color)] active:translate-x-[1px] active:translate-y-[1px] active:shadow-[1px_1px_0px_0px_var(--neo-border-color)] disabled:cursor-not-allowed disabled:opacity-40 dark:text-text-primary dark:hover:text-white',
+					variant === 'ghost'
+						? 'grid size-8 place-items-center rounded-full text-text-secondary transition-colors hover:bg-bg-3 hover:text-text-primary disabled:cursor-not-allowed disabled:opacity-45'
+						: 'grid size-9 place-items-center rounded-lg border-2 border-[var(--neo-border-color)] bg-bg-4 text-[#1a1a1a] shadow-[2px_2px_0px_0px_var(--neo-border-color)] transition-all duration-150 hover:-translate-x-[0.5px] hover:-translate-y-[0.5px] hover:bg-bg-3 hover:shadow-[3px_3px_0px_0px_var(--neo-border-color)] active:translate-x-[1px] active:translate-y-[1px] active:shadow-[1px_1px_0px_0px_var(--neo-border-color)] disabled:cursor-not-allowed disabled:opacity-40 dark:text-text-primary dark:hover:text-white',
 					className,
 				)}
 				aria-label={t('Take photo')}

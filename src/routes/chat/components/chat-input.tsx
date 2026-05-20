@@ -1,7 +1,9 @@
-import { type ClipboardEvent, type FormEvent, type RefObject } from 'react';
-import { CircleStop, SendHorizontal } from 'lucide-react';
+import { type ClipboardEvent, type FormEvent, type RefObject, useState } from 'react';
+import { CircleStop, Laugh, SendHorizontal } from 'lucide-react';
 import { ImageAttachmentPreview } from '@/components/image-attachment-preview';
 import { AttachmentPickerDropdown } from '@/components/attachment-picker-dropdown';
+import { CameraCaptureButton } from '@/components/camera-capture-button';
+import { KlipyMediaPicker } from '@/components/klipy-media-picker';
 import { SUPPORTED_CHAT_MEDIA_MIME_TYPES, type ImageAttachment } from '@/api-types';
 import { getClipboardFiles } from '@/utils/clipboard-files';
 import { useAppI18n } from '@/i18n';
@@ -63,6 +65,7 @@ export function ChatInput({
 	chatFormRef,
 }: ChatInputProps) {
 	const { t } = useAppI18n();
+	const [isKlipyMediaPickerOpen, setIsKlipyMediaPickerOpen] = useState(false);
 	const attachDisabled = isChatDisabled || isProcessing;
 
 	const handleTextChange = (newValue: string) => {
@@ -155,7 +158,7 @@ export function ChatInput({
 					disabled={isChatDisabled}
 					placeholder={placeholder}
 					rows={2}
-					className="w-full bg-transparent border-0 rounded-[22px] px-4 pb-4 pt-4 pr-[7.25rem] text-sm leading-6 outline-none text-text-primary placeholder:text-text-tertiary disabled:opacity-100 disabled:cursor-not-allowed resize-none overflow-y-auto no-scrollbar min-h-[72px] md:min-h-[64px] max-h-[144px]"
+					className="w-full bg-transparent border-0 rounded-t-[22px] px-4 pb-2 pt-4 text-sm leading-6 outline-none text-text-primary placeholder:text-text-tertiary disabled:opacity-100 disabled:cursor-not-allowed resize-none overflow-y-auto no-scrollbar min-h-[72px] md:min-h-[64px] max-h-[144px]"
 					style={{
 						height: 'auto',
 						minHeight: undefined
@@ -168,41 +171,66 @@ export function ChatInput({
 						}
 					}}
 				/>
-				<div className="absolute right-3 bottom-3 flex items-center gap-1.5">
-					{canStopCurrentTask && (
+				<div className="flex items-center justify-between gap-2 px-3 pb-3">
+					<div className="flex min-w-0 items-center gap-1.5">
 						<button
 							type="button"
-							onClick={handleStopGeneration}
-							className="group relative grid size-8 place-items-center rounded-full text-red-500 transition-all duration-200 hover:bg-red-500/10"
-							aria-label={t('Stop generation')}
-							title={t('Stop generation')}
+							onClick={() => setIsKlipyMediaPickerOpen(true)}
+							disabled={attachDisabled}
+							className="grid size-8 place-items-center rounded-full bg-neo-pink/80 text-[#1a1a1a] transition-colors hover:bg-neo-pink disabled:cursor-not-allowed disabled:opacity-45"
+							aria-label={t('Pick KLIPY media')}
+							title={t('Pick KLIPY media')}
 						>
-							<CircleStop className="size-5" strokeWidth={2.1} />
-							<span className="absolute -top-8 right-0 px-2 py-1 bg-bg-1 border border-border-primary rounded text-xs text-text-secondary whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
-								{t('Stop')}
-							</span>
+							<Laugh className="size-4" strokeWidth={2.1} />
 						</button>
-					)}
-					<AttachmentPickerDropdown
-						onFilesSelected={(files) => {
-							void onAddImages(files);
-						}}
-						disabled={attachDisabled}
-						inputsDisabled={isChatDisabled}
-						showChevron={false}
-						triggerClassName="grid size-8 place-items-center rounded-full text-text-secondary transition-colors hover:bg-bg-3 hover:text-text-primary disabled:cursor-not-allowed disabled:opacity-45"
-					/>
-					<button
-						type="submit"
-						disabled={(!newMessage.trim() && images.length === 0) || isChatDisabled}
-						className="group/send grid size-8 place-items-center rounded-full border border-text-primary bg-accent text-text-primary shadow-neo-sm transition-all duration-200 hover:-translate-y-0.5 hover:bg-neo-yellow hover:shadow-neo disabled:translate-y-0 disabled:cursor-not-allowed disabled:border-text-primary/10 disabled:bg-bg-3/70 disabled:text-text-primary/30 disabled:shadow-none"
-						aria-label={t('Send message')}
-						title={t('Send message')}
-					>
-						<SendHorizontal className="size-4 transition-transform duration-200 group-hover/send:translate-x-0.5" strokeWidth={2.4} />
-					</button>
+						<AttachmentPickerDropdown
+							onFilesSelected={(files) => {
+								void onAddImages(files);
+							}}
+							disabled={attachDisabled}
+							inputsDisabled={isChatDisabled}
+							showChevron={false}
+							triggerClassName="grid size-8 place-items-center rounded-full text-text-secondary transition-colors hover:bg-bg-3 hover:text-text-primary disabled:cursor-not-allowed disabled:opacity-45"
+						/>
+						<CameraCaptureButton
+							onPhotoCaptured={(files) => onAddImages(files)}
+							disabled={attachDisabled}
+							variant="ghost"
+						/>
+					</div>
+					<div className="flex shrink-0 items-center gap-1.5">
+						{canStopCurrentTask && (
+							<button
+								type="button"
+								onClick={handleStopGeneration}
+								className="group relative grid size-8 place-items-center rounded-full text-red-500 transition-all duration-200 hover:bg-red-500/10"
+								aria-label={t('Stop generation')}
+								title={t('Stop generation')}
+							>
+								<CircleStop className="size-5" strokeWidth={2.1} />
+								<span className="absolute -top-8 right-0 px-2 py-1 bg-bg-1 border border-border-primary rounded text-xs text-text-secondary whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+									{t('Stop')}
+								</span>
+							</button>
+						)}
+						<button
+							type="submit"
+							disabled={(!newMessage.trim() && images.length === 0) || isChatDisabled}
+							className="group/send grid size-8 place-items-center rounded-full border border-text-primary bg-accent text-text-primary shadow-neo-sm transition-all duration-200 hover:-translate-y-0.5 hover:bg-neo-yellow hover:shadow-neo disabled:translate-y-0 disabled:cursor-not-allowed disabled:border-text-primary/10 disabled:bg-bg-3/70 disabled:text-text-primary/30 disabled:shadow-none"
+							aria-label={t('Send message')}
+							title={t('Send message')}
+						>
+							<SendHorizontal className="size-4 transition-transform duration-200 group-hover/send:translate-x-0.5" strokeWidth={2.4} />
+						</button>
+					</div>
 				</div>
 			</div>
+			<KlipyMediaPicker
+				open={isKlipyMediaPickerOpen}
+				onOpenChange={setIsKlipyMediaPickerOpen}
+				onFilesSelected={(files) => onAddImages(files)}
+				disabled={attachDisabled}
+			/>
 		</form>
 	);
 }
