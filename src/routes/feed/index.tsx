@@ -382,11 +382,17 @@ export default function FeedPage() {
 
 	const currentApp = apps[currentIndex];
 	const currentAppId = currentApp?.id;
+	const shouldSyncCurrentAppUrl = Boolean(appId) || currentIndex > 0;
 
 	// Update URL, record view, and fetch comment count when current app changes
 	React.useEffect(() => {
 		if (currentAppId) {
-			window.history.replaceState(null, '', `/feed/${currentAppId}`);
+			if (shouldSyncCurrentAppUrl) {
+				const nextPath = `/feed/${currentAppId}`;
+				if (window.location.pathname !== nextPath) {
+					window.history.replaceState(null, '', nextPath);
+				}
+			}
 			apiClient.recordAppView(currentAppId);
 			apiClient.getComments(currentAppId, { limit: 50 }).then((res) => {
 				if (res.success && res.data) {
@@ -396,7 +402,7 @@ export default function FeedPage() {
 			}).catch(() => {});
 		}
 		setCommentsOpen(false);
-	}, [currentAppId]);
+	}, [currentAppId, shouldSyncCurrentAppUrl]);
 
 	const handleReplay = () => {
 		const handle = feedItemRefs.current.get(currentIndex);

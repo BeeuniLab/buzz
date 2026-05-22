@@ -33,6 +33,41 @@ function setOriginControl(env: Env, request: Request, currentHeaders: Headers): 
     return currentHeaders;
 }
 
+function setUserAppIndexingControl(currentHeaders: Headers): Headers {
+	currentHeaders.set('X-Robots-Tag', 'noindex, nofollow, noarchive');
+	return currentHeaders;
+}
+
+function finalizeUserAppResponse(
+	request: Request,
+	env: Env,
+	response: Response,
+	previewType?: string,
+): Response {
+	if (response.headers.get('Upgrade')?.toLowerCase() === 'websocket') {
+		return response;
+	}
+
+	let headers = new Headers(response.headers);
+	if (previewType) {
+		headers.set('X-Preview-Type', previewType);
+	}
+
+	headers = setOriginControl(env, request, headers);
+	headers = setUserAppIndexingControl(headers);
+	headers.append('Vary', 'Origin');
+
+	if (headers.has('X-Preview-Type')) {
+		headers.set('Access-Control-Expose-Headers', 'X-Preview-Type');
+	}
+
+	return new Response(response.body, {
+		status: response.status,
+		statusText: response.statusText,
+		headers,
+	});
+}
+
 /**
  * Handles requests for user-deployed applications on subdomains.
  * It first attempts to proxy to a live development sandbox. If that fails,
@@ -62,10 +97,15 @@ async function handleUserAppRequest(request: Request, env: Env): Promise<Respons
 
 			try {
 				const agentStub = await getAgentStub(env, agentId);
-				return await agentStub.handleBrowserFileServing(request);
+				const response = await agentStub.handleBrowserFileServing(request);
+				return finalizeUserAppResponse(request, env, response);
 			} catch (error: any) {
 				logger.error(`Error forwarding to agent: ${error.message}`);
-				return new Response('Agent not found', { status: 404 });
+				return finalizeUserAppResponse(
+					request,
+					env,
+					new Response('Agent not found', { status: 404 }),
+				);
 			}
 		}
 	}
@@ -79,29 +119,23 @@ async function handleUserAppRequest(request: Request, env: Env): Promise<Respons
             return sandboxResponse;
         }
 
-		let headers = new Headers(sandboxResponse.headers);
-
-        if (sandboxResponse.status === 500) {
-            headers.set('X-Preview-Type', 'sandbox-error');
-        } else {
-            headers.set('X-Preview-Type', 'sandbox');
-        }
-        headers = setOriginControl(env, request, headers);
-        headers.append('Vary', 'Origin');
-		headers.set('Access-Control-Expose-Headers', 'X-Preview-Type');
-
-		return new Response(sandboxResponse.body, {
-			status: sandboxResponse.status,
-			statusText: sandboxResponse.statusText,
-			headers,
-		});
+		return finalizeUserAppResponse(
+			request,
+			env,
+			sandboxResponse,
+			sandboxResponse.status === 500 ? 'sandbox-error' : 'sandbox',
+		);
 	}
 
 	// 2. Attempt to dispatch to a deployed worker.
 	logger.info(`Sandbox miss for ${hostname}, attempting dispatch to permanent worker.`);
 	if (!isDispatcherAvailable(env)) {
 		logger.warn(`Dispatcher not available, cannot serve: ${hostname}`);
-		return new Response('This application is not currently available.', { status: 404 });
+		return finalizeUserAppResponse(
+			request,
+			env,
+			new Response('This application is not currently available.', { status: 404 }),
+		);
 	}
 
 	// Extract the app name (e.g., "xyz" from "xyz.build.cloudflare.dev").
@@ -111,25 +145,16 @@ async function handleUserAppRequest(request: Request, env: Env): Promise<Respons
 	try {
 		const worker = dispatcher.get(appName);
 		const dispatcherResponse = await worker.fetch(request);
-
-		// Add headers to identify this as a dispatcher response
-		let headers = new Headers(dispatcherResponse.headers);
-
-		headers.set('X-Preview-Type', 'dispatcher');
-        headers = setOriginControl(env, request, headers);
-        headers.append('Vary', 'Origin');
-		headers.set('Access-Control-Expose-Headers', 'X-Preview-Type');
-
-		return new Response(dispatcherResponse.body, {
-			status: dispatcherResponse.status,
-			statusText: dispatcherResponse.statusText,
-			headers,
-		});
+		return finalizeUserAppResponse(request, env, dispatcherResponse, 'dispatcher');
 	} catch (error: any) {
 		// This block catches errors if the binding doesn't exist or if worker.fetch() fails.
 		logger.warn(`Error dispatching to worker '${appName}': ${error.message}`);
 
-		return new Response('An error occurred while loading this application.', { status: 500 });
+		return finalizeUserAppResponse(
+			request,
+			env,
+			new Response('An error occurred while loading this application.', { status: 500 }),
+		);
 	}
 }
 
@@ -155,6 +180,15 @@ const worker = {
 		const ipRegex = /^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/;
 		if (ipRegex.test(hostname)) {
 			return new Response('Access denied. Please use the assigned domain name.', { status: 403 });
+		}
+
+		// Canonicalize the legacy www host before preview-subdomain routing.
+		const wwwHostname = `www.${env.CUSTOM_DOMAIN}`;
+		if (hostname === wwwHostname) {
+			const redirectUrl = new URL(request.url);
+			redirectUrl.hostname = env.CUSTOM_DOMAIN;
+			redirectUrl.protocol = 'https:';
+			return Response.redirect(redirectUrl.toString(), 301);
 		}
 
 		// --- Domain-based Routing ---
