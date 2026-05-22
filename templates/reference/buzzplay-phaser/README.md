@@ -30,7 +30,7 @@ Runs strict TypeScript checks for the playable.
 
 ## Media Interaction Zones
 
-When uploaded media needs direct interaction, inspect the visible content and define `AnnotatedMediaRegion[]` in normalized image coordinates, then convert with `defineMediaZoneSet()`. Use these fixed zones for face parts, hands, buttons, props, products, stickers, or other semantic regions. Do not add runtime recognition loops or call annotation helpers from the scene `update()` loop; map the returned fixed zones with `zoneToWorld()` or `zonesToWorld()` as the image layout changes.
+When uploaded media needs direct interaction, inspect the visible content and define `AnnotatedMediaRegion[]` in normalized image coordinates, then convert with `defineMediaZoneSet()`. Use these fixed zones for face parts, hands, buttons, props, products, stickers, or other semantic regions. Do not paint replacement facial features, move the whole chin/neck region, or run recognition loops in `update()`; map fixed zones with `zoneToWorld()` or `zonesToWorld()` as the image layout changes.
 
 ## Distribution
 

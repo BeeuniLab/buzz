@@ -81,7 +81,7 @@
 - Keep semantic interpretation prompt-specific. If the creator asks for a mouth, face, button, pet, object, sticker, product, or other special region, define a named `AnnotatedMediaRegion` or `InteractionZone` for that role and let Phaser gameplay use that zone.
 - Prefer writing zones as normalized image coordinates from 0 to 1 so they survive responsive scaling and asset replacement.
 - For natural direct manipulation of uploaded photos or assets, use large invisible hit zones over the meaningful regions. Do not draw replacement facial features, fake mouths, permanent handles, rings, bounding boxes, labels, crosshairs, coordinate overlays, or debug zones on top of the user's media in the final playable unless the creator explicitly asks for visible controls or the overlay is a deliberate game mechanic.
-- If a face or mouth needs to appear open/closed, prefer moving gameplay objects, masks, cropping, scaling, or subtle local effects tied to the annotated zone rather than painting a new mouth on the photo.
+- If a face or mouth needs to appear open/closed, prefer moving gameplay objects, masks, cropping, scaling, or subtle local effects tied to the annotated zone rather than painting a static new mouth on the photo.
 - If the interaction needs discovery help, prefer a short instruction, a subtle first-use pulse, or a separate UI panel. Keep permanent markers off the user's photo/asset.
 - Draw debug zones only while tuning; remove or hide them for the final playable unless the zone overlay is part of the game.
 - Do not assume a texture key exists just because a file exists in `public/assets` or `src/asset_map`. Load it before creating sprites/images, and keep a simple shape fallback for optional media.
