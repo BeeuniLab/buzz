@@ -401,8 +401,15 @@ export default function FeedPage() {
 				}
 			}).catch(() => {});
 		}
+		const currentHandle = feedItemRefs.current.get(currentIndex);
+		for (const [index, handle] of feedItemRefs.current) {
+			if (index < currentIndex || index > currentIndex + PREVIEW_FRAME_WARM_AHEAD_COUNT) {
+				handle.stop();
+			}
+		}
+		setIsPlaying(Boolean(currentHandle?.isPlaying()));
 		setCommentsOpen(false);
-	}, [currentAppId, shouldSyncCurrentAppUrl]);
+	}, [currentAppId, currentIndex, shouldSyncCurrentAppUrl]);
 
 	const handleReplay = () => {
 		const handle = feedItemRefs.current.get(currentIndex);

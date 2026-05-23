@@ -16,26 +16,27 @@ const DEFAULT_APP_COVER_URL = '/game_cover.png';
 export interface FeedItemHandle {
 	play: () => void;
 	replay: () => void;
+	stop: () => void;
 	isPlaying: () => boolean;
 }
 
 interface FeedItemProps {
 	app: AppWithUserAndStats;
 	isActive?: boolean;
+	shouldWarmFrame?: boolean;
 	onPlayStateChange?: (playing: boolean) => void;
 	containMode?: boolean;
 	preloadedPreviewUrl?: string | null;
-	shouldWarmFrame?: boolean;
 }
 
 export const FeedItem = React.forwardRef<FeedItemHandle, FeedItemProps>(
 	function FeedItem({
 		app,
 		isActive = true,
+		shouldWarmFrame = false,
 		onPlayStateChange,
 		containMode = false,
 		preloadedPreviewUrl = null,
-		shouldWarmFrame = false,
 	}, ref) {
 		const [imgError, setImgError] = React.useState(false);
 		const [playing, setPlaying] = React.useState(false);
@@ -78,17 +79,30 @@ export const FeedItem = React.forwardRef<FeedItemHandle, FeedItemProps>(
 			return () => window.clearTimeout(focusTimer);
 		}, [playing, isActive, iframeKey, previewUrl, iframeLoaded]);
 
-		// Stop audio when game becomes inactive — blank the iframe src before React unmounts it
-		React.useEffect(() => {
-			if (!isActive && playing) {
-				if (iframeRef.current) {
-					iframeRef.current.src = 'about:blank';
-				}
-				setPlaying(false);
-				setIframeLoaded(false);
-				onPlayStateChange?.(false);
+		const stopPreview = React.useCallback(() => {
+			if (iframeRef.current) {
+				iframeRef.current.src = 'about:blank';
 			}
-		}, [isActive, onPlayStateChange, playing]);
+			setPlaying(false);
+			setIframeLoaded(false);
+			onPlayStateChange?.(false);
+		}, [onPlayStateChange]);
+
+		React.useEffect(() => {
+			if (shouldWarmFrame && preloadedPreviewUrl) {
+				setPreviewUrl(preloadedPreviewUrl);
+			}
+		}, [preloadedPreviewUrl, shouldWarmFrame]);
+
+		// Stop audio when game becomes inactive or unmounts. The iframe owns any
+		// generated-game WebAudio/HTMLAudio state, so blanking it is the reliable kill switch.
+		React.useEffect(() => {
+			if (!isActive && !shouldWarmFrame && (playing || iframeRef.current)) {
+				stopPreview();
+			}
+		}, [isActive, playing, shouldWarmFrame, stopPreview]);
+
+		React.useEffect(() => stopPreview, [stopPreview]);
 
 		// Calculate scale to fit game resolution into container
 		React.useEffect(() => {
@@ -181,6 +195,7 @@ export const FeedItem = React.forwardRef<FeedItemHandle, FeedItemProps>(
 					startPlay();
 				}
 			},
+			stop: stopPreview,
 			isPlaying: () => playing,
 		}));
 
@@ -209,7 +224,7 @@ export const FeedItem = React.forwardRef<FeedItemHandle, FeedItemProps>(
 							title={`Play ${app.title}`}
 							tabIndex={0}
 							onLoad={() => setIframeLoaded(true)}
-							allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope"
+							allow={playing ? 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope' : 'accelerometer; clipboard-write; encrypted-media; gyroscope'}
 							style={{
 								position: 'absolute',
 								top: offset.y,
