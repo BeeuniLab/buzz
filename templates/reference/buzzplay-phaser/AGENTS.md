@@ -10,6 +10,8 @@
 - Prefer one strong, playable idea over many thin features.
 - Build a complete small game with a start state, active play, feedback, failure or success, and a clear result state.
 - Keep text concise and purposeful. Use labels, prompts, and result copy only when they add meaning.
+- Treat visual polish and game feel as part of the implementation, not as optional decoration. Every playable should have a clear first action, readable state, immediate feedback, and a satisfying replay loop.
+- Match the quality bar of a finished mobile microgame: full-bleed stage, subject-specific visual theme, visible motion in the first second, big touch targets, juicy feedback, and a fast replay loop.
 
 ## Phaser Rules
 
@@ -38,13 +40,24 @@
 - Use pointer/touch-friendly controls. Tap, hold, drag, swipe, or large choice zones are preferred.
 - Do not rely on keyboard-only, hover-only, or tiny desktop controls.
 - Keep action zones large and edge-aware. Primary play should stay prominent and reachable across container sizes.
+- Use `src/game/game-feel.ts` for common finished-game feedback such as large HUD text, floating score text, particle bursts, button press feedback, and short camera kicks.
+- Read `skills/game-feel/SKILL.md` before building or revising gameplay feel, HUD, feedback, or replay flow.
+- Read `skills/visual-direction/SKILL.md` before coding the scene's palette, shape language, typography scale, motion signature, and presentation layers.
+- If the prompt is broad or only describes a subject, read `skills/game-type-recipes/SKILL.md` to choose one primary microgame loop and reference pattern.
+- If the playable needs stronger animation, impact, VFX, audio cues, or reference-quality presentation, read `skills/presentation-polish/SKILL.md`.
+- Then read the most relevant specialized skill: `skills/arcade-action/SKILL.md`, `skills/puzzle-board/SKILL.md`, `skills/idle-tycoon-clicker/SKILL.md`, `skills/choice-quiz-story/SKILL.md`, `skills/media-interaction/SKILL.md`, and/or `skills/pixel-retro/SKILL.md`.
+- Choose feedback by genre. Action games can use particles, trails, and camera kicks; puzzle/word/card games should prioritize board state and valid/invalid previews; clickers need resource ticks and upgrade states; choice/story games need selection, reveal, and result polish; pixel games need crisp palette-consistent flashes and chunky motion.
+- Prefer a few polished objects or states with clear feedback over many thin systems or tiny controls.
+- Before finishing, smoke-check one full round: first action obvious, touch input works, state updates, result/replay works, resize keeps content visible, and no debug markers remain.
 
 ## Visual And Audio Style
 
 - Choose a visual style that fits the subject instead of relying on a default palette.
+- Define a compact visual brief before coding: style anchor, palette roles, shape language, type scale, and motion signature.
 - Use contrast, scale, spacing, and motion to guide attention to the important game objects.
 - Use sprites, generated shapes, tilemaps, particles, or media deliberately; avoid filler imagery.
 - Add lightweight sound only when it improves feedback or atmosphere, and keep it optional or non-disruptive.
+- Prefer layered presentation: background, active play objects, large HUD, short instruction, feedback effects, and a result/replay state.
 
 ## Iframe And Preview
 
@@ -59,6 +72,7 @@
 - `src/game/scenes/Game.ts` is the main gameplay scene. Replace the starter content here for most simple playable requests.
 - `src/game/scenes/GameOver.ts` is the result/replay scene.
 - `src/game/scenes/Preloader.ts` loads sprites/audio before gameplay.
+- `src/game/game-feel.ts` contains reusable polish helpers for HUD, score popups, particles, button feedback, and camera feedback.
 - `src/playable-assets.ts` parses available media from `src/asset_map`.
 - `src/asset_map` starts with bundled starter assets and is updated by BuzzPlay when users upload media.
 - `src/App.tsx`, `src/PhaserGame.tsx`, `src/main.tsx`, `vite.config.js`, `package.json`, `wrangler.jsonc`, and `worker/*` are infrastructure. Do not edit them unless explicitly required.
@@ -70,6 +84,7 @@
 - Treat asset_map keys such as `images/name.png` as lookup keys, not guaranteed local filesystem paths.
 - Use helpers from `src/playable-assets.ts` to find images/audio/video.
 - For image assets, load URLs in a scene `preload()` with `this.load.image("key", asset.url)`.
+- When uploaded images or media are central to the request, make them the main playable object or stage prop and add invisible, natural touch zones around meaningful regions. Transform the real media or nearby props; avoid drawing permanent debug zones or fake replacement features unless the creator explicitly asks for them.
 - Do not load images/audio/video directly from external website URLs in gameplay code. Browser CORS can block Phaser loaders and break preview.
 - If web-sourced media is needed, download it into `public/assets/generated/` and reference it with a local URL such as `/assets/generated/court-lady.webp`.
 - User-uploaded media should stay as `src/asset_map` URLs; do not copy or replace uploaded assets unless the creator asks.

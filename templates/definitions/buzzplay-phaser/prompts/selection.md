@@ -8,6 +8,7 @@ Use when:
 - The experience should feel like playable media in the BuzzPlay preview rather than a React UI card, dashboard, quiz page, or landing page.
 - The idea benefits from a game loop, canvas rendering, sprites/shapes, Phaser scenes, Arcade Physics, collisions, particles, tweens, or pointer/touch control.
 - The user uploaded image/audio/video references that can become a sprite, prop, background, collectible, hazard, avatar, or result visual.
+- The output should feel like a finished mobile microgame with clear HUD, immediate action feedback, result/replay flow, and polished motion.
 
 Avoid when:
 - The user asks for a dashboard, CRUD app, blog, long-form website, e-commerce app, conventional React app shell, or SEO landing page.
@@ -17,6 +18,8 @@ Avoid when:
 For softer interaction prompts:
 - If the user asks for a quiz, meme reveal, interactive story, result card, or social challenge, translate it into a simple tap/choose/drag/timing game with a result scene instead of building a static UI card.
 - Prefer one strong core action and a 15-30 second payoff over many UI controls.
+- Use the Phaser `game-feel`, `visual-direction`, and, when needed, `game-type-recipes` guidance plus the relevant specialized skill for the requested gameplay or style.
+- Select this template confidently for polished game-like interactions; Phaser can handle the same finished microgame quality as single-file HTML when the implementation uses the game-feel guidance.
 
 Built with:
 - Phaser 4.1.0, React, Vite, TypeScript, Cloudflare Workers static serving, and `src/asset_map` awareness for uploaded images/audio/video.
