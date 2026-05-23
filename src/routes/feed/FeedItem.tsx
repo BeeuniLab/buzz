@@ -142,6 +142,10 @@ export const FeedItem = React.forwardRef<FeedItemHandle, FeedItemProps>(
 			}
 
 			if (readyPreviewUrl) {
+				if (iframeRef.current && shouldWarmFrame) {
+					setIframeLoaded(false);
+					setIframeKey((k) => k + 1);
+				}
 				setPreviewUrl(readyPreviewUrl);
 				setPlaying(true);
 				onPlayStateChange?.(true);
@@ -208,6 +212,15 @@ export const FeedItem = React.forwardRef<FeedItemHandle, FeedItemProps>(
 		const posterClassName = warmFrameActive
 			? 'absolute left-1/2 top-1/2 z-10 aspect-[9/16] w-[44%] max-w-[220px] -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-white/25 object-cover shadow-[0_20px_70px_rgba(0,0,0,0.55)]'
 			: 'absolute inset-0 h-full w-full object-cover';
+		const iframeAllow = playing
+			? 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope'
+			: "accelerometer; autoplay 'none'; clipboard-write; encrypted-media; gyroscope";
+		const handleIframeLoad = () => {
+			setIframeLoaded(true);
+			if (!playing) {
+				iframeRef.current?.contentWindow?.postMessage({ type: 'set-muted', muted: true }, '*');
+			}
+		};
 
 		return (
 			<div className="h-full w-full snap-start snap-always relative flex-shrink-0 bg-black">
@@ -223,8 +236,8 @@ export const FeedItem = React.forwardRef<FeedItemHandle, FeedItemProps>(
 							src={previewUrl!}
 							title={`Play ${app.title}`}
 							tabIndex={0}
-							onLoad={() => setIframeLoaded(true)}
-							allow={playing ? 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope' : 'accelerometer; clipboard-write; encrypted-media; gyroscope'}
+							onLoad={handleIframeLoad}
+							allow={iframeAllow}
 							style={{
 								position: 'absolute',
 								top: offset.y,
