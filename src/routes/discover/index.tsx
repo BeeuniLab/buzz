@@ -15,42 +15,74 @@ const CATEGORIES = [
 	'All',
 ];
 
+const CAROUSEL_LIMIT = 12;
+const SECONDARY_CAROUSEL_DELAY_MS = 500;
+
 export default function DiscoverPage() {
 	const navigate = useNavigate();
 	const { t } = useAppI18n();
 	const [popularApps, setPopularApps] = React.useState<AppWithUserAndStats[]>([]);
 	const [trendingApps, setTrendingApps] = React.useState<AppWithUserAndStats[]>([]);
 	const [recentApps, setRecentApps] = React.useState<AppWithUserAndStats[]>([]);
-	const [carouselLoading, setCarouselLoading] = React.useState(true);
+	const [recentLoading, setRecentLoading] = React.useState(true);
+	const [popularLoading, setPopularLoading] = React.useState(false);
+	const [trendingLoading, setTrendingLoading] = React.useState(false);
 	const [selectedCategory, setSelectedCategory] = React.useState('All');
 	const [manualSearchQuery, setManualSearchQuery] = React.useState('');
 
-	// Fetch carousel data
+	// Keep the first Discover paint light: load the primary rail first, then
+	// hydrate heavier ranked rails after the main list has a chance to render.
 	React.useEffect(() => {
-		async function fetchCarouselData() {
-			setCarouselLoading(true);
+		let cancelled = false;
+		let secondaryTimer: number | undefined;
+
+		async function fetchRecentApps() {
+			setRecentLoading(true);
 			try {
-				const [popRes, trendRes, recentRes] = await Promise.all([
-					apiClient.getPublicApps({ sort: 'popular', limit: 20, period: 'all' }),
-					apiClient.getPublicApps({ sort: 'trending', limit: 20, period: 'week' }),
-					apiClient.getPublicApps({ sort: 'recent', limit: 20, period: 'today' }),
-				]);
-				if (popRes.success && popRes.data) {
-					setPopularApps(popRes.data.apps);
-				}
-				if (trendRes.success && trendRes.data) {
-					setTrendingApps(trendRes.data.apps);
-				}
-				if (recentRes.success && recentRes.data) {
+				const recentRes = await apiClient.getPublicApps({ sort: 'recent', limit: CAROUSEL_LIMIT, period: 'today' });
+				if (!cancelled && recentRes.success && recentRes.data) {
 					setRecentApps(recentRes.data.apps);
 				}
 			} catch {
 				// Silently handle
 			} finally {
-				setCarouselLoading(false);
+				if (!cancelled) setRecentLoading(false);
 			}
 		}
-		fetchCarouselData();
+
+		async function fetchSecondaryCarousels() {
+			setPopularLoading(true);
+			setTrendingLoading(true);
+			try {
+				const [popRes, trendRes] = await Promise.all([
+					apiClient.getPublicApps({ sort: 'popular', limit: CAROUSEL_LIMIT, period: 'all' }),
+					apiClient.getPublicApps({ sort: 'trending', limit: CAROUSEL_LIMIT, period: 'week' }),
+				]);
+				if (!cancelled && popRes.success && popRes.data) {
+					setPopularApps(popRes.data.apps);
+				}
+				if (!cancelled && trendRes.success && trendRes.data) {
+					setTrendingApps(trendRes.data.apps);
+				}
+			} catch {
+				// Silently handle
+			} finally {
+				if (!cancelled) {
+					setPopularLoading(false);
+					setTrendingLoading(false);
+				}
+			}
+		}
+
+		fetchRecentApps();
+		secondaryTimer = window.setTimeout(fetchSecondaryCarousels, SECONDARY_CAROUSEL_DELAY_MS);
+
+		return () => {
+			cancelled = true;
+			if (secondaryTimer !== undefined) {
+				window.clearTimeout(secondaryTimer);
+			}
+		};
 	}, []);
 
 	// Category grid with infinite scroll
@@ -145,7 +177,7 @@ export default function DiscoverPage() {
 						<AppCarouselSection
 							title={t('Recent')}
 							apps={recentApps}
-							loading={carouselLoading}
+							loading={recentLoading}
 							onAppClick={handleAppClick}
 							size="large"
 						/>
@@ -156,7 +188,7 @@ export default function DiscoverPage() {
 						<AppCarouselSection
 							title={t('Popular')}
 							apps={popularApps}
-							loading={carouselLoading}
+							loading={popularLoading}
 							onAppClick={handleAppClick}
 							size="small"
 						/>
@@ -167,7 +199,7 @@ export default function DiscoverPage() {
 						<AppCarouselSection
 							title={t('Trending')}
 							apps={trendingApps}
-							loading={carouselLoading}
+							loading={trendingLoading}
 							onAppClick={handleAppClick}
 							size="large"
 						/>
