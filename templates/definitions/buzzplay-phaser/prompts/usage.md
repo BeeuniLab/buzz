@@ -42,8 +42,6 @@
 - Bundled starter assets use local URLs such as `assets/apple.png`; uploaded assets use BuzzPlay `/api/projects/.../assets/file/...` URLs.
 - Use helpers from `src/playable-assets.ts` to find images/audio/video.
 - For image assets, load URLs in a scene `preload()` with `this.load.image("key", asset.url)`.
-- For uploaded photo/media interactions, inspect the visible content and define standard `AnnotatedMediaRegion[]` entries with normalized image coordinates from 0 to 1, then convert them with `src/game/media-annotation-zones.ts`. Prefer `source: "visual-annotation"` for semantic targets such as mouth, eyes, nose, cheeks, hands, buttons, objects, products, stickers, or props.
-- Use those fixed zones for taps, drags, masks, cropping, tweens, scoring, and collisions. Do not add runtime image-recognition loops or run region detection in `update()`. Do not draw replacement facial features, fake mouths, permanent rings, debug boxes, or coordinate overlays on top of user photos unless the creator explicitly asks for visible controls.
 - Static files live in `public/assets` and are referenced as `assets/name.png`.
 - Always provide a shape/color fallback when an asset is missing or fails to load.
 
