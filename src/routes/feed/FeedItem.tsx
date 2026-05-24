@@ -23,6 +23,7 @@ export interface FeedItemHandle {
 interface FeedItemProps {
 	app: AppWithUserAndStats;
 	isActive?: boolean;
+	shouldWarmFrame?: boolean;
 	onPlayStateChange?: (playing: boolean) => void;
 	containMode?: boolean;
 	preloadedPreviewUrl?: string | null;
@@ -32,6 +33,7 @@ export const FeedItem = React.forwardRef<FeedItemHandle, FeedItemProps>(
 	function FeedItem({
 		app,
 		isActive = true,
+		shouldWarmFrame = false,
 		onPlayStateChange,
 		containMode = false,
 		preloadedPreviewUrl = null,
@@ -86,13 +88,19 @@ export const FeedItem = React.forwardRef<FeedItemHandle, FeedItemProps>(
 			onPlayStateChange?.(false);
 		}, [onPlayStateChange]);
 
+		React.useEffect(() => {
+			if (shouldWarmFrame && preloadedPreviewUrl) {
+				setPreviewUrl(preloadedPreviewUrl);
+			}
+		}, [preloadedPreviewUrl, shouldWarmFrame]);
+
 		// Stop audio when game becomes inactive or unmounts. The iframe owns any
 		// generated-game WebAudio/HTMLAudio state, so blanking it is the reliable kill switch.
 		React.useEffect(() => {
-			if (!isActive && (playing || iframeRef.current)) {
+			if (!isActive && !shouldWarmFrame && (playing || iframeRef.current)) {
 				stopPreview();
 			}
-		}, [isActive, playing, stopPreview]);
+		}, [isActive, playing, shouldWarmFrame, stopPreview]);
 
 		React.useEffect(() => stopPreview, [stopPreview]);
 
@@ -105,7 +113,7 @@ export const FeedItem = React.forwardRef<FeedItemHandle, FeedItemProps>(
 				const { clientWidth, clientHeight } = container;
 				const scaleX = clientWidth / GAME_WIDTH;
 				const scaleY = clientHeight / GAME_HEIGHT;
-				const shouldContainPreview = containMode && playing;
+				const shouldContainPreview = containMode && (playing || shouldWarmFrame);
 				if (shouldContainPreview) {
 					const s = Math.min(scaleX, scaleY);
 					setScale(s);
@@ -123,7 +131,7 @@ export const FeedItem = React.forwardRef<FeedItemHandle, FeedItemProps>(
 			const observer = new ResizeObserver(updateScale);
 			observer.observe(container);
 			return () => observer.disconnect();
-		}, [containMode, playing]);
+		}, [containMode, playing, shouldWarmFrame]);
 
 		const startPlay = async () => {
 			const readyPreviewUrl = previewUrl || preloadedPreviewUrl;
@@ -192,10 +200,14 @@ export const FeedItem = React.forwardRef<FeedItemHandle, FeedItemProps>(
 		}));
 
 		const coverUrl = !imgError && app.screenshotUrl ? app.screenshotUrl : DEFAULT_APP_COVER_URL;
-		const shouldRenderPreviewFrame = Boolean(previewUrl && playing);
+		const warmFrameActive = Boolean(previewUrl && isActive && shouldWarmFrame && !playing);
+		const shouldRenderPreviewFrame = Boolean(previewUrl && (playing || shouldWarmFrame));
 		const creatorName = app.userName || 'Creator';
 		const isOwnAuthor = Boolean(app.userId && app.userId === user?.id);
 		const showCreatorCta = Boolean(!playing && app.userId && !isOwnAuthor && !isFollowingAuthor);
+		const posterClassName = warmFrameActive
+			? 'absolute left-1/2 top-1/2 z-10 aspect-[9/16] w-[44%] max-w-[220px] -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-white/25 object-cover shadow-[0_20px_70px_rgba(0,0,0,0.55)]'
+			: 'absolute inset-0 h-full w-full object-cover';
 
 		return (
 			<div className="h-full w-full snap-start snap-always relative flex-shrink-0 bg-black">
@@ -237,10 +249,14 @@ export const FeedItem = React.forwardRef<FeedItemHandle, FeedItemProps>(
 
 					{!playing && (
 						<>
+							{warmFrameActive && iframeLoaded && (
+								<div className="absolute inset-0 z-[5] bg-black/25 transition-opacity duration-500" />
+							)}
+
 							<img
 								src={coverUrl}
 								alt={app.title}
-								className="absolute inset-0 h-full w-full object-cover"
+								className={posterClassName}
 								onError={() => setImgError(true)}
 								loading="lazy"
 							/>
