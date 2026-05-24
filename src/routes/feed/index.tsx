@@ -22,7 +22,6 @@ const DEFAULT_APP_COVER_URL = '/game_cover.png';
 const FEED_PAGE_SIZE = 10;
 const FEED_PREFETCH_REMAINING_ITEMS = 8;
 const PREVIEW_LINK_WARM_AHEAD_COUNT = 8;
-const PREVIEW_FRAME_WARM_AHEAD_COUNT = 4;
 
 function getKnownPreviewUrl(app: AppWithUserAndStats | null | undefined) {
 	const previewApp = app as AppPreviewFields | null | undefined;
@@ -403,7 +402,7 @@ export default function FeedPage() {
 		}
 		const currentHandle = feedItemRefs.current.get(currentIndex);
 		for (const [index, handle] of feedItemRefs.current) {
-			if (index < currentIndex || index > currentIndex + PREVIEW_FRAME_WARM_AHEAD_COUNT) {
+			if (index !== currentIndex) {
 				handle.stop();
 			}
 		}
@@ -604,9 +603,8 @@ export default function FeedPage() {
 						app={app}
 						isActive={i === currentIndex}
 						preloadedPreviewUrl={previewUrlCache[app.id] ?? getKnownPreviewUrl(app)}
-						shouldWarmFrame={i >= currentIndex && i <= currentIndex + PREVIEW_FRAME_WARM_AHEAD_COUNT}
 						onPlayStateChange={setIsPlaying}
-						containMode={isPlaying || i === currentIndex || (i > currentIndex && i <= currentIndex + PREVIEW_FRAME_WARM_AHEAD_COUNT)}
+						containMode={isPlaying || i === currentIndex}
 						ref={(handle) => {
 							if (handle) feedItemRefs.current.set(i, handle);
 							else feedItemRefs.current.delete(i);
