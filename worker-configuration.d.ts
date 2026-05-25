@@ -17,6 +17,8 @@ declare namespace Cloudflare {
 		LLM_PROXY_FALLBACK_URL: "https://codex-byering.com:8317/";
 		LLM_PROXY_API_KEY: string;
 		LLM_PROXY_FALLBACK_API_KEY: string;
+		IMAGE_URL: "https://codex-byering.com:8317/v1";
+		IMAGE_API_KEY: string;
 		INVITE_CODE_REQUIRED: "true";
 		CUSTOM_DOMAIN: string;
 		ENVIRONMENT: string;
@@ -28,7 +30,6 @@ declare namespace Cloudflare {
 		CLERK_JWKS_URL: string;
 		JWT_SECRET: string;
 		WEBHOOK_SECRET: string;
-		VERCEL_AI_GATEWAY_API_KEY: string;
 		SECRETS_ENCRYPTION_KEY: string;
 		ADMIN_IMPORT_KEY: string;
 		CodeGenObject: DurableObjectNamespace<import("./worker/index").CodeGeneratorAgent>;
@@ -51,5 +52,5 @@ type StringifyValues<EnvType extends Record<string, unknown>> = {
 	[Binding in keyof EnvType]: EnvType[Binding] extends string ? EnvType[Binding] : string;
 };
 declare namespace NodeJS {
-	interface ProcessEnv extends StringifyValues<Pick<Cloudflare.Env, "DISPATCH_NAMESPACE" | "ENABLE_READ_REPLICAS" | "CLOUDFLARE_AI_GATEWAY" | "PLATFORM_CAPABILITIES" | "MAX_SANDBOX_INSTANCES" | "SANDBOX_INSTANCE_TYPE" | "LLM_PROXY_URL" | "LLM_PROXY_FALLBACK_URL" | "LLM_PROXY_API_KEY" | "LLM_PROXY_FALLBACK_API_KEY" | "INVITE_CODE_REQUIRED" | "CUSTOM_DOMAIN" | "ENVIRONMENT" | "CLOUDFLARE_API_TOKEN" | "CLOUDFLARE_ACCOUNT_ID" | "VITE_CLERK_PUBLISHABLE_KEY" | "CLERK_SECRET_KEY" | "CLERK_JWT_ISSUER" | "CLERK_JWKS_URL" | "JWT_SECRET" | "WEBHOOK_SECRET" | "VERCEL_AI_GATEWAY_API_KEY" | "SECRETS_ENCRYPTION_KEY" | "ADMIN_IMPORT_KEY">> {}
+	interface ProcessEnv extends StringifyValues<Pick<Cloudflare.Env, "DISPATCH_NAMESPACE" | "ENABLE_READ_REPLICAS" | "CLOUDFLARE_AI_GATEWAY" | "PLATFORM_CAPABILITIES" | "MAX_SANDBOX_INSTANCES" | "SANDBOX_INSTANCE_TYPE" | "LLM_PROXY_URL" | "LLM_PROXY_FALLBACK_URL" | "LLM_PROXY_API_KEY" | "LLM_PROXY_FALLBACK_API_KEY" | "IMAGE_URL" | "IMAGE_API_KEY" | "INVITE_CODE_REQUIRED" | "CUSTOM_DOMAIN" | "ENVIRONMENT" | "CLOUDFLARE_API_TOKEN" | "CLOUDFLARE_ACCOUNT_ID" | "VITE_CLERK_PUBLISHABLE_KEY" | "CLERK_SECRET_KEY" | "CLERK_JWT_ISSUER" | "CLERK_JWKS_URL" | "JWT_SECRET" | "WEBHOOK_SECRET" | "SECRETS_ENCRYPTION_KEY" | "ADMIN_IMPORT_KEY">> {}
 }

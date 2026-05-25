@@ -1,55 +1,72 @@
 #!/usr/bin/env bun
 /**
- * Test script for cover image generation via gpt-image-1.5
- * Usage: bun scripts/test-cover-gen.ts
+ * Test script for cover image generation.
+ * Usage: IMAGE_URL=... IMAGE_API_KEY=... bun scripts/test-cover-gen.ts
  */
-import OpenAI from 'openai';
 import { writeFileSync } from 'fs';
 
-const API_KEY = 'sk-EtGwrz7C5GF67OlEql5eWBN5ffEjSd26eYrR3dmqNyUQc0dD';
-const BASE_URL = 'https://api.phsharp.com/v1';
-const MODEL = 'gpt-image-1.5';
+const API_KEY = process.env.IMAGE_API_KEY;
+const BASE_URL = process.env.IMAGE_URL?.replace(/\/+$/, '');
+const MODEL = 'gpt-image-2';
+const TIMEOUT_MS = 180_000;
 
 const prompt = `Create one high-quality original cover art (key art) for an interactive web experience.
 The illustration must be centered on what the DESCRIPTION says: setting, mood, characters, objects, and atmosphere should follow the description first.
-The cover may include ONLY the title as readable text. Do not add any other words.
+Do not render readable text anywhere in the image.
 
 --- Description (primary) ---
 A mysterious underwater exploration game where players dive into the deep ocean to discover ancient ruins, bioluminescent creatures, and hidden treasures. The atmosphere is serene yet thrilling, with dark blue depths illuminated by glowing sea life.
 
 --- Context ---
-Title (render exactly this as the ONLY readable text): Deep Abyss
+Theme reference, not to be drawn as text: Deep Abyss
 Color palette hint: #0a1628, #00d4ff, #ff6b35
 
 Requirements:
-- Vertical portrait (~9:16), app-store style key art, one clear focal subject, readable at thumbnail size.
-- Text constraint: render ONLY the title; no subtitles, slogans, numbers, or any other words.
-- No logos, watermarks, or UI overlays on the image.
+- Square 1024x1024 app-store style key art, one clear focal subject, readable at thumbnail size.
+- Absolutely no readable text, captions, labels, logos, watermarks, or UI overlays.
 - Strong silhouette, depth, and lighting that match the described experience.
 - Output a single finished cover image.`;
 
 async function testImagesGenerate() {
-    console.log('=== Test: images.generate (url mode) ===');
-    const client = new OpenAI({ apiKey: API_KEY, baseURL: BASE_URL });
+    if (!API_KEY || !BASE_URL) {
+        throw new Error('IMAGE_URL and IMAGE_API_KEY are required');
+    }
+
+    console.log('=== Test: /images/generations ===');
     const startTime = Date.now();
 
     try {
-        const response = await client.images.generate({
-            model: MODEL,
-            prompt,
-            n: 1,
-            size: '1024x1536',
+        const response = await fetch(`${BASE_URL}/images/generations`, {
+            method: 'POST',
+            signal: AbortSignal.timeout(TIMEOUT_MS),
+            headers: {
+                Authorization: `Bearer ${API_KEY}`,
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                model: MODEL,
+                prompt,
+                n: 1,
+                size: '1024x1024',
+                quality: 'low',
+            }),
         });
 
+        const body = await response.text();
+        if (!response.ok) {
+            throw new Error(`${response.status} ${body}`);
+        }
+
+        const json = JSON.parse(body) as { data?: Array<{ url?: string; b64_json?: string }> };
         const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
         console.log(`API responded in ${elapsed}s`);
-        console.log('Response data:', JSON.stringify(response.data?.map(d => ({
+        console.log('Response data:', JSON.stringify(json.data?.map(d => ({
             has_url: !!d.url,
             has_b64: !!d.b64_json,
             url_preview: d.url?.slice(0, 100),
         })), null, 2));
 
-        const imageData = response.data?.[0];
+        const imageData = json.data?.[0];
 
         let bytes: Buffer;
         if (imageData?.b64_json) {

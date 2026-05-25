@@ -46,9 +46,6 @@ export function categorizeAgent(agentKey: string): string {
 	const specificMappings: Record<string, string> = {
 		// Quick Start - Most commonly used
 		'conversationalResponse': 'quickstart',
-
-		// Advanced
-		'assetMediaCaption': 'advanced',
 	};
 
 	// Check specific mappings first

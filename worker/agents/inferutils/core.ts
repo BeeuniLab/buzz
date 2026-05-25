@@ -591,14 +591,6 @@ export async function getConfigurationForModel(
         };
     }
 
-    // Vercel AI Gateway: unified endpoint that expects provider/model format
-    if (env.VERCEL_AI_GATEWAY_API_KEY) {
-        return {
-            baseURL: 'https://ai-gateway.vercel.sh/v1',
-            apiKey: env.VERCEL_AI_GATEWAY_API_KEY,
-        };
-    }
-
     let providerForcedOverride: AIGatewayProviders | undefined;
     if (modelConfig.directOverride) {
         switch(modelConfig.provider) {

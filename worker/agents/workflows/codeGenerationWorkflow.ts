@@ -298,7 +298,7 @@ export class CodeGenerationWorkflow extends WorkflowEntrypoint<Env, CodeGenerati
 		});
 
 		if (params.images && params.images.length > 0) {
-			await step.do('sync uploaded asset captions', LONG_STEP, async () => {
+			await step.do('sync uploaded assets', LONG_STEP, async () => {
 				await this.updateAgentWorkflowStatus(
 					params,
 					event.instanceId,
@@ -308,7 +308,7 @@ export class CodeGenerationWorkflow extends WorkflowEntrypoint<Env, CodeGenerati
 				const agent = await getAgentStub(this.env, params.agentId, {
 					projectType: selected.projectType,
 				});
-				await agent.syncAndCaptionUploadedAssets(params.images ?? [], params.inferenceContext);
+				await agent.syncUploadedAssets(params.images ?? []);
 				return { synced: params.images?.length ?? 0 };
 			});
 		}

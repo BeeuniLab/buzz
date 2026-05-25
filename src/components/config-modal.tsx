@@ -64,7 +64,6 @@ const hasUserKeyForModel = (modelName: string, byokProviders: Array<{ provider: 
 const getModelRecommendation = (agentAction: string) => {
   const recommendations: Record<string, string> = {
     conversationalResponse: 'Recommended: Balanced models for natural conversation',
-    assetMediaCaption: 'Recommended: Fast multimodal models for uploaded asset captions',
   };
   return recommendations[agentAction] || '';
 };

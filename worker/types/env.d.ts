@@ -30,6 +30,8 @@ declare namespace Cloudflare {
         USE_CLOUDFLARE_IMAGES: string;
         LLM_PROXY_API_KEY: string;
         LLM_PROXY_FALLBACK_API_KEY: string;
+        IMAGE_URL: string;
+        IMAGE_API_KEY: string;
         SANDBOX_SERVICE_TYPE: string;
         SANDBOX_SERVICE_URL: string;
         SANDBOX_SERVICE_API_KEY: string;

@@ -8,11 +8,7 @@ import { env } from 'cloudflare:workers';
 
 const PRIMARY_AGENT_MODEL = AIModels.OPENAI_5_5;
 const FALLBACK_AGENT_MODEL = AIModels.OPENAI_5_5;
-const ASSET_MEDIA_CAPTION_MODEL = AIModels.GEMINI_3_1_FLASH_LITE_PREVIEW;
 const gpt55Only = (): Set<AIModels> => new Set([AIModels.OPENAI_5_5]);
-const assetMediaCaptionAllowedModels = (): Set<AIModels> => new Set([
-    AIModels.GEMINI_3_1_FLASH_LITE_PREVIEW,
-]);
 
 // Common configs - these are good defaults
 const COMMON_AGENT_CONFIGS = {
@@ -35,11 +31,6 @@ const PLATFORM_AGENT_CONFIG: AgentConfig = {
         temperature: 1,
         fallbackModel: FALLBACK_AGENT_MODEL,
     },
-    assetMediaCaption: {
-        name: ASSET_MEDIA_CAPTION_MODEL,
-        max_tokens: 512,
-        fallbackModel: ASSET_MEDIA_CAPTION_MODEL,
-    },
 };
 
 //======================================================================================
@@ -54,11 +45,6 @@ const DEFAULT_AGENT_CONFIG: AgentConfig = {
         temperature: 0,
         fallbackModel: FALLBACK_AGENT_MODEL,
     },
-    assetMediaCaption: {
-        name: ASSET_MEDIA_CAPTION_MODEL,
-        max_tokens: 512,
-        fallbackModel: ASSET_MEDIA_CAPTION_MODEL,
-    },
 };
 
 export const AGENT_CONFIG: AgentConfig = env.PLATFORM_MODEL_PROVIDERS 
@@ -69,10 +55,6 @@ export const AGENT_CONFIG: AgentConfig = env.PLATFORM_MODEL_PROVIDERS
 export const AGENT_CONSTRAINTS: Map<AgentActionKey, AgentConstraintConfig> = new Map([
 	['conversationalResponse', {
 		allowedModels: gpt55Only(),
-		enabled: true,
-	}],
-	['assetMediaCaption', {
-		allowedModels: assetMediaCaptionAllowedModels(),
 		enabled: true,
 	}],
 ]);

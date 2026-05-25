@@ -182,6 +182,7 @@
         "SANDBOX_INSTANCE_TYPE": "standard-2",
         "LLM_PROXY_URL": "https://subapi.cygnus.ink/v1",
         "LLM_PROXY_FALLBACK_URL": "https://codex-byering.com:8317/v1",
+        "IMAGE_URL": "https://codex-byering.com:8317/v1",
         "CODE_GENERATION_BACKEND": "native",
         "CODEX_MODEL": "gpt-5.5",
         "CODEX_MODEL_PROVIDER": "crs",

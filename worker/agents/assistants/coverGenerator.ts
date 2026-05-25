@@ -3,9 +3,9 @@ import { PhasicBlueprint } from '../schemas';
 
 const logger = createObjectLogger('CoverGenerator');
 
-const COVER_IMAGE_MODEL = 'google/gemini-3-pro-image-preview';
-const COVER_IMAGE_TIMEOUT_MS = 60_000;
-const COVER_IMAGE_MAX_ATTEMPTS = 3;
+const COVER_IMAGE_MODEL = 'gpt-image-2';
+const COVER_IMAGE_TIMEOUT_MS = 180_000;
+const COVER_IMAGE_MAX_ATTEMPTS = 1;
 const URL_PATTERN = /\b(?:https?:\/\/|www\.)\S+/gi;
 
 function sanitizeVisualBrief(input: string, maxLength: number): string {
@@ -42,7 +42,7 @@ function buildCoverPrompt(blueprint: PhasicBlueprint): string {
 		+ `Theme reference, not to be drawn as text: ${visualTheme}\n`
 		+ `Color palette hint: ${palette}\n\n`
 		+ 'Requirements:\n'
-		+ '- Vertical portrait with 1024x1536 resolution (~2:3 aspect ratio), app-store style key art, one clear focal subject, readable at thumbnail size.\n'
+		+ '- Square 1024x1024 app-store style key art, one clear focal subject, readable at thumbnail size.\n'
 		+ '- Absolutely no readable text anywhere in the image: no title, prompt text, captions, subtitles, slogans, URLs, code, labels, signs, UI text, numbers, letters, book/page text, speech bubbles, logos, or watermarks.\n'
 		+ '- Strong silhouette, depth, and lighting that match the described experience.\n'
 		+ '- Output a single finished cover image.\n'
@@ -54,17 +54,79 @@ export interface CoverGenerationResult {
 	contentType: string;
 }
 
+type ImageGenerationResponse = {
+	data?: Array<{
+		b64_json?: string;
+		url?: string;
+	}>;
+};
+
+function normalizeBaseUrl(url: string | undefined): string | null {
+	const trimmed = url?.trim().replace(/\/+$/, '');
+	return trimmed || null;
+}
+
+function getContentTypeFromBytes(bytes: Uint8Array, fallback = 'image/png'): string {
+	if (
+		bytes.length >= 12
+		&& bytes[0] === 0x52
+		&& bytes[1] === 0x49
+		&& bytes[2] === 0x46
+		&& bytes[3] === 0x46
+		&& bytes[8] === 0x57
+		&& bytes[9] === 0x45
+		&& bytes[10] === 0x42
+		&& bytes[11] === 0x50
+	) {
+		return 'image/webp';
+	}
+	if (bytes.length >= 4 && bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4e && bytes[3] === 0x47) {
+		return 'image/png';
+	}
+	if (bytes.length >= 3 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) {
+		return 'image/jpeg';
+	}
+	return fallback;
+}
+
+function bytesFromBase64(b64: string): Uint8Array {
+	return Uint8Array.from(atob(b64), c => c.charCodeAt(0));
+}
+
+function parseDataUrl(dataUrl: string): CoverGenerationResult | null {
+	const match = dataUrl.match(/^data:(image\/[\w.+-]+);base64,(.+)$/);
+	if (!match) return null;
+
+	return {
+		contentType: match[1],
+		imageBytes: bytesFromBase64(match[2]),
+	};
+}
+
+async function downloadGeneratedImage(url: string): Promise<CoverGenerationResult> {
+	const response = await fetch(url, { signal: AbortSignal.timeout(COVER_IMAGE_TIMEOUT_MS) });
+	if (!response.ok) {
+		throw new Error(`Cover image download failed: ${response.status} ${await response.text()}`);
+	}
+
+	const contentType = response.headers.get('content-type')?.split(';')[0]?.trim();
+	const imageBytes = new Uint8Array(await response.arrayBuffer());
+	return {
+		imageBytes,
+		contentType: contentType?.startsWith('image/') ? contentType : getContentTypeFromBytes(imageBytes),
+	};
+}
+
 /**
- * Generate a cover image for a project using gemini-3-pro-image-preview
- * via Vercel AI Gateway chat completions endpoint.
- * Images are returned in the message.images array as base64 data URLs.
+ * Generate a cover image for a project through the configured image endpoint.
  */
 export async function generateCoverImage(
 	env: Env,
 	blueprint: PhasicBlueprint,
 ): Promise<CoverGenerationResult> {
-	if (!env.VERCEL_AI_GATEWAY_API_KEY) {
-		throw new Error('VERCEL_AI_GATEWAY_API_KEY is required for cover generation');
+	const baseUrl = normalizeBaseUrl(env.IMAGE_URL);
+	if (!baseUrl || !env.IMAGE_API_KEY) {
+		throw new Error('IMAGE_URL and IMAGE_API_KEY are required for cover generation');
 	}
 
 	const prompt = buildCoverPrompt(blueprint);
@@ -76,16 +138,19 @@ export async function generateCoverImage(
 
 	for (let attempt = 1; attempt <= COVER_IMAGE_MAX_ATTEMPTS; attempt++) {
 		try {
-			response = await fetch('https://ai-gateway.vercel.sh/v1/chat/completions', {
+			response = await fetch(`${baseUrl}/images/generations`, {
 				method: 'POST',
 				signal: AbortSignal.timeout(COVER_IMAGE_TIMEOUT_MS),
 				headers: {
-					'Authorization': `Bearer ${env.VERCEL_AI_GATEWAY_API_KEY}`,
+					'Authorization': `Bearer ${env.IMAGE_API_KEY}`,
 					'Content-Type': 'application/json',
 				},
 				body: JSON.stringify({
 					model: COVER_IMAGE_MODEL,
-					messages: [{ role: 'user', content: prompt }],
+					prompt,
+					size: '1024x1024',
+					quality: 'low',
+					n: 1,
 				}),
 			});
 
@@ -116,36 +181,25 @@ export async function generateCoverImage(
 		throw new Error(`Cover image generation failed: ${response.status} ${errorText}`);
 	}
 
-	const json = await response.json() as {
-		choices?: Array<{
-			message?: {
-				images?: Array<{
-					image_url?: { url?: string };
-				}>;
-			};
-		}>;
-	};
-
-	const images = json.choices?.[0]?.message?.images;
-	if (!images || images.length === 0) {
-		throw new Error('No images returned from Gemini image model');
+	const json = await response.json() as ImageGenerationResponse;
+	const image = json.data?.[0];
+	if (!image) {
+		throw new Error('No images returned from image generation endpoint');
 	}
 
-	const dataUrl = images[0].image_url?.url;
-	if (!dataUrl) {
-		throw new Error('No image URL in Gemini response');
+	if (image.b64_json) {
+		const imageBytes = bytesFromBase64(image.b64_json);
+		const contentType = getContentTypeFromBytes(imageBytes);
+		logger.info('Cover image generated successfully', { bytes: imageBytes.length });
+		return { imageBytes, contentType };
 	}
 
-	// Parse data URL: "data:image/png;base64,iVBOR..."
-	const match = dataUrl.match(/^data:(image\/\w+);base64,(.+)$/);
-	if (!match) {
-		throw new Error('Invalid image data URL format');
+	if (image.url) {
+		const parsed = parseDataUrl(image.url);
+		const downloaded = parsed ?? await downloadGeneratedImage(image.url);
+		logger.info('Cover image generated successfully', { bytes: downloaded.imageBytes.length });
+		return downloaded;
 	}
 
-	const contentType = match[1];
-	const imageBytes = Uint8Array.from(atob(match[2]), c => c.charCodeAt(0));
-
-	logger.info('Cover image generated successfully', { bytes: imageBytes.length });
-
-	return { imageBytes, contentType };
+	throw new Error('Image generation response did not include b64_json or url');
 }

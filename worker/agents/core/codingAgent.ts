@@ -46,7 +46,6 @@ import { PendingWsTicket, TicketConsumptionResult } from '../../types/auth-types
 import { WsTicketManager } from '../../utils/wsTicketManager';
 import { computeAgentAssetMapJson, parseAssetMapJson, uniqueAgentAssetRelativePath } from '../../utils/agentAssets';
 import { uploadImageAsAgentAsset } from '../../utils/images';
-import { generateAssetMediaCaption } from '../../utils/assetMediaCaption';
 import { generatePortToken } from '../../utils/cryptoUtils';
 import { isDev } from '../../utils/envs';
 import { getPreviewDomain, getProtocolForHost } from '../../utils/urls';
@@ -2440,10 +2439,7 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
         return modelService.getModelConfigsInfo(this.state.metadata.userId);
     }
 
-    async syncAndCaptionUploadedAssets(
-        uploaded: ProcessedImageAttachment[],
-        inferenceContext?: InferenceContext,
-    ): Promise<void> {
+    async syncUploadedAssets(uploaded: ProcessedImageAttachment[]): Promise<void> {
         this.throwIfDeleted('sync uploaded assets');
         if (uploaded.length === 0) return;
 
@@ -2467,20 +2463,7 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
                 continue;
             }
             if (att.mimeType.startsWith('image/')) continue;
-            try {
-                const text = await generateAssetMediaCaption(
-                    this.env,
-                    inferenceContext ?? this.getInferenceContext(),
-                    att,
-                );
-                descriptions[rel] = text ?? fallbackDescription(att, rel);
-            } catch (err) {
-                this.logger().warn('Asset media caption failed', {
-                    rel,
-                    error: err instanceof Error ? err.message : String(err),
-                });
-                descriptions[rel] = fallbackDescription(att, rel);
-            }
+            descriptions[rel] = fallbackDescription(att, rel);
         }
 
         if (Object.keys(descriptions).length > 0) {
@@ -3229,7 +3212,7 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
                 if (!options.skipUserMessageRecord) {
                     this.recordWorkflowUserMessage(effectiveWorkflowId, userMessage, processedImages);
                 }
-                await this.syncAndCaptionUploadedAssets(processedImages);
+                await this.syncUploadedAssets(processedImages);
             }
             this.setState({
                 ...this.state,

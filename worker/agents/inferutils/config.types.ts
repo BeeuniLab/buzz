@@ -429,7 +429,6 @@ export interface ModelConfig {
 
 export interface AgentConfig {
     conversationalResponse: ModelConfig;
-    assetMediaCaption: ModelConfig;
 }
 
 // Provider and reasoning effort types for validation

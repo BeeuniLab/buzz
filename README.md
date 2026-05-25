@@ -112,6 +112,8 @@ Set these in `.dev.vars` (local) or `.prod.vars` (production):
 | `LLM_PROXY_URL` | OpenAI-compatible proxy base URL, defaults to `https://subapi.cygnus.ink/v1` |
 | `LLM_PROXY_FALLBACK_API_KEY` | Optional API key for the fallback OpenAI-compatible GPT-5.5 proxy |
 | `LLM_PROXY_FALLBACK_URL` | Optional fallback GPT-5.5 proxy base URL, used on retry if the primary proxy fails |
+| `IMAGE_URL` | OpenAI-compatible image generation base URL for generated project covers |
+| `IMAGE_API_KEY` | API key for the image generation endpoint |
 | `JWT_SECRET` | Random string for session management |
 | `SECRETS_ENCRYPTION_KEY` | Encryption key for user secrets |
 | `CUSTOM_DOMAIN` | Your main domain (e.g. `buzzplay.app`) |
