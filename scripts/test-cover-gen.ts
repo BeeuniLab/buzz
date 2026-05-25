@@ -8,7 +8,7 @@ import { writeFileSync } from 'fs';
 const API_KEY = process.env.IMAGE_API_KEY;
 const BASE_URL = process.env.IMAGE_URL?.replace(/\/+$/, '');
 const MODEL = 'gpt-image-2';
-const TIMEOUT_MS = 180_000;
+const TIMEOUT_MS = 240_000;
 
 const prompt = `Create one high-quality original cover art (key art) for an interactive web experience.
 The illustration must be centered on what the DESCRIPTION says: setting, mood, characters, objects, and atmosphere should follow the description first.

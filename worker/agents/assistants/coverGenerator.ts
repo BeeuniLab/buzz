@@ -4,7 +4,7 @@ import { PhasicBlueprint } from '../schemas';
 const logger = createObjectLogger('CoverGenerator');
 
 const COVER_IMAGE_MODEL = 'gpt-image-2';
-const COVER_IMAGE_TIMEOUT_MS = 180_000;
+const COVER_IMAGE_TIMEOUT_MS = 240_000;
 const COVER_IMAGE_MAX_ATTEMPTS = 1;
 const URL_PATTERN = /\b(?:https?:\/\/|www\.)\S+/gi;
 
