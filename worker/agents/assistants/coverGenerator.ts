@@ -4,7 +4,7 @@ import { PhasicBlueprint } from '../schemas';
 const logger = createObjectLogger('CoverGenerator');
 
 const COVER_IMAGE_MODEL = 'gpt-image-2';
-const COVER_IMAGE_TIMEOUT_MS = 240_000;
+const COVER_IMAGE_TIMEOUT_MS = 480_000;
 const COVER_IMAGE_MAX_ATTEMPTS = 1;
 const URL_PATTERN = /\b(?:https?:\/\/|www\.)\S+/gi;
 
@@ -42,7 +42,7 @@ function buildCoverPrompt(blueprint: PhasicBlueprint): string {
 		+ `Theme reference, not to be drawn as text: ${visualTheme}\n`
 		+ `Color palette hint: ${palette}\n\n`
 		+ 'Requirements:\n'
-		+ '- Square 1024x1024 app-store style key art, one clear focal subject, readable at thumbnail size.\n'
+		+ '- Vertical portrait with 1024x1536 resolution (~2:3 aspect ratio), app-store style key art, one clear focal subject, readable at thumbnail size.\n'
 		+ '- Absolutely no readable text anywhere in the image: no title, prompt text, captions, subtitles, slogans, URLs, code, labels, signs, UI text, numbers, letters, book/page text, speech bubbles, logos, or watermarks.\n'
 		+ '- Strong silhouette, depth, and lighting that match the described experience.\n'
 		+ '- Output a single finished cover image.\n'
@@ -148,7 +148,7 @@ export async function generateCoverImage(
 				body: JSON.stringify({
 					model: COVER_IMAGE_MODEL,
 					prompt,
-					size: '1024x1024',
+					size: '1024x1536',
 					quality: 'low',
 					n: 1,
 				}),

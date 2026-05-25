@@ -8,7 +8,7 @@ import { writeFileSync } from 'fs';
 const API_KEY = process.env.IMAGE_API_KEY;
 const BASE_URL = process.env.IMAGE_URL?.replace(/\/+$/, '');
 const MODEL = 'gpt-image-2';
-const TIMEOUT_MS = 240_000;
+const TIMEOUT_MS = 480_000;
 
 const prompt = `Create one high-quality original cover art (key art) for an interactive web experience.
 The illustration must be centered on what the DESCRIPTION says: setting, mood, characters, objects, and atmosphere should follow the description first.
@@ -22,7 +22,7 @@ Theme reference, not to be drawn as text: Deep Abyss
 Color palette hint: #0a1628, #00d4ff, #ff6b35
 
 Requirements:
-- Square 1024x1024 app-store style key art, one clear focal subject, readable at thumbnail size.
+- Vertical portrait with 1024x1536 resolution (~2:3 aspect ratio), app-store style key art, one clear focal subject, readable at thumbnail size.
 - Absolutely no readable text, captions, labels, logos, watermarks, or UI overlays.
 - Strong silhouette, depth, and lighting that match the described experience.
 - Output a single finished cover image.`;
@@ -47,7 +47,7 @@ async function testImagesGenerate() {
                 model: MODEL,
                 prompt,
                 n: 1,
-                size: '1024x1024',
+                size: '1024x1536',
                 quality: 'low',
             }),
         });
