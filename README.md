@@ -132,7 +132,7 @@ Set these in `.dev.vars` (local) or `.prod.vars` (production):
 | `CODEX_MODEL` | Optional model override passed to `codex exec --model` |
 | `CODEX_MODEL_PROVIDER` | Optional Codex provider name written to local `CODEX_HOME/config.toml`; defaults to `crs` |
 | `CODEX_MODEL_REASONING_EFFORT` | Optional reasoning effort written to local Codex config |
-| `CODEX_EXEC_TIMEOUT_MS` | Optional Codex command timeout; defaults to 25 minutes |
+| `CODEX_EXEC_TIMEOUT_MS` | Optional Codex command timeout; defaults to 1 hour |
 | `CODEX_PROXY_ATTEMPTS` | Optional retry attempts per configured LLM proxy before switching to the fallback proxy; defaults to 3 |
 | `CODEX_STATE_R2_BUCKET_NAME` | Optional R2 bucket name for persisted Codex sessions |
 | `CODEX_STATE_R2_ACCESS_KEY_ID` | Optional R2 S3 API access key for Codex session persistence |

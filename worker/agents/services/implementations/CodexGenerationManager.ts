@@ -9,7 +9,7 @@ import type { PreviewType } from '../../../types/project-types';
 import type { ProcessedImageAttachment } from '../../../types/image-attachment';
 import { formatUploadedAssetContext } from '../../utils/assetContext';
 
-const DEFAULT_CODEX_TIMEOUT_MS = 25 * 60 * 1000;
+const DEFAULT_CODEX_TIMEOUT_MS = 60 * 60 * 1000;
 const DEFAULT_CODEX_MODEL_PROVIDER = 'crs';
 const DEFAULT_PROXY_ATTEMPTS = 3;
 const DEFAULT_CODEX_RECOVERY_PREFIX = 'codex-recovery';

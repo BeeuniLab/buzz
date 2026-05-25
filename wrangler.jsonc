@@ -187,6 +187,7 @@
         "CODEX_MODEL": "gpt-5.5",
         "CODEX_MODEL_PROVIDER": "crs",
         "CODEX_MODEL_REASONING_EFFORT": "high",
+        "CODEX_EXEC_TIMEOUT_MS": "3600000",
         "INVITE_CODE_REQUIRED": "false",
         "CLERK_JWT_ISSUER": "https://clerk.buzzplay.app",
         "CLERK_JWKS_URL": "https://clerk.buzzplay.app/.well-known/jwks.json"
