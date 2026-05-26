@@ -15,6 +15,7 @@ import {
 	PORTRAIT_PLAYABLE_DIMENSIONS,
 } from '@/components/playable-frame';
 const DEFAULT_APP_COVER_URL = '/game_cover.png';
+let feedPlayAuthPromptedThisPage = false;
 
 export interface FeedItemHandle {
 	play: () => void;
@@ -54,7 +55,7 @@ export const FeedItem = React.forwardRef<FeedItemHandle, FeedItemProps>(
 		const [isFollowingAuthor, setIsFollowingAuthor] = React.useState(Boolean(app.userFollowingAuthor));
 		const [followLoading, setFollowLoading] = React.useState(false);
 		const navigate = useNavigate();
-		const { user, requireAuth } = useAuthGuard();
+		const { user, requireAuth, isAuthenticated, isLoading: isAuthLoading } = useAuthGuard();
 		const { t } = useAppI18n();
 		const isMobile = useIsMobile();
 		const playableAspectRatio: PlayableAspectRatio = getPlayableAspectRatio(app.playableAspectRatio);
@@ -144,6 +145,16 @@ export const FeedItem = React.forwardRef<FeedItemHandle, FeedItemProps>(
 		}, [containMode, dimensions.height, dimensions.width, isMobile, playableAspectRatio, playing, shouldWarmFrame]);
 
 		const startPlay = async () => {
+			if (!isAuthenticated && !isAuthLoading) {
+				if (!feedPlayAuthPromptedThisPage) {
+					feedPlayAuthPromptedThisPage = true;
+					requireAuth({
+						actionContext: 'to save, comment, and share your playable history',
+						intendedUrl: `/feed/${app.id}`,
+					});
+				}
+			}
+
 			const readyPreviewUrl = previewUrl || preloadedPreviewUrl;
 
 			if (playing && readyPreviewUrl) {

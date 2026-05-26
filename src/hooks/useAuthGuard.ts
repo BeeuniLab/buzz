@@ -17,6 +17,7 @@ export interface AuthGuardOptions {
 
 export interface AuthGuardReturn {
   isAuthenticated: boolean;
+  isLoading: boolean;
   user: AuthUser | null;
   requireAuth: (options?: AuthGuardOptions) => boolean;
 }
@@ -54,6 +55,7 @@ export function useAuthGuard(): AuthGuardReturn {
 
   return {
     isAuthenticated,
+    isLoading,
     user,
     requireAuth,
   };
