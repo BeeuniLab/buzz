@@ -2,15 +2,18 @@ import React from 'react';
 import { Play, Loader2 } from 'lucide-react';
 import { apiClient } from '@/lib/api-client';
 import { toast } from 'sonner';
-import type { AppWithUserAndStats } from '@/api-types';
+import type { AppWithUserAndStats, PlayableAspectRatio } from '@/api-types';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useAuthGuard } from '@/hooks/useAuthGuard';
 import { useNavigate } from 'react-router';
 import { useAppI18n } from '@/i18n';
-
-// Game design resolution — iframe renders at this size, then scales to fit
-const GAME_WIDTH = 720;
-const GAME_HEIGHT = 1280;
+import { useIsMobile } from '@/hooks/use-mobile';
+import {
+	getPlayableAspectRatio,
+	getPlayableFrameTransform,
+	PLAYABLE_DIMENSIONS,
+	PORTRAIT_PLAYABLE_DIMENSIONS,
+} from '@/components/playable-frame';
 const DEFAULT_APP_COVER_URL = '/game_cover.png';
 
 export interface FeedItemHandle {
@@ -46,12 +49,16 @@ export const FeedItem = React.forwardRef<FeedItemHandle, FeedItemProps>(
 		const iframeRef = React.useRef<HTMLIFrameElement>(null);
 		const [scale, setScale] = React.useState(1);
 		const [offset, setOffset] = React.useState({ x: 0, y: 0 });
+		const [rotateLandscape, setRotateLandscape] = React.useState(false);
 		const [iframeLoaded, setIframeLoaded] = React.useState(false);
 		const [isFollowingAuthor, setIsFollowingAuthor] = React.useState(Boolean(app.userFollowingAuthor));
 		const [followLoading, setFollowLoading] = React.useState(false);
 		const navigate = useNavigate();
 		const { user, requireAuth } = useAuthGuard();
 		const { t } = useAppI18n();
+		const isMobile = useIsMobile();
+		const playableAspectRatio: PlayableAspectRatio = getPlayableAspectRatio(app.playableAspectRatio);
+		const dimensions = PLAYABLE_DIMENSIONS[playableAspectRatio];
 
 		React.useEffect(() => {
 			if (preloadedPreviewUrl) {
@@ -111,15 +118,18 @@ export const FeedItem = React.forwardRef<FeedItemHandle, FeedItemProps>(
 
 			const updateScale = () => {
 				const { clientWidth, clientHeight } = container;
-				const scaleX = clientWidth / GAME_WIDTH;
-				const scaleY = clientHeight / GAME_HEIGHT;
+				const shouldRotateLandscape = isMobile && playableAspectRatio === '16:9' && clientHeight >= clientWidth;
+				const frameDimensions = shouldRotateLandscape ? PORTRAIT_PLAYABLE_DIMENSIONS : dimensions;
+				const scaleX = clientWidth / frameDimensions.width;
+				const scaleY = clientHeight / frameDimensions.height;
 				const shouldContainPreview = containMode && (playing || shouldWarmFrame);
+				setRotateLandscape(shouldRotateLandscape);
 				if (shouldContainPreview) {
 					const s = Math.min(scaleX, scaleY);
 					setScale(s);
 					setOffset({
-						x: (clientWidth - GAME_WIDTH * s) / 2,
-						y: (clientHeight - GAME_HEIGHT * s) / 2,
+						x: (clientWidth - frameDimensions.width * s) / 2,
+						y: (clientHeight - frameDimensions.height * s) / 2,
 					});
 				} else {
 					setScale(Math.max(scaleX, scaleY));
@@ -131,7 +141,7 @@ export const FeedItem = React.forwardRef<FeedItemHandle, FeedItemProps>(
 			const observer = new ResizeObserver(updateScale);
 			observer.observe(container);
 			return () => observer.disconnect();
-		}, [containMode, playing, shouldWarmFrame]);
+		}, [containMode, dimensions.height, dimensions.width, isMobile, playableAspectRatio, playing, shouldWarmFrame]);
 
 		const startPlay = async () => {
 			const readyPreviewUrl = previewUrl || preloadedPreviewUrl;
@@ -205,8 +215,11 @@ export const FeedItem = React.forwardRef<FeedItemHandle, FeedItemProps>(
 		const creatorName = app.userName || 'Creator';
 		const isOwnAuthor = Boolean(app.userId && app.userId === user?.id);
 		const showCreatorCta = Boolean(!playing && app.userId && !isOwnAuthor && !isFollowingAuthor);
+		const warmPortraitPosterClassName = 'absolute left-1/2 top-1/2 z-10 aspect-[9/16] w-[44%] max-w-[220px] -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-white/25 object-cover shadow-[0_20px_70px_rgba(0,0,0,0.55)]';
 		const posterClassName = warmFrameActive
-			? 'absolute left-1/2 top-1/2 z-10 aspect-[9/16] w-[44%] max-w-[220px] -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-white/25 object-cover shadow-[0_20px_70px_rgba(0,0,0,0.55)]'
+			? playableAspectRatio === '16:9' && !isMobile
+				? 'absolute left-1/2 top-1/2 z-10 aspect-video w-[72%] max-w-[360px] -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-white/25 object-cover shadow-[0_20px_70px_rgba(0,0,0,0.55)]'
+				: warmPortraitPosterClassName
 			: 'absolute inset-0 h-full w-full object-cover';
 
 		return (
@@ -230,9 +243,9 @@ export const FeedItem = React.forwardRef<FeedItemHandle, FeedItemProps>(
 								top: offset.y,
 								left: offset.x,
 								border: 'none',
-								width: GAME_WIDTH,
-								height: GAME_HEIGHT,
-								transform: `scale(${scale})`,
+								width: dimensions.width,
+								height: dimensions.height,
+								transform: getPlayableFrameTransform({ scale, rotateLandscape }, dimensions),
 								transformOrigin: 'top left',
 								opacity: playing || iframeLoaded ? 1 : 0,
 								pointerEvents: playing ? 'auto' : 'none',

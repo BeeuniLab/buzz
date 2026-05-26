@@ -6,6 +6,7 @@ import {
 	MAX_AGENT_QUERY_LENGTH,
 	SUPPORTED_CHAT_MEDIA_MIME_TYPES,
 	type ImageAttachment,
+	type PlayableAspectRatio,
 	type ProjectType,
 } from '@/api-types';
 import { useFeature } from '@/features';
@@ -181,6 +182,7 @@ export default function Home() {
 	const [playableType, setPlayableType] = useState<PlayableType>('2d');
 	const [query, setQuery] = useState('');
 	const [isKlipyMediaPickerOpen, setIsKlipyMediaPickerOpen] = useState(false);
+	const [playableAspectRatio, setPlayableAspectRatio] = useState<PlayableAspectRatio>('9:16');
 	const { isLoadingCapabilities, capabilities, getEnabledFeatures } = useFeature();
 
 	const modeOptions = useMemo<ProjectModeOption[]>(() => {
@@ -282,13 +284,14 @@ export default function Home() {
 
 		const encodedQuery = encodeURIComponent(query);
 		const encodedMode = encodeURIComponent(mode);
+		const encodedAspectRatio = encodeURIComponent(playableAspectRatio);
 
 		const mediaKey = storePendingMedia(images);
 		const fallbackImageParam = images.length > 0 && !mediaKey
 			? `&images=${encodeURIComponent(JSON.stringify(images))}`
 			: '';
 		const mediaParam = mediaKey ? `&mediaKey=${encodeURIComponent(mediaKey)}` : fallbackImageParam;
-		const intendedUrl = `/chat/new?query=${encodedQuery}&projectType=${encodedMode}${mediaParam}`;
+		const intendedUrl = `/chat/new?query=${encodedQuery}&projectType=${encodedMode}&aspectRatio=${encodedAspectRatio}${mediaParam}`;
 		const routeState = images.length > 0 ? { images } : undefined;
 
 		if (
@@ -573,7 +576,29 @@ export default function Home() {
 								)}
 							</div>
 							<div className="flex items-center justify-between mt-4 pt-1 gap-3">
-								<div className="flex min-w-0 flex-1 items-center gap-2">
+								<div className="flex min-w-0 flex-1 items-center gap-1.5 sm:gap-2">
+									<div
+										className="inline-flex shrink-0 items-center rounded-lg border-2 border-[var(--neo-border-color)] bg-bg-4 p-0.5 shadow-[2px_2px_0px_0px_var(--neo-border-color)]"
+										aria-label={t('Playable format')}
+									>
+										{(['9:16', '16:9'] as const).map((ratio) => (
+											<button
+												key={ratio}
+												type="button"
+												onClick={() => setPlayableAspectRatio(ratio)}
+												aria-pressed={playableAspectRatio === ratio}
+												title={ratio === '9:16' ? t('Portrait playable') : t('Landscape playable')}
+												className={clsx(
+													'inline-flex h-7 min-w-10 items-center justify-center rounded-md px-1.5 text-[11px] font-black transition-all',
+													playableAspectRatio === ratio
+														? 'bg-neo-green text-[#1a1a1a]'
+														: 'text-text-primary/60 hover:text-text-primary'
+												)}
+											>
+												{ratio}
+											</button>
+										))}
+									</div>
 									<button
 										type="button"
 										onClick={() => setIsKlipyMediaPickerOpen(true)}
@@ -582,7 +607,7 @@ export default function Home() {
 										aria-label={t('Pick KLIPY media')}
 									>
 										<Laugh className="size-3.5" />
-										<span>{t('Media')}</span>
+										<span className="hidden sm:inline">{t('Media')}</span>
 									</button>
 									<button
 										type="button"
@@ -591,7 +616,7 @@ export default function Home() {
 										aria-label={t('Fill with a surprise prompt')}
 									>
 										<Shuffle className="size-3.5" />
-										<span>{t('Surprise')}</span>
+										<span className="hidden sm:inline">{t('Surprise')}</span>
 									</button>
 
 									{showModeSelector && (

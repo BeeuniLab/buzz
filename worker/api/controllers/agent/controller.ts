@@ -1,7 +1,7 @@
 import { WebSocketMessageResponses } from '../../../agents/constants';
 import { BaseController } from '../baseController';
 import { generateId } from '../../../utils/idGenerator';
-import { ProjectType } from '../../../agents/core/types';
+import { normalizePlayableAspectRatio, ProjectType } from '../../../agents/core/types';
 import { getAgentStub } from '../../../agents';
 import {
     AgentConnectionData,
@@ -122,6 +122,7 @@ export class CodingAgentController extends BaseController {
             const workflowId = `create-${agentId}`;
             const modelConfigService = new ModelConfigService(env);
             const projectType = resolveProjectType(body);
+            const playableAspectRatio = normalizePlayableAspectRatio(body.playableAspectRatio);
             const appService = new AppService(env);
             const appTitle = buildPendingAppTitle(query);
 
@@ -149,6 +150,7 @@ export class CodingAgentController extends BaseController {
                 originalPrompt: query,
                 finalPrompt: query,
                 framework: (body.frameworks || defaultCodeGenArgs.frameworks || []).join(','),
+                playableAspectRatio,
                 visibility: 'private',
                 status: 'generating',
                 createdAt: new Date(),
@@ -220,6 +222,7 @@ export class CodingAgentController extends BaseController {
                 frameworks: body.frameworks || defaultCodeGenArgs.frameworks,
                 selectedTemplate: body.selectedTemplate,
                 requestedProjectType: projectType,
+                playableAspectRatio,
                 images: workflowImages,
             });
 
@@ -241,6 +244,7 @@ export class CodingAgentController extends BaseController {
                     fallbackTitle: appTitle,
                     language: body.language || defaultCodeGenArgs.language,
                     frameworks: body.frameworks || defaultCodeGenArgs.frameworks,
+                    playableAspectRatio,
                     hostname,
                     inferenceContext,
                     images: workflowImages,

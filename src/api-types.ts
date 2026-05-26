@@ -194,6 +194,7 @@ export type {
 export type {
   BehaviorType,
   GenerationBackend,
+  PlayableAspectRatio,
   ProjectType
 } from 'worker/agents/core/types';
 

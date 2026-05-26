@@ -6,7 +6,7 @@
 
 Buzz is a platform for creating interactive mini apps and creative content powered by AI. Users describe what they want in natural language, and the AI generates fully functional HTML canvas experiences — games, data visualizations, animated art, interactive stories, quizzes, and more.
 
-Every project runs as a self-contained single-page experience in a portrait canvas (720x1280), with built-in host APIs for persistence, leaderboards, and asset management.
+Every project runs as a self-contained single-page experience in a portrait (9:16) or landscape (16:9) canvas, with built-in host APIs for persistence, leaderboards, and asset management.
 
 ### Key Features
 

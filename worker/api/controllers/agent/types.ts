@@ -1,6 +1,6 @@
 import type { PreviewType } from "../../../types/project-types";
 import type { ImageAttachment } from '../../../types/image-attachment';
-import type { ProjectType } from '../../../agents/core/types';
+import type { PlayableAspectRatio, ProjectType } from '../../../agents/core/types';
 import type { CredentialsPayload } from '../../../agents/inferutils/config.types';
 
 export const MAX_AGENT_QUERY_LENGTH = 20_000;
@@ -11,6 +11,7 @@ export interface CodeGenArgs {
     frameworks?: string[];
     selectedTemplate?: string;
     projectType?: ProjectType;
+    playableAspectRatio?: PlayableAspectRatio;
     images?: ImageAttachment[];
 
     /** Optional ephemeral credentials (BYOK / gateway override) for sdk */

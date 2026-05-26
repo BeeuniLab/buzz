@@ -74,6 +74,7 @@ export default function Chat() {
 	const location = useLocation();
 	const userQuery = searchParams.get('query');
 	const urlProjectType = searchParams.get('projectType') || 'app';
+	const urlAspectRatio = searchParams.get('aspectRatio') === '16:9' ? '16:9' : '9:16';
 	const routeStateImages = (location.state as { images?: ImageAttachment[] } | null)?.images;
 
 	// Extract attachments from router state, sessionStorage, or legacy URL params.
@@ -100,6 +101,7 @@ export default function Chat() {
 	// If we have an existing app, use its data
 	const displayQuery = app ? app.originalPrompt || app.title : userQuery || '';
 	const appTitle = app?.title;
+	const playableAspectRatio = app?.playableAspectRatio || urlAspectRatio;
 	const chatHeaderTitle = appTitle || displayQuery || (urlChatId && urlChatId !== 'new' ? t('Untitled playable') : t('New playable'));
 
 	// Manual refresh trigger for preview
@@ -195,6 +197,7 @@ export default function Chat() {
 		query: userQuery,
 		images: userImages,
 		projectType: urlProjectType as ProjectType,
+		playableAspectRatio: urlAspectRatio,
 		onDebugMessage: addDebugMessage,
 		onVaultUnlockRequired: handleVaultUnlockRequired,
 	});
@@ -951,13 +954,14 @@ export default function Chat() {
 								"flex-1 flex shrink-0 basis-0 z-30 min-h-0",
 								isMobile ? "p-0" : "p-4 pl-0 ml-2"
 							)}
-						>
-							<MainContentPanel
-								view={view}
-								onViewChange={handleViewModeChange}
-								projectType={projectType}
-								previewUrl={previewUrl}
-								previewAvailable={previewAvailable}
+							>
+								<MainContentPanel
+									view={view}
+									onViewChange={handleViewModeChange}
+									projectType={projectType}
+									playableAspectRatio={playableAspectRatio}
+									previewUrl={previewUrl}
+									previewAvailable={previewAvailable}
 								shouldRefreshPreview={shouldRefreshPreview}
 								isPreviewPaused={isPreviewPaused}
 								previewQueuePosition={previewQueuePosition}

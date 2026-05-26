@@ -342,6 +342,15 @@ export const compiledMessages: Record<AppLocale, Messages> = {
 		"Playable type": [
 			"Playable type"
 		],
+		"Playable format": [
+			"Playable format"
+		],
+		"Portrait playable": [
+			"Portrait playable"
+		],
+		"Landscape playable": [
+			"Landscape playable"
+		],
 		"Build a 2D playable with the current Phaser template": [
 			"Build a 2D playable with the current Phaser template"
 		],
@@ -1321,6 +1330,15 @@ export const compiledMessages: Record<AppLocale, Messages> = {
 		],
 		"Playable type": [
 			"玩法类型"
+		],
+		"Playable format": [
+			"画面比例"
+		],
+		"Portrait playable": [
+			"竖屏互动内容"
+		],
+		"Landscape playable": [
+			"横屏互动内容"
 		],
 		"Build a 2D playable with the current Phaser template": [
 			"使用当前 Phaser 模板创建 2D 互动内容"

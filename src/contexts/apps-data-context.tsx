@@ -73,6 +73,7 @@ export function AppsDataProvider({ children }: AppsDataProviderProps) {
       isArchived: false,
       isFeatured: false,
       hiddenFromBrowse: false,
+      playableAspectRatio: event.data?.playableAspectRatio || '9:16',
       version: 1,
       parentAppId: null,
       screenshotUrl: null,

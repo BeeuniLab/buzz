@@ -12,6 +12,7 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import { useAuthGuard } from '@/hooks/useAuthGuard';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { useAppI18n } from '@/i18n';
+import { getPlayableAspectRatio } from '@/components/playable-frame';
 
 type AppPreviewFields = AppWithUserAndStats & {
 	cloudflareUrl?: string | null;
@@ -24,6 +25,9 @@ const FEED_PREFETCH_REMAINING_ITEMS = 8;
 const PREVIEW_LINK_WARM_BEHIND_COUNT = 4;
 const PREVIEW_LINK_WARM_AHEAD_COUNT = 8;
 const PREVIEW_FRAME_WARM_AHEAD_COUNT = 0;
+const DESKTOP_LANDSCAPE_FEED_FRAME_CLASSNAME =
+	'h-[min(calc(100vh-160px),calc((100vw-420px)*9/16),540px)] aspect-video';
+const DESKTOP_PORTRAIT_FEED_FRAME_CLASSNAME = 'h-[calc(100vh-64px)] aspect-[9/16]';
 
 function getKnownPreviewUrl(app: AppWithUserAndStats | null | undefined) {
 	const previewApp = app as AppPreviewFields | null | undefined;
@@ -182,6 +186,7 @@ export default function FeedPage() {
 						createdAt: detail.createdAt ?? '',
 						updatedAt: detail.updatedAt ?? '',
 						isPublic: true,
+						playableAspectRatio: detail.playableAspectRatio ?? '9:16',
 						cloudflareUrl: detail.cloudflareUrl ?? null,
 						previewUrl: detailPreviewUrl,
 					} as unknown as AppWithUserAndStats;
@@ -385,7 +390,17 @@ export default function FeedPage() {
 
 	const currentApp = apps[currentIndex];
 	const currentAppId = currentApp?.id;
+	const currentPlayableAspectRatio = getPlayableAspectRatio(currentApp?.playableAspectRatio);
+	const desktopFeedFrameClassName = currentPlayableAspectRatio === '16:9'
+		? DESKTOP_LANDSCAPE_FEED_FRAME_CLASSNAME
+		: DESKTOP_PORTRAIT_FEED_FRAME_CLASSNAME;
 	const shouldSyncCurrentAppUrl = Boolean(appId) || currentIndex > 0;
+
+	React.useEffect(() => {
+		if (isMobile) return;
+		const currentItem = containerRef.current?.children[currentIndex] as HTMLElement | undefined;
+		currentItem?.scrollIntoView({ block: 'start' });
+	}, [currentIndex, currentPlayableAspectRatio, isMobile]);
 
 	// Update URL, record view, and fetch comment count when current app changes
 	React.useEffect(() => {
@@ -601,7 +616,10 @@ export default function FeedPage() {
 				<div
 					key={app.id}
 					ref={i === Math.max(apps.length - FEED_PREFETCH_REMAINING_ITEMS, 0) ? lastItemRef : undefined}
-					className="h-full"
+					className={cn(
+						'h-full',
+						!isMobile && desktopFeedFrameClassName,
+					)}
 				>
 					<FeedItem
 						app={app}
@@ -771,7 +789,12 @@ export default function FeedPage() {
 		<div className="h-full flex items-center justify-center bg-bg-1 overflow-hidden">
 			{seoIntro}
 			<div className="relative flex items-end gap-4">
-				<div className="relative h-[calc(100vh-64px)] aspect-[9/16] rounded-2xl overflow-hidden shadow-2xl border border-border-primary bg-black">
+				<div
+					className={cn(
+						'relative overflow-hidden rounded-2xl border border-border-primary bg-black shadow-2xl',
+						desktopFeedFrameClassName,
+					)}
+				>
 					{scrollContent}
 				</div>
 

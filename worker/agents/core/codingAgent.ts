@@ -1,5 +1,5 @@
 import { Agent, AgentContext, ConnectionContext, getAgentByName } from "agents";
-import { AgentInitArgs, AgentSummary, AllIssues, DeployOptions, DeployResult, ExportOptions, ExportResult, BehaviorType } from "./types";
+import { AgentInitArgs, AgentSummary, AllIssues, DeployOptions, DeployResult, ExportOptions, ExportResult, BehaviorType, normalizePlayableAspectRatio } from "./types";
 import {
     AgentState,
     BaseProjectState,
@@ -320,6 +320,7 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
         this.templateDetailsCache = templateDetails;
 
         const { query, frameworks, hostname, inferenceContext, sessionId } = initArgs;
+        const playableAspectRatio = normalizePlayableAspectRatio(initArgs.playableAspectRatio);
         const projectName = generateProjectName(
             query || templateDetails.name || 'project',
             generateNanoId(),
@@ -338,6 +339,7 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
             projectType: templateDetails.projectType ?? this.state.projectType,
             projectName,
             query,
+            playableAspectRatio,
             initialUserAttachments: (initArgs.images ?? []).map(toInitialUserAttachment),
             templateName: templateDetails.name,
             sandboxInstanceId: undefined,
@@ -407,6 +409,7 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
             ...stateWithoutGenerationBackend,
             behaviorType: LEGACY_STATE_BEHAVIOR_TYPE,
             projectType,
+            playableAspectRatio: normalizePlayableAspectRatio(this.state.playableAspectRatio),
         } as AgentState);
         
         // Create objective based on project type
@@ -921,6 +924,7 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
         return {
             ...intent,
             query: intent.query || this.state.query || 'Continue the current project.',
+            playableAspectRatio: normalizePlayableAspectRatio(intent.playableAspectRatio ?? this.state.playableAspectRatio),
             images: intent.images?.map(stripBase64FromProcessedAttachment),
         };
     }
@@ -950,6 +954,7 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
                 query: fallbackQuery,
                 hostname: this.state.hostname,
                 requestedProjectType: this.state.projectType,
+                playableAspectRatio: this.state.playableAspectRatio,
             }),
             error: args.message,
             failedAt: Date.now(),
@@ -1517,6 +1522,7 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
         query: string;
         hostname: string;
         projectType: ProjectType;
+        playableAspectRatio?: ReturnType<typeof normalizePlayableAspectRatio>;
         workflowId?: string;
         workflowKind?: ActiveWorkflowTask['kind'];
         language?: string;
@@ -1527,6 +1533,7 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
     }): Promise<void> {
         this.throwIfDeleted('prepare workflow project');
         const sessionId = DeploymentManager.generateNewSessionId();
+        const playableAspectRatio = normalizePlayableAspectRatio(args.playableAspectRatio);
         this.initLogger(args.agentId, args.userId, sessionId);
         this.setState({
             ...this.state,
@@ -1534,6 +1541,7 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
             projectType: args.projectType,
             projectName: '',
             query: args.query,
+            playableAspectRatio,
             sessionId,
             hostname: args.hostname,
             metadata: {
@@ -1552,6 +1560,7 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
                 frameworks: args.frameworks,
                 selectedTemplate: args.selectedTemplate,
                 requestedProjectType: args.requestedProjectType,
+                playableAspectRatio,
                 images: args.images,
             } : this.state.lastRetryableWorkflow,
             activeWorkflow: args.workflowId && args.workflowKind ? {
@@ -1621,6 +1630,7 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
                         ...existingRetryableWorkflow,
                         query,
                         recoveryWorkflowId: options.recoveryWorkflowId ?? existingRetryableWorkflow.recoveryWorkflowId,
+                        playableAspectRatio: existingRetryableWorkflow.playableAspectRatio,
                     }
                     : {
                         workflowId: effectiveWorkflowId,
@@ -1629,6 +1639,7 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
                         query,
                         hostname: this.state.hostname,
                         requestedProjectType: this.state.projectType,
+                        playableAspectRatio: this.state.playableAspectRatio,
                     },
             )
             : this.state.lastRetryableWorkflow;
@@ -1773,6 +1784,7 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
             query: retryFrom?.query ?? this.buildCodexWorkflowQuery(kind),
             hostname: this.state.hostname,
             requestedProjectType: this.state.projectType,
+            playableAspectRatio: retryFrom?.playableAspectRatio ?? this.state.playableAspectRatio,
         });
 
         const workflow = this.getWorkflowBinding();
@@ -1998,6 +2010,7 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
             frameworks: previousIntent?.frameworks,
             selectedTemplate: previousIntent?.selectedTemplate,
             requestedProjectType: previousIntent?.requestedProjectType || this.state.projectType,
+            playableAspectRatio: previousIntent?.playableAspectRatio ?? this.state.playableAspectRatio,
             images: workflowImages && workflowImages.length > 0
                 ? workflowImages
                 : previousIntent?.kind === 'create_project'
@@ -2040,6 +2053,7 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
             hostname: intent.hostname || this.state.hostname,
             language: intent.language || 'typescript',
             requestedProjectType: intent.requestedProjectType || this.state.projectType,
+            playableAspectRatio: intent.playableAspectRatio ?? this.state.playableAspectRatio,
         });
         const params: CreateProjectWorkflowParams = {
             kind: 'create_project',
@@ -2049,6 +2063,7 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
             query: retryableWorkflow.query,
             language: retryableWorkflow.language,
             frameworks: retryableWorkflow.frameworks,
+            playableAspectRatio: retryableWorkflow.playableAspectRatio,
             hostname: retryableWorkflow.hostname || this.state.hostname,
             inferenceContext,
             images: retryableWorkflow.images,
@@ -2783,6 +2798,7 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
             originalPrompt: this.state.query,
             finalPrompt: this.state.query,
             framework: this.state.blueprint.frameworks.join(','),
+            playableAspectRatio: normalizePlayableAspectRatio(this.state.playableAspectRatio),
             visibility: 'private',
             status: 'generating',
             createdAt: new Date(),

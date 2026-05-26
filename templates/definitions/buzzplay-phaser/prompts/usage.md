@@ -7,6 +7,12 @@
 - Treat game feel as required: large readable HUD, instant feedback, satisfying motion, score/progress response, and a replayable result state.
 - Avoid conventional app/page structure unless the creator explicitly asks for it. BuzzPlay output should feel like playable media inside the preview iframe, not a marketing website or dashboard.
 
+## Development Planning
+- Before a new playable or substantial gameplay/visual change, create or update `docs/game-plan.md` inside the generated project. Do not write planning docs under `.codex`, `.buzz`, temp folders, or outside the repository.
+- Keep the plan concise with these headings: Creator Brief, Core Loop, Visual Direction, UIX And Controls, Assets And Media, Aspect Ratio Layout, Implementation Tasks, Smoke Checks.
+- Use the plan as the implementation contract; update it if the build changes direction while coding.
+- Do not pause for user confirmation unless genuinely blocked, and do not show the plan, template names, or implementation steps inside the playable UI.
+
 ## Phaser Rules
 - This template uses Phaser 4.1.0. Do not use Phaser 3-only APIs when Phaser 4 has changed or removed them.
 - Reference the Phaser API before using unfamiliar classes, methods, config fields, physics APIs, or plugin APIs: https://docs.phaser.io/api-documentation/api-documentation
@@ -22,12 +28,13 @@
 
 ## Iframe, Touch, And Preview Rules
 - The Phaser canvas must fill the current iframe/container width and height without page scrolling.
+- The default playable target is 720x1280 portrait. If the BuzzPlay prompt requests 16:9 landscape, set the Phaser game config to 1280x720 and compose gameplay for that wider frame.
 - Do not add a fake phone frame, device mockup, centered max-width mobile shell, or nested viewport card unless the creator explicitly asks for one.
 - Use pointer/touch-friendly controls. Tap, hold, drag, swipe, or large choice zones are preferred.
 - Do not rely on keyboard-only, hover-only, or tiny desktop controls.
 - Keep action zones large and edge-aware. Primary play should stay prominent and reachable across container sizes.
 - Avoid text-heavy instructions. Use short labels and visual cues.
-- Keep every readable label legible in the 9:16 mobile preview without zooming. At 720x1280 design resolution, use at least 34px for HUD/status text, at least 40px for instructions and button labels, and at least 56px for titles, result messages, or primary calls to action. Shorten copy before reducing type size.
+- Keep every readable label legible in the requested preview aspect ratio without zooming. At 720x1280 portrait or 1280x720 landscape design resolution, use at least 34px for HUD/status text, at least 40px for instructions and button labels, and at least 56px for titles, result messages, or primary calls to action. Shorten copy before reducing type size.
 - Keep frame logic lightweight; do not add large external assets unless the user provided them.
 
 ## Game Feel And Polish

@@ -6,7 +6,7 @@ import {
 } from 'cloudflare:workers';
 import { NonRetryableError } from 'cloudflare:workflows';
 import { getAgentStub, getTemplateForQuery } from '../index';
-import type { DeployOptions, ProjectType } from '../core/types';
+import type { DeployOptions, PlayableAspectRatio, ProjectType } from '../core/types';
 import type { InferenceContext } from '../inferutils/config.types';
 import type { ProcessedImageAttachment } from '../../types/image-attachment';
 import { createLogger } from '../../logger';
@@ -128,6 +128,7 @@ export type CreateProjectWorkflowParams = BaseWorkflowParams & {
 	language?: string;
 	frameworks?: string[];
 	selectedTemplate?: string;
+	playableAspectRatio?: PlayableAspectRatio;
 	requestedProjectType: ProjectType | 'auto';
 	images?: ProcessedImageAttachment[];
 };
@@ -239,6 +240,7 @@ export class CodeGenerationWorkflow extends WorkflowEntrypoint<Env, CodeGenerati
 				query: params.query,
 				language: params.language,
 				frameworks: params.frameworks,
+				playableAspectRatio: params.playableAspectRatio,
 				hostname: params.hostname,
 				inferenceContext: params.inferenceContext,
 				images: params.images,

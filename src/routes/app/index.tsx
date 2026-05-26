@@ -27,6 +27,7 @@ import { toast } from 'sonner';
 import { getPreviewUrl } from '@/lib/utils';
 import { ConfirmDeleteDialog } from '@/components/shared/ConfirmDeleteDialog';
 import { useAppI18n } from '@/i18n';
+import { getPlayableAspectRatio, PlayableFrame } from '@/components/playable-frame';
 
 // Use proper types from API types
 type AppDetails = AppDetailsData;
@@ -430,6 +431,8 @@ export default function AppView() {
 
 	const isOwner = app.userId === user?.id;
 	const appUrl = getAppUrl();
+	const playableAspectRatio = getPlayableAspectRatio(app.playableAspectRatio);
+	const isLandscapePlayable = playableAspectRatio === '16:9';
 	const feedUrl = app.visibility === 'public' ? `/feed/${app.id}` : undefined;
 	const visibilityLabel = app.visibility === 'private' ? t('Private') : t('Public');
 	const nextVisibilityLabel = app.visibility === 'private' ? t('Public') : t('Private');
@@ -543,27 +546,22 @@ export default function AppView() {
 					<CardContent className="p-0 flex-1 flex flex-col">
 						<div className="relative flex-1 flex flex-col">
 							{appUrl ? (
-								<div className="flex items-center justify-center bg-bg-3 p-4">
-									<div className="w-full max-w-[360px] aspect-[9/16] rounded-2xl overflow-hidden shadow-2xl border border-border-primary bg-black relative">
-										<iframe
-											ref={previewIframeRef}
-											src={appUrl}
-											title={`${app.title} Preview`}
-											allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope"
-											sandbox="allow-scripts allow-same-origin allow-pointer-lock allow-forms allow-modals allow-orientation-lock allow-popups allow-presentation"
-											style={{
-												position: 'absolute',
-												top: 0,
-												left: 0,
-												border: 'none',
-												width: 720,
-												height: 1280,
-												transform: 'scale(0.5)',
-												transformOrigin: 'top left',
-											}}
-										/>
-									</div>
-								</div>
+								<PlayableFrame
+									aspectRatio={playableAspectRatio}
+									className="flex-1 bg-bg-3 p-4"
+									lockDesktopPortraitWidth={!isLandscapePlayable}
+									maxDesktopFrameWidth={isLandscapePlayable ? 1080 : undefined}
+									maxDesktopFrameHeight={isLandscapePlayable ? 608 : undefined}
+								>
+									<iframe
+										ref={previewIframeRef}
+										src={appUrl}
+										title={`${app.title} Preview`}
+										allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope"
+										sandbox="allow-scripts allow-same-origin allow-pointer-lock allow-forms allow-modals allow-orientation-lock allow-popups allow-presentation"
+										className="h-full w-full border-0"
+									/>
+								</PlayableFrame>
 							) : (
 								<div className="relative w-full flex-1 bg-gray-50 flex items-center justify-center">
 									<div className="text-center">

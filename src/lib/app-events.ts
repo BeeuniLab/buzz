@@ -3,7 +3,7 @@
  * Allows different parts of the app to communicate about app state changes
  */
 
-import { AppWithFavoriteStatus } from "@/api-types";
+import { AppWithFavoriteStatus, PlayableAspectRatio } from "@/api-types";
 
 // Define specific event data types
 export interface AppDeletedEvent {
@@ -17,6 +17,7 @@ export interface AppCreatedEvent {
   data?: {
     title?: string;
     description?: string;
+    playableAspectRatio?: PlayableAspectRatio;
     visibility?: string;
     isForked?: boolean;
   };

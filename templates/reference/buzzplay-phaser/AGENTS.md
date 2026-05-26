@@ -13,6 +13,13 @@
 - Treat visual polish and game feel as part of the implementation, not as optional decoration. Every playable should have a clear first action, readable state, immediate feedback, and a satisfying replay loop.
 - Match the quality bar of a finished mobile microgame: full-bleed stage, subject-specific visual theme, visible motion in the first second, big touch targets, juicy feedback, and a fast replay loop.
 
+## Development Planning
+
+- Before a new playable or substantial gameplay/visual change, create or update `docs/game-plan.md` inside the generated project. Do not write planning docs under `.codex`, `.buzz`, temp folders, or outside the repository.
+- Keep the plan concise with these headings: Creator Brief, Core Loop, Visual Direction, UIX And Controls, Assets And Media, Aspect Ratio Layout, Implementation Tasks, Smoke Checks.
+- Use the plan as the implementation contract; update it if the build changes direction while coding.
+- Do not pause for user confirmation unless genuinely blocked, and do not show the plan, template names, or implementation steps inside the playable UI.
+
 ## Phaser Rules
 
 - This template uses Phaser 4.1.0. Do not use Phaser 3-only APIs when Phaser 4 has changed or removed them.
@@ -62,9 +69,10 @@
 ## Iframe And Preview
 
 - The Phaser canvas must fill the current iframe/container width and height without page scrolling.
+- The default playable target is 720x1280 portrait. If the BuzzPlay prompt requests 16:9 landscape, set the Phaser game config to 1280x720 and compose gameplay for that wider frame.
 - Do not add a fake phone frame, device mockup, centered max-width mobile shell, or nested viewport card unless the creator explicitly asks for one.
 - Avoid text-heavy instructions. Use short labels and visual cues.
-- Keep every readable label legible in the 9:16 mobile preview without zooming. At 720x1280 design resolution, use at least 34px for HUD/status text, at least 40px for instructions and button labels, and at least 56px for titles, result messages, or primary calls to action. Shorten copy before reducing type size.
+- Keep every readable label legible in the requested preview aspect ratio without zooming. At 720x1280 portrait or 1280x720 landscape design resolution, use at least 34px for HUD/status text, at least 40px for instructions and button labels, and at least 56px for titles, result messages, or primary calls to action. Shorten copy before reducing type size.
 - Keep frame logic lightweight; do not add large external assets unless the user provided them.
 
 ## Files To Edit First

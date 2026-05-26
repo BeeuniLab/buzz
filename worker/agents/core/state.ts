@@ -3,7 +3,7 @@ import type { PhasicBlueprint, AgenticBlueprint, PhaseConceptType ,
     Blueprint,
 } from '../schemas';
 import type { InferenceMetadata } from '../inferutils/config.types';
-import { BehaviorType, GenerationBackend, Plan, ProjectType } from './types';
+import { BehaviorType, GenerationBackend, Plan, PlayableAspectRatio, ProjectType } from './types';
 import type { InitialUserAttachment, ProcessedImageAttachment } from '../../types/image-attachment';
 
 export interface FileState extends FileOutputType {
@@ -42,6 +42,7 @@ export interface RetryableWorkflowIntent {
     frameworks?: string[];
     selectedTemplate?: string;
     requestedProjectType?: ProjectType | 'auto';
+    playableAspectRatio?: PlayableAspectRatio;
     images?: ProcessedImageAttachment[];
 }
 
@@ -74,6 +75,7 @@ export interface BaseProjectState {
     // Identity
     projectName: string;
     query: string;
+    playableAspectRatio?: PlayableAspectRatio;
     initialUserAttachments?: InitialUserAttachment[];
     sessionId: string;
     hostname: string;

@@ -1,4 +1,4 @@
-import { type RefObject, type ReactNode, Suspense, useState, useCallback, useRef, useEffect } from 'react';
+import { type RefObject, type ReactNode, Suspense, useState, useCallback } from 'react';
 import { WebSocket } from 'partysocket';
 import { motion } from 'framer-motion';
 import { Play, RefreshCw } from 'lucide-react';
@@ -10,55 +10,11 @@ import { UpdatePlayableAction } from './update-playable-action';
 import { AssetsPanel } from './assets-panel';
 import { Button } from '@/components/ui/button';
 import { featureRegistry } from '@/features';
-import type { FileType, BlueprintType, BehaviorType, TemplateDetails, ProjectType } from '@/api-types';
+import type { FileType, BlueprintType, BehaviorType, TemplateDetails, PlayableAspectRatio, ProjectType } from '@/api-types';
 import type { Edit } from '../hooks/use-chat';
 import type { ChatAssetSelectionTarget } from '../utils/chat-attachments';
 import { useAppI18n } from '@/i18n';
-
-const GAME_WIDTH = 720;
-const GAME_HEIGHT = 1280;
-
-function PhoneFrame({ children }: { children: ReactNode }) {
-	const containerRef = useRef<HTMLDivElement>(null);
-	const [scale, setScale] = useState(1);
-
-	useEffect(() => {
-		const container = containerRef.current;
-		if (!container) return;
-
-		const updateScale = () => {
-			const { clientWidth, clientHeight } = container;
-			const scaleX = clientWidth / GAME_WIDTH;
-			const scaleY = clientHeight / GAME_HEIGHT;
-			setScale(Math.max(scaleX, scaleY));
-		};
-		updateScale();
-		const observer = new ResizeObserver(updateScale);
-		observer.observe(container);
-		return () => observer.disconnect();
-	}, []);
-
-	return (
-		<div className="flex-1 flex items-center justify-center bg-bg-3 overflow-hidden p-4">
-			<div
-				ref={containerRef}
-				className="h-full aspect-[9/16] rounded-2xl overflow-hidden shadow-2xl border border-border-primary bg-black relative"
-			>
-				<div style={{
-					position: 'absolute',
-					top: 0,
-					left: 0,
-					width: GAME_WIDTH,
-					height: GAME_HEIGHT,
-					transform: `scale(${scale})`,
-					transformOrigin: 'top left',
-				}}>
-					{children}
-				</div>
-			</div>
-		</div>
-	);
-}
+import { PlayableFrame } from '@/components/playable-frame';
 
 function PreviewLoadingPlaceholder({
 	isActive,
@@ -143,6 +99,7 @@ interface MainContentPanelProps {
 
 	// Preview state
 	projectType: ProjectType;
+	playableAspectRatio?: PlayableAspectRatio;
 	previewUrl?: string;
 	previewAvailable: boolean;
 	shouldRefreshPreview: boolean;
@@ -193,6 +150,7 @@ export function MainContentPanel(props: MainContentPanelProps) {
 		view,
 		onViewChange,
 		projectType,
+		playableAspectRatio = '9:16',
 		previewUrl,
 		previewAvailable,
 		shouldRefreshPreview,
@@ -324,9 +282,13 @@ export function MainContentPanel(props: MainContentPanelProps) {
 
 		// Wrap preview in a phone frame with iframe scaling (720x1280 native resolution)
 		const previewContent = (
-			<PhoneFrame>
+			<PlayableFrame
+				aspectRatio={playableAspectRatio}
+				className="flex-1 bg-bg-3 p-4"
+				lockDesktopPortraitWidth
+			>
 				{rawPreview}
-			</PhoneFrame>
+			</PlayableFrame>
 		);
 
 		// Get lazy-loaded header actions component from feature registry

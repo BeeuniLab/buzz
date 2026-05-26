@@ -183,6 +183,7 @@ export const apps = sqliteTable('apps', {
     isArchived: integer('is_archived', { mode: 'boolean' }).default(false),
     isFeatured: integer('is_featured', { mode: 'boolean' }).default(false), // Featured by admins
     hiddenFromBrowse: integer('hidden_from_browse', { mode: 'boolean' }).default(false), // Hide from default feed/discover while keeping search visibility
+    playableAspectRatio: text('playable_aspect_ratio', { enum: ['9:16', '16:9'] }).default('9:16'), // Target playable canvas shape
     
     // Versioning (for future support)
     version: integer('version').default(1),

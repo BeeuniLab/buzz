@@ -8,6 +8,7 @@ import {
 	type WebSocketMessage,
 	type CodeFixEdits,
 	type ImageAttachment,
+	type PlayableAspectRatio,
 	type ProjectType,
 	type BehaviorType,
 	type FileType,
@@ -40,6 +41,7 @@ export function useChat({
 	query: userQuery,
 	images: userImages,
 	projectType = 'app',
+	playableAspectRatio = '9:16',
 	onDebugMessage,
 	onVaultUnlockRequired,
 }: {
@@ -47,6 +49,7 @@ export function useChat({
 	query: string | null;
 	images?: ImageAttachment[];
 	projectType?: ProjectType;
+	playableAspectRatio?: PlayableAspectRatio;
 	onDebugMessage?: (type: 'error' | 'warning' | 'info' | 'websocket', message: string, details?: string, source?: string, messageType?: string, rawMessage?: unknown) => void;
 	onVaultUnlockRequired?: (reason: string) => void;
 }) {
@@ -538,6 +541,7 @@ export function useChat({
 					const response = await apiClient.createAgentSession({
 						query: userQuery,
 						projectType,
+						playableAspectRatio,
 						images: userImages, // Pass images from URL params for initial build context
 					});
 
@@ -566,6 +570,7 @@ export function useChat({
 						appEvents.emitAppCreated(agentId, {
 							title: userQuery || 'New App',
 							description: userQuery,
+							playableAspectRatio,
 						});
 					};
 
@@ -691,6 +696,7 @@ export function useChat({
 		init();
 	}, [
 		projectType,
+		playableAspectRatio,
 		connectWithRetry,
 		loadBootstrapFiles,
 		onDebugMessage,
