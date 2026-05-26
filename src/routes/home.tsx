@@ -17,11 +17,17 @@ import { useImageUpload } from '@/hooks/use-image-upload';
 import { useDragDrop } from '@/hooks/use-drag-drop';
 import { AttachmentPickerDropdown } from '@/components/attachment-picker-dropdown';
 import { CameraCaptureButton } from '@/components/camera-capture-button';
+import {
+	DropdownMenu,
+	DropdownMenuContent,
+	DropdownMenuItem,
+	DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { KlipyMediaPicker } from '@/components/klipy-media-picker';
 import { ImageAttachmentPreview } from '@/components/image-attachment-preview';
 import { getClipboardFiles } from '@/utils/clipboard-files';
 import { toast } from 'sonner';
-import { Box, Laugh, Layers2, Shuffle } from 'lucide-react';
+import { Box, ChevronDown, Laugh, Layers2, RectangleHorizontal, RectangleVertical, Shuffle } from 'lucide-react';
 import { useAppI18n } from '@/i18n';
 
 const SURPRISE_PROMPTS = [
@@ -268,6 +274,7 @@ export default function Home() {
 	const composerPlaceholder = locale === 'zh-CN'
 		? `创建${currentPlaceholderText || '一个互动内容'}`
 		: `Create a ${currentPlaceholderText || 'playable experience'}`;
+	const CurrentAspectIcon = playableAspectRatio === '16:9' ? RectangleHorizontal : RectangleVertical;
 
 	const handleCreateApp = (query: string, mode: ProjectType) => {
 		if (playableType !== '2d') {
@@ -577,28 +584,55 @@ export default function Home() {
 							</div>
 							<div className="flex items-center justify-between mt-4 pt-1 gap-3">
 								<div className="flex min-w-0 flex-1 items-center gap-1.5 sm:gap-2">
-									<div
-										className="inline-flex shrink-0 items-center rounded-lg border-2 border-[var(--neo-border-color)] bg-bg-4 p-0.5 shadow-[2px_2px_0px_0px_var(--neo-border-color)]"
-										aria-label={t('Playable format')}
+									<button
+										type="button"
+										onClick={handleSurprisePrompt}
+										className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border-2 border-[var(--neo-border-color)] bg-neo-cyan px-2.5 py-1.5 text-xs font-black text-[#1a1a1a] shadow-[2px_2px_0px_0px_var(--neo-border-color)] transition-all duration-150 hover:shadow-[3px_3px_0px_0px_var(--neo-border-color)] hover:-translate-x-[0.5px] hover:-translate-y-[0.5px] active:translate-x-[1px] active:translate-y-[1px] active:shadow-[1px_1px_0px_0px_var(--neo-border-color)]"
+										aria-label={t('Fill with a surprise prompt')}
 									>
-										{(['9:16', '16:9'] as const).map((ratio) => (
+										<Shuffle className="size-3.5" />
+										<span className="hidden sm:inline">{t('Surprise')}</span>
+									</button>
+									<DropdownMenu>
+										<DropdownMenuTrigger asChild>
 											<button
-												key={ratio}
 												type="button"
-												onClick={() => setPlayableAspectRatio(ratio)}
-												aria-pressed={playableAspectRatio === ratio}
-												title={ratio === '9:16' ? t('Portrait playable') : t('Landscape playable')}
-												className={clsx(
-													'inline-flex h-7 min-w-10 items-center justify-center rounded-md px-1.5 text-[11px] font-black transition-all',
-													playableAspectRatio === ratio
-														? 'bg-neo-green text-[#1a1a1a]'
-														: 'text-text-primary/60 hover:text-text-primary'
-												)}
+												className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border-2 border-[var(--neo-border-color)] bg-bg-4 px-2.5 py-1.5 text-xs font-black text-[#1a1a1a] shadow-[2px_2px_0px_0px_var(--neo-border-color)] transition-all duration-150 hover:bg-bg-3 hover:shadow-[3px_3px_0px_0px_var(--neo-border-color)] hover:-translate-x-[0.5px] hover:-translate-y-[0.5px] active:translate-x-[1px] active:translate-y-[1px] active:shadow-[1px_1px_0px_0px_var(--neo-border-color)] dark:text-text-primary"
+												aria-label={t('Playable format')}
+												title={playableAspectRatio === '9:16' ? t('Portrait playable') : t('Landscape playable')}
 											>
-												{ratio}
+												<CurrentAspectIcon className="size-3.5" strokeWidth={2.4} />
+												<span>{playableAspectRatio}</span>
+												<ChevronDown className="size-3 opacity-70" strokeWidth={2.2} />
 											</button>
-										))}
-									</div>
+										</DropdownMenuTrigger>
+										<DropdownMenuContent align="start" className="min-w-[160px] p-2">
+											<div className="px-2 pb-2 text-xs font-bold text-text-tertiary">
+												{t('Playable format')}
+											</div>
+											<div className="grid grid-cols-2 gap-1 rounded-xl bg-bg-2 p-1">
+												{(['9:16', '16:9'] as const).map((ratio) => {
+													const RatioIcon = ratio === '16:9' ? RectangleHorizontal : RectangleVertical;
+													const isSelected = playableAspectRatio === ratio;
+													return (
+														<DropdownMenuItem
+															key={ratio}
+															onSelect={() => setPlayableAspectRatio(ratio)}
+															className={clsx(
+																'flex cursor-pointer flex-col items-center justify-center gap-1 rounded-lg px-3 py-2 text-xs font-black',
+																isSelected
+																	? 'bg-bg-4 text-text-primary shadow-[1px_1px_0px_0px_var(--neo-border-color)]'
+																	: 'text-text-primary/65'
+															)}
+														>
+															<RatioIcon className="size-4" strokeWidth={2.3} />
+															<span>{ratio}</span>
+														</DropdownMenuItem>
+													);
+												})}
+											</div>
+										</DropdownMenuContent>
+									</DropdownMenu>
 									<button
 										type="button"
 										onClick={() => setIsKlipyMediaPickerOpen(true)}
@@ -608,15 +642,6 @@ export default function Home() {
 									>
 										<Laugh className="size-3.5" />
 										<span className="hidden sm:inline">{t('Media')}</span>
-									</button>
-									<button
-										type="button"
-										onClick={handleSurprisePrompt}
-										className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border-2 border-[var(--neo-border-color)] bg-neo-cyan px-2.5 py-1.5 text-xs font-black text-[#1a1a1a] shadow-[2px_2px_0px_0px_var(--neo-border-color)] transition-all duration-150 hover:shadow-[3px_3px_0px_0px_var(--neo-border-color)] hover:-translate-x-[0.5px] hover:-translate-y-[0.5px] active:translate-x-[1px] active:translate-y-[1px] active:shadow-[1px_1px_0px_0px_var(--neo-border-color)]"
-										aria-label={t('Fill with a surprise prompt')}
-									>
-										<Shuffle className="size-3.5" />
-										<span className="hidden sm:inline">{t('Surprise')}</span>
 									</button>
 
 									{showModeSelector && (
