@@ -273,8 +273,19 @@ export const FeedItem = React.forwardRef<FeedItemHandle, FeedItemProps>(
 
 					{!playing && (
 						<>
-							{warmFrameActive && iframeLoaded && (
-								<div className="absolute inset-0 z-[5] bg-black/25 transition-opacity duration-500" />
+							{warmFrameActive && (
+								<>
+									<div className="pointer-events-none absolute inset-0 z-[4] bg-black" />
+									<img
+										src={coverUrl}
+										alt=""
+										aria-hidden="true"
+										className="pointer-events-none absolute inset-0 z-[5] h-full w-full scale-110 object-cover opacity-45 blur-2xl"
+										onError={() => setImgError(true)}
+										loading="lazy"
+									/>
+									<div className="pointer-events-none absolute inset-0 z-[6] bg-black/75 transition-opacity duration-500" />
+								</>
 							)}
 
 							<img

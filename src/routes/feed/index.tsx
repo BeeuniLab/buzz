@@ -152,6 +152,7 @@ export default function FeedPage() {
 	const lastItemRef = React.useRef<HTMLDivElement | null>(null);
 	const feedItemRefs = React.useRef<Map<number, FeedItemHandle>>(new Map());
 	const appsRef = React.useRef<AppWithUserAndStats[]>([]);
+	const desktopSnapTimerRef = React.useRef<number | null>(null);
 	const navigate = useNavigate();
 
 	// Keep ref in sync with state for use in memoized callbacks
@@ -159,6 +160,36 @@ export default function FeedPage() {
 	React.useEffect(() => { hasMoreRef.current = hasMore; }, [hasMore]);
 	React.useEffect(() => { loadingRef.current = loading; }, [loading]);
 	React.useEffect(() => { loadingMoreRef.current = loadingMore; }, [loadingMore]);
+
+	const getNearestFeedIndex = React.useCallback((container: HTMLDivElement) => {
+		const itemCount = appsRef.current.length;
+		if (itemCount === 0) return 0;
+
+		let nearestIndex = 0;
+		let nearestDistance = Number.POSITIVE_INFINITY;
+		for (let index = 0; index < itemCount; index += 1) {
+			const item = container.children[index] as HTMLElement | undefined;
+			if (!item) continue;
+			const distance = Math.abs(item.offsetTop - container.scrollTop);
+			if (distance < nearestDistance) {
+				nearestDistance = distance;
+				nearestIndex = index;
+			}
+		}
+
+		return nearestIndex;
+	}, []);
+
+	const snapFeedToIndex = React.useCallback((index: number, behavior: ScrollBehavior = 'auto') => {
+		const container = containerRef.current;
+		if (!container) return;
+		const item = container.children[index] as HTMLElement | undefined;
+		if (!item) return;
+
+		const top = item.offsetTop;
+		if (Math.abs(container.scrollTop - top) <= 1) return;
+		container.scrollTo({ top, behavior });
+	}, []);
 
 	// Load the specific app first if appId is provided
 	React.useEffect(() => {
@@ -294,17 +325,39 @@ export default function FeedPage() {
 		const container = containerRef.current;
 		if (!container) return;
 
+		const snapToNearest = (behavior: ScrollBehavior = 'smooth') => {
+			if (isMobile) return;
+			const nearestIndex = getNearestFeedIndex(container);
+			setCurrentIndex(nearestIndex);
+			snapFeedToIndex(nearestIndex, behavior);
+		};
+
 		const handleScroll = () => {
-			const scrollTop = container.scrollTop;
-			const itemHeight = container.clientHeight;
-			if (itemHeight > 0) {
-				setCurrentIndex(Math.round(scrollTop / itemHeight));
+			if (container.clientHeight > 0) {
+				setCurrentIndex(getNearestFeedIndex(container));
+			}
+
+			if (!isMobile) {
+				if (desktopSnapTimerRef.current !== null) {
+					window.clearTimeout(desktopSnapTimerRef.current);
+				}
+				desktopSnapTimerRef.current = window.setTimeout(() => snapToNearest(), 140);
 			}
 		};
 
+		const handleScrollEnd = () => snapToNearest('auto');
+
 		container.addEventListener('scroll', handleScroll, { passive: true });
-		return () => container.removeEventListener('scroll', handleScroll);
-	}, [loading]);
+		container.addEventListener('scrollend', handleScrollEnd, { passive: true });
+		return () => {
+			container.removeEventListener('scroll', handleScroll);
+			container.removeEventListener('scrollend', handleScrollEnd);
+			if (desktopSnapTimerRef.current !== null) {
+				window.clearTimeout(desktopSnapTimerRef.current);
+				desktopSnapTimerRef.current = null;
+			}
+		};
+	}, [getNearestFeedIndex, isMobile, loading, snapFeedToIndex]);
 
 	// Prime the stable playable URL before the user taps play.
 	React.useEffect(() => {
@@ -342,23 +395,17 @@ export default function FeedPage() {
 			if (e.key === 'j') {
 				e.preventDefault();
 				const next = Math.min(currentIndex + 1, apps.length - 1);
-				const items = container.children;
-				if (items[next]) {
-					(items[next] as HTMLElement).scrollIntoView({ behavior: 'smooth' });
-				}
+				snapFeedToIndex(next, 'smooth');
 			} else if (e.key === 'k') {
 				e.preventDefault();
 				const prev = Math.max(currentIndex - 1, 0);
-				const items = container.children;
-				if (items[prev]) {
-					(items[prev] as HTMLElement).scrollIntoView({ behavior: 'smooth' });
-				}
+				snapFeedToIndex(prev, 'smooth');
 			}
 		};
 
 		window.addEventListener('keydown', handleKeyDown);
 		return () => window.removeEventListener('keydown', handleKeyDown);
-	}, [currentIndex, apps.length]);
+	}, [currentIndex, apps.length, snapFeedToIndex]);
 
 	const handleStarUpdate = (appId: string, starred: boolean, newCount: number) => {
 		setApps((prev) =>
@@ -382,10 +429,7 @@ export default function FeedPage() {
 		const target = direction === 'up'
 			? Math.max(currentIndex - 1, 0)
 			: Math.min(currentIndex + 1, apps.length - 1);
-		const items = container.children;
-		if (items[target]) {
-			(items[target] as HTMLElement).scrollIntoView({ behavior: 'smooth' });
-		}
+		snapFeedToIndex(target, 'smooth');
 	};
 
 	const currentApp = apps[currentIndex];
@@ -396,11 +440,10 @@ export default function FeedPage() {
 		: DESKTOP_PORTRAIT_FEED_FRAME_CLASSNAME;
 	const shouldSyncCurrentAppUrl = Boolean(appId) || currentIndex > 0;
 
-	React.useEffect(() => {
+	React.useLayoutEffect(() => {
 		if (isMobile) return;
-		const currentItem = containerRef.current?.children[currentIndex] as HTMLElement | undefined;
-		currentItem?.scrollIntoView({ block: 'start' });
-	}, [currentIndex, currentPlayableAspectRatio, isMobile]);
+		snapFeedToIndex(currentIndex, 'auto');
+	}, [currentIndex, currentPlayableAspectRatio, isMobile, isPlaying, snapFeedToIndex]);
 
 	// Update URL, record view, and fetch comment count when current app changes
 	React.useEffect(() => {
@@ -607,7 +650,7 @@ export default function FeedPage() {
 		<div
 			ref={containerRef}
 			className={cn(
-				'h-full',
+				'h-full overscroll-contain',
 				isPlaying ? 'overflow-hidden' : 'overflow-y-auto snap-y snap-mandatory',
 			)}
 			style={{ scrollbarWidth: 'none' }}
@@ -617,7 +660,7 @@ export default function FeedPage() {
 					key={app.id}
 					ref={i === Math.max(apps.length - FEED_PREFETCH_REMAINING_ITEMS, 0) ? lastItemRef : undefined}
 					className={cn(
-						'h-full',
+						'h-full min-h-full shrink-0 snap-start snap-always overflow-hidden',
 						!isMobile && desktopFeedFrameClassName,
 					)}
 				>
