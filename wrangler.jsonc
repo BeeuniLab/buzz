@@ -180,7 +180,7 @@
         "ALLOCATION_STRATEGY": "one_to_one",
         "MAX_SANDBOX_INSTANCES": "490",
         "SANDBOX_INSTANCE_TYPE": "standard-2",
-        "LLM_PROXY_URL": "https://subapi.cygnus.ink/v1",
+        "LLM_PROXY_URL": "https://c.cygnus.ink/v1",
         "LLM_PROXY_FALLBACK_URL": "https://codex-byering.com:8317/v1",
         "IMAGE_URL": "https://codex-byering.com:8317/v1",
         "CODE_GENERATION_BACKEND": "native",
