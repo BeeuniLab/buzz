@@ -10,7 +10,7 @@ import {
 import { zodTextFormat } from 'openai/helpers/zod.mjs';
 import {
     ChatCompletionMessageFunctionToolCall,
-    type ReasoningEffort,
+    type ReasoningEffort as OpenAIReasoningEffort,
 } from 'openai/resources.mjs';
 import type {
     FunctionTool,
@@ -33,6 +33,10 @@ import { RateLimitType } from 'worker/services/rate-limit/config';
 import { getMaxToolCallingDepth, MAX_LLM_MESSAGES } from '../constants';
 import { executeToolCallsWithDependencies } from './toolExecution';
 import { CompletionDetector } from './completionDetection';
+
+// Keep the application model configuration aligned with the current API values,
+// including xhigh even when the installed SDK's type definitions lag behind.
+type ReasoningEffort = 'minimal' | 'low' | 'medium' | 'high' | 'xhigh';
 
 function optimizeInputs(messages: Message[]): Message[] {
     return messages.map((message) => ({
@@ -563,8 +567,8 @@ export async function getConfigurationForModel(
     const hasPrimaryLlmProxy = hasValidProxyConfig(env.LLM_PROXY_URL, env.LLM_PROXY_API_KEY);
     const hasFallbackLlmProxy = hasValidProxyConfig(env.LLM_PROXY_FALLBACK_URL, env.LLM_PROXY_FALLBACK_API_KEY);
 
-    if (modelConfig.name === AI_MODEL_CONFIG[AIModels.OPENAI_5_5].name && !hasPrimaryLlmProxy && !hasFallbackLlmProxy) {
-        throw new Error('LLM_PROXY_API_KEY or LLM_PROXY_FALLBACK_API_KEY is required for GPT-5.5 agent inference via the configured LLM proxy.');
+    if (modelConfig.name === AI_MODEL_CONFIG[AIModels.OPENAI_5_6_SOL].name && !hasPrimaryLlmProxy && !hasFallbackLlmProxy) {
+        throw new Error('LLM_PROXY_API_KEY or LLM_PROXY_FALLBACK_API_KEY is required for GPT-5.6 Sol agent inference via the configured LLM proxy.');
     }
 
     if (useFallbackProxy && hasFallbackLlmProxy) {
@@ -874,7 +878,7 @@ export async function infer<OutputSchema extends z.AnyZodObject>({
         // Remove [*.] from model name
         const requestModelName = modelName.replace(/\[.*?\]/, '');
 
-        // Strip provider prefix (e.g. "openai/gpt-5.5" -> "gpt-5.5")
+        // Strip provider prefix (e.g. "openai/gpt-5.6-sol" -> "gpt-5.6-sol")
         // when using LLM proxy, as proxies expect bare model names.
         const usingConfiguredLlmProxy = (
             hasValidProxyConfig(env.LLM_PROXY_URL, env.LLM_PROXY_API_KEY) && baseURL === env.LLM_PROXY_URL
@@ -998,7 +1002,7 @@ export async function infer<OutputSchema extends z.AnyZodObject>({
                 // internally for non-stream callers.
                 stream: true,
                 store: false,
-                reasoning: modelConfig.nonReasoning || !reasoning_effort ? undefined : { effort: reasoning_effort },
+                reasoning: modelConfig.nonReasoning || !reasoning_effort ? undefined : { effort: reasoning_effort as OpenAIReasoningEffort },
                 parallel_tool_calls: tools ? true : undefined,
             } as ResponseCreateParamsBase;
 

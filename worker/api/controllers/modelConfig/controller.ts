@@ -39,7 +39,7 @@ const modelConfigUpdateSchema = z.object({
     modelName: z.string().min(1).max(100).nullable().optional(),
     maxTokens: z.number().min(1).max(200000).nullable().optional(),
     temperature: z.number().min(0).max(2).nullable().optional(),
-    reasoningEffort: z.enum(['low', 'medium', 'high']).nullable().optional(),
+    reasoningEffort: z.enum(['low', 'medium', 'high', 'xhigh']).nullable().optional(),
     providerOverride: z.enum(['cloudflare', 'direct']).nullable().optional(),
     fallbackModel: z.string().min(1).max(100).nullable().optional(),
     isUserOverride: z.boolean().optional()

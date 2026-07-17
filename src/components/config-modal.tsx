@@ -454,6 +454,7 @@ export function ConfigModal({
                     <SelectItem value="low">Low (Fast)</SelectItem>
                     <SelectItem value="medium">Medium (Balanced)</SelectItem>
                     <SelectItem value="high">High (Deep)</SelectItem>
+                    <SelectItem value="xhigh">Extra High (xhigh)</SelectItem>
                   </SelectContent>
                 </Select>
                 {defaultConfig?.reasoning_effort && (

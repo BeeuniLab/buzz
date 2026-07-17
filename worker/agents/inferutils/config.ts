@@ -6,9 +6,9 @@ import {
 } from "./config.types";
 import { env } from 'cloudflare:workers';
 
-const PRIMARY_AGENT_MODEL = AIModels.OPENAI_5_5;
-const FALLBACK_AGENT_MODEL = AIModels.OPENAI_5_5;
-const gpt55Only = (): Set<AIModels> => new Set([AIModels.OPENAI_5_5]);
+const PRIMARY_AGENT_MODEL = AIModels.OPENAI_5_6_SOL;
+const FALLBACK_AGENT_MODEL = AIModels.OPENAI_5_6_SOL;
+const gpt56SolOnly = (): Set<AIModels> => new Set([AIModels.OPENAI_5_6_SOL]);
 
 // Common configs - these are good defaults
 const COMMON_AGENT_CONFIGS = {
@@ -26,7 +26,7 @@ const PLATFORM_AGENT_CONFIG: AgentConfig = {
     ...COMMON_AGENT_CONFIGS,
     conversationalResponse: {
         name: PRIMARY_AGENT_MODEL,
-        reasoning_effort: 'medium',
+        reasoning_effort: 'xhigh',
         max_tokens: 4000,
         temperature: 1,
         fallbackModel: FALLBACK_AGENT_MODEL,
@@ -34,13 +34,13 @@ const PLATFORM_AGENT_CONFIG: AgentConfig = {
 };
 
 //======================================================================================
-// Default config: GPT-5.5-based for all tasks via the OpenAI-compatible LLM proxy
+// Default config: GPT-5.6 Sol-based for all tasks via the OpenAI-compatible LLM proxy
 //======================================================================================
 const DEFAULT_AGENT_CONFIG: AgentConfig = {
     ...COMMON_AGENT_CONFIGS,
     conversationalResponse: {
         name: PRIMARY_AGENT_MODEL,
-        reasoning_effort: 'medium',
+        reasoning_effort: 'xhigh',
         max_tokens: 4000,
         temperature: 0,
         fallbackModel: FALLBACK_AGENT_MODEL,
@@ -54,7 +54,7 @@ export const AGENT_CONFIG: AgentConfig = env.PLATFORM_MODEL_PROVIDERS
 
 export const AGENT_CONSTRAINTS: Map<AgentActionKey, AgentConstraintConfig> = new Map([
 	['conversationalResponse', {
-		allowedModels: gpt55Only(),
+		allowedModels: gpt56SolOnly(),
 		enabled: true,
 	}],
 ]);

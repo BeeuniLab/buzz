@@ -2,7 +2,7 @@
  * Config Types - Pure type definitions only
  */
 
-export type ReasoningEffortType = 'minimal' | 'low' | 'medium' | 'high';
+export type ReasoningEffortType = 'minimal' | 'low' | 'medium' | 'high' | 'xhigh';
 export type ReasoningEffort = ReasoningEffortType;
 
 export enum ModelSize {
@@ -228,6 +228,17 @@ const MODELS_MASTER = {
             contextSize: 400000,
         }
     },
+    OPENAI_5_6_SOL: {
+        id: 'openai/gpt-5.6-sol',
+        config: {
+            name: 'GPT-5.6 Sol',
+            size: ModelSize.LARGE,
+            provider: 'openai',
+            // Preserve the existing flagship credit class until pricing is configured separately.
+            creditCost: 10,
+            contextSize: 1_050_000,
+        }
+    },
     // Below configs are commented for now, may be supported in the future
     // OPENAI_OSS: {
     //     id: 'openai/gpt-oss-120b',
@@ -374,7 +385,7 @@ export type AIModels = typeof AIModels[keyof typeof AIModels];
 
 /**
  * Configuration map for all AI Models.
- * Usage: AI_MODEL_CONFIG[AIModels.OPENAI_5_5]
+ * Usage: AI_MODEL_CONFIG[AIModels.OPENAI_5_6_SOL]
  */
 export const AI_MODEL_CONFIG: Record<AIModels, AIModelConfig> = Object.fromEntries(
     Object.values(MODELS_MASTER).map((entry) => [entry.id, entry.config])

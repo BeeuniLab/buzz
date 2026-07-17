@@ -2,7 +2,7 @@ import { sql } from 'drizzle-orm';
 import { sqliteTable, text, integer, real, index, uniqueIndex } from 'drizzle-orm/sqlite-core';
 
 // Schema enum arrays derived from config types  
-const REASONING_EFFORT_VALUES = ['low', 'medium', 'high'] as const;
+const REASONING_EFFORT_VALUES = ['low', 'medium', 'high', 'xhigh'] as const;
 const PROVIDER_OVERRIDE_VALUES = ['cloudflare', 'direct'] as const;
 
 // ========================================

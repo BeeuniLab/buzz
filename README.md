@@ -20,7 +20,7 @@ Every project runs as a self-contained single-page experience in a portrait (9:1
 
 - **Frontend**: React 19, TypeScript, Vite, TailwindCSS
 - **Backend**: Workers, Durable Objects, D1 (SQLite)
-- **AI**: GPT-5.5 via OpenAI-compatible proxy, with optional BYOK/provider integrations
+- **AI**: GPT-5.6 Sol via OpenAI-compatible proxy, with optional BYOK/provider integrations
 - **Storage**: R2 for templates, KV for sessions
 - **Preview**: Browser-mode static file serving via Worker subdomains
 
@@ -108,10 +108,10 @@ Set these in `.dev.vars` (local) or `.prod.vars` (production):
 
 | Variable | Description |
 |----------|-------------|
-| `LLM_PROXY_API_KEY` | API key for the OpenAI-compatible GPT-5.5 proxy |
+| `LLM_PROXY_API_KEY` | API key for the OpenAI-compatible GPT-5.6 Sol proxy |
 | `LLM_PROXY_URL` | OpenAI-compatible proxy base URL, defaults to `https://subapi.cygnus.ink/v1` |
-| `LLM_PROXY_FALLBACK_API_KEY` | Optional API key for the fallback OpenAI-compatible GPT-5.5 proxy |
-| `LLM_PROXY_FALLBACK_URL` | Optional fallback GPT-5.5 proxy base URL, used on retry if the primary proxy fails |
+| `LLM_PROXY_FALLBACK_API_KEY` | Optional API key for the fallback OpenAI-compatible GPT-5.6 Sol proxy |
+| `LLM_PROXY_FALLBACK_URL` | Optional fallback GPT-5.6 Sol proxy base URL, used on retry if the primary proxy fails |
 | `IMAGE_URL` | OpenAI-compatible image generation base URL for generated project covers |
 | `IMAGE_API_KEY` | API key for the image generation endpoint |
 | `JWT_SECRET` | Random string for session management |
