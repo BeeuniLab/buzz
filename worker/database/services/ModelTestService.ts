@@ -10,6 +10,8 @@ import { createUserMessage } from '../../agents/inferutils/common';
 import type { TestResult, ModelTestRequest, ModelTestResult } from '../types';
 import { isErrorWithMessage } from '../types';
 
+const MODEL_HEALTHCHECK_PROMPT = 'ping';
+
 export class ModelTestService extends BaseService {
     /**
      * Test a model configuration by making a simple chat request using core inference
@@ -17,7 +19,7 @@ export class ModelTestService extends BaseService {
     async testModelConfig({
         modelConfig,
         userApiKeys,
-        testPrompt = "Hello! Please respond with 'Test successful' to confirm the connection is working."
+        testPrompt = MODEL_HEALTHCHECK_PROMPT
     }: ModelTestRequest): Promise<ModelTestResult> {
         const startTime = Date.now();
         const modelName: string = modelConfig.name;
@@ -44,11 +46,19 @@ export class ModelTestService extends BaseService {
             const endTime = Date.now();
             const latencyMs = endTime - startTime;
 
-            const content = response.string || '';
-            
+            const content = response.string?.trim() || '';
+            if (!content) {
+                return {
+                    success: false,
+                    error: 'No response received from model',
+                    latencyMs,
+                    modelUsed: cleanModelName
+                };
+            }
+
             return {
                 success: true,
-                responsePreview: content.length > 100 ? content.substring(0, 100) + '...' : content,
+                responsePreview: content.length > 100 ? `${content.substring(0, 100)}...` : content,
                 latencyMs,
                 modelUsed: cleanModelName,
             };
@@ -107,7 +117,7 @@ export class ModelTestService extends BaseService {
             testApiKeys.set(provider, apiKey);
             
             // Create test message using core abstractions
-            const testMessage = createUserMessage('Test connection. Please respond with "OK".');
+            const testMessage = createUserMessage(MODEL_HEALTHCHECK_PROMPT);
 
             // Use core inference system to test the provider key
             const response = await infer({
@@ -176,7 +186,7 @@ export class ModelTestService extends BaseService {
      */
     private getTestModelForProvider(provider: string): string | null {
         const testModels: Record<string, string> = {
-            'openai': AIModels.OPENAI_5_MINI,
+            'openai': AIModels.OPENAI_5_6_SOL,
             'anthropic': AIModels.CLAUDE_4_SONNET,
             'google-ai-studio': AIModels.GEMINI_3_FLASH_PREVIEW,
             'gemini': AIModels.GEMINI_3_FLASH_PREVIEW,
