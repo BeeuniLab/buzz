@@ -111,6 +111,7 @@ export interface AppQueryOptions extends BaseAppQueryOptions {
  */
 export interface PublicAppQueryOptions extends BaseAppQueryOptions {
     userId?: string; // For user-specific data like favorites
+    sessionToken?: string; // Anonymous feed history token
     authorId?: string; // Filter by app author
     seed?: number; // Random seed for stable feed ordering
     excludeIds?: string[]; // App IDs to exclude from results

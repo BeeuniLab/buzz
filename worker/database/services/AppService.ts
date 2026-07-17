@@ -4,7 +4,7 @@
 
 import { BaseService } from './BaseService';
 import * as schema from '../schema';
-import { eq, ne, and, or, desc, asc, sql, isNull, isNotNull, inArray, notInArray } from 'drizzle-orm';
+import { eq, ne, and, or, desc, asc, sql, isNull, isNotNull, inArray, notInArray, type SQL } from 'drizzle-orm';
 import { generateId } from '../../utils/idGenerator';
 import { formatRelativeTime } from '../../utils/timeFormatter';
 import { normalizeStoredInternalApiUrl } from '../../utils/urls';
@@ -45,6 +45,10 @@ type RankedAppQueryResult = {
 };
 
 export class AppService extends BaseService {
+	private static readonly FEED_CANDIDATE_MULTIPLIER = 4;
+	private static readonly FEED_MIN_CANDIDATES = 40;
+	private static readonly FEED_MAX_CANDIDATES = 200;
+
     private readonly RANKING_WEIGHTS = {
         VIEWS: 1,
         STARS: 3,
@@ -153,6 +157,7 @@ export class AppService extends BaseService {
             userId,
             authorId,
             seed,
+            sessionToken,
             excludeIds,
             includeHiddenFromBrowse = false
         } = options;
@@ -166,18 +171,24 @@ export class AppService extends BaseService {
                 includeHiddenFromBrowse
             );
             const whereClause = this.buildWhereConditions(whereConditions);
-            const readDb = this.getReadDb('fast');
+            const readDb = userId || sessionToken ? this.getReadDb('fresh') : this.getReadDb('fast');
             
-            const basicApps = await this.executeRankedQuery(
+            const executeFeedQuery = (
+                queryWhere: ReturnType<typeof this.buildWhereConditions>,
+                queryLimit: number,
+                querySeed: number | undefined,
+                queryOffset: number = offset,
+            ) => this.executeRankedQuery(
                 readDb,
-                whereClause,
+                queryWhere,
                 sort,
                 period,
                 order,
-                limit,
-                offset,
-                seed,
-                userId
+                queryLimit,
+                queryOffset,
+                querySeed,
+                userId,
+                sessionToken
             ).catch((error: unknown) => {
                 this.logger.error('executeRankedQuery failed', {
                     errorMessage: error instanceof Error ? error.message : String(error),
@@ -186,11 +197,54 @@ export class AppService extends BaseService {
                     errorStack: error instanceof Error ? error.stack?.split('\n').slice(0, 5).join('\n') : undefined,
                     sort,
                     period,
-                    limit,
+                    limit: queryLimit,
                     offset
                 });
                 throw error;
             });
+
+            const canPersonalizeFeed = sort === 'feed' && offset === 0 && Boolean(userId || sessionToken);
+            const unseenCondition = canPersonalizeFeed
+                ? this.buildViewerSeenCondition(userId, sessionToken, false)
+                : undefined;
+            let basicApps: RankedAppQueryResult[];
+
+            if (unseenCondition) {
+                const unseenWhereClause = this.buildWhereConditions([whereClause, unseenCondition]);
+                const rankedUnseenApps = await executeFeedQuery(unseenWhereClause, limit, seed, 0);
+                const affinityCondition = this.buildPersonalizedCandidateCondition(userId, sessionToken);
+                const affinityWhereClause = this.buildWhereConditions([
+                    whereClause,
+                    unseenCondition,
+                    affinityCondition,
+                ]);
+                const affinityApps = affinityCondition
+                    ? await executeFeedQuery(affinityWhereClause, limit, (seed ?? 42) + 17, 0)
+                    : [];
+                const unseenApps = this.shuffleFeedRows(
+                    this.mergeFeedRows(rankedUnseenApps, affinityApps),
+                    seed ?? 42,
+                );
+
+                if (unseenApps.length >= limit) {
+                    basicApps = this.diversifyFeedRows(unseenApps.slice(0, limit));
+                } else {
+                    const seenCondition = this.buildViewerSeenCondition(userId, sessionToken, true);
+                    const seenWhereClause = this.buildWhereConditions([whereClause, seenCondition]);
+                    const fallbackApps = await executeFeedQuery(
+                        seenWhereClause,
+                        limit - unseenApps.length,
+                        (seed ?? 42) + 1,
+                        0,
+                    );
+                    basicApps = [
+                        ...this.diversifyFeedRows(unseenApps),
+                        ...this.diversifyFeedRows(fallbackApps),
+                    ].slice(0, limit);
+                }
+            } else {
+                basicApps = await executeFeedQuery(whereClause, limit, seed);
+            }
 
             // Get total count for pagination
             const totalCountResult = await readDb
@@ -312,6 +366,110 @@ export class AppService extends BaseService {
                 )
             )`
         );
+    }
+
+    private buildViewerViewCondition(userId?: string, sessionToken?: string): SQL<unknown> | undefined {
+        const conditions: SQL<unknown>[] = [];
+        if (userId) conditions.push(eq(schema.appViews.userId, userId));
+        if (sessionToken) conditions.push(eq(schema.appViews.sessionToken, sessionToken));
+        if (conditions.length === 0) return undefined;
+        return conditions.length === 1 ? conditions[0] : or(...conditions);
+    }
+
+    private buildViewerSeenCondition(
+        userId: string | undefined,
+        sessionToken: string | undefined,
+        seen: boolean,
+    ): SQL<unknown> | undefined {
+        const viewerCondition = this.buildViewerViewCondition(userId, sessionToken);
+        if (!viewerCondition) return undefined;
+
+        const existsExpression = sql`EXISTS (
+            SELECT 1
+            FROM ${schema.appViews}
+            WHERE ${schema.appViews.appId} = ${schema.apps.id}
+              AND ${viewerCondition}
+        )`;
+
+        return seen ? existsExpression : sql`NOT ${existsExpression}`;
+    }
+
+    private buildPersonalizedCandidateCondition(userId?: string, sessionToken?: string): SQL<unknown> | undefined {
+        const candidateConditions: SQL<unknown>[] = [];
+
+        if (userId) {
+            candidateConditions.push(
+                sql`EXISTS (
+                    SELECT 1 FROM ${schema.userFollows}
+                    WHERE ${schema.userFollows.followerId} = ${userId}
+                      AND ${schema.userFollows.followingId} = ${schema.apps.userId}
+                )`,
+                sql`EXISTS (
+                    SELECT 1 FROM ${schema.appComments}
+                    WHERE ${schema.appComments.userId} = ${userId}
+                      AND ${schema.appComments.appId} = ${schema.apps.id}
+                      AND ${schema.appComments.isDeleted} = 0
+                )`,
+                sql`EXISTS (
+                    SELECT 1 FROM ${schema.favorites}
+                    WHERE ${schema.favorites.userId} = ${userId}
+                      AND ${schema.favorites.appId} = ${schema.apps.id}
+                )`,
+                sql`EXISTS (
+                    SELECT 1 FROM ${schema.stars}
+                    WHERE ${schema.stars.userId} = ${userId}
+                      AND ${schema.stars.appId} = ${schema.apps.id}
+                )`,
+                sql`EXISTS (
+                    SELECT 1 FROM ${schema.apps} AS preferred_apps
+                    WHERE preferred_apps.framework = ${schema.apps.framework}
+                      AND (
+                        EXISTS (
+                            SELECT 1 FROM ${schema.favorites}
+                            WHERE ${schema.favorites.userId} = ${userId}
+                              AND ${schema.favorites.appId} = preferred_apps.id
+                        )
+                        OR EXISTS (
+                            SELECT 1 FROM ${schema.stars}
+                            WHERE ${schema.stars.userId} = ${userId}
+                              AND ${schema.stars.appId} = preferred_apps.id
+                        )
+                    )
+                )`,
+            );
+        }
+
+        const viewerAliasConditions: SQL<unknown>[] = [];
+        if (userId) viewerAliasConditions.push(sql`viewer_views.user_id = ${userId}`);
+        if (sessionToken) viewerAliasConditions.push(sql`viewer_views.session_token = ${sessionToken}`);
+        const viewerAliasCondition = viewerAliasConditions.length === 1
+            ? viewerAliasConditions[0]
+            : viewerAliasConditions.length > 1
+                ? or(...viewerAliasConditions)
+                : undefined;
+
+        if (viewerAliasCondition) {
+            candidateConditions.push(
+                sql`EXISTS (
+                    SELECT 1
+                    FROM ${schema.appViews} AS viewer_views
+                    INNER JOIN ${schema.apps} AS viewed_apps ON viewed_apps.id = viewer_views.app_id
+                    WHERE ${viewerAliasCondition}
+                      AND viewer_views.duration_seconds >= 3
+                      AND viewed_apps.user_id = ${schema.apps.userId}
+                )`,
+                sql`EXISTS (
+                    SELECT 1
+                    FROM ${schema.appViews} AS viewer_views
+                    INNER JOIN ${schema.apps} AS viewed_apps ON viewed_apps.id = viewer_views.app_id
+                    WHERE ${viewerAliasCondition}
+                      AND viewer_views.duration_seconds >= 3
+                      AND viewed_apps.framework = ${schema.apps.framework}
+                )`,
+            );
+        }
+
+        return candidateConditions.length > 0 ? or(...candidateConditions) : undefined;
     }
 
     /**
@@ -868,7 +1026,7 @@ export class AppService extends BaseService {
     /**
      * Record app view with duplicate prevention
      */
-    async recordAppView(appId: string, userId: string | null, ipHash?: string): Promise<void> {
+    async recordAppView(appId: string, userId: string | null, ipHash?: string, sessionToken?: string): Promise<void> {
         try {
             await this.database
                 .insert(schema.appViews)
@@ -876,12 +1034,46 @@ export class AppService extends BaseService {
                     id: generateId(),
                     appId,
                     userId,
+                    sessionToken: sessionToken || null,
                     ipAddressHash: ipHash || null,
                     viewedAt: new Date()
                 })
                 .run();
         } catch {
             // Ignore duplicate view errors
+        }
+    }
+
+    async updateAppViewDuration(
+        appId: string,
+        userId: string | null,
+        sessionToken: string | undefined,
+        durationSeconds: number,
+    ): Promise<void> {
+        const viewerCondition = this.buildViewerViewCondition(userId || undefined, sessionToken);
+        if (!viewerCondition || durationSeconds <= 0) return;
+
+        try {
+            const latestView = await this.database
+                .select({ id: schema.appViews.id })
+                .from(schema.appViews)
+                .where(and(
+                    eq(schema.appViews.appId, appId),
+                    viewerCondition,
+                ))
+                .orderBy(desc(schema.appViews.viewedAt))
+                .limit(1)
+                .get();
+
+            if (!latestView) return;
+
+            await this.database
+                .update(schema.appViews)
+                .set({ durationSeconds: Math.min(Math.floor(durationSeconds), 86400) })
+                .where(eq(schema.appViews.id, latestView.id))
+                .run();
+        } catch {
+            // Engagement telemetry must not affect feed navigation.
         }
     }
 
@@ -1090,7 +1282,8 @@ export class AppService extends BaseService {
         limit: number,
         offset: number,
         seed?: number,
-        userId?: string
+        userId?: string,
+        sessionToken?: string
     ): Promise<RankedAppQueryResult[]> {
         // Use subquery-based sorting for memory efficiency
         // This allows D1 to apply LIMIT during index scan instead of after GROUP BY
@@ -1098,22 +1291,101 @@ export class AppService extends BaseService {
             // Feed algorithm for early-stage content pools:
             // - smooth popularity rewards real engagement without letting sparse data dominate
             // - freshness gives new playable apps an initial chance to be seen
-            // - small seeded shuffle breaks ties without turning the feed into pure random
-            // - viewed penalty keeps logged-in users from seeing the same apps too often
+            // - seeded exploration over a ranked candidate pool adds variety without ignoring quality
+            // - viewer history and affinity personalize the score for users and sessions
             const feedSeed = seed || 42;
             const viewCountSubquery = sql<number>`(SELECT COUNT(*) FROM ${schema.appViews} WHERE ${schema.appViews.appId} = ${schema.apps.id})`;
+            const dwellQualitySubquery = sql<number>`(
+                SELECT COALESCE(AVG(
+                    CASE
+                        WHEN ${schema.appViews.durationSeconds} > 60 THEN 60
+                        ELSE ${schema.appViews.durationSeconds}
+                    END
+                ), 0)
+                FROM ${schema.appViews}
+                WHERE ${schema.appViews.appId} = ${schema.apps.id}
+                  AND ${schema.appViews.durationSeconds} IS NOT NULL
+            )`;
             const starCountSubquery = sql<number>`(SELECT COUNT(*) FROM ${schema.stars} WHERE ${schema.stars.appId} = ${schema.apps.id})`;
             const forkCountSubquery = sql<number>`(SELECT COUNT(*) FROM ${schema.apps} AS forks WHERE forks.parent_app_id = ${schema.apps.id})`;
-            const userViewCountSubquery = userId
-                ? sql<number>`(SELECT COUNT(*) FROM ${schema.appViews} WHERE ${schema.appViews.appId} = ${schema.apps.id} AND ${schema.appViews.userId} = ${userId})`
+            const viewerCondition = this.buildViewerViewCondition(userId, sessionToken);
+            const userViewCountSubquery = viewerCondition
+                ? sql<number>`(SELECT COUNT(*) FROM ${schema.appViews} WHERE ${schema.appViews.appId} = ${schema.apps.id} AND ${viewerCondition})`
+                : sql<number>`0`;
+            const userFavoriteSubquery = userId
+                ? sql<number>`(SELECT COUNT(*) FROM ${schema.favorites} WHERE ${schema.favorites.appId} = ${schema.apps.id} AND ${schema.favorites.userId} = ${userId})`
+                : sql<number>`0`;
+            const userStarSubquery = userId
+                ? sql<number>`(SELECT COUNT(*) FROM ${schema.stars} WHERE ${schema.stars.appId} = ${schema.apps.id} AND ${schema.stars.userId} = ${userId})`
+                : sql<number>`0`;
+            const userCommentSubquery = userId
+                ? sql<number>`(SELECT COUNT(*) FROM ${schema.appComments} WHERE ${schema.appComments.appId} = ${schema.apps.id} AND ${schema.appComments.userId} = ${userId} AND ${schema.appComments.isDeleted} = 0)`
+                : sql<number>`0`;
+            const followedAuthorSubquery = userId
+                ? sql<number>`(SELECT COUNT(*) FROM ${schema.userFollows} WHERE ${schema.userFollows.followerId} = ${userId} AND ${schema.userFollows.followingId} = ${schema.apps.userId})`
+                : sql<number>`0`;
+            const preferredFrameworkSubquery = userId
+                ? sql<number>`(
+                    SELECT CASE WHEN COUNT(*) > 5 THEN 5 ELSE COUNT(*) END
+                    FROM ${schema.apps} AS preferred_apps
+                    WHERE preferred_apps.framework = ${schema.apps.framework}
+                      AND (
+                        EXISTS (
+                            SELECT 1 FROM ${schema.favorites}
+                            WHERE ${schema.favorites.userId} = ${userId}
+                              AND ${schema.favorites.appId} = preferred_apps.id
+                        )
+                        OR EXISTS (
+                            SELECT 1 FROM ${schema.stars}
+                            WHERE ${schema.stars.userId} = ${userId}
+                              AND ${schema.stars.appId} = preferred_apps.id
+                        )
+                    )
+                )`
+                : sql<number>`0`;
+            const viewerAliasConditions: SQL<unknown>[] = [];
+            if (userId) viewerAliasConditions.push(sql`viewer_views.user_id = ${userId}`);
+            if (sessionToken) viewerAliasConditions.push(sql`viewer_views.session_token = ${sessionToken}`);
+            const viewerAliasCondition = viewerAliasConditions.length === 1
+                ? viewerAliasConditions[0]
+                : viewerAliasConditions.length > 1
+                    ? or(...viewerAliasConditions)
+                    : undefined;
+            const sessionFrameworkSubquery = viewerAliasCondition
+                ? sql<number>`(
+                    SELECT CASE WHEN COUNT(*) > 5 THEN 5 ELSE COUNT(*) END
+                    FROM ${schema.appViews} AS viewer_views
+                    INNER JOIN ${schema.apps} AS viewed_apps ON viewed_apps.id = viewer_views.app_id
+                    WHERE ${viewerAliasCondition}
+                      AND viewer_views.duration_seconds >= 3
+                      AND viewed_apps.framework = ${schema.apps.framework}
+                )`
+                : sql<number>`0`;
+            const sessionAuthorSubquery = viewerAliasCondition
+                ? sql<number>`(
+                    SELECT CASE WHEN COUNT(*) > 3 THEN 3 ELSE COUNT(*) END
+                    FROM ${schema.appViews} AS viewer_views
+                    INNER JOIN ${schema.apps} AS viewed_apps ON viewed_apps.id = viewer_views.app_id
+                    WHERE ${viewerAliasCondition}
+                      AND viewer_views.duration_seconds >= 3
+                      AND viewed_apps.user_id = ${schema.apps.userId}
+                )`
                 : sql<number>`0`;
             const createdAgeDays = sql`MAX((strftime('%s', 'now') - COALESCE(${schema.apps.createdAt}, ${schema.apps.updatedAt}, strftime('%s', 'now'))) / 86400.0, 0)`;
             const updatedAgeDays = sql`MAX((strftime('%s', 'now') - COALESCE(${schema.apps.updatedAt}, ${schema.apps.createdAt}, strftime('%s', 'now'))) / 86400.0, 0)`;
 
             const orderByExpression = sql`(
                 (${viewCountSubquery} * 12)
+                + CAST(${dwellQualitySubquery} * 4 AS INTEGER)
                 + (${starCountSubquery} * 120)
                 + (${forkCountSubquery} * ${this.RANKING_WEIGHTS.FORKS} * 20)
+                + (${userFavoriteSubquery} * 2400)
+                + (${userStarSubquery} * 1800)
+                + (${userCommentSubquery} * 1400)
+                + (${followedAuthorSubquery} * 3000)
+                + (${preferredFrameworkSubquery} * 600)
+                + (${sessionAuthorSubquery} * 700)
+                + (${sessionFrameworkSubquery} * 350)
                 + CAST(1400 / (1.0 + (${createdAgeDays} / 2.0)) AS INTEGER)
                 + CAST(500 / (1.0 + (${updatedAgeDays} / 7.0)) AS INTEGER)
                 + ABS(
@@ -1129,6 +1401,10 @@ export class AppService extends BaseService {
                   END
             ) DESC`;
 
+            const candidateLimit = Math.min(
+                Math.max(limit * AppService.FEED_CANDIDATE_MULTIPLIER, AppService.FEED_MIN_CANDIDATES),
+                AppService.FEED_MAX_CANDIDATES,
+            );
             const rows = await db
                 .select({
                     app: schema.apps,
@@ -1143,10 +1419,11 @@ export class AppService extends BaseService {
                 .leftJoin(schema.users, eq(schema.apps.userId, schema.users.id))
                 .where(whereClause)
                 .orderBy(orderByExpression)
-                .limit(limit)
+                .limit(candidateLimit)
                 .offset(offset);
 
-            return this.diversifyFeedRows(rows);
+            const shuffledRows = this.shuffleFeedRows(rows, feedSeed).slice(0, limit);
+            return this.diversifyFeedRows(shuffledRows);
         } else if (sort === 'trending' || sort === 'popular') {
             const periodThreshold = sort === 'trending' ? this.getTimePeriodThreshold(period) : null;
             const periodUnixTimestamp = periodThreshold ? Math.floor(periodThreshold.getTime() / 1000) : 0;
@@ -1260,6 +1537,43 @@ export class AppService extends BaseService {
         }
 
         return diversified;
+    }
+
+    private shuffleFeedRows(rows: RankedAppQueryResult[], seed: number): RankedAppQueryResult[] {
+        // Preserve ranking while allowing deterministic exploration within a small top window.
+        // A full Fisher-Yates shuffle would make every candidate equally likely and erase quality signals.
+        const remaining = [...rows];
+        const shuffled: RankedAppQueryResult[] = [];
+        let state = (seed >>> 0) || 1;
+
+        const nextRandom = () => {
+            state = (state * 1664525 + 1013904223) >>> 0;
+            return state / 0x100000000;
+        };
+
+        while (remaining.length > 0) {
+            const windowSize = Math.min(12, remaining.length);
+            const rankBias = Math.pow(nextRandom(), 2.2);
+            const pickIndex = Math.min(windowSize - 1, Math.floor(rankBias * windowSize));
+            const [picked] = remaining.splice(pickIndex, 1);
+            if (picked) shuffled.push(picked);
+        }
+
+        return shuffled;
+    }
+
+    private mergeFeedRows(...groups: RankedAppQueryResult[][]): RankedAppQueryResult[] {
+        const merged = new Map<string, RankedAppQueryResult>();
+        const maxLength = Math.max(0, ...groups.map((group) => group.length));
+        for (let index = 0; index < maxLength; index += 1) {
+            for (const group of groups) {
+                const row = group[index];
+                if (row && !merged.has(row.app.id)) {
+                    merged.set(row.app.id, row);
+                }
+            }
+        }
+        return Array.from(merged.values());
     }
 
     private getCountSubqueries() {

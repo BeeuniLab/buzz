@@ -226,6 +226,7 @@ export class AppController extends BaseController {
             const authorId = url.searchParams.get('authorId') || undefined;
             const seedParam = url.searchParams.get('seed');
             const seed = seedParam ? parseInt(seedParam, 10) : undefined;
+            const sessionToken = url.searchParams.get('sessionToken')?.slice(0, 128) || undefined;
             const excludeParam = url.searchParams.get('excludeIds');
             const excludeIds = excludeParam ? excludeParam.split(',').filter(Boolean) : undefined;
             const includeHiddenFromBrowse = url.searchParams.get('includeHiddenFromBrowse') === 'true' && Boolean(search?.trim());
@@ -245,6 +246,7 @@ export class AppController extends BaseController {
                 framework,
                 search,
                 userId,
+                sessionToken,
                 authorId,
                 seed,
                 excludeIds,

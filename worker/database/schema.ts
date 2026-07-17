@@ -351,6 +351,8 @@ export const appViews = sqliteTable('app_views', {
 }, (table) => ({
     appIdx: index('app_views_app_idx').on(table.appId),
     userIdx: index('app_views_user_idx').on(table.userId),
+    sessionTokenIdx: index('app_views_session_token_idx').on(table.sessionToken),
+    sessionAppIdx: index('app_views_session_app_idx').on(table.sessionToken, table.appId),
     viewedAtIdx: index('app_views_viewed_at_idx').on(table.viewedAt),
     appViewedAtIdx: index('app_views_app_viewed_at_idx').on(table.appId, table.viewedAt),
 }));

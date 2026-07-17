@@ -149,6 +149,7 @@ interface PublicAppsParams extends PaginationParams {
 	boardId?: string;
 	authorId?: string;
 	seed?: number;
+	sessionToken?: string;
 	excludeIds?: string[];
 	includeHiddenFromBrowse?: boolean;
 }
@@ -522,6 +523,7 @@ class ApiClient {
 		if (params?.boardId) queryParams.set('boardId', params.boardId);
 		if (params?.authorId) queryParams.set('authorId', params.authorId);
 		if (params?.seed) queryParams.set('seed', params.seed.toString());
+		if (params?.sessionToken) queryParams.set('sessionToken', params.sessionToken);
 		if (params?.excludeIds && params.excludeIds.length > 0) queryParams.set('excludeIds', params.excludeIds.join(','));
 		if (params?.includeHiddenFromBrowse) queryParams.set('includeHiddenFromBrowse', 'true');
 
@@ -612,8 +614,15 @@ class ApiClient {
 	/**
 	 * Record an app view (fire-and-forget, works for anonymous users)
 	 */
-	async recordAppView(appId: string): Promise<void> {
-		this.request(`/api/apps/${appId}/view`, { method: 'POST' }).catch(() => {});
+	async recordAppView(appId: string, sessionToken?: string): Promise<void> {
+		const query = sessionToken ? `?sessionToken=${encodeURIComponent(sessionToken)}` : '';
+		this.request(`/api/apps/${appId}/view${query}`, { method: 'POST' }).catch(() => {});
+	}
+
+	async recordAppViewDuration(appId: string, durationSeconds: number, sessionToken?: string): Promise<void> {
+		const params = new URLSearchParams({ durationSeconds: String(Math.floor(durationSeconds)) });
+		if (sessionToken) params.set('sessionToken', sessionToken);
+		this.request(`/api/apps/${appId}/view-duration?${params.toString()}`, { method: 'POST' }).catch(() => {});
 	}
 
 	/**

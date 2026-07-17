@@ -22,12 +22,30 @@ type AppPreviewFields = AppWithUserAndStats & {
 const DEFAULT_APP_COVER_URL = '/game_cover.png';
 const FEED_PAGE_SIZE = 10;
 const FEED_PREFETCH_REMAINING_ITEMS = 8;
+const FEED_SESSION_STORAGE_KEY = 'buzzplay-feed-session-token';
 const PREVIEW_LINK_WARM_BEHIND_COUNT = 4;
 const PREVIEW_LINK_WARM_AHEAD_COUNT = 8;
 const PREVIEW_FRAME_WARM_AHEAD_COUNT = 0;
 const DESKTOP_LANDSCAPE_FEED_FRAME_CLASSNAME =
 	'h-[min(calc(100vh-160px),calc((100vw-420px)*9/16),540px)] aspect-video';
 const DESKTOP_PORTRAIT_FEED_FRAME_CLASSNAME = 'h-[calc(100vh-64px)] aspect-[9/16]';
+
+function getFeedSessionToken(): string {
+	if (typeof window === 'undefined') {
+		return globalThis.crypto?.randomUUID?.() ?? Math.random().toString(36).slice(2);
+	}
+
+	try {
+		const existingToken = window.localStorage.getItem(FEED_SESSION_STORAGE_KEY);
+		if (existingToken) return existingToken;
+
+		const newToken = globalThis.crypto?.randomUUID?.() ?? Math.random().toString(36).slice(2);
+		window.localStorage.setItem(FEED_SESSION_STORAGE_KEY, newToken);
+		return newToken;
+	} catch {
+		return globalThis.crypto?.randomUUID?.() ?? Math.random().toString(36).slice(2);
+	}
+}
 
 function getKnownPreviewUrl(app: AppWithUserAndStats | null | undefined) {
 	const previewApp = app as AppPreviewFields | null | undefined;
@@ -59,7 +77,10 @@ export default function FeedPage() {
 
 	// Stable seed per session — regenerated when user navigates to feed root
 	const feedSeedRef = React.useRef(Math.floor(Math.random() * 1000000));
+	const [feedSessionToken] = React.useState(getFeedSessionToken);
 	const prevAppIdRef = React.useRef(appId);
+	const activeFeedAppIdRef = React.useRef<string | null>(null);
+	const activeFeedStartedAtRef = React.useRef<number | null>(null);
 	const [refreshKey, setRefreshKey] = React.useState(0);
 	const previewUrlCacheRef = React.useRef<Record<string, string>>({});
 	const previewPrefetchUrlsRef = React.useRef<Set<string>>(new Set());
@@ -154,6 +175,19 @@ export default function FeedPage() {
 	const appsRef = React.useRef<AppWithUserAndStats[]>([]);
 	const desktopSnapTimerRef = React.useRef<number | null>(null);
 	const navigate = useNavigate();
+
+	const flushActiveFeedDuration = React.useCallback(() => {
+		const activeAppId = activeFeedAppIdRef.current;
+		const startedAt = activeFeedStartedAtRef.current;
+		if (!activeAppId || startedAt === null) return;
+
+		const durationSeconds = (Date.now() - startedAt) / 1000;
+		if (durationSeconds > 0) {
+			apiClient.recordAppViewDuration(activeAppId, durationSeconds, feedSessionToken);
+		}
+		activeFeedAppIdRef.current = null;
+		activeFeedStartedAtRef.current = null;
+	}, [feedSessionToken]);
 
 	// Keep ref in sync with state for use in memoized callbacks
 	React.useEffect(() => { appsRef.current = apps; }, [apps]);
@@ -252,6 +286,7 @@ export default function FeedPage() {
 				limit: FEED_PAGE_SIZE,
 				page: 1, // Always page 1 — excludeIds handles continuation
 				seed: feedSeedRef.current,
+				sessionToken: feedSessionToken,
 				excludeIds,
 			});
 			if (res.success && res.data) {
@@ -274,7 +309,7 @@ export default function FeedPage() {
 			setLoading(false);
 			setLoadingMore(false);
 		}
-	}, [appId]);
+	}, [appId, feedSessionToken]);
 
 	const requestNextPage = React.useCallback(() => {
 		if (!hasMoreRef.current || loadingRef.current || loadingMoreRef.current) return;
@@ -440,6 +475,20 @@ export default function FeedPage() {
 		: DESKTOP_PORTRAIT_FEED_FRAME_CLASSNAME;
 	const shouldSyncCurrentAppUrl = Boolean(appId) || currentIndex > 0;
 
+	React.useEffect(() => {
+		const previousAppId = activeFeedAppIdRef.current;
+		if (previousAppId && previousAppId !== currentAppId) {
+			flushActiveFeedDuration();
+		}
+
+		if (currentAppId && previousAppId !== currentAppId) {
+			activeFeedAppIdRef.current = currentAppId;
+			activeFeedStartedAtRef.current = Date.now();
+		}
+	}, [currentAppId, flushActiveFeedDuration]);
+
+	React.useEffect(() => () => flushActiveFeedDuration(), [flushActiveFeedDuration]);
+
 	React.useLayoutEffect(() => {
 		if (isMobile) return;
 		snapFeedToIndex(currentIndex, 'auto');
@@ -454,7 +503,7 @@ export default function FeedPage() {
 					window.history.replaceState(null, '', nextPath);
 				}
 			}
-			apiClient.recordAppView(currentAppId);
+			apiClient.recordAppView(currentAppId, feedSessionToken);
 			apiClient.getComments(currentAppId, { limit: 50 }).then((res) => {
 				if (res.success && res.data) {
 					const replyTotal = res.data.comments.reduce((sum, c) => sum + (c.replyCount || 0), 0);
@@ -470,7 +519,7 @@ export default function FeedPage() {
 		}
 		setIsPlaying(Boolean(currentHandle?.isPlaying()));
 		setCommentsOpen(false);
-	}, [currentAppId, currentIndex, shouldSyncCurrentAppUrl]);
+	}, [currentAppId, currentIndex, feedSessionToken, shouldSyncCurrentAppUrl]);
 
 	const handleReplay = () => {
 		const handle = feedItemRefs.current.get(currentIndex);

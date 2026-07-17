@@ -166,14 +166,41 @@ export class AppViewController extends BaseController {
 
             const user = await AppViewController.getOptionalUser(request, env);
             const ipHash = request.headers.get('cf-connecting-ip') || request.headers.get('x-forwarded-for') || undefined;
+            const sessionToken = new URL(request.url).searchParams.get('sessionToken')?.slice(0, 128) || undefined;
 
             const appService = new AppService(env);
-            await appService.recordAppView(appId, user?.id || null, ipHash);
+            await appService.recordAppView(appId, user?.id || null, ipHash, sessionToken);
 
             return AppViewController.createSuccessResponse({ recorded: true });
         } catch (error) {
             this.logger.error('Error recording view:', error);
             return AppViewController.createErrorResponse<AppViewRecordData>('Failed to record view', 500);
+        }
+    }
+
+    // Update dwell time for the latest view in a public feed.
+    static async recordViewDuration(request: Request, env: Env, _ctx: ExecutionContext, context: RouteContext): Promise<ControllerResponse<ApiResponse<AppViewRecordData>>> {
+        try {
+            const appId = context.pathParams.id;
+            if (!appId) {
+                return AppViewController.createErrorResponse<AppViewRecordData>('App ID is required', 400);
+            }
+
+            const url = new URL(request.url);
+            const durationSeconds = Number(url.searchParams.get('durationSeconds'));
+            if (!Number.isFinite(durationSeconds) || durationSeconds <= 0) {
+                return AppViewController.createErrorResponse<AppViewRecordData>('Duration is invalid', 400);
+            }
+
+            const user = await AppViewController.getOptionalUser(request, env);
+            const sessionToken = url.searchParams.get('sessionToken')?.slice(0, 128) || undefined;
+            const appService = new AppService(env);
+            await appService.updateAppViewDuration(appId, user?.id || null, sessionToken, durationSeconds);
+
+            return AppViewController.createSuccessResponse({ recorded: true });
+        } catch (error) {
+            this.logger.error('Error recording view duration:', error);
+            return AppViewController.createErrorResponse<AppViewRecordData>('Failed to record view duration', 500);
         }
     }
 
