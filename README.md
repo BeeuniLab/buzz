@@ -118,6 +118,7 @@ Set these in `.dev.vars` (local) or `.prod.vars` (production):
 | `SECRETS_ENCRYPTION_KEY` | Encryption key for user secrets |
 | `CUSTOM_DOMAIN` | Your main domain (e.g. `vibe.buzzplay.app`) |
 | `CUSTOM_PREVIEW_DOMAIN` | Preview subdomain parent (e.g. `buzzplay.app`) |
+| `CUSTOM_PUBLISHED_DOMAIN` | Published project subdomain parent (e.g. `buzzplay.app`) |
 
 ### Optional Environment Variables
 

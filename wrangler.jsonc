@@ -178,6 +178,7 @@
         },
         "CUSTOM_DOMAIN": "vibe.buzzplay.app",
         "CUSTOM_PREVIEW_DOMAIN": "buzzplay.app",
+        "CUSTOM_PUBLISHED_DOMAIN": "buzzplay.app",
         "ALLOCATION_STRATEGY": "one_to_one",
         "MAX_SANDBOX_INSTANCES": "490",
         "SANDBOX_INSTANCE_TYPE": "standard-2",
