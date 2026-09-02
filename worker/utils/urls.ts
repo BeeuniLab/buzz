@@ -6,7 +6,7 @@ export const getProtocolForHost = (host: string): string => {
     }
 }
 
-const DEFAULT_PUBLISHED_WORKER_DOMAIN = 'buzzplay.app';
+const DEFAULT_PUBLISHED_WORKER_DOMAIN = 'vibe.buzzplay.app';
 
 function getOptionalEnvVar(env: Env, key: string): string | undefined {
     const value = (env as unknown as Record<string, string | undefined>)[key];

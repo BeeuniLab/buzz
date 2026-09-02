@@ -149,11 +149,11 @@
 	],
 	"routes": [
         {
-            "pattern": "buzzplay.app",
+            "pattern": "vibe.buzzplay.app",
             "custom_domain": true
         },
         {
-            "pattern": "*buzzplay.app/*",
+            "pattern": "*vibe.buzzplay.app/*",
             "custom_domain": false,
             "zone_id": "db01fac4261b2604aacad8410443a3e2"
         }
@@ -176,11 +176,11 @@
             },
             "version": "1.0.0"
         },
-        "CUSTOM_DOMAIN": "buzzplay.app",
+        "CUSTOM_DOMAIN": "vibe.buzzplay.app",
         "ALLOCATION_STRATEGY": "one_to_one",
         "MAX_SANDBOX_INSTANCES": "490",
         "SANDBOX_INSTANCE_TYPE": "standard-2",
-        "LLM_PROXY_URL": "https://codex-byering.com:8317/v1",
+        "LLM_PROXY_URL": "https://codex-byering.com/v1",
         "LLM_PROXY_FALLBACK_URL": "https://c.cygnus.ink/v1",
         "IMAGE_URL": "https://codex-byering.com:8317/v1",
         "CODE_GENERATION_BACKEND": "native",
