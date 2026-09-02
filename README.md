@@ -117,7 +117,7 @@ Set these in `.dev.vars` (local) or `.prod.vars` (production):
 | `JWT_SECRET` | Random string for session management |
 | `SECRETS_ENCRYPTION_KEY` | Encryption key for user secrets |
 | `CUSTOM_DOMAIN` | Your main domain (e.g. `vibe.buzzplay.app`) |
-| `CUSTOM_PREVIEW_DOMAIN` | Preview subdomain parent (e.g. `preview.vibe.buzzplay.app`) |
+| `CUSTOM_PREVIEW_DOMAIN` | Preview subdomain parent (e.g. `buzzplay.app`) |
 
 ### Optional Environment Variables
 
@@ -150,13 +150,13 @@ Preview URLs use the pattern `b-{agentId}-{token}.{CUSTOM_PREVIEW_DOMAIN}`. Conf
 Example for `vibe.buzzplay.app`:
 ```
 vibe.buzzplay.app        → CNAME → your-worker.workers.dev  (proxied)
-*.preview.vibe.buzzplay.app → CNAME → vibe.buzzplay.app     (proxied)
+*.buzzplay.app       → CNAME → vibe.buzzplay.app     (proxied)
 ```
 
 Set in environment:
 ```bash
 CUSTOM_DOMAIN="vibe.buzzplay.app"
-CUSTOM_PREVIEW_DOMAIN="preview.vibe.buzzplay.app"
+CUSTOM_PREVIEW_DOMAIN="buzzplay.app"
 ```
 
 ### Clerk Auth Setup (Optional)

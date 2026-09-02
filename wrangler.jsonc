@@ -153,7 +153,7 @@
             "custom_domain": true
         },
         {
-            "pattern": "*vibe.buzzplay.app/*",
+            "pattern": "*.buzzplay.app/*",
             "custom_domain": false,
             "zone_id": "db01fac4261b2604aacad8410443a3e2"
         }
@@ -177,6 +177,7 @@
             "version": "1.0.0"
         },
         "CUSTOM_DOMAIN": "vibe.buzzplay.app",
+        "CUSTOM_PREVIEW_DOMAIN": "buzzplay.app",
         "ALLOCATION_STRATEGY": "one_to_one",
         "MAX_SANDBOX_INSTANCES": "490",
         "SANDBOX_INSTANCE_TYPE": "standard-2",

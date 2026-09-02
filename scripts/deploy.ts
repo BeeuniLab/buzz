@@ -997,7 +997,8 @@ class CloudflareDeploymentManager {
 				custom_domain: boolean;
 				zone_id?: string;
 			} = {
-				pattern: `*${wildcardDomain}/*`,
+				// Preview URLs are subdomains; keep the apex available for another site.
+				pattern: `*.${wildcardDomain}/*`,
 				custom_domain: false,
 			};
 
