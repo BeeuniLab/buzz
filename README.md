@@ -116,7 +116,7 @@ Set these in `.dev.vars` (local) or `.prod.vars` (production):
 | `IMAGE_API_KEY` | API key for the image generation endpoint |
 | `JWT_SECRET` | Random string for session management |
 | `SECRETS_ENCRYPTION_KEY` | Encryption key for user secrets |
-| `CUSTOM_DOMAIN` | Your main domain (e.g. `vibe.buzzplay.app`) |
+| `CUSTOM_DOMAIN` | Your main domain (e.g. `buzzplay.app`) |
 | `CUSTOM_PREVIEW_DOMAIN` | Preview subdomain parent (e.g. `buzzplay.app`) |
 | `CUSTOM_PUBLISHED_DOMAIN` | Published project subdomain parent (e.g. `buzzplay.app`) |
 
@@ -148,15 +148,15 @@ Preview URLs use the pattern `b-{agentId}-{token}.{CUSTOM_PREVIEW_DOMAIN}`. Conf
 1. Main domain: `CUSTOM_DOMAIN` CNAME pointing to your Worker
 2. Preview wildcard: `*.{CUSTOM_PREVIEW_DOMAIN}` CNAME pointing to the same origin, proxied
 
-Example for `vibe.buzzplay.app`:
+Example for `buzzplay.app`:
 ```
-vibe.buzzplay.app        → CNAME → your-worker.workers.dev  (proxied)
-*.buzzplay.app       → CNAME → vibe.buzzplay.app     (proxied)
+buzzplay.app        → CNAME → your-worker.workers.dev  (proxied)
+*.buzzplay.app      → CNAME → buzzplay.app             (proxied)
 ```
 
 Set in environment:
 ```bash
-CUSTOM_DOMAIN="vibe.buzzplay.app"
+CUSTOM_DOMAIN="buzzplay.app"
 CUSTOM_PREVIEW_DOMAIN="buzzplay.app"
 ```
 
