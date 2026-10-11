@@ -158,6 +158,7 @@ Set in environment:
 ```bash
 CUSTOM_DOMAIN="buzzplay.app"
 CUSTOM_PREVIEW_DOMAIN="buzzplay.app"
+CUSTOM_PUBLISHED_DOMAIN="buzzplay.app"
 ```
 
 ### Clerk Auth Setup (Optional)
