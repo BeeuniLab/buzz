@@ -228,6 +228,16 @@ const MODELS_MASTER = {
             contextSize: 400000,
         }
     },
+    OPENAI_6_1_SOL: {
+        id: 'openai/gpt-6.1-sol',
+        config: {
+            name: 'GPT-6.1 Sol',
+            size: ModelSize.LARGE,
+            provider: 'openai',
+            creditCost: 10,
+            contextSize: 1_050_000,
+        }
+    },
     OPENAI_5_6_SOL: {
         id: 'openai/gpt-5.6-sol',
         config: {

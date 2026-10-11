@@ -567,8 +567,8 @@ export async function getConfigurationForModel(
     const hasPrimaryLlmProxy = hasValidProxyConfig(env.LLM_PROXY_URL, env.LLM_PROXY_API_KEY);
     const hasFallbackLlmProxy = hasValidProxyConfig(env.LLM_PROXY_FALLBACK_URL, env.LLM_PROXY_FALLBACK_API_KEY);
 
-    if (modelConfig.name === AI_MODEL_CONFIG[AIModels.OPENAI_5_6_SOL].name && !hasPrimaryLlmProxy && !hasFallbackLlmProxy) {
-        throw new Error('LLM_PROXY_API_KEY or LLM_PROXY_FALLBACK_API_KEY is required for GPT-5.6 Sol agent inference via the configured LLM proxy.');
+    if ([AI_MODEL_CONFIG[AIModels.OPENAI_6_1_SOL].name, AI_MODEL_CONFIG[AIModels.OPENAI_5_6_SOL].name].includes(modelConfig.name) && !hasPrimaryLlmProxy && !hasFallbackLlmProxy) {
+        throw new Error('LLM_PROXY_API_KEY or LLM_PROXY_FALLBACK_API_KEY is required for Sol agent inference via the configured LLM proxy.');
     }
 
     if (useFallbackProxy && hasFallbackLlmProxy) {
