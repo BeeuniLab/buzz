@@ -155,7 +155,7 @@
         {
             "pattern": "*.buzzplay.app/*",
             "custom_domain": false,
-            "zone_id": "db01fac4261b2604aacad8410443a3e2"
+            "zone_id": "73e36dbe5b3f242c8da75a9ab75e9ece"
         }
     ],
     "vars": {
